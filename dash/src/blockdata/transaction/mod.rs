@@ -554,18 +554,8 @@ impl Encodable for Transaction {
                 break;
             }
         }
-        // Forcing have_witness to false for special transaction types that legitimately have no inputs.
-        // Dash Core doesn't support BIP141 SegWit.
+        // Forcing have_witness to false for AssetUnlock, as currently Core doesn't support BIP141 SegWit.
         if self.tx_type() == TransactionType::AssetUnlock {
-            have_witness = false;
-        }
-        if self.tx_type() == TransactionType::QuorumCommitment {
-            have_witness = false;
-        }
-        if self.tx_type() == TransactionType::MnhfSignal {
-            have_witness = false;
-        }
-        if self.tx_type() == TransactionType::Coinbase {
             have_witness = false;
         }
         if !have_witness {
@@ -604,8 +594,7 @@ impl Decodable for Transaction {
         let input = Vec::<TxIn>::consensus_decode_from_finite_reader(r)?;
         // segwit
         let mut segwit = input.is_empty();
-        // Forcing segwit to false for special transaction types that legitimately have no inputs.
-        // Dash Core doesn't support BIP141 SegWit.
+        // Forcing segwit to false for AssetUnlock, as currently Core doesn't support BIP141 SegWit.
         if special_transaction_type == TransactionType::AssetUnlock {
             segwit = false;
         }
@@ -613,9 +602,6 @@ impl Decodable for Transaction {
             segwit = false;
         }
         if special_transaction_type == TransactionType::MnhfSignal {
-            segwit = false;
-        }
-        if special_transaction_type == TransactionType::Coinbase {
             segwit = false;
         }
         if segwit {
