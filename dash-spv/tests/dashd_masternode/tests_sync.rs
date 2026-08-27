@@ -4,6 +4,9 @@
 //! regtest masternode network (1 controller + 4 masternodes with DKG cycles).
 
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::time;
 
 use dash_spv::sync::{ProgressPercentage, SyncState};
 use dashcore::sml::llmq_entry_verification::LLMQEntryVerificationStatus;
@@ -15,7 +18,8 @@ use super::helpers::{
     wait_for_mn_state_with_stored_cycle_above,
 };
 use super::setup::{
-    create_and_start_client, create_dummy_wallet, create_mn_test_config, TestContext, SYNC_TIMEOUT,
+    create_and_start_client, create_client, create_dummy_wallet, create_mn_test_config,
+    TestContext, SYNC_TIMEOUT,
 };
 
 /// Sync masternode list against a pre-generated regtest controller node.
@@ -130,6 +134,280 @@ async fn test_masternode_list_sync_with_restart() {
     );
 
     client_handle.stop().await;
+}
+
+/// List the immediate children of `dir`, sorted, marking directories with a
+/// trailing `/`. Used to show what a shutdown actually left on disk.
+fn list_storage_entries(dir: &std::path::Path) -> Vec<String> {
+    let mut entries: Vec<String> = std::fs::read_dir(dir)
+        .unwrap_or_else(|e| panic!("Failed to read storage dir {}: {}", dir.display(), e))
+        .map(|entry| {
+            let entry = entry.expect("Failed to read storage dir entry");
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if entry.path().is_dir() {
+                format!("{}/", name)
+            } else {
+                name
+            }
+        })
+        .collect();
+    entries.sort();
+    entries
+}
+
+/// REGRESSION (dash-spv #954): masternode-list state is never written to disk, so
+/// every restart re-syncs the list from scratch.
+///
+/// `MasternodeStateStorage::{store,load}_masternode_state`
+/// (`dash-spv/src/storage/masternode.rs`, writing
+/// `masternodestate/masternodestate.json`) is implemented by `DiskStorageManager`
+/// but has **zero callers outside the storage module** — it is dead code. The
+/// legacy sync engine used to call it. PR #411 (commit 12abdc2f) rewrote sync
+/// without wiring persistence into the new `MasternodesManager`, which holds only
+/// `header_storage` and therefore has no way to persist; PR #414 (commit 245a330d)
+/// then deleted the legacy module along with the last remaining callers.
+/// `DashSpvClient::new` compounds this by always building a fresh
+/// `MasternodeListEngine::default_for_network(..)` (`client/lifecycle.rs`) instead
+/// of restoring one.
+///
+/// User-facing consequence, observed in DashWallet iOS on dash-spv 0.45.0: headers
+/// and filters restore instantly from disk while the masternode list restarts at
+/// zero, so every launch logs `Requesting QRInfo for tip at height X with 0 base
+/// hash(es)` and `QRInfo processed: stored_cycle_height=None`. Should QRInfo then
+/// go unanswered for all `MAX_RETRY_ATTEMPTS`, `sync/masternodes/sync_manager.rs`
+/// logs "QRInfo failed on every attempt, skipping masternode sync" and the client
+/// finishes the phase with no masternode list at all — despite having fully synced
+/// it on a previous run.
+///
+/// The existing `test_masternode_list_sync_with_restart` cannot catch this: it only
+/// compares post-restart sync *progress*, which a full network re-sync satisfies.
+///
+/// This test asserts what *should* happen (state restored from disk) and therefore
+/// FAILS on current `dev`.
+#[tokio::test]
+async fn test_masternode_restart_loses_state() {
+    let Some(ctx) = TestContext::new(true).await else {
+        return;
+    };
+
+    let wallet = create_dummy_wallet();
+    let config =
+        create_mn_test_config(ctx.storage_path().to_path_buf(), ctx.mn_ctx.controller_addr);
+
+    // === First run: sync the masternode list to completion ===
+    tracing::info!("=== First run: syncing masternode list ===");
+    let mut client_handle = create_and_start_client(&config, Arc::clone(&wallet)).await;
+    let first_progress =
+        wait_for_masternode_sync(&mut client_handle.progress_receiver, SYNC_TIMEOUT).await;
+    assert_eq!(
+        first_progress.state(),
+        SyncState::Synced,
+        "First run must reach Synced before the restart can prove anything"
+    );
+
+    let (first_mn_count, first_list_heights, first_rotated_cycles) = {
+        let engine = client_handle.engine.read().await;
+        let latest =
+            engine.latest_masternode_list().expect("First run should have a masternode list");
+        assert!(
+            !latest.masternodes.is_empty(),
+            "First run masternode list must be non-empty for this test to mean anything"
+        );
+        (
+            latest.masternodes.len(),
+            engine.masternode_lists.keys().copied().collect::<Vec<u32>>(),
+            engine.rotated_quorums_per_cycle.len(),
+        )
+    };
+    tracing::info!(
+        "First run synced: {} masternodes, mn_list heights {:?}, {} rotated cycles, \
+         diffs_processed={}",
+        first_mn_count,
+        first_list_heights,
+        first_rotated_cycles,
+        first_progress.diffs_processed(),
+    );
+
+    // Clean shutdown: everything that is going to be persisted is persisted here.
+    client_handle.stop().await;
+    let first_header_height =
+        client_handle.client.sync_progress().await.headers().unwrap().current_height();
+    drop(client_handle);
+
+    // === Evidence A: nothing on disk holds the masternode state ===
+    let storage_dir = ctx.storage_path();
+    let storage_entries = list_storage_entries(storage_dir);
+    let mn_state_file = storage_dir.join("masternodestate").join("masternodestate.json");
+    let mn_state_persisted = mn_state_file.exists();
+    tracing::info!(
+        "Storage dir {} after clean shutdown contains {:?}; masternodestate.json exists = {}",
+        storage_dir.display(),
+        storage_entries,
+        mn_state_persisted,
+    );
+
+    // === Evidence B: a fresh client on the same storage restores nothing ===
+    // Constructed but deliberately NOT run, so the observation is made strictly
+    // before any network traffic. Header state, by contrast, is read from storage
+    // during construction and acts as the control: it proves the shutdown really
+    // did persist and that this directory really is the same one.
+    tracing::info!("=== Second run: constructing a client on the same storage, no network ===");
+    let mut second_handle = create_client(&config, Arc::clone(&wallet)).await;
+    let restored_header_height =
+        second_handle.client.sync_progress().await.headers().unwrap().current_height();
+    let (restored_mn_count, restored_list_heights) = {
+        let engine = second_handle.engine.read().await;
+        (
+            engine.latest_masternode_list().map(|l| l.masternodes.len()).unwrap_or(0),
+            engine.masternode_lists.keys().copied().collect::<Vec<u32>>(),
+        )
+    };
+    second_handle.stop().await;
+    drop(second_handle);
+
+    tracing::info!(
+        "Second run before any network work: header height {} (first run: {}), \
+         masternodes {} (first run: {}), mn_list heights {:?}",
+        restored_header_height,
+        first_header_height,
+        restored_mn_count,
+        first_mn_count,
+        restored_list_heights,
+    );
+
+    // Control: headers *do* survive. If this fails the test setup is wrong (wrong
+    // storage dir, shutdown never flushed) and the masternode assertions below
+    // would be meaningless.
+    assert!(
+        restored_header_height > 0 && restored_header_height == first_header_height,
+        "Control failed: header state should restore from the same storage dir \
+         (first run {}, second run {}). Without this the masternode findings prove nothing.",
+        first_header_height,
+        restored_header_height,
+    );
+
+    // The defect. Asserted together so one run reports both facts.
+    assert!(
+        mn_state_persisted && restored_mn_count == first_mn_count,
+        "Masternode list state is not persisted across restart (dash-spv #954).\n\
+         \n\
+         After a clean shutdown of a fully-synced client ({} masternodes at heights {:?}, \
+         {} rotated cycles):\n\
+         - {} exists: {} (expected true)\n\
+         - storage dir contains: {:?}\n\
+         - a fresh client on the same dir restores {} masternodes at heights {:?} \
+           (expected {})\n\
+         - headers, by contrast, restored to height {} from that same dir\n\
+         \n\
+         `store_masternode_state`/`load_masternode_state` are never called: PR #411 \
+         (12abdc2f) rewrote sync without wiring persistence into `MasternodesManager`, \
+         PR #414 (245a330d) removed the legacy callers, and `DashSpvClient::new` always \
+         builds a fresh engine. The second run must therefore re-request the whole list \
+         from the network (`Requesting QRInfo for tip at height {} with 0 base hash(es)`), \
+         and gets nothing at all if those requests go unanswered.",
+        first_mn_count,
+        first_list_heights,
+        first_rotated_cycles,
+        mn_state_file.display(),
+        mn_state_persisted,
+        storage_entries,
+        restored_mn_count,
+        restored_list_heights,
+        first_mn_count,
+        restored_header_height,
+        restored_header_height,
+    );
+}
+
+/// The user-facing outcome of the missing persistence: a client that fully synced
+/// its masternode list on a previous run comes back up with **no list at all** when
+/// the network is unavailable, even though headers restore from disk untouched.
+///
+/// Nothing about the masternode list is recoverable offline, so this is not a
+/// transient network problem — the state was simply never written. See
+/// `test_masternode_restart_loses_state` for the mechanism and the #411/#414 history.
+///
+/// Deliberately does *not* try to reach the "QRInfo failed on every attempt,
+/// skipping masternode sync" branch: that needs the full retry ladder
+/// (`QRINFO_TIMEOUT_SCHEDULE_SECS = [10, 30, 60]`, so ~100s of wall clock) to
+/// elapse. What matters here is only that the list is absent while the peer is
+/// unreachable, which is observable immediately.
+///
+/// FAILS on current `dev`.
+#[tokio::test]
+async fn test_masternode_state_unrecoverable_offline_after_restart() {
+    let Some(ctx) = TestContext::new(true).await else {
+        return;
+    };
+
+    let wallet = create_dummy_wallet();
+    let config =
+        create_mn_test_config(ctx.storage_path().to_path_buf(), ctx.mn_ctx.controller_addr);
+
+    // First run: sync fully against the live controller.
+    let mut client_handle = create_and_start_client(&config, Arc::clone(&wallet)).await;
+    let first_progress =
+        wait_for_masternode_sync(&mut client_handle.progress_receiver, SYNC_TIMEOUT).await;
+    assert_eq!(first_progress.state(), SyncState::Synced);
+    let first_mn_count = {
+        let engine = client_handle.engine.read().await;
+        engine.latest_masternode_list().map(|l| l.masternodes.len()).unwrap_or(0)
+    };
+    assert!(first_mn_count > 0, "First run must sync a non-empty masternode list");
+    client_handle.stop().await;
+    drop(client_handle);
+    tracing::info!("First run synced {} masternodes, now taking the peer offline", first_mn_count);
+
+    // Take the peer's p2p away, then restart. Any masternode list the second run
+    // ends up with can only have come from disk.
+    ctx.mn_ctx.controller.set_network_active(false);
+
+    let mut second_handle = create_and_start_client(&config, Arc::clone(&wallet)).await;
+    // Give the run loop room to restore state and to fail at reaching the peer.
+    time::sleep(Duration::from_secs(10)).await;
+    let (offline_mn_count, offline_header_height, offline_mn_progress) = {
+        let engine = second_handle.engine.read().await;
+        let count = engine.latest_masternode_list().map(|l| l.masternodes.len()).unwrap_or(0);
+        let progress = second_handle.client.sync_progress().await;
+        let height = progress.headers().unwrap().current_height();
+        (count, height, progress.masternodes().unwrap().clone())
+    };
+    second_handle.stop().await;
+    // Restore p2p before the assertions below, which are expected to panic.
+    ctx.mn_ctx.controller.set_network_active(true);
+
+    tracing::info!(
+        "Offline restart: {} masternodes, header height {}, masternode progress {:?}",
+        offline_mn_count,
+        offline_header_height,
+        offline_mn_progress,
+    );
+
+    assert!(
+        offline_header_height > 0,
+        "Control failed: headers should restore from disk with no network available"
+    );
+    // Control: the peer really was unreachable. Without this, a `set_network_active(false)`
+    // that failed to block the *new* client's outbound connection would let the second run
+    // re-sync the list over the network, and the assertion below would pass for entirely
+    // the wrong reason — masking the very bug this test exists to prove.
+    assert_ne!(
+        offline_mn_progress.state(),
+        SyncState::Synced,
+        "Control failed: masternode sync reached Synced with the peer supposedly offline, \
+         so the second run re-fetched the list over the network instead of restoring it. \
+         set_network_active(false) did not block the connection; this test proves nothing \
+         in that state. Progress: {:?}",
+        offline_mn_progress,
+    );
+    assert_eq!(
+        offline_mn_count, first_mn_count,
+        "A client that already synced {} masternodes came back up with {} after restart \
+         with the peer offline, while headers restored to height {} from the same storage \
+         dir. Masternode state is never persisted (dash-spv #954), so it is unrecoverable \
+         without the network.",
+        first_mn_count, offline_mn_count, offline_header_height,
+    );
 }
 
 /// Sync to pre-generated height, generate new blocks, verify incremental update.

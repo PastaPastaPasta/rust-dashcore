@@ -42,11 +42,15 @@ pub(super) struct ClientHandle {
 
 impl ClientHandle {
     pub(super) async fn stop(&mut self) {
+        // A handle produced by `create_client` never started a run loop, so there
+        // is nothing to shut down and `client.stop()` would have no loop to signal.
+        let Some(handle) = self.run_handle.take() else {
+            tracing::info!("Client run loop was never started; nothing to stop");
+            return;
+        };
         tracing::info!("Stopping client run loop...");
         self.client.stop().await.expect("client stop failed");
-        if let Some(handle) = self.run_handle.take() {
-            handle.await.expect("Run task panicked").expect("Run task returned error");
-        }
+        handle.await.expect("Run task panicked").expect("Run task returned error");
     }
 }
 
@@ -165,6 +169,22 @@ pub(super) async fn create_and_start_client(
     config: &ClientConfig,
     wallet: Arc<RwLock<WalletManager<ManagedWalletInfo>>>,
 ) -> ClientHandle {
+    let mut handle = create_client(config, wallet).await;
+    let run_client = handle.client.clone();
+    handle.run_handle = Some(tokio::task::spawn(async move { run_client.run().await }));
+    handle
+}
+
+/// Build the client and its event plumbing *without* starting the run loop.
+///
+/// Lets a test observe exactly what a freshly-constructed client restores from an
+/// existing storage directory before any network traffic happens. Every manager
+/// reads its storage during construction, so the returned handle already reflects
+/// whatever survived the previous shutdown.
+pub(super) async fn create_client(
+    config: &ClientConfig,
+    wallet: Arc<RwLock<WalletManager<ManagedWalletInfo>>>,
+) -> ClientHandle {
     let network_manager =
         PeerNetworkManager::new(config).await.expect("Failed to create network manager");
     let storage_manager =
@@ -183,13 +203,10 @@ pub(super) async fn create_and_start_client(
 
     let engine =
         client.masternode_list_engine().expect("Engine should be initialized after creation");
-    let run_client = client.clone();
-
-    let run_handle = tokio::task::spawn(async move { run_client.run().await });
 
     ClientHandle {
         client,
-        run_handle: Some(run_handle),
+        run_handle: None,
         progress_receiver,
         sync_event_receiver,
         wallet_event_receiver,
