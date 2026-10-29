@@ -1,0 +1,36 @@
+{
+ "name": "a29-iv-restart",
+ "description": "node restart: starts unobserved with no CL; the first check observes on and resets nothing",
+ "rows": [
+  "A-29(iv)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "reload"
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}
