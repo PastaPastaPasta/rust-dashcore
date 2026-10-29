@@ -6,9 +6,9 @@
 #
 # Jobs:
 #   deps     builds the shard matrix from .github/ci-groups.yml and owns the ONE dependency-closure
-#            cache (DEC-699): third-party artifacts only, keyed on toolchain + Cargo.lock + manifests
-#            (features) + this file (the shard selections). On a miss it builds every selection
-#            cold, strips the workspace crates' units and saves; no other job saves.
+#            cache (DEC-699): third-party artifacts only, keyed on CACHE_GEN + toolchain + Cargo.lock +
+#            manifests (features) + ci-groups.yml. On a miss in a default-branch run it builds every
+#            selection cold, strips the workspace crates' units and saves; no other run or job saves.
 #   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
 #            protocol-tables (no build, no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`),
@@ -18,8 +18,9 @@
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
 # - a shard's `cargo test -p <its crates>` gets its crates' workspace-resolved features passed in
-#   (`--features crate/feature`), but third-party dependency features still unify per shard (45 of 392
-#   dependency variants differed before that, cargo tree, 10-29);
+#   (`--features crate/feature`), but the members it builds only as dependencies, and third-party
+#   crates, still unify per shard (cargo cannot name a member that is not a direct dependency); the
+#   plan step prints each shard's member differences;
 # - no BL-20 rerun and no per-binary time limit (test-run.py); the job timeout bounds a hang;
 # - pure and planted always run (no merge base to trigger on); oracle-diff stays local;
 # - the export points the base SDK pin at the public fork; static and extras point it back at a
@@ -89,6 +90,24 @@ jobs:
           ref: ${{ inputs.snapshot || github.sha }}
           persist-credentials: false
 
+      # A dispatch runs the default branch's copy of this file on the snapshot's tree, a push run the
+      # snapshot's own copy. CACHE_GEN and the build list come from the copy that runs, so a deps_only
+      # save made with another copy can miss the key, or the closure, the snapshot's push run uses.
+      - name: Same workflow as the snapshot
+        if: ${{ inputs.snapshot != '' }}
+        env:
+          DEPS_ONLY: ${{ inputs.deps_only }}
+        run: |
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          if git diff --quiet FETCH_HEAD HEAD -- .github/workflows/node-gate.yml; then
+            echo "the snapshot carries this run's node-gate.yml ($GITHUB_SHA)"
+          elif [ "$DEPS_ONLY" = true ]; then
+            echo "::error::the snapshot's node-gate.yml differs from $GITHUB_SHA's; its push run would not use this closure. Re-export it with the default branch's workflow."
+            exit 1
+          else
+            echo "::warning::the snapshot's node-gate.yml differs from $GITHUB_SHA's; this run gates with $GITHUB_SHA's"
+          fi
+
       - name: Toolchain
         env:
           SNAPSHOT: ${{ inputs.snapshot }}
@@ -134,14 +153,18 @@ jobs:
           # `cargo test --workspace` unifies them across the workspace (dash-p2p's eviction test needs
           # `inbound`, which only another crate's dev-dependency turns on). Each shard therefore asks for
           # the features the workspace-wide resolve gives its own crates.
-          tree = subprocess.run(["cargo", "tree", "--locked", "--workspace", "-e", "normal,dev", "-f", "{p}|{f}",
-                                 "--prefix", "none"], check=True, capture_output=True, text=True).stdout
-          resolved = {}
-          for line in tree.splitlines():
-              pkg, _, feats = line.strip().removesuffix(" (*)").partition("|")
-              name = pkg.split(" ")[0]
-              if name in members and " (/" in pkg:
-                  resolved.setdefault(name, set()).update(f for f in feats.split(",") if f and f != "default")
+          def member_features(args):
+              out = subprocess.run(["cargo", "tree", "--locked", *args, "-e", "normal,dev", "-f", "{p}|{f}",
+                                    "--prefix", "depth"], check=True, capture_output=True, text=True).stdout
+              got = {}
+              for line in out.splitlines():
+                  pkg, _, feats = line.lstrip("0123456789").removesuffix(" (*)").partition("|")
+                  name = pkg.split(" ")[0]
+                  if name in members and " (/" in pkg:
+                      got.setdefault(name, set()).update(f for f in feats.split(",") if f)
+              return got
+          workspace_wide = member_features(["--workspace"])
+          resolved = {c: fs - {"default"} for c, fs in workspace_wide.items()}
           include = []
           for name, gs, opt in SHARDS:
               crates = [c for g in gs for c in groups[g]]
@@ -155,6 +178,19 @@ jobs:
               feats = ",".join(f"{c}/{f}" for c in crates for f in sorted(resolved.get(c, ())))
               include.append({"shard": name, "kind": "test", "packages": " ".join(f"-p {c}" for c in crates),
                               "features": f"--features {feats}" if feats else "", "rdashd": bool(opt.get("rdashd"))})
+              # Members this shard only builds as dependencies can still resolve fewer features than in
+              # `cargo test --workspace`; the step inventory tracks these.
+              args = include[-1]["packages"].split() + include[-1]["features"].split()
+              # (Plain lines: GitHub shows at most 10 annotations per step.)
+              differ = 0
+              for c, fs in sorted(member_features(args).items()):
+                  if fs != workspace_wide.get(c, set()):
+                      differ += 1
+                      print(f"feature diff, shard {name}: {c} builds with [{','.join(sorted(fs))}], "
+                            f"workspace-wide [{','.join(sorted(workspace_wide.get(c, ())))}]")
+              if differ:
+                  print(f"::notice::shard {name}: {differ} dependency-only members resolve other features "
+                        "than in `cargo test --workspace` (feature diff lines in this step's log)")
           covered = [a for e in include for a in e["packages"].split() if a != "-p"]
           if len(set(covered)) != len(covered):
               raise SystemExit("a crate is in two shards")
@@ -252,6 +288,7 @@ jobs:
           du -sh target ~/.cargo/registry ~/.cargo/git
 
       - name: Save the dependency closure
+        id: save
         if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
@@ -274,7 +311,7 @@ jobs:
       - name: Metrics
         if: always()
         run: |
-          line="deps key=${{ steps.key.outputs.key }} lookup=${{ steps.lookup.outputs.cache-hit == 'true' && 'hit' || 'miss' }} job_s=$(( $(date +%s) - ${job_t0:-0} ))"
+          line="deps key=${{ steps.key.outputs.key }} lookup=${{ steps.lookup.outputs.cache-hit == 'true' && 'hit' || 'miss' }} saved=${{ steps.save.outcome == 'success' && 'yes' || 'no' }} job_s=$(( $(date +%s) - ${job_t0:-0} ))"
           echo "NODE-GATE-METRIC $line"
           echo "NODE-GATE-METRIC $line" >> "$GITHUB_STEP_SUMMARY"
 
