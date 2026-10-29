@@ -1,0 +1,40 @@
+[package]
+name = "dashd-rpc"
+description = "The Rust Dash node's RPC server: Dash Core's HTTP server, authentication, JSON-RPC dispatch, the control commands and the chain commands"
+publish = false
+# Ports Dash Core code (MIT): httpserver.cpp, httprpc.cpp, rpc/server.cpp, rpc/request.cpp,
+# rpc/util.cpp (RPCHelpMan's checks), rpc/node.cpp (control commands), rpc/blockchain.cpp.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# `ArgsManager`, and Core's `UniValue` reader and writer (`dash_args::univalue`).
+dash-args = { path = "../dash-args" }
+# Names, arguments, help text and whitelist names of every v24 command (AR2).
+dash-rpc-spec = { path = "../dash-rpc-spec" }
+# The chain commands' hashes (`BlockHash`, Core's `GetHex` as its Display).
+dash-primitives = { workspace = true, features = ["std"] }
+# `submitblock`'s block: Core's `DecodeHexBlk` codec and its `BlockValidationState`.
+dash-consensus = { path = "../dash-consensus" }
+# HMAC-SHA256 for `-rpcauth`; Hash160 and BIP32's HMAC-SHA512 for descriptors.
+bitcoin_hashes = { workspace = true, features = ["std"] }
+# `key_io.cpp`'s Base58Check.
+base58ck = { workspace = true }
+# Descriptor keys: `CPubKey::IsFullyValid` and BIP32 derivation (the version dash-consensus pins);
+# `recovery` for message signing (`CKey::SignCompact`, `CPubKey::RecoverCompact`).
+secp256k1 = { version = "=0.33.1", features = ["recovery"] }
+# The `.cookie` secret (Core's `GetRandBytes`).
+getrandom = "0.3"
+# The HTTP event thread waits on every connection at once (RP0-D7).
+mio = { version = "1", default-features = false, features = ["net", "os-poll"] }
+# Listening sockets with Core's options (IPV6_V6ONLY, SO_REUSEADDR).
+socket2 = "0.6"
+tracing = "0.1"
+
+[dev-dependencies]
+dash-params = { workspace = true }
+tempfile = "3"

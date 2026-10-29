@@ -1,0 +1,165 @@
+{
+  "source": "oracle_unique_property_hash (GetUniquePropertyHash), Core v24.0",
+  "records": [
+    {
+      "label": "collateral",
+      "kind": "collateral",
+      "legacy": false,
+      "value": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2001000000",
+      "preimage": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2001000000",
+      "hash": "e91cefc15d22954a6e8609371afa8c2e1812d6d101b205957feb29ddb1071499"
+    },
+    {
+      "label": "collateral_null",
+      "kind": "collateral",
+      "legacy": false,
+      "value": "0000000000000000000000000000000000000000000000000000000000000000ffffffff",
+      "preimage": "0000000000000000000000000000000000000000000000000000000000000000ffffffff",
+      "hash": "325dd2b2b21e57fb22d6e3a1cf820c58650f94541f018b9585cf81bc563fc452"
+    },
+    {
+      "label": "service_ipv4",
+      "kind": "service",
+      "legacy": false,
+      "value": "010401020304270f",
+      "preimage": "00000000000000000000ffff01020304270f",
+      "hash": "5db0d4b9d525be9a15d9cd378c000ea7ffe8711c208b9cd897ad140f430a1534"
+    },
+    {
+      "label": "service_ipv6",
+      "kind": "service",
+      "legacy": false,
+      "value": "021020010db8000000000000000000000001270f",
+      "preimage": "20010db8000000000000000000000001270f",
+      "hash": "727dbd79f9d9f98065bfedcdc6f775c560dc0244da3b228ea2ea2b610d4b4d7e"
+    },
+    {
+      "label": "service_ipv6_v4_mapped",
+      "kind": "service",
+      "legacy": false,
+      "value": "021000000000000000000000ffff01020304270f",
+      "preimage": "00000000000000000000000000000000270f",
+      "hash": "21b1ca9f27c9a1e47ce140620c13c5dbb2a5c9bfd49e4b3bda3d04fe1474a243"
+    },
+    {
+      "label": "service_null",
+      "kind": "service",
+      "legacy": false,
+      "value": "0210000000000000000000000000000000000000",
+      "preimage": "000000000000000000000000000000000000",
+      "hash": "167027dc1664bcfb467ff438bdebc1474770d57038204d984673427ef1b0dfc5"
+    },
+    {
+      "label": "service_torv3",
+      "kind": "service",
+      "legacy": false,
+      "value": "04200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20270f",
+      "preimage": "04200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20270f",
+      "hash": "0e85809f37e0ba3a90b4a1e69622e1559ca3474cf597ef6f86d5f899e32bf1e1"
+    },
+    {
+      "label": "service_i2p",
+      "kind": "service",
+      "legacy": false,
+      "value": "05202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f400000",
+      "preimage": "05202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f400000",
+      "hash": "9b87c0e4a911a10ec9ae7b47fbdbe5be85638eb961fc5560b7573af863f67d6b"
+    },
+    {
+      "label": "service_cjdns",
+      "kind": "service",
+      "legacy": false,
+      "value": "0610fc0102030405060708090a0b0c0d0e0f270f",
+      "preimage": "0610fc0102030405060708090a0b0c0d0e0f270f",
+      "hash": "006a7f49062a60df4cfb8c696d2258aab58fbce32da60367dc42195e67783e03"
+    },
+    {
+      "label": "service_unknown_network",
+      "kind": "service",
+      "legacy": false,
+      "value": "2a0401020304270f",
+      "preimage": "00000000000000000000000000000000270f",
+      "hash": "21b1ca9f27c9a1e47ce140620c13c5dbb2a5c9bfd49e4b3bda3d04fe1474a243"
+    },
+    {
+      "label": "domain",
+      "kind": "domain",
+      "legacy": false,
+      "value": "1065766f352e6578616d706c652e6f726701bb",
+      "preimage": "1065766f352e6578616d706c652e6f726701bb",
+      "hash": "19cea5cc91c87ec188523f416604f1f119ff44c5751efb9d064a9314543f50c8"
+    },
+    {
+      "label": "domain_null",
+      "kind": "domain",
+      "legacy": false,
+      "value": "000000",
+      "preimage": "000000",
+      "hash": "78e437f627019fc270bbe9ed309291d0a5f6bf98bfae0f750538ba56646f7327"
+    },
+    {
+      "label": "key_id",
+      "kind": "key_id",
+      "legacy": false,
+      "value": "1112131415161718191a1b1c1d1e1f2021222324",
+      "preimage": "1112131415161718191a1b1c1d1e1f2021222324",
+      "hash": "6960727a7ad43fb4177d09c1970ba46f9753430d10cba3112671e4a3154dc7c1"
+    },
+    {
+      "label": "platform_node_id_same_bytes",
+      "kind": "platform_node_id",
+      "legacy": false,
+      "value": "1112131415161718191a1b1c1d1e1f2021222324",
+      "preimage": "1112131415161718191a1b1c1d1e1f2021222324",
+      "hash": "6960727a7ad43fb4177d09c1970ba46f9753430d10cba3112671e4a3154dc7c1"
+    },
+    {
+      "label": "key_id_null",
+      "kind": "key_id",
+      "legacy": false,
+      "value": "0000000000000000000000000000000000000000",
+      "preimage": "0000000000000000000000000000000000000000",
+      "hash": "f6eab7b91a423426d06da844347472994a738cc6b105c5fa695f74832818d173"
+    },
+    {
+      "label": "operator_key_legacy",
+      "kind": "operator_key",
+      "legacy": true,
+      "value": "81fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "preimage": "81fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "hash": "c2270f92d9bf5dabc2569e0580f81e6e22ba3e7f465bf1cc774d21873f0bfd0e"
+    },
+    {
+      "label": "operator_key_basic",
+      "kind": "operator_key",
+      "legacy": false,
+      "value": "a1fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "preimage": "a1fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "hash": "895f65160f1a00e09949bdc90d6bb7a4290502873253f8f32f1541858c094bfc"
+    },
+    {
+      "label": "operator_key_legacy_bytes_basic_flag",
+      "kind": "operator_key",
+      "legacy": false,
+      "value": "81fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "preimage": "81fc56c400756e2f053ea015d7a61606f668a10f5ee0808f86df9443778021b802174b1d9cdb0cde3c3a4fe5803d02b5",
+      "hash": "c2270f92d9bf5dabc2569e0580f81e6e22ba3e7f465bf1cc774d21873f0bfd0e"
+    },
+    {
+      "label": "operator_key_null",
+      "kind": "operator_key",
+      "legacy": true,
+      "value": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "preimage": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "hash": "3126699de7d6dd866bd2989eda9b230fa034c4ccabf1b43a1ddfd3624b6713b9"
+    },
+    {
+      "label": "operator_key_undecodable",
+      "kind": "operator_key",
+      "legacy": true,
+      "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "preimage": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "hash": "c0cbc41638b87e0f44ba232e0c48d8e6afadd74e1f762aae84e8cfa0ce504983"
+    }
+  ]
+}
