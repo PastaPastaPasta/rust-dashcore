@@ -1,0 +1,122 @@
+{
+ "name": "a2-pnbh-rules-anchored",
+ "description": "the same battery re-mined above an anchor (heights past dgw_height + 24 = 34,164)",
+ "rows": [
+  "A-2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "check_block_index": false,
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 34200,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "pow": "fail"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "bits": "2000ffff"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "time": "mtp+0"
+  },
+  {
+   "op": "build",
+   "branch": "E",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "time": "now+7201"
+  },
+  {
+   "op": "build",
+   "branch": "F",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "time": "now+7200"
+  },
+  {
+   "op": "build",
+   "branch": "H",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "version": 1
+  },
+  {
+   "op": "build",
+   "branch": "I",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "headers",
+   "version": 3
+  },
+  {
+   "op": "build",
+   "branch": "J",
+   "parent": "A34200",
+   "count": 1,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "K",
+   "parent": "J34201",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "L",
+   "parent": "A34200",
+   "count": 3,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "M",
+   "parent": "L34203",
+   "count": 1,
+   "submit": "none",
+   "pow": "fail"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "L34201..L34203",
+    "M34204"
+   ]
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A34200",
+   "count": 10,
+   "submit": "headers"
+  }
+ ]
+}
