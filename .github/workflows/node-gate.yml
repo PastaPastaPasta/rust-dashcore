@@ -33,7 +33,7 @@
 # prints the dispatch that saves it (`snapshot: ci/<sha>`, `deps_only: true`), and the shards restore the
 # newest closure with the same toolchain and build their changed dependencies themselves.
 name: node-gate
-run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of node/integration {0}', inputs.source)) || github.sha }}
+run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source)) || github.sha }}
 
 on:
   push:
@@ -46,6 +46,10 @@ on:
         type: string
       source:
         description: "Full SHA the snapshot was made from; names the run like a push run (deps checks it)"
+        required: false
+        type: string
+      source_ref:
+        description: "Branch the snapshot was made from, as in its message; required with source"
         required: false
         type: string
       deps_only:
@@ -112,14 +116,17 @@ jobs:
         env:
           SNAPSHOT: ${{ inputs.snapshot }}
           SOURCE: ${{ inputs.source }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           echo "job_t0=$(date +%s)" >> "$GITHUB_ENV"
           [ -z "$SNAPSHOT" ] || [[ "$SNAPSHOT" =~ ^ci/[0-9a-f]{12}$ ]] || { echo "::error::snapshot '$SNAPSHOT' is not ci/<12-hex>"; exit 1; }
           # A dispatched run named after a source commit must be running that commit's snapshot.
           if [ -n "$SOURCE" ]; then
-            if ! [[ "$SOURCE" =~ ^[0-9a-f]{40}$ ]] || [ "ci/${SOURCE:0:12}" != "$SNAPSHOT" ] \
-              || [ "$(git log -1 --format=%B)" != "ci snapshot of node/integration $SOURCE" ]; then
-              echo "::error::source '$SOURCE' is not what $SNAPSHOT snapshots"; exit 1
+            if ! [[ "$SOURCE" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$SOURCE_REF" =~ ^[A-Za-z0-9._/-]+$ ]] \
+              || [ "ci/${SOURCE:0:12}" != "$SNAPSHOT" ] \
+              || [ "$(git log -1 --format=%B)" != "ci snapshot of $SOURCE_REF $SOURCE" ]; then
+              # Fixed text: the inputs failed their checks and may hold anything.
+              echo "::error::source and source_ref do not name what the snapshot snapshots (both are needed)"; exit 1
             fi
           fi
           git log -1 --format='%H %s'
@@ -136,15 +143,22 @@ jobs:
           import json, os, subprocess, yaml
           # Test shards by ci-groups.yml group; every workspace member lands in exactly one (the
           # groups' crates, plus the excluded and unassigned members in the last shard), so the
-          # shards together run what local tier 1's `cargo test --workspace` runs.
+          # shards together run what local tier 1's `cargo test --workspace` runs. rdashd's
+          # differential suites against dashd v24 take ~10 of node-runtime's ~16 test minutes, so
+          # they get a shard of their own: it builds node-runtime's whole selection and features
+          # (the dashd-* crates rdashd links are only transitive dependencies, which `--features`
+          # cannot name) and runs only rdashd's targets ("targets_of"); "skip" leaves rdashd out
+          # of runtime. rdashd's tests start the binary cargo builds for them; only dash-testkit
+          # needs RDASHD_PATH.
           SHARDS = [("conformance", ["node-conformance"], {}),
-                    ("runtime", ["node-runtime"], {"rdashd": True}),
+                    ("rdashd", ["node-runtime"], {"targets_of": "rdashd"}),
+                    ("runtime", ["node-runtime"], {"rdashd": True, "skip": ["rdashd"]}),
                     ("app-pure-shared", ["node-app", "node-pure", "node-shared"], {}),
                     ("core-spv-wallet-ffi-rpc", ["core", "spv", "wallet", "ffi", "rpc"], {"rest": True})]
           groups = yaml.safe_load(open(".github/ci-groups.yml"))["groups"]
           named = [g for _, gs, _ in SHARDS for g in gs]
-          if sorted(named) != sorted(groups) or len(set(named)) != len(named):
-              raise SystemExit(f"shard groups {sorted(named)} != ci-groups.yml groups {sorted(groups)}")
+          if set(named) != set(groups):
+              raise SystemExit(f"shard groups {sorted(set(named))} != ci-groups.yml groups {sorted(groups)}")
           meta = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
                                            check=True, capture_output=True, text=True).stdout)
           members = {p["name"] for p in meta["packages"] if p["id"] in meta["workspace_members"]}
@@ -167,7 +181,7 @@ jobs:
           resolved = {c: fs - {"default"} for c, fs in workspace_wide.items()}
           include = []
           for name, gs, opt in SHARDS:
-              crates = [c for g in gs for c in groups[g]]
+              crates = [c for g in gs for c in groups[g] if c not in opt.get("skip", [])]
               if opt.get("rest"):
                   crates += sorted(members - grouped)
               if len(set(crates)) != len(crates):
@@ -176,8 +190,40 @@ jobs:
               if missing:
                   raise SystemExit(f"shard {name}: not workspace members: {missing}")
               feats = ",".join(f"{c}/{f}" for c in crates for f in sorted(resolved.get(c, ())))
+              targets, runs = "", crates
+              if opt.get("targets_of"):
+                  own = opt["targets_of"]
+                  if own not in crates:
+                      raise SystemExit(f"shard {name}: {own} is not in {gs}")
+                  pkg = next(p for p in meta["packages"] if p["name"] == own)
+                  # What a plain `cargo test` runs of it: the bins and tests it tests (`test = true`)
+                  # whose required features the workspace resolve enables; naming any other target
+                  # is an error. Any other kind (a lib's doc tests, examples, benches) would be
+                  # skipped, so it fails closed.
+                  odd = [t["name"] for t in pkg["targets"] if t["kind"][0] not in ("bin", "test", "custom-build")]
+                  if odd:
+                      raise SystemExit(f"shard {name}: {own} has targets targets_of would skip: {odd}")
+                  picked, left = [], []
+                  for t in pkg["targets"]:
+                      if t["kind"][0] not in ("bin", "test"):
+                          continue
+                      need = set(t.get("required-features") or ())
+                      if any("/" in f for f in need):
+                          raise SystemExit(f"shard {name}: {own} {t['name']} requires {sorted(need)}")
+                      if t.get("test", True) and need <= workspace_wide.get(own, set()):
+                          picked.append(f"--{t['kind'][0]} {t['name']}")
+                      else:
+                          left.append(t["name"])
+                  print(f"shard {name}: {own} targets not run, as in `cargo test --workspace`: {left}")
+                  names = {(t["kind"][0], t["name"]) for c in crates if c != own for t in
+                           next(p for p in meta["packages"] if p["name"] == c)["targets"]}
+                  clash = [t for t in picked if tuple(t[2:].split(" ")) in names]
+                  if clash:
+                      raise SystemExit(f"shard {name}: {clash} would also run another crate's target")
+                  targets, runs = " ".join(picked), [own]
               include.append({"shard": name, "kind": "test", "packages": " ".join(f"-p {c}" for c in crates),
-                              "features": f"--features {feats}" if feats else "", "rdashd": bool(opt.get("rdashd"))})
+                              "features": f"--features {feats}" if feats else "", "targets": targets,
+                              "runs": runs, "rdashd": bool(opt.get("rdashd"))})
               # Members this shard only builds as dependencies can still resolve fewer features than in
               # `cargo test --workspace`; the step inventory tracks these.
               args = include[-1]["packages"].split() + include[-1]["features"].split()
@@ -191,15 +237,15 @@ jobs:
               if differ:
                   print(f"::notice::shard {name}: {differ} dependency-only members resolve other features "
                         "than in `cargo test --workspace` (feature diff lines in this step's log)")
-          covered = [a for e in include for a in e["packages"].split() if a != "-p"]
+          covered = [c for e in include for c in e["runs"]]
           if len(set(covered)) != len(covered):
               raise SystemExit("a crate is in two shards")
           if set(covered) != members:
               raise SystemExit(f"members in no shard: {sorted(members - set(covered))}")
-          include += [{"shard": "clippy", "kind": "clippy", "packages": "", "features": "", "rdashd": False},
-                      {"shard": "extras", "kind": "extras", "packages": "", "features": "", "rdashd": False}]
+          include += [{"shard": k, "kind": k, "packages": "", "features": "", "targets": "", "runs": [], "rdashd": False}
+                      for k in ("clippy", "extras")]
           for e in include:
-              print(f"{e['shard']}: {e['packages'] or e['kind']} {e['features']}")
+              print(f"{e['shard']}: {e['packages'] or e['kind']} {e['features']} {e['targets']}")
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"matrix={json.dumps({'include': include})}\n")
 
@@ -279,7 +325,7 @@ jobs:
           while read -r selection; do
             # shellcheck disable=SC2086
             build cargo test --locked --no-run $selection
-          done < <(jq -r '.include[] | select(.kind == "test") | "\(.packages) \(.features)"' <<<"$MATRIX")
+          done < <(jq -r '.include[] | select(.kind == "test") | "\(.packages) \(.features) \(.targets)"' <<<"$MATRIX")
           build cargo build --locked -p rdashd
           build cargo test --locked --no-run -p dashd-chainstate --features crash,planted-bugs --test crash_planted
           build cargo build --locked --release -p dash-consensus --lib
@@ -508,7 +554,7 @@ jobs:
         run: |
           rc=0
           /usr/bin/time -f 'build_s=%e build_cpu_s=%U+%S build_peak_kb=%M' -a -o "$METRICS" \
-            cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} ${{ matrix.features }} > "$RUNNER_TEMP/build.json" || rc=$?
+            cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} > "$RUNNER_TEMP/build.json" || rc=$?
           # Third-party units the restored closure should have held (0 on a good hit).
           echo "rebuilt_third_party=$(jq -s '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not))] | length' "$RUNNER_TEMP/build.json")" | tee -a "$METRICS"
           exit "$rc"
@@ -519,7 +565,7 @@ jobs:
           DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
         run: |
           /usr/bin/time -f 'test_s=%e test_cpu_s=%U+%S test_peak_kb=%M' -a -o "$METRICS" \
-            cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} 2>&1 | tee "$RUNNER_TEMP/test.log"
+            cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} 2>&1 | tee "$RUNNER_TEMP/test.log"
           rc=${PIPESTATUS[0]}
           grep -E "^test result" "$RUNNER_TEMP/test.log" | awk '{p+=$4; f+=$6; i+=$8} END {printf "tests_passed=%d tests_failed=%d tests_ignored=%d\n", p, f, i}' | tee -a "$METRICS"
           echo "skipped_lines=$(grep -ciE 'skipped|skipping' "$RUNNER_TEMP/test.log")" | tee -a "$METRICS"
@@ -632,7 +678,9 @@ jobs:
   summary:
     name: Summary
     needs: [deps, static, shard]
-    if: ${{ always() && !inputs.deps_only }}
+    # Not after a cancel: its failure on cancelled shards would make the cancelled run look red to
+    # rdc-ci-verdict.sh, which counts a cancelled run with a failed job as red.
+    if: ${{ !cancelled() && !inputs.deps_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
