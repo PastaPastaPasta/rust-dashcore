@@ -1,0 +1,1625 @@
+pub mod dash_chain
+pub use dash_chain::BlockId
+pub enum dash_chain::AcceptOne
+pub dash_chain::AcceptOne::Accepted(dash_consensus::ctx::BlockId)
+pub dash_chain::AcceptOne::BelowAnchor
+pub dash_chain::AcceptOne::ContextSkipped
+pub dash_chain::AcceptOne::Invalid(dash_chain::HeaderReject)
+pub dash_chain::AcceptOne::Known(dash_consensus::ctx::BlockId)
+impl core::clone::Clone for dash_chain::AcceptOne
+pub fn dash_chain::AcceptOne::clone(&self) -> dash_chain::AcceptOne
+impl core::cmp::Eq for dash_chain::AcceptOne
+impl core::cmp::PartialEq for dash_chain::AcceptOne
+pub fn dash_chain::AcceptOne::eq(&self, &dash_chain::AcceptOne) -> bool
+impl core::fmt::Debug for dash_chain::AcceptOne
+pub fn dash_chain::AcceptOne::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::AcceptOne
+pub enum dash_chain::AncestryError
+pub dash_chain::AncestryError::BelowFloor
+pub dash_chain::AncestryError::BelowFloor::height: u32
+pub dash_chain::AncestryError::Storage(dash_chain::StoreError)
+impl core::clone::Clone for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::clone(&self) -> dash_chain::AncestryError
+impl core::cmp::Eq for dash_chain::AncestryError
+impl core::cmp::PartialEq for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::eq(&self, &dash_chain::AncestryError) -> bool
+impl core::convert::From<dash_chain::StoreError> for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::from(dash_chain::StoreError) -> Self
+impl core::error::Error for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::AncestryError
+pub enum dash_chain::Anchor
+pub dash_chain::Anchor::Checkpoint
+pub dash_chain::Anchor::Checkpoint::chain_work: dash_chain::Work
+pub dash_chain::Anchor::Checkpoint::hash: dash_primitives::block::BlockHash
+pub dash_chain::Anchor::Checkpoint::height: u32
+pub dash_chain::Anchor::Checkpoint::window: alloc::boxed::Box<[dash_primitives::block::BlockHeader; 25]>
+pub dash_chain::Anchor::Genesis
+impl core::clone::Clone for dash_chain::Anchor
+pub fn dash_chain::Anchor::clone(&self) -> dash_chain::Anchor
+impl core::cmp::Eq for dash_chain::Anchor
+impl core::cmp::PartialEq for dash_chain::Anchor
+pub fn dash_chain::Anchor::eq(&self, &dash_chain::Anchor) -> bool
+impl core::fmt::Debug for dash_chain::Anchor
+pub fn dash_chain::Anchor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::Anchor
+pub enum dash_chain::AnchorError
+pub dash_chain::AnchorError::Hash
+pub dash_chain::AnchorError::Link
+pub dash_chain::AnchorError::Link::index: usize
+pub dash_chain::AnchorError::PreDgw
+pub dash_chain::AnchorError::PreDgw::height: u32
+pub dash_chain::AnchorError::Work
+impl core::clone::Clone for dash_chain::AnchorError
+pub fn dash_chain::AnchorError::clone(&self) -> dash_chain::AnchorError
+impl core::cmp::Eq for dash_chain::AnchorError
+impl core::cmp::PartialEq for dash_chain::AnchorError
+pub fn dash_chain::AnchorError::eq(&self, &dash_chain::AnchorError) -> bool
+impl core::convert::From<dash_chain::AnchorError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::AnchorError) -> Self
+impl core::error::Error for dash_chain::AnchorError
+impl core::fmt::Debug for dash_chain::AnchorError
+pub fn dash_chain::AnchorError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::AnchorError
+pub fn dash_chain::AnchorError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::AnchorError
+#[repr(u8)] pub enum dash_chain::AnchorState
+pub dash_chain::AnchorState::Candidate = 0
+pub dash_chain::AnchorState::Established = 1
+impl core::clone::Clone for dash_chain::AnchorState
+pub fn dash_chain::AnchorState::clone(&self) -> dash_chain::AnchorState
+impl core::cmp::Eq for dash_chain::AnchorState
+impl core::cmp::PartialEq for dash_chain::AnchorState
+pub fn dash_chain::AnchorState::eq(&self, &dash_chain::AnchorState) -> bool
+impl core::fmt::Debug for dash_chain::AnchorState
+pub fn dash_chain::AnchorState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::AnchorState
+pub fn dash_chain::AnchorState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::AnchorState
+impl core::marker::StructuralPartialEq for dash_chain::AnchorState
+pub enum dash_chain::ApplyError<E>
+pub dash_chain::ApplyError::Chain(dash_chain::ChainError)
+pub dash_chain::ApplyError::Host(E)
+impl<E: core::clone::Clone> core::clone::Clone for dash_chain::ApplyError<E>
+pub fn dash_chain::ApplyError<E>::clone(&self) -> dash_chain::ApplyError<E>
+impl<E: core::cmp::Eq> core::cmp::Eq for dash_chain::ApplyError<E>
+impl<E: core::cmp::PartialEq> core::cmp::PartialEq for dash_chain::ApplyError<E>
+pub fn dash_chain::ApplyError<E>::eq(&self, &dash_chain::ApplyError<E>) -> bool
+impl<E: core::cmp::PartialEq> core::marker::StructuralPartialEq for dash_chain::ApplyError<E>
+impl<E: core::fmt::Debug> core::fmt::Debug for dash_chain::ApplyError<E>
+pub fn dash_chain::ApplyError<E>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<E> core::convert::From<dash_chain::ChainError> for dash_chain::ApplyError<E>
+pub fn dash_chain::ApplyError<E>::from(dash_chain::ChainError) -> Self
+impl<E> core::error::Error for dash_chain::ApplyError<E> where Self: core::fmt::Debug + core::fmt::Display
+pub fn dash_chain::ApplyError<E>::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl<E> core::fmt::Display for dash_chain::ApplyError<E> where E: core::fmt::Debug
+pub fn dash_chain::ApplyError<E>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum dash_chain::BlockData
+pub dash_chain::BlockData::BlocksAndUndo
+pub dash_chain::BlockData::None
+impl core::clone::Clone for dash_chain::BlockData
+pub fn dash_chain::BlockData::clone(&self) -> dash_chain::BlockData
+impl core::cmp::Eq for dash_chain::BlockData
+impl core::cmp::PartialEq for dash_chain::BlockData
+pub fn dash_chain::BlockData::eq(&self, &dash_chain::BlockData) -> bool
+impl core::fmt::Debug for dash_chain::BlockData
+pub fn dash_chain::BlockData::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::BlockData
+impl core::marker::StructuralPartialEq for dash_chain::BlockData
+pub enum dash_chain::ChainError
+pub dash_chain::ChainError::Anchor(dash_chain::AnchorError)
+pub dash_chain::ChainError::BelowAnchor
+pub dash_chain::ChainError::Config(dash_chain::ConfigError)
+pub dash_chain::ChainError::ConflictsWithFloor
+pub dash_chain::ChainError::ConflictsWithFloor::floor: dash_consensus::ctx::BlockId
+pub dash_chain::ChainError::ConflictsWithFloor::to: dash_consensus::ctx::BlockId
+pub dash_chain::ChainError::Internal(&'static str)
+pub dash_chain::ChainError::Storage(dash_chain::StoreError)
+pub dash_chain::ChainError::UnknownBlock(dash_consensus::ctx::BlockId)
+impl core::clone::Clone for dash_chain::ChainError
+pub fn dash_chain::ChainError::clone(&self) -> dash_chain::ChainError
+impl core::cmp::Eq for dash_chain::ChainError
+impl core::cmp::PartialEq for dash_chain::ChainError
+pub fn dash_chain::ChainError::eq(&self, &dash_chain::ChainError) -> bool
+impl core::convert::From<dash_chain::AnchorError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::AnchorError) -> Self
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::StoreError) -> Self
+impl core::error::Error for dash_chain::ChainError
+pub fn dash_chain::ChainError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for dash_chain::ChainError
+pub fn dash_chain::ChainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::ChainError
+pub fn dash_chain::ChainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::ChainError
+impl<E> core::convert::From<dash_chain::ChainError> for dash_chain::ApplyError<E>
+pub fn dash_chain::ApplyError<E>::from(dash_chain::ChainError) -> Self
+pub enum dash_chain::ChainMode
+pub dash_chain::ChainMode::Node
+pub dash_chain::ChainMode::Spv
+impl core::clone::Clone for dash_chain::ChainMode
+pub fn dash_chain::ChainMode::clone(&self) -> dash_chain::ChainMode
+impl core::cmp::Eq for dash_chain::ChainMode
+impl core::cmp::PartialEq for dash_chain::ChainMode
+pub fn dash_chain::ChainMode::eq(&self, &dash_chain::ChainMode) -> bool
+impl core::fmt::Debug for dash_chain::ChainMode
+pub fn dash_chain::ChainMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ChainMode
+impl core::marker::StructuralPartialEq for dash_chain::ChainMode
+pub enum dash_chain::ChainTipStatus
+pub dash_chain::ChainTipStatus::Active
+pub dash_chain::ChainTipStatus::Conflicting
+pub dash_chain::ChainTipStatus::HeadersOnly
+pub dash_chain::ChainTipStatus::Invalid
+pub dash_chain::ChainTipStatus::Unknown
+pub dash_chain::ChainTipStatus::ValidFork
+pub dash_chain::ChainTipStatus::ValidHeaders
+impl dash_chain::ChainTipStatus
+pub fn dash_chain::ChainTipStatus::as_str(self) -> &'static str
+impl core::clone::Clone for dash_chain::ChainTipStatus
+pub fn dash_chain::ChainTipStatus::clone(&self) -> dash_chain::ChainTipStatus
+impl core::cmp::Eq for dash_chain::ChainTipStatus
+impl core::cmp::PartialEq for dash_chain::ChainTipStatus
+pub fn dash_chain::ChainTipStatus::eq(&self, &dash_chain::ChainTipStatus) -> bool
+impl core::fmt::Debug for dash_chain::ChainTipStatus
+pub fn dash_chain::ChainTipStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::ChainTipStatus
+pub fn dash_chain::ChainTipStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::ChainTipStatus
+impl core::marker::StructuralPartialEq for dash_chain::ChainTipStatus
+pub enum dash_chain::ClActiveState
+pub dash_chain::ClActiveState::TurnedOff
+pub dash_chain::ClActiveState::TurnedOnReset
+pub dash_chain::ClActiveState::Unchanged
+impl core::clone::Clone for dash_chain::ClActiveState
+pub fn dash_chain::ClActiveState::clone(&self) -> dash_chain::ClActiveState
+impl core::cmp::Eq for dash_chain::ClActiveState
+impl core::cmp::PartialEq for dash_chain::ClActiveState
+pub fn dash_chain::ClActiveState::eq(&self, &dash_chain::ClActiveState) -> bool
+impl core::fmt::Debug for dash_chain::ClActiveState
+pub fn dash_chain::ClActiveState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ClActiveState
+impl core::marker::StructuralPartialEq for dash_chain::ClActiveState
+pub enum dash_chain::ClOutcome
+pub dash_chain::ClOutcome::Floor
+pub dash_chain::ClOutcome::Floor::enforced: core::option::Option<dash_chain::EnforceReport>
+pub dash_chain::ClOutcome::Floor::id: dash_consensus::ctx::BlockId
+pub dash_chain::ClOutcome::HeightMismatch
+pub dash_chain::ClOutcome::Pending
+pub dash_chain::ClOutcome::Stale
+impl core::clone::Clone for dash_chain::ClOutcome
+pub fn dash_chain::ClOutcome::clone(&self) -> dash_chain::ClOutcome
+impl core::cmp::Eq for dash_chain::ClOutcome
+impl core::cmp::PartialEq for dash_chain::ClOutcome
+pub fn dash_chain::ClOutcome::eq(&self, &dash_chain::ClOutcome) -> bool
+impl core::fmt::Debug for dash_chain::ClOutcome
+pub fn dash_chain::ClOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::ClOutcome
+pub enum dash_chain::CodecError
+pub dash_chain::CodecError::Trailing(usize)
+pub dash_chain::CodecError::Truncated
+pub dash_chain::CodecError::VarIntOverflow
+impl core::clone::Clone for dash_chain::CodecError
+pub fn dash_chain::CodecError::clone(&self) -> dash_chain::CodecError
+impl core::cmp::Eq for dash_chain::CodecError
+impl core::cmp::PartialEq for dash_chain::CodecError
+pub fn dash_chain::CodecError::eq(&self, &dash_chain::CodecError) -> bool
+impl core::error::Error for dash_chain::CodecError
+impl core::fmt::Debug for dash_chain::CodecError
+pub fn dash_chain::CodecError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::CodecError
+pub fn dash_chain::CodecError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::CodecError
+pub enum dash_chain::ConfigError
+pub dash_chain::ConfigError::AnchoredNode
+pub dash_chain::ConfigError::AnchoredPermanent
+pub dash_chain::ConfigError::ColdCache
+pub dash_chain::ConfigError::Feeds(dash_chain::FeedConfigError)
+pub dash_chain::ConfigError::NoWindowInSpvMode
+pub dash_chain::ConfigError::Pow(dash_consensus::params::ParamsError)
+pub dash_chain::ConfigError::StepHeaders
+pub dash_chain::ConfigError::StepHeaders::cap: u32
+pub dash_chain::ConfigError::StepHeaders::headers: usize
+pub dash_chain::ConfigError::WindowInNodeMode
+pub dash_chain::ConfigError::WrongMode(&'static str)
+impl core::clone::Clone for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::clone(&self) -> dash_chain::ConfigError
+impl core::cmp::Eq for dash_chain::ConfigError
+impl core::cmp::PartialEq for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::eq(&self, &dash_chain::ConfigError) -> bool
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::LoadError
+pub fn dash_chain::LoadError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::OpenError
+pub fn dash_chain::OpenError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::FeedConfigError> for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::from(dash_chain::FeedConfigError) -> Self
+impl core::error::Error for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::ConfigError
+pub enum dash_chain::Corruption
+pub dash_chain::Corruption::ActiveMismatch
+pub dash_chain::Corruption::ActiveMismatch::height: u32
+pub dash_chain::Corruption::Anchor(u32)
+pub dash_chain::Corruption::CheckIndex(dash_chain::IndexInconsistency)
+pub dash_chain::Corruption::ClFloor(dash_consensus::ctx::BlockId)
+pub dash_chain::Corruption::MissingParent(dash_consensus::ctx::BlockId)
+pub dash_chain::Corruption::MissingRecord(dash_consensus::ctx::BlockId)
+pub dash_chain::Corruption::NextIdNotAbove(dash_consensus::ctx::BlockId)
+pub dash_chain::Corruption::SkipHeight(dash_consensus::ctx::BlockId)
+pub dash_chain::Corruption::Store(alloc::string::String)
+pub dash_chain::Corruption::TipNotLeafPath(dash_consensus::ctx::BlockId)
+impl core::clone::Clone for dash_chain::Corruption
+pub fn dash_chain::Corruption::clone(&self) -> dash_chain::Corruption
+impl core::cmp::Eq for dash_chain::Corruption
+impl core::cmp::PartialEq for dash_chain::Corruption
+pub fn dash_chain::Corruption::eq(&self, &dash_chain::Corruption) -> bool
+impl core::error::Error for dash_chain::Corruption
+impl core::fmt::Debug for dash_chain::Corruption
+pub fn dash_chain::Corruption::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::Corruption
+pub fn dash_chain::Corruption::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::Corruption
+pub enum dash_chain::CoverageMiss
+pub dash_chain::CoverageMiss::LowestUncovered(u32)
+pub dash_chain::CoverageMiss::UnknownBase
+impl core::clone::Clone for dash_chain::CoverageMiss
+pub fn dash_chain::CoverageMiss::clone(&self) -> dash_chain::CoverageMiss
+impl core::cmp::Eq for dash_chain::CoverageMiss
+impl core::cmp::PartialEq for dash_chain::CoverageMiss
+pub fn dash_chain::CoverageMiss::eq(&self, &dash_chain::CoverageMiss) -> bool
+impl core::fmt::Debug for dash_chain::CoverageMiss
+pub fn dash_chain::CoverageMiss::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::CoverageMiss
+impl core::marker::StructuralPartialEq for dash_chain::CoverageMiss
+pub enum dash_chain::Durability
+pub dash_chain::Durability::Buffered
+pub dash_chain::Durability::Durable
+impl core::clone::Clone for dash_chain::Durability
+pub fn dash_chain::Durability::clone(&self) -> dash_chain::Durability
+impl core::cmp::Eq for dash_chain::Durability
+impl core::cmp::PartialEq for dash_chain::Durability
+pub fn dash_chain::Durability::eq(&self, &dash_chain::Durability) -> bool
+impl core::fmt::Debug for dash_chain::Durability
+pub fn dash_chain::Durability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::Durability
+pub fn dash_chain::Durability::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::Durability
+impl core::marker::StructuralPartialEq for dash_chain::Durability
+pub enum dash_chain::FeedConfigError
+pub dash_chain::FeedConfigError::MaxFeeds(u32)
+pub dash_chain::FeedConfigError::Zero(&'static str)
+impl core::clone::Clone for dash_chain::FeedConfigError
+pub fn dash_chain::FeedConfigError::clone(&self) -> dash_chain::FeedConfigError
+impl core::cmp::Eq for dash_chain::FeedConfigError
+impl core::cmp::PartialEq for dash_chain::FeedConfigError
+pub fn dash_chain::FeedConfigError::eq(&self, &dash_chain::FeedConfigError) -> bool
+impl core::convert::From<dash_chain::FeedConfigError> for dash_chain::ConfigError
+pub fn dash_chain::ConfigError::from(dash_chain::FeedConfigError) -> Self
+impl core::error::Error for dash_chain::FeedConfigError
+impl core::fmt::Debug for dash_chain::FeedConfigError
+pub fn dash_chain::FeedConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::FeedConfigError
+pub fn dash_chain::FeedConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::FeedConfigError
+impl core::marker::StructuralPartialEq for dash_chain::FeedConfigError
+pub enum dash_chain::FloorRelation
+pub dash_chain::FloorRelation::Descends
+pub dash_chain::FloorRelation::NoFloor
+pub dash_chain::FloorRelation::Trails
+pub dash_chain::FloorRelation::Unenforced
+impl core::clone::Clone for dash_chain::FloorRelation
+pub fn dash_chain::FloorRelation::clone(&self) -> dash_chain::FloorRelation
+impl core::cmp::Eq for dash_chain::FloorRelation
+impl core::cmp::PartialEq for dash_chain::FloorRelation
+pub fn dash_chain::FloorRelation::eq(&self, &dash_chain::FloorRelation) -> bool
+impl core::fmt::Debug for dash_chain::FloorRelation
+pub fn dash_chain::FloorRelation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::FloorRelation
+impl core::marker::StructuralPartialEq for dash_chain::FloorRelation
+pub enum dash_chain::Handoff
+pub dash_chain::Handoff::Live
+pub dash_chain::Handoff::Live::feed: alloc::boxed::Box<dyn dash_chain::SubscriberFeed>
+pub dash_chain::Handoff::Live::seq_synced: u64
+pub dash_chain::Handoff::Moved
+pub enum dash_chain::HeaderStop
+pub dash_chain::HeaderStop::BelowAnchor
+pub dash_chain::HeaderStop::BelowAnchor::index: usize
+pub dash_chain::HeaderStop::Invalid
+pub dash_chain::HeaderStop::Invalid::index: usize
+pub dash_chain::HeaderStop::Invalid::reject: dash_chain::HeaderReject
+impl core::clone::Clone for dash_chain::HeaderStop
+pub fn dash_chain::HeaderStop::clone(&self) -> dash_chain::HeaderStop
+impl core::cmp::Eq for dash_chain::HeaderStop
+impl core::cmp::PartialEq for dash_chain::HeaderStop
+pub fn dash_chain::HeaderStop::eq(&self, &dash_chain::HeaderStop) -> bool
+impl core::fmt::Debug for dash_chain::HeaderStop
+pub fn dash_chain::HeaderStop::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::HeaderStop
+pub enum dash_chain::LoadError
+pub dash_chain::LoadError::Config(dash_chain::ConfigError)
+pub dash_chain::LoadError::Decode
+pub dash_chain::LoadError::Decode::err: dash_chain::CodecError
+pub dash_chain::LoadError::Decode::hash: dash_primitives::block::BlockHash
+pub dash_chain::LoadError::Empty
+pub dash_chain::LoadError::GenesisMismatch
+pub dash_chain::LoadError::HeightMismatch
+pub dash_chain::LoadError::HeightMismatch::hash: dash_primitives::block::BlockHash
+pub dash_chain::LoadError::HighHash
+pub dash_chain::LoadError::HighHash::hash: dash_primitives::block::BlockHash
+pub dash_chain::LoadError::Interrupted
+pub dash_chain::LoadError::MissingParent
+pub dash_chain::LoadError::MissingParent::hash: dash_primitives::block::BlockHash
+pub dash_chain::LoadError::MissingParent::prev: dash_primitives::block::BlockHash
+pub dash_chain::LoadError::NonContiguous
+pub dash_chain::LoadError::NonContiguous::missing_height: u32
+pub dash_chain::LoadError::NullHash
+pub dash_chain::LoadError::Read(dash_chain::StoreError)
+impl core::clone::Clone for dash_chain::LoadError
+pub fn dash_chain::LoadError::clone(&self) -> dash_chain::LoadError
+impl core::cmp::Eq for dash_chain::LoadError
+impl core::cmp::PartialEq for dash_chain::LoadError
+pub fn dash_chain::LoadError::eq(&self, &dash_chain::LoadError) -> bool
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::LoadError
+pub fn dash_chain::LoadError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::LoadError
+pub fn dash_chain::LoadError::from(dash_chain::StoreError) -> Self
+impl core::error::Error for dash_chain::LoadError
+pub fn dash_chain::LoadError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for dash_chain::LoadError
+pub fn dash_chain::LoadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::LoadError
+pub fn dash_chain::LoadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::LoadError
+pub enum dash_chain::Next<'a>
+pub dash_chain::Next::Control(dash_chain::ControlMsg)
+pub dash_chain::Next::Empty
+pub dash_chain::Next::Event(&'a dash_chain::ChainEvent)
+impl<'a> core::fmt::Debug for dash_chain::Next<'a>
+pub fn dash_chain::Next<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum dash_chain::Notify
+pub dash_chain::Notify::Task(core::task::wake::Waker)
+pub dash_chain::Notify::Thread(alloc::sync::Arc<dash_chain::Parker>)
+impl dash_chain::Notify
+pub fn dash_chain::Notify::notify(&self)
+impl core::clone::Clone for dash_chain::Notify
+pub fn dash_chain::Notify::clone(&self) -> dash_chain::Notify
+impl core::convert::From<alloc::sync::Arc<dash_chain::Parker>> for dash_chain::Notify
+pub fn dash_chain::Notify::from(alloc::sync::Arc<dash_chain::Parker>) -> dash_chain::Notify
+impl core::fmt::Debug for dash_chain::Notify
+pub fn dash_chain::Notify::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum dash_chain::OpenError
+pub dash_chain::OpenError::Config(dash_chain::ConfigError)
+pub dash_chain::OpenError::Corrupt(dash_chain::Corruption)
+pub dash_chain::OpenError::Empty
+pub dash_chain::OpenError::Internal(dash_chain::ChainError)
+pub dash_chain::OpenError::Schema(u32, u32)
+pub dash_chain::OpenError::Storage(dash_chain::StoreError)
+impl core::convert::From<dash_chain::ConfigError> for dash_chain::OpenError
+pub fn dash_chain::OpenError::from(dash_chain::ConfigError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::OpenError
+pub fn dash_chain::OpenError::from(dash_chain::StoreError) -> Self
+impl core::error::Error for dash_chain::OpenError
+pub fn dash_chain::OpenError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for dash_chain::OpenError
+pub fn dash_chain::OpenError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::OpenError
+pub fn dash_chain::OpenError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum dash_chain::Publish
+pub dash_chain::Publish::Blocked
+pub dash_chain::Publish::Done
+impl core::clone::Clone for dash_chain::Publish
+pub fn dash_chain::Publish::clone(&self) -> dash_chain::Publish
+impl core::cmp::Eq for dash_chain::Publish
+impl core::cmp::PartialEq for dash_chain::Publish
+pub fn dash_chain::Publish::eq(&self, &dash_chain::Publish) -> bool
+impl core::fmt::Debug for dash_chain::Publish
+pub fn dash_chain::Publish::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::Publish
+impl core::marker::StructuralPartialEq for dash_chain::Publish
+pub enum dash_chain::RecordKind
+pub dash_chain::RecordKind::Accepted
+pub dash_chain::RecordKind::Context
+impl core::clone::Clone for dash_chain::RecordKind
+pub fn dash_chain::RecordKind::clone(&self) -> dash_chain::RecordKind
+impl core::cmp::Eq for dash_chain::RecordKind
+impl core::cmp::PartialEq for dash_chain::RecordKind
+pub fn dash_chain::RecordKind::eq(&self, &dash_chain::RecordKind) -> bool
+impl core::fmt::Debug for dash_chain::RecordKind
+pub fn dash_chain::RecordKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::RecordKind
+pub fn dash_chain::RecordKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::RecordKind
+impl core::marker::StructuralPartialEq for dash_chain::RecordKind
+pub enum dash_chain::Refused
+pub dash_chain::Refused::HoldActive
+pub dash_chain::Refused::Latched
+pub dash_chain::Refused::NoBlockData
+pub dash_chain::Refused::NoUndo
+pub dash_chain::Refused::TableFull
+pub dash_chain::Refused::WouldDeadlock
+impl core::clone::Clone for dash_chain::Refused
+pub fn dash_chain::Refused::clone(&self) -> dash_chain::Refused
+impl core::cmp::Eq for dash_chain::Refused
+impl core::cmp::PartialEq for dash_chain::Refused
+pub fn dash_chain::Refused::eq(&self, &dash_chain::Refused) -> bool
+impl core::error::Error for dash_chain::Refused
+impl core::fmt::Debug for dash_chain::Refused
+pub fn dash_chain::Refused::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::Refused
+pub fn dash_chain::Refused::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::Refused
+impl core::marker::StructuralPartialEq for dash_chain::Refused
+pub enum dash_chain::RowError
+pub dash_chain::RowError::Header
+pub dash_chain::RowError::Kind(u8)
+impl core::clone::Clone for dash_chain::RowError
+pub fn dash_chain::RowError::clone(&self) -> dash_chain::RowError
+impl core::cmp::Eq for dash_chain::RowError
+impl core::cmp::PartialEq for dash_chain::RowError
+pub fn dash_chain::RowError::eq(&self, &dash_chain::RowError) -> bool
+impl core::error::Error for dash_chain::RowError
+impl core::fmt::Debug for dash_chain::RowError
+pub fn dash_chain::RowError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::RowError
+pub fn dash_chain::RowError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::RowError
+impl core::marker::StructuralPartialEq for dash_chain::RowError
+pub enum dash_chain::SendControl
+pub dash_chain::SendControl::Coalesced
+pub dash_chain::SendControl::Queued
+pub dash_chain::SendControl::Stale
+impl core::clone::Clone for dash_chain::SendControl
+pub fn dash_chain::SendControl::clone(&self) -> dash_chain::SendControl
+impl core::cmp::Eq for dash_chain::SendControl
+impl core::cmp::PartialEq for dash_chain::SendControl
+pub fn dash_chain::SendControl::eq(&self, &dash_chain::SendControl) -> bool
+impl core::fmt::Debug for dash_chain::SendControl
+pub fn dash_chain::SendControl::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::SendControl
+impl core::marker::StructuralPartialEq for dash_chain::SendControl
+pub enum dash_chain::StatusEvent
+pub dash_chain::StatusEvent::ChainLocked
+pub dash_chain::StatusEvent::ChainLocked::block: dash_chain::BlockRef
+pub dash_chain::StatusEvent::ChainLocked::lock: dash_chain::ChainLockRef
+pub dash_chain::StatusEvent::HeaderAccepted
+pub dash_chain::StatusEvent::HeaderAccepted::best_header: dash_chain::BlockRef
+pub dash_chain::StatusEvent::HeaderAccepted::time: u32
+impl core::clone::Clone for dash_chain::StatusEvent
+pub fn dash_chain::StatusEvent::clone(&self) -> dash_chain::StatusEvent
+impl core::cmp::Eq for dash_chain::StatusEvent
+impl core::cmp::PartialEq for dash_chain::StatusEvent
+pub fn dash_chain::StatusEvent::eq(&self, &dash_chain::StatusEvent) -> bool
+impl core::fmt::Debug for dash_chain::StatusEvent
+pub fn dash_chain::StatusEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::StatusEvent
+pub enum dash_chain::StepRow
+pub dash_chain::StepRow::LeafAdd(dash_consensus::ctx::BlockId)
+pub dash_chain::StepRow::LeafRemove(dash_consensus::ctx::BlockId)
+pub dash_chain::StepRow::Record(dash_chain::HeaderRecord)
+pub dash_chain::StepRow::Status(dash_consensus::ctx::BlockId, dash_chain::Status)
+impl core::clone::Clone for dash_chain::StepRow
+pub fn dash_chain::StepRow::clone(&self) -> dash_chain::StepRow
+impl core::cmp::Eq for dash_chain::StepRow
+impl core::cmp::PartialEq for dash_chain::StepRow
+pub fn dash_chain::StepRow::eq(&self, &dash_chain::StepRow) -> bool
+impl core::fmt::Debug for dash_chain::StepRow
+pub fn dash_chain::StepRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::StepRow
+#[non_exhaustive] pub enum dash_chain::StoreError
+pub dash_chain::StoreError::Corrupt(alloc::string::String)
+pub dash_chain::StoreError::Io(alloc::string::String)
+impl dash_chain::StoreError
+pub const fn dash_chain::StoreError::is_corrupt(&self) -> bool
+pub fn dash_chain::StoreError::what(&self) -> &str
+impl core::clone::Clone for dash_chain::StoreError
+pub fn dash_chain::StoreError::clone(&self) -> dash_chain::StoreError
+impl core::cmp::Eq for dash_chain::StoreError
+impl core::cmp::PartialEq for dash_chain::StoreError
+pub fn dash_chain::StoreError::eq(&self, &dash_chain::StoreError) -> bool
+impl core::convert::From<dash_chain::StoreError> for dash_chain::AncestryError
+pub fn dash_chain::AncestryError::from(dash_chain::StoreError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::ChainError
+pub fn dash_chain::ChainError::from(dash_chain::StoreError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::LoadError
+pub fn dash_chain::LoadError::from(dash_chain::StoreError) -> Self
+impl core::convert::From<dash_chain::StoreError> for dash_chain::OpenError
+pub fn dash_chain::OpenError::from(dash_chain::StoreError) -> Self
+impl core::error::Error for dash_chain::StoreError
+impl core::fmt::Debug for dash_chain::StoreError
+pub fn dash_chain::StoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::StoreError
+pub fn dash_chain::StoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::StoreError
+pub enum dash_chain::SubscribeError<E>
+pub dash_chain::SubscribeError::AlreadyLive
+pub dash_chain::SubscribeError::Closing
+pub dash_chain::SubscribeError::Finish(E)
+pub dash_chain::SubscribeError::HoldActive
+pub dash_chain::SubscribeError::Latched
+pub dash_chain::SubscribeError::Stale
+pub dash_chain::SubscribeError::WouldDeadlock
+impl<E: core::cmp::Eq> core::cmp::Eq for dash_chain::SubscribeError<E>
+impl<E: core::cmp::PartialEq> core::cmp::PartialEq for dash_chain::SubscribeError<E>
+pub fn dash_chain::SubscribeError<E>::eq(&self, &dash_chain::SubscribeError<E>) -> bool
+impl<E: core::cmp::PartialEq> core::marker::StructuralPartialEq for dash_chain::SubscribeError<E>
+impl<E: core::fmt::Debug> core::fmt::Debug for dash_chain::SubscribeError<E>
+pub fn dash_chain::SubscribeError<E>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum dash_chain::TipStep
+pub dash_chain::TipStep::Connected
+pub dash_chain::TipStep::Connected::block: dash_chain::BlockRef
+pub dash_chain::TipStep::Connected::seq: u64
+pub dash_chain::TipStep::Disconnected
+pub dash_chain::TipStep::Disconnected::block: dash_chain::BlockRef
+pub dash_chain::TipStep::Disconnected::seq: u64
+impl dash_chain::TipStep
+pub fn dash_chain::TipStep::block(&self) -> dash_chain::BlockRef
+pub fn dash_chain::TipStep::seq(&self) -> u64
+impl core::clone::Clone for dash_chain::TipStep
+pub fn dash_chain::TipStep::clone(&self) -> dash_chain::TipStep
+impl core::cmp::Eq for dash_chain::TipStep
+impl core::cmp::PartialEq for dash_chain::TipStep
+pub fn dash_chain::TipStep::eq(&self, &dash_chain::TipStep) -> bool
+impl core::fmt::Debug for dash_chain::TipStep
+pub fn dash_chain::TipStep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::TipStep
+impl core::marker::StructuralPartialEq for dash_chain::TipStep
+pub struct dash_chain::ActiveChainView
+impl dash_chain::ActiveChainView
+pub fn dash_chain::ActiveChainView::at(&self, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ActiveChainView::base(&self) -> u32
+pub fn dash_chain::ActiveChainView::contains(&self, dash_consensus::ctx::BlockId, &dyn dash_chain::IndexAccess) -> bool
+pub fn dash_chain::ActiveChainView::find_fork(&self, dash_consensus::ctx::BlockId, &dyn dash_chain::IndexAccess) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ActiveChainView::fork_in_global_index(&self, &[dash_primitives::block::BlockHash], &dyn dash_chain::IndexAccess) -> dash_consensus::ctx::BlockId
+pub fn dash_chain::ActiveChainView::height(&self) -> u32
+pub fn dash_chain::ActiveChainView::next(&self, dash_consensus::ctx::BlockId, &dyn dash_chain::IndexAccess) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ActiveChainView::tip(&self) -> dash_consensus::ctx::BlockId
+pub fn dash_chain::ActiveChainView::try_fork_in_global_index(&self, &[dash_primitives::block::BlockHash], &dash_chain::ChainReader) -> core::result::Result<dash_consensus::ctx::BlockId, dash_chain::ChainError>
+impl core::clone::Clone for dash_chain::ActiveChainView
+pub fn dash_chain::ActiveChainView::clone(&self) -> dash_chain::ActiveChainView
+impl core::fmt::Debug for dash_chain::ActiveChainView
+pub fn dash_chain::ActiveChainView::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::ActiveDiff
+pub dash_chain::ActiveDiff::from_height: u32
+pub dash_chain::ActiveDiff::new_height: u32
+pub dash_chain::ActiveDiff::new_tip: dash_consensus::ctx::BlockId
+pub dash_chain::ActiveDiff::old_height: u32
+impl core::clone::Clone for dash_chain::ActiveDiff
+pub fn dash_chain::ActiveDiff::clone(&self) -> dash_chain::ActiveDiff
+impl core::cmp::Eq for dash_chain::ActiveDiff
+impl core::cmp::PartialEq for dash_chain::ActiveDiff
+pub fn dash_chain::ActiveDiff::eq(&self, &dash_chain::ActiveDiff) -> bool
+impl core::fmt::Debug for dash_chain::ActiveDiff
+pub fn dash_chain::ActiveDiff::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ActiveDiff
+impl core::marker::StructuralPartialEq for dash_chain::ActiveDiff
+pub struct dash_chain::AnchorPack
+pub dash_chain::AnchorPack::chain_work: dash_chain::Work
+pub dash_chain::AnchorPack::hash: dash_primitives::block::BlockHash
+pub dash_chain::AnchorPack::headers: [dash_primitives::block::BlockHeader; 25]
+pub dash_chain::AnchorPack::height: u32
+impl core::clone::Clone for dash_chain::AnchorPack
+pub fn dash_chain::AnchorPack::clone(&self) -> dash_chain::AnchorPack
+impl core::cmp::Eq for dash_chain::AnchorPack
+impl core::cmp::PartialEq for dash_chain::AnchorPack
+pub fn dash_chain::AnchorPack::eq(&self, &dash_chain::AnchorPack) -> bool
+impl core::fmt::Debug for dash_chain::AnchorPack
+pub fn dash_chain::AnchorPack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::AnchorPack
+pub struct dash_chain::BlockIndexRecord
+pub dash_chain::BlockIndexRecord::data_pos: core::option::Option<u32>
+pub dash_chain::BlockIndexRecord::file: core::option::Option<i32>
+pub dash_chain::BlockIndexRecord::header: dash_primitives::block::BlockHeader
+pub dash_chain::BlockIndexRecord::height: u32
+pub dash_chain::BlockIndexRecord::n_tx: u32
+pub dash_chain::BlockIndexRecord::status: dash_chain::Status
+pub dash_chain::BlockIndexRecord::undo_pos: core::option::Option<u32>
+impl dash_chain::BlockIndexRecord
+pub fn dash_chain::BlockIndexRecord::decode(&[u8]) -> core::result::Result<dash_chain::BlockIndexRecord, dash_chain::CodecError>
+pub fn dash_chain::BlockIndexRecord::encode(&self, &mut alloc::vec::Vec<u8>)
+pub fn dash_chain::BlockIndexRecord::to_bytes(&self) -> alloc::vec::Vec<u8>
+impl core::clone::Clone for dash_chain::BlockIndexRecord
+pub fn dash_chain::BlockIndexRecord::clone(&self) -> dash_chain::BlockIndexRecord
+impl core::cmp::Eq for dash_chain::BlockIndexRecord
+impl core::cmp::PartialEq for dash_chain::BlockIndexRecord
+pub fn dash_chain::BlockIndexRecord::eq(&self, &dash_chain::BlockIndexRecord) -> bool
+impl core::fmt::Debug for dash_chain::BlockIndexRecord
+pub fn dash_chain::BlockIndexRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::BlockIndexRecord
+pub struct dash_chain::BlockRef
+pub dash_chain::BlockRef::hash: dash_primitives::block::BlockHash
+pub dash_chain::BlockRef::height: u32
+pub dash_chain::BlockRef::id: dash_consensus::ctx::BlockId
+impl core::clone::Clone for dash_chain::BlockRef
+pub fn dash_chain::BlockRef::clone(&self) -> dash_chain::BlockRef
+impl core::cmp::Eq for dash_chain::BlockRef
+impl core::cmp::PartialEq for dash_chain::BlockRef
+pub fn dash_chain::BlockRef::eq(&self, &dash_chain::BlockRef) -> bool
+impl core::fmt::Debug for dash_chain::BlockRef
+pub fn dash_chain::BlockRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::BlockRef
+pub fn dash_chain::BlockRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::BlockRef
+impl core::marker::StructuralPartialEq for dash_chain::BlockRef
+pub struct dash_chain::ChainConfig
+pub dash_chain::ChainConfig::checkpoints_enabled: bool
+pub dash_chain::ChainConfig::cold_cache: u32
+pub dash_chain::ChainConfig::consistency_checks: bool
+pub dash_chain::ChainConfig::feeds: dash_chain::FeedConfig
+pub dash_chain::ChainConfig::max_tip_age: core::time::Duration
+pub dash_chain::ChainConfig::min_chain_work: core::option::Option<dash_chain::Work>
+pub dash_chain::ChainConfig::mode: dash_chain::ChainMode
+pub dash_chain::ChainConfig::window: core::option::Option<u32>
+impl dash_chain::ChainConfig
+pub fn dash_chain::ChainConfig::node(&dash_params::types::ChainParams) -> dash_chain::ChainConfig
+pub fn dash_chain::ChainConfig::spv(&dash_params::types::ChainParams, u32) -> dash_chain::ChainConfig
+impl core::clone::Clone for dash_chain::ChainConfig
+pub fn dash_chain::ChainConfig::clone(&self) -> dash_chain::ChainConfig
+impl core::fmt::Debug for dash_chain::ChainConfig
+pub fn dash_chain::ChainConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::ChainFeeds
+impl dash_chain::ChainFeeds
+pub fn dash_chain::ChainFeeds::control_outstanding(&self, dash_chain::FeedId) -> u8
+pub fn dash_chain::ChainFeeds::deregister(&self, dash_chain::FeedId)
+pub fn dash_chain::ChainFeeds::is_closing(&self, dash_chain::FeedId) -> bool
+pub fn dash_chain::ChainFeeds::on_release(&self, dash_chain::Notify)
+pub fn dash_chain::ChainFeeds::register(&self, dash_chain::Needs) -> core::result::Result<dash_chain::FeedId, dash_chain::Refused>
+pub fn dash_chain::ChainFeeds::registry(&self) -> alloc::sync::Arc<dash_chain::Registry>
+pub fn dash_chain::ChainFeeds::send_control(&self, dash_chain::FeedId, dash_chain::ControlMsg) -> dash_chain::SendControl
+pub fn dash_chain::ChainFeeds::set_close_hook(&self, dash_chain::Notify)
+impl dash_chain::ChainFeeds
+pub fn dash_chain::ChainFeeds::feed_snapshot(&self) -> dash_chain::FeedSnapshot
+impl core::clone::Clone for dash_chain::ChainFeeds
+pub fn dash_chain::ChainFeeds::clone(&self) -> dash_chain::ChainFeeds
+impl<E> dash_chain::FeedSource<E> for dash_chain::ChainFeeds
+pub fn dash_chain::ChainFeeds::snapshot(&self) -> alloc::boxed::Box<(dyn dash_chain::ChainSnapshot + '_)>
+pub fn dash_chain::ChainFeeds::subscribe_at(&self, dash_chain::FeedId, &dash_chain::BlockRef, &mut dyn core::ops::function::FnMut() -> core::result::Result<(), E>) -> core::result::Result<dash_chain::Handoff, dash_chain::SubscribeError<E>>
+pub struct dash_chain::ChainLockRef
+pub dash_chain::ChainLockRef::hash: dash_primitives::block::BlockHash
+pub dash_chain::ChainLockRef::height: u32
+impl core::clone::Clone for dash_chain::ChainLockRef
+pub fn dash_chain::ChainLockRef::clone(&self) -> dash_chain::ChainLockRef
+impl core::cmp::Eq for dash_chain::ChainLockRef
+impl core::cmp::PartialEq for dash_chain::ChainLockRef
+pub fn dash_chain::ChainLockRef::eq(&self, &dash_chain::ChainLockRef) -> bool
+impl core::fmt::Debug for dash_chain::ChainLockRef
+pub fn dash_chain::ChainLockRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::ChainLockRef
+pub fn dash_chain::ChainLockRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::ChainLockRef
+impl core::marker::StructuralPartialEq for dash_chain::ChainLockRef
+pub struct dash_chain::ChainMeta
+pub dash_chain::ChainMeta::anchor: (dash_primitives::block::BlockHash, u32)
+pub dash_chain::ChainMeta::anchor_state: dash_chain::AnchorState
+pub dash_chain::ChainMeta::best_header: dash_consensus::ctx::BlockId
+pub dash_chain::ChainMeta::cl: dash_chain::ClPersisted
+pub dash_chain::ChainMeta::next_id: dash_consensus::ctx::BlockId
+pub dash_chain::ChainMeta::schema: u32
+pub dash_chain::ChainMeta::sync_seq: u64
+pub dash_chain::ChainMeta::tip: dash_consensus::ctx::BlockId
+impl core::clone::Clone for dash_chain::ChainMeta
+pub fn dash_chain::ChainMeta::clone(&self) -> dash_chain::ChainMeta
+impl core::cmp::Eq for dash_chain::ChainMeta
+impl core::cmp::PartialEq for dash_chain::ChainMeta
+pub fn dash_chain::ChainMeta::eq(&self, &dash_chain::ChainMeta) -> bool
+impl core::fmt::Debug for dash_chain::ChainMeta
+pub fn dash_chain::ChainMeta::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ChainMeta
+impl core::marker::StructuralPartialEq for dash_chain::ChainMeta
+pub struct dash_chain::ChainReadSnapshot
+pub dash_chain::ChainReadSnapshot::active: dash_chain::ActiveChainView
+pub dash_chain::ChainReadSnapshot::bls: dash_pkc::bls::scheme_ctx::BlsCtx
+pub dash_chain::ChainReadSnapshot::cl_enabled_observed: bool
+pub dash_chain::ChainReadSnapshot::cl_floor: core::option::Option<dash_chain::BlockRef>
+pub dash_chain::ChainReadSnapshot::epoch: u64
+pub dash_chain::ChainReadSnapshot::tip: dash_chain::TipFacts
+pub dash_chain::ChainReadSnapshot::tip_seq: u64
+impl dash_chain::ChainReadSnapshot
+pub fn dash_chain::ChainReadSnapshot::has_tip(&self) -> bool
+impl core::clone::Clone for dash_chain::ChainReadSnapshot
+pub fn dash_chain::ChainReadSnapshot::clone(&self) -> dash_chain::ChainReadSnapshot
+impl core::fmt::Debug for dash_chain::ChainReadSnapshot
+pub fn dash_chain::ChainReadSnapshot::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::ChainReader
+impl dash_chain::ChainReader
+pub fn dash_chain::ChainReader::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::entry(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::EntryView>
+pub fn dash_chain::ChainReader::is_initial_block_download(&self, &dash_chain::ChainReadSnapshot, impl core::convert::Into<dash_clock::NodeTime>, bool) -> bool
+pub fn dash_chain::ChainReader::journal_retention(&self) -> dash_chain::JournalRetention
+pub fn dash_chain::ChainReader::locator(&self, core::option::Option<dash_consensus::ctx::BlockId>) -> alloc::vec::Vec<dash_primitives::block::BlockHash>
+pub fn dash_chain::ChainReader::lookup(&self, &dash_primitives::block::BlockHash) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::min_chain_work(&self) -> dash_chain::Work
+pub fn dash_chain::ChainReader::snapshot(&self) -> alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+pub fn dash_chain::ChainReader::status_at(&self, &dash_chain::ChainReadSnapshot, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_chain::Status>, dash_chain::SnapshotExpired>
+pub fn dash_chain::ChainReader::try_ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::ChainError>
+pub fn dash_chain::ChainReader::try_entry(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_chain::EntryView>, dash_chain::ChainError>
+pub fn dash_chain::ChainReader::try_lca(&self, dash_consensus::ctx::BlockId, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::ChainError>
+pub fn dash_chain::ChainReader::try_locator(&self, core::option::Option<dash_consensus::ctx::BlockId>) -> core::result::Result<alloc::vec::Vec<dash_primitives::block::BlockHash>, dash_chain::ChainError>
+pub fn dash_chain::ChainReader::try_lookup(&self, &dash_primitives::block::BlockHash) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::ChainError>
+impl core::clone::Clone for dash_chain::ChainReader
+pub fn dash_chain::ChainReader::clone(&self) -> dash_chain::ChainReader
+impl dash_chain::IndexAccess for dash_chain::ChainReader
+pub fn dash_chain::ChainReader::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::hash(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_primitives::block::BlockHash>
+pub fn dash_chain::ChainReader::have_data_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+pub fn dash_chain::ChainReader::height(&self, dash_consensus::ctx::BlockId) -> core::option::Option<u32>
+pub fn dash_chain::ChainReader::lca(&self, dash_consensus::ctx::BlockId, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::lookup(&self, &dash_primitives::block::BlockHash) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::status(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::Status>
+pub fn dash_chain::ChainReader::undo_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+pub struct dash_chain::ChainTip
+pub dash_chain::ChainTip::branchlen: u32
+pub dash_chain::ChainTip::chain_work: dash_chain::Work
+pub dash_chain::ChainTip::fork_point: dash_consensus::ctx::BlockId
+pub dash_chain::ChainTip::hash: dash_primitives::block::BlockHash
+pub dash_chain::ChainTip::height: u32
+pub dash_chain::ChainTip::id: dash_consensus::ctx::BlockId
+pub dash_chain::ChainTip::status: dash_chain::ChainTipStatus
+impl core::clone::Clone for dash_chain::ChainTip
+pub fn dash_chain::ChainTip::clone(&self) -> dash_chain::ChainTip
+impl core::cmp::Eq for dash_chain::ChainTip
+impl core::cmp::PartialEq for dash_chain::ChainTip
+pub fn dash_chain::ChainTip::eq(&self, &dash_chain::ChainTip) -> bool
+impl core::fmt::Debug for dash_chain::ChainTip
+pub fn dash_chain::ChainTip::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ChainTip
+impl core::marker::StructuralPartialEq for dash_chain::ChainTip
+pub struct dash_chain::ClPersisted
+pub dash_chain::ClPersisted::best: core::option::Option<dash_chain::ChainLockRef>
+pub dash_chain::ClPersisted::enabled_observed: bool
+pub dash_chain::ClPersisted::floor: core::option::Option<dash_consensus::ctx::BlockId>
+impl core::clone::Clone for dash_chain::ClPersisted
+pub fn dash_chain::ClPersisted::clone(&self) -> dash_chain::ClPersisted
+impl core::cmp::Eq for dash_chain::ClPersisted
+impl core::cmp::PartialEq for dash_chain::ClPersisted
+pub fn dash_chain::ClPersisted::eq(&self, &dash_chain::ClPersisted) -> bool
+impl core::fmt::Debug for dash_chain::ClPersisted
+pub fn dash_chain::ClPersisted::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ClPersisted
+impl core::marker::StructuralPartialEq for dash_chain::ClPersisted
+pub struct dash_chain::CompleteAncestry<S: dash_chain::HeaderStore, R: dash_chain::Residency>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> core::clone::Clone for dash_chain::CompleteAncestry<S, R>
+pub fn dash_chain::CompleteAncestry<S, R>::clone(&self) -> Self
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_consensus::ctx::ChainAncestry for dash_chain::CompleteAncestry<S, R>
+pub fn dash_chain::CompleteAncestry<S, R>::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::CompleteAncestry<S, R>::header(&self, dash_consensus::ctx::BlockId) -> dash_consensus::ctx::HeaderCtx
+pub fn dash_chain::CompleteAncestry<S, R>::prev(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub struct dash_chain::ControlKind(_)
+impl dash_chain::ControlKind
+pub const fn dash_chain::ControlKind::get(self) -> u8
+pub const fn dash_chain::ControlKind::new(u8) -> dash_chain::ControlKind
+impl core::clone::Clone for dash_chain::ControlKind
+pub fn dash_chain::ControlKind::clone(&self) -> dash_chain::ControlKind
+impl core::cmp::Eq for dash_chain::ControlKind
+impl core::cmp::PartialEq for dash_chain::ControlKind
+pub fn dash_chain::ControlKind::eq(&self, &dash_chain::ControlKind) -> bool
+impl core::default::Default for dash_chain::ControlKind
+pub fn dash_chain::ControlKind::default() -> dash_chain::ControlKind
+impl core::fmt::Debug for dash_chain::ControlKind
+pub fn dash_chain::ControlKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::ControlKind
+pub fn dash_chain::ControlKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::ControlKind
+impl core::marker::StructuralPartialEq for dash_chain::ControlKind
+pub struct dash_chain::ControlMsg
+impl dash_chain::ControlMsg
+pub fn dash_chain::ControlMsg::downcast<T: core::any::Any>(self) -> core::result::Result<T, dash_chain::ControlMsg>
+pub fn dash_chain::ControlMsg::kind(&self) -> dash_chain::ControlKind
+pub fn dash_chain::ControlMsg::new<T: core::any::Any + core::marker::Send + core::marker::Copy>(dash_chain::ControlKind, T) -> dash_chain::ControlMsg
+impl core::fmt::Debug for dash_chain::ControlMsg
+pub fn dash_chain::ControlMsg::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::EnforceReport
+pub dash_chain::EnforceReport::disconnected: alloc::vec::Vec<dash_consensus::ctx::BlockId>
+pub dash_chain::EnforceReport::floor: dash_consensus::ctx::BlockId
+pub dash_chain::EnforceReport::marked: alloc::vec::Vec<dash_consensus::ctx::BlockId>
+pub dash_chain::EnforceReport::reset: core::option::Option<dash_chain::ResetReport>
+impl core::clone::Clone for dash_chain::EnforceReport
+pub fn dash_chain::EnforceReport::clone(&self) -> dash_chain::EnforceReport
+impl core::cmp::Eq for dash_chain::EnforceReport
+impl core::cmp::PartialEq for dash_chain::EnforceReport
+pub fn dash_chain::EnforceReport::eq(&self, &dash_chain::EnforceReport) -> bool
+impl core::fmt::Debug for dash_chain::EnforceReport
+pub fn dash_chain::EnforceReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::EnforceReport
+pub struct dash_chain::EntryView
+pub dash_chain::EntryView::chain_work: dash_chain::Work
+pub dash_chain::EntryView::data_pos: u32
+pub dash_chain::EntryView::file: core::option::Option<i32>
+pub dash_chain::EntryView::hash: dash_primitives::block::BlockHash
+pub dash_chain::EntryView::header: dash_primitives::block::BlockHeader
+pub dash_chain::EntryView::height: u32
+pub dash_chain::EntryView::id: dash_consensus::ctx::BlockId
+pub dash_chain::EntryView::mtp: i64
+pub dash_chain::EntryView::n_tx: u32
+pub dash_chain::EntryView::prev: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::EntryView::status: dash_chain::Status
+pub dash_chain::EntryView::time_max: u32
+pub dash_chain::EntryView::undo_pos: u32
+impl core::clone::Clone for dash_chain::EntryView
+pub fn dash_chain::EntryView::clone(&self) -> dash_chain::EntryView
+impl core::cmp::Eq for dash_chain::EntryView
+impl core::cmp::PartialEq for dash_chain::EntryView
+pub fn dash_chain::EntryView::eq(&self, &dash_chain::EntryView) -> bool
+impl core::fmt::Debug for dash_chain::EntryView
+pub fn dash_chain::EntryView::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::EntryView
+impl core::marker::StructuralPartialEq for dash_chain::EntryView
+pub struct dash_chain::Evicting
+impl core::clone::Clone for dash_chain::Evicting
+pub fn dash_chain::Evicting::clone(&self) -> dash_chain::Evicting
+impl core::default::Default for dash_chain::Evicting
+pub fn dash_chain::Evicting::default() -> dash_chain::Evicting
+impl core::fmt::Debug for dash_chain::Evicting
+pub fn dash_chain::Evicting::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::Evicting
+impl dash_chain::Residency for dash_chain::Evicting
+pub const dash_chain::Evicting::EVICTS: bool
+pub struct dash_chain::FailedBlocks(_)
+impl dash_chain::FailedBlocks
+pub fn dash_chain::FailedBlocks::clear(&mut self)
+pub fn dash_chain::FailedBlocks::contains(&self, dash_consensus::ctx::BlockId) -> bool
+pub fn dash_chain::FailedBlocks::insert(&mut self, dash_consensus::ctx::BlockId) -> bool
+pub fn dash_chain::FailedBlocks::is_empty(&self) -> bool
+pub fn dash_chain::FailedBlocks::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = dash_consensus::ctx::BlockId> + '_
+pub fn dash_chain::FailedBlocks::len(&self) -> usize
+pub fn dash_chain::FailedBlocks::remove(&mut self, dash_consensus::ctx::BlockId) -> bool
+impl core::clone::Clone for dash_chain::FailedBlocks
+pub fn dash_chain::FailedBlocks::clone(&self) -> dash_chain::FailedBlocks
+impl core::cmp::Eq for dash_chain::FailedBlocks
+impl core::cmp::PartialEq for dash_chain::FailedBlocks
+pub fn dash_chain::FailedBlocks::eq(&self, &dash_chain::FailedBlocks) -> bool
+impl core::default::Default for dash_chain::FailedBlocks
+pub fn dash_chain::FailedBlocks::default() -> dash_chain::FailedBlocks
+impl core::fmt::Debug for dash_chain::FailedBlocks
+pub fn dash_chain::FailedBlocks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::FailedBlocks
+pub struct dash_chain::FeedConfig
+pub dash_chain::FeedConfig::block_data: dash_chain::BlockData
+pub dash_chain::FeedConfig::capacity: u32
+pub dash_chain::FeedConfig::max_feeds: u32
+pub dash_chain::FeedConfig::segment_events: u32
+pub dash_chain::FeedConfig::step_headers: u32
+pub dash_chain::FeedConfig::write_batch: u32
+impl dash_chain::FeedConfig
+pub const fn dash_chain::FeedConfig::feed_cap(&self) -> usize
+pub const fn dash_chain::FeedConfig::node() -> dash_chain::FeedConfig
+pub const fn dash_chain::FeedConfig::spv() -> dash_chain::FeedConfig
+pub const fn dash_chain::FeedConfig::spv_mobile() -> dash_chain::FeedConfig
+pub const fn dash_chain::FeedConfig::validate(&self) -> core::result::Result<(), dash_chain::FeedConfigError>
+impl core::clone::Clone for dash_chain::FeedConfig
+pub fn dash_chain::FeedConfig::clone(&self) -> dash_chain::FeedConfig
+impl core::cmp::Eq for dash_chain::FeedConfig
+impl core::cmp::PartialEq for dash_chain::FeedConfig
+pub fn dash_chain::FeedConfig::eq(&self, &dash_chain::FeedConfig) -> bool
+impl core::fmt::Debug for dash_chain::FeedConfig
+pub fn dash_chain::FeedConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::FeedConfig
+impl core::marker::StructuralPartialEq for dash_chain::FeedConfig
+pub struct dash_chain::FeedId
+impl core::clone::Clone for dash_chain::FeedId
+pub fn dash_chain::FeedId::clone(&self) -> dash_chain::FeedId
+impl core::cmp::Eq for dash_chain::FeedId
+impl core::cmp::PartialEq for dash_chain::FeedId
+pub fn dash_chain::FeedId::eq(&self, &dash_chain::FeedId) -> bool
+impl core::fmt::Debug for dash_chain::FeedId
+pub fn dash_chain::FeedId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::FeedId
+pub fn dash_chain::FeedId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::FeedId
+impl core::marker::StructuralPartialEq for dash_chain::FeedId
+pub struct dash_chain::FeedReader
+impl core::ops::drop::Drop for dash_chain::FeedReader
+pub fn dash_chain::FeedReader::drop(&mut self)
+impl dash_chain::SubscriberFeed for dash_chain::FeedReader
+pub fn dash_chain::FeedReader::is_closed(&self) -> bool
+pub fn dash_chain::FeedReader::next(&mut self) -> dash_chain::Next<'_>
+pub fn dash_chain::FeedReader::pop(&mut self) -> core::option::Option<dash_chain::ChainEvent>
+pub fn dash_chain::FeedReader::remove_round_trip(&mut self, &dash_primitives::block::BlockHash) -> core::option::Option<(u64, u64)>
+pub fn dash_chain::FeedReader::set_waker(&mut self, dash_chain::Notify)
+pub struct dash_chain::FeedSnapshot
+impl dash_chain::FeedSnapshot
+pub fn dash_chain::FeedSnapshot::at_height_checked(&self, u32) -> core::result::Result<core::option::Option<dash_chain::BlockRef>, dash_chain::ChainError>
+pub fn dash_chain::FeedSnapshot::range(&self, u32, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::BlockRef>, dash_chain::ChainError>
+pub fn dash_chain::FeedSnapshot::read(&self) -> &alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+impl dash_chain::ChainSnapshot for dash_chain::FeedSnapshot
+pub fn dash_chain::FeedSnapshot::at_height(&self, u32) -> core::option::Option<dash_chain::BlockRef>
+pub fn dash_chain::FeedSnapshot::tip(&self) -> dash_chain::BlockRef
+pub fn dash_chain::FeedSnapshot::tip_seq(&self) -> u64
+pub struct dash_chain::FirstAncestors
+pub dash_chain::FirstAncestors::conflicting: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::invalid: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::missing: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::never_processed: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::not_chain_valid: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::not_scripts_valid: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::FirstAncestors::not_transactions_valid: core::option::Option<dash_consensus::ctx::BlockId>
+impl core::clone::Clone for dash_chain::FirstAncestors
+pub fn dash_chain::FirstAncestors::clone(&self) -> dash_chain::FirstAncestors
+impl core::cmp::Eq for dash_chain::FirstAncestors
+impl core::cmp::PartialEq for dash_chain::FirstAncestors
+pub fn dash_chain::FirstAncestors::eq(&self, &dash_chain::FirstAncestors) -> bool
+impl core::default::Default for dash_chain::FirstAncestors
+pub fn dash_chain::FirstAncestors::default() -> dash_chain::FirstAncestors
+impl core::fmt::Debug for dash_chain::FirstAncestors
+pub fn dash_chain::FirstAncestors::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::FirstAncestors
+impl core::marker::StructuralPartialEq for dash_chain::FirstAncestors
+pub struct dash_chain::FlatFilePos
+pub dash_chain::FlatFilePos::file: i32
+pub dash_chain::FlatFilePos::pos: u32
+impl core::clone::Clone for dash_chain::FlatFilePos
+pub fn dash_chain::FlatFilePos::clone(&self) -> dash_chain::FlatFilePos
+impl core::cmp::Eq for dash_chain::FlatFilePos
+impl core::cmp::PartialEq for dash_chain::FlatFilePos
+pub fn dash_chain::FlatFilePos::eq(&self, &dash_chain::FlatFilePos) -> bool
+impl core::fmt::Debug for dash_chain::FlatFilePos
+pub fn dash_chain::FlatFilePos::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::FlatFilePos
+pub fn dash_chain::FlatFilePos::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::FlatFilePos
+impl core::marker::StructuralPartialEq for dash_chain::FlatFilePos
+pub struct dash_chain::ForkTarget
+pub dash_chain::ForkTarget::floor: dash_chain::FloorRelation
+pub dash_chain::ForkTarget::id: dash_consensus::ctx::BlockId
+impl core::clone::Clone for dash_chain::ForkTarget
+pub fn dash_chain::ForkTarget::clone(&self) -> dash_chain::ForkTarget
+impl core::cmp::Eq for dash_chain::ForkTarget
+impl core::cmp::PartialEq for dash_chain::ForkTarget
+pub fn dash_chain::ForkTarget::eq(&self, &dash_chain::ForkTarget) -> bool
+impl core::fmt::Debug for dash_chain::ForkTarget
+pub fn dash_chain::ForkTarget::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::ForkTarget
+impl core::marker::StructuralPartialEq for dash_chain::ForkTarget
+pub struct dash_chain::HeaderAccepted
+pub dash_chain::HeaderAccepted::floor_moved: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::HeaderAccepted::one: dash_chain::AcceptOne
+impl core::clone::Clone for dash_chain::HeaderAccepted
+pub fn dash_chain::HeaderAccepted::clone(&self) -> dash_chain::HeaderAccepted
+impl core::cmp::Eq for dash_chain::HeaderAccepted
+impl core::cmp::PartialEq for dash_chain::HeaderAccepted
+pub fn dash_chain::HeaderAccepted::eq(&self, &dash_chain::HeaderAccepted) -> bool
+impl core::fmt::Debug for dash_chain::HeaderAccepted
+pub fn dash_chain::HeaderAccepted::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::HeaderAccepted
+pub struct dash_chain::HeaderBatch
+pub dash_chain::HeaderBatch::hashes: alloc::vec::Vec<dash_primitives::block::BlockHash>
+pub dash_chain::HeaderBatch::headers: alloc::vec::Vec<dash_consensus::primitives::block::Header>
+impl core::clone::Clone for dash_chain::HeaderBatch
+pub fn dash_chain::HeaderBatch::clone(&self) -> dash_chain::HeaderBatch
+impl core::cmp::Eq for dash_chain::HeaderBatch
+impl core::cmp::PartialEq for dash_chain::HeaderBatch
+pub fn dash_chain::HeaderBatch::eq(&self, &dash_chain::HeaderBatch) -> bool
+impl core::default::Default for dash_chain::HeaderBatch
+pub fn dash_chain::HeaderBatch::default() -> dash_chain::HeaderBatch
+impl core::fmt::Debug for dash_chain::HeaderBatch
+pub fn dash_chain::HeaderBatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::HeaderBatch
+pub struct dash_chain::HeaderChain<S: dash_chain::HeaderStore, R: dash_chain::Residency>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::accept(&mut self, dash_chain::HeaderBatch, core::option::Option<dash_chain::PeerId>) -> core::result::Result<dash_chain::HeadersResult, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::accept_header(&mut self, &dash_consensus::primitives::block::Header) -> core::result::Result<dash_chain::HeaderAccepted, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::active_contains_private(&self, dash_consensus::ctx::BlockId) -> bool
+pub fn dash_chain::HeaderChain<S, R>::ancestor_private(&self, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::HeaderChain<S, R>::anchored(&self) -> &dyn dash_chain::AnchoredAncestry
+pub fn dash_chain::HeaderChain<S, R>::best_header(&self) -> dash_consensus::ctx::BlockId
+pub fn dash_chain::HeaderChain<S, R>::chain_tips(&self) -> core::result::Result<alloc::vec::Vec<dash_chain::ChainTip>, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::chain_tips_with(&self, &dyn core::ops::function::Fn(dash_consensus::ctx::BlockId) -> bool) -> core::result::Result<alloc::vec::Vec<dash_chain::ChainTip>, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::check_header_at(&self, dash_consensus::ctx::BlockId, &dash_consensus::primitives::block::Header, i64) -> core::result::Result<core::result::Result<(), dash_consensus::validation::BlockValidationError>, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::check_index(&self) -> core::result::Result<(), dash_chain::IndexInconsistency>
+pub fn dash_chain::HeaderChain<S, R>::check_index_with(&self, &mut dyn dash_chain::IndexVisitor) -> core::result::Result<(), dash_chain::IndexInconsistency>
+pub fn dash_chain::HeaderChain<S, R>::complete(&self) -> core::option::Option<&dyn dash_consensus::ctx::ChainAncestry>
+pub fn dash_chain::HeaderChain<S, R>::complete_ancestry(&self) -> core::option::Option<dash_chain::CompleteAncestry<S, R>>
+pub fn dash_chain::HeaderChain<S, R>::connect_tip(&mut self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_chain::TipStep, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::disconnect_tip(&mut self) -> core::result::Result<dash_chain::TipStep, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::feeds(&self) -> dash_chain::ChainFeeds
+pub fn dash_chain::HeaderChain<S, R>::find_fork_private(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::HeaderChain<S, R>::has_chainlock(&self, u32, &dash_primitives::block::BlockHash) -> core::result::Result<bool, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::has_conflicting_chainlock(&self, u32, &dash_primitives::block::BlockHash) -> core::result::Result<bool, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::hold_tip(&mut self) -> dash_chain::Hold<'_, S, R>
+pub fn dash_chain::HeaderChain<S, R>::ids(&self) -> impl core::iter::traits::iterator::Iterator<Item = dash_consensus::ctx::BlockId> + '_
+pub fn dash_chain::HeaderChain<S, R>::init_active_tip(&mut self, dash_consensus::ctx::BlockId) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::is_ibd_private(&self, impl core::convert::Into<dash_clock::NodeTime>, bool) -> bool
+pub fn dash_chain::HeaderChain<S, R>::load<I>(alloc::sync::Arc<dash_params::types::ChainParams>, dash_chain::ChainConfig, dash_chain::Services, I, &rayon_core::thread_pool::ThreadPool) -> core::result::Result<Self, dash_chain::LoadError> where I: core::iter::traits::iterator::Iterator<Item = core::result::Result<(dash_primitives::block::BlockHash, alloc::vec::Vec<u8>), dash_chain::LoadError>>, S: core::default::Default
+pub fn dash_chain::HeaderChain<S, R>::load_records<I>(alloc::sync::Arc<dash_params::types::ChainParams>, dash_chain::ChainConfig, dash_chain::Services, I, &rayon_core::thread_pool::ThreadPool, impl core::ops::function::Fn() -> bool) -> core::result::Result<Self, dash_chain::LoadError> where I: core::iter::traits::iterator::Iterator<Item = core::result::Result<(dash_primitives::block::BlockHash, alloc::vec::Vec<u8>), dash_chain::LoadError>>, S: core::default::Default
+pub fn dash_chain::HeaderChain<S, R>::new_anchored(alloc::sync::Arc<dash_params::types::ChainParams>, dash_chain::ChainConfig, dash_chain::Services, S, &dash_chain::AnchorPack) -> core::result::Result<Self, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::new_genesis(alloc::sync::Arc<dash_params::types::ChainParams>, dash_chain::ChainConfig, dash_chain::Services, S) -> core::result::Result<Self, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::params(&self) -> &dash_params::types::ChainParams
+pub fn dash_chain::HeaderChain<S, R>::private_tip(&self) -> core::option::Option<(dash_chain::BlockRef, u64)>
+pub fn dash_chain::HeaderChain<S, R>::publish_status(&mut self)
+pub fn dash_chain::HeaderChain<S, R>::reader(&self) -> dash_chain::ChainReader
+pub fn dash_chain::HeaderChain<S, R>::records_committed(&mut self)
+pub fn dash_chain::HeaderChain<S, R>::set_active_tip(&mut self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_chain::TipChange, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::snapshot(&self) -> alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+pub fn dash_chain::HeaderChain<S, R>::status_feed(&self) -> dash_chain::StatusReader
+pub fn dash_chain::HeaderChain<S, R>::tip_plan(&self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_chain::TipPlan, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::tip_plan_bounded(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<dash_chain::TipPlan, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::tip_target(&self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_chain::TipTarget, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::window_active(&mut self)
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::activate_segmented(&mut self, dash_chain::BlockRef, &mut dyn core::ops::function::FnMut()) -> core::result::Result<dash_chain::TipSummary, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::step_budget(&self) -> dash_chain::StepBudgetStats
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::apply_chainlock<H: dash_chain::TipHost<S, R>>(&mut self, dash_chain::ChainLockRef, &mut H) -> core::result::Result<dash_chain::ClOutcome, dash_chain::ApplyError<<H as dash_chain::TipHost>::Error>>
+pub fn dash_chain::HeaderChain<S, R>::check_cl_active_state(&mut self) -> dash_chain::ClActiveState
+pub fn dash_chain::HeaderChain<S, R>::cl_enabled_observed(&self) -> bool
+pub fn dash_chain::HeaderChain<S, R>::cl_floor(&self) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::HeaderChain<S, R>::cl_state(&self) -> dash_chain::ClPersisted
+pub fn dash_chain::HeaderChain<S, R>::enforce_best_chainlock<H: dash_chain::TipHost<S, R>>(&mut self, &mut H) -> core::result::Result<core::option::Option<dash_chain::EnforceReport>, dash_chain::ApplyError<<H as dash_chain::TipHost>::Error>>
+pub fn dash_chain::HeaderChain<S, R>::fork_target(&self, &dash_chain::VirtualTip) -> core::result::Result<dash_chain::ForkTarget, dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::restore_cl_state(&mut self, dash_chain::ClPersisted) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::HeaderChain<S, R>::virtual_tip(&self) -> dash_chain::VirtualTip
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::node_index(&mut self) -> core::result::Result<dash_chain::NodeIndex<'_, S, R>, dash_chain::ChainError>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::pending_is_empty(&self) -> bool
+pub fn dash_chain::HeaderChain<S, R>::retry_pending(&mut self) -> dash_chain::Publish
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::set_producer_wake(&self, dash_chain::Notify)
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::write_header_step(&mut self, core::option::Option<dash_chain::BlockRef>, &mut dyn dash_chain::HeaderStepSink) -> core::result::Result<dash_chain::StepTail, dash_chain::ChainError>
+impl<S: dash_chain::HeaderStore> dash_chain::HeaderChain<S, dash_chain::Evicting>
+pub fn dash_chain::HeaderChain<S, dash_chain::Evicting>::open(alloc::sync::Arc<dash_params::types::ChainParams>, dash_chain::ChainConfig, dash_chain::Services, S) -> core::result::Result<Self, dash_chain::OpenError>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::AnchoredAncestry for dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+pub fn dash_chain::HeaderChain<S, R>::floor(&self) -> u32
+pub fn dash_chain::HeaderChain<S, R>::header(&self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_consensus::ctx::HeaderCtx, dash_chain::AncestryError>
+pub fn dash_chain::HeaderChain<S, R>::prev(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_consensus::ctx::ChainAncestry for dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::HeaderChain<S, R>::header(&self, dash_consensus::ctx::BlockId) -> dash_consensus::ctx::HeaderCtx
+pub fn dash_chain::HeaderChain<S, R>::prev(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_consensus::ctx::CheckpointView for dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::highest_checkpoint_in_index(&self) -> core::option::Option<u32>
+pub struct dash_chain::HeaderRecord
+pub dash_chain::HeaderRecord::chain_work: dash_chain::Work
+pub dash_chain::HeaderRecord::hash: dash_primitives::block::BlockHash
+pub dash_chain::HeaderRecord::header: dash_primitives::block::BlockHeader
+pub dash_chain::HeaderRecord::height: u32
+pub dash_chain::HeaderRecord::id: dash_consensus::ctx::BlockId
+pub dash_chain::HeaderRecord::kind: dash_chain::RecordKind
+pub dash_chain::HeaderRecord::skip: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::HeaderRecord::status: dash_chain::Status
+pub dash_chain::HeaderRecord::time_max: u32
+impl dash_chain::HeaderRecord
+pub fn dash_chain::HeaderRecord::from_row(&dash_chain::HeaderRow) -> core::result::Result<dash_chain::HeaderRecord, dash_chain::RowError>
+pub fn dash_chain::HeaderRecord::step_rows(self, core::option::Option<dash_consensus::ctx::BlockId>) -> impl core::iter::traits::iterator::Iterator<Item = dash_chain::StepRow>
+pub fn dash_chain::HeaderRecord::to_row(&self) -> dash_chain::HeaderRow
+impl core::clone::Clone for dash_chain::HeaderRecord
+pub fn dash_chain::HeaderRecord::clone(&self) -> dash_chain::HeaderRecord
+impl core::cmp::Eq for dash_chain::HeaderRecord
+impl core::cmp::PartialEq for dash_chain::HeaderRecord
+pub fn dash_chain::HeaderRecord::eq(&self, &dash_chain::HeaderRecord) -> bool
+impl core::fmt::Debug for dash_chain::HeaderRecord
+pub fn dash_chain::HeaderRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::HeaderRecord
+pub struct dash_chain::HeaderRow
+pub dash_chain::HeaderRow::chain_work: [u8; 32]
+pub dash_chain::HeaderRow::hash: [u8; 32]
+pub dash_chain::HeaderRow::header: [u8; 80]
+pub dash_chain::HeaderRow::height: u32
+pub dash_chain::HeaderRow::id: u32
+pub dash_chain::HeaderRow::kind: u8
+pub dash_chain::HeaderRow::skip: core::option::Option<u32>
+pub dash_chain::HeaderRow::status: u32
+pub dash_chain::HeaderRow::time_max: u32
+impl core::clone::Clone for dash_chain::HeaderRow
+pub fn dash_chain::HeaderRow::clone(&self) -> dash_chain::HeaderRow
+impl core::cmp::Eq for dash_chain::HeaderRow
+impl core::cmp::PartialEq for dash_chain::HeaderRow
+pub fn dash_chain::HeaderRow::eq(&self, &dash_chain::HeaderRow) -> bool
+impl core::fmt::Debug for dash_chain::HeaderRow
+pub fn dash_chain::HeaderRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::HeaderRow
+impl core::marker::StructuralPartialEq for dash_chain::HeaderRow
+pub struct dash_chain::HeadersResult
+pub dash_chain::HeadersResult::floor_moved: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::HeadersResult::inserted: alloc::vec::Vec<dash_consensus::ctx::BlockId>
+pub dash_chain::HeadersResult::last_accepted: core::option::Option<dash_consensus::ctx::BlockId>
+pub dash_chain::HeadersResult::snap: alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+pub dash_chain::HeadersResult::stop: core::option::Option<dash_chain::HeaderStop>
+impl core::clone::Clone for dash_chain::HeadersResult
+pub fn dash_chain::HeadersResult::clone(&self) -> dash_chain::HeadersResult
+impl core::fmt::Debug for dash_chain::HeadersResult
+pub fn dash_chain::HeadersResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::Hold<'c, S: dash_chain::HeaderStore, R: dash_chain::Residency>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::Hold<'_, S, R>
+pub fn dash_chain::Hold<'_, S, R>::abandon(self)
+pub fn dash_chain::Hold<'_, S, R>::chain(&mut self) -> &mut dash_chain::HeaderChain<S, R>
+pub fn dash_chain::Hold<'_, S, R>::connect_tip(&mut self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_chain::TipStep, dash_chain::ChainError>
+pub fn dash_chain::Hold<'_, S, R>::disconnect_tip(&mut self) -> core::result::Result<dash_chain::TipStep, dash_chain::ChainError>
+pub fn dash_chain::Hold<'_, S, R>::release(self) -> alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::Hold<'_, S, R>
+pub fn dash_chain::Hold<'_, S, R>::pending_is_empty(&self) -> bool
+pub fn dash_chain::Hold<'_, S, R>::retry_pending(&mut self) -> dash_chain::Publish
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> core::ops::drop::Drop for dash_chain::Hold<'_, S, R>
+pub fn dash_chain::Hold<'_, S, R>::drop(&mut self)
+pub struct dash_chain::IndexInconsistency
+pub dash_chain::IndexInconsistency::id: dash_consensus::ctx::BlockId
+pub dash_chain::IndexInconsistency::what: &'static str
+impl core::clone::Clone for dash_chain::IndexInconsistency
+pub fn dash_chain::IndexInconsistency::clone(&self) -> dash_chain::IndexInconsistency
+impl core::cmp::Eq for dash_chain::IndexInconsistency
+impl core::cmp::PartialEq for dash_chain::IndexInconsistency
+pub fn dash_chain::IndexInconsistency::eq(&self, &dash_chain::IndexInconsistency) -> bool
+impl core::error::Error for dash_chain::IndexInconsistency
+impl core::fmt::Debug for dash_chain::IndexInconsistency
+pub fn dash_chain::IndexInconsistency::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::IndexInconsistency
+pub fn dash_chain::IndexInconsistency::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::IndexInconsistency
+pub struct dash_chain::IndexWrite
+pub dash_chain::IndexWrite::bytes: alloc::vec::Vec<u8>
+pub dash_chain::IndexWrite::hash: dash_primitives::block::BlockHash
+impl core::clone::Clone for dash_chain::IndexWrite
+pub fn dash_chain::IndexWrite::clone(&self) -> dash_chain::IndexWrite
+impl core::cmp::Eq for dash_chain::IndexWrite
+impl core::cmp::PartialEq for dash_chain::IndexWrite
+pub fn dash_chain::IndexWrite::eq(&self, &dash_chain::IndexWrite) -> bool
+impl core::fmt::Debug for dash_chain::IndexWrite
+pub fn dash_chain::IndexWrite::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::IndexWrite
+#[non_exhaustive] pub struct dash_chain::JournalRetention
+pub dash_chain::JournalRetention::entries: u64
+pub dash_chain::JournalRetention::expired: u64
+pub dash_chain::JournalRetention::oldest_epoch: u64
+impl core::clone::Clone for dash_chain::JournalRetention
+pub fn dash_chain::JournalRetention::clone(&self) -> dash_chain::JournalRetention
+impl core::cmp::Eq for dash_chain::JournalRetention
+impl core::cmp::PartialEq for dash_chain::JournalRetention
+pub fn dash_chain::JournalRetention::eq(&self, &dash_chain::JournalRetention) -> bool
+impl core::default::Default for dash_chain::JournalRetention
+pub fn dash_chain::JournalRetention::default() -> dash_chain::JournalRetention
+impl core::fmt::Debug for dash_chain::JournalRetention
+pub fn dash_chain::JournalRetention::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::JournalRetention
+impl core::marker::StructuralPartialEq for dash_chain::JournalRetention
+pub struct dash_chain::MetaDelta
+pub dash_chain::MetaDelta::best_header: dash_consensus::ctx::BlockId
+pub dash_chain::MetaDelta::next_id: dash_consensus::ctx::BlockId
+pub dash_chain::MetaDelta::tip: dash_consensus::ctx::BlockId
+impl core::clone::Clone for dash_chain::MetaDelta
+pub fn dash_chain::MetaDelta::clone(&self) -> dash_chain::MetaDelta
+impl core::cmp::Eq for dash_chain::MetaDelta
+impl core::cmp::PartialEq for dash_chain::MetaDelta
+pub fn dash_chain::MetaDelta::eq(&self, &dash_chain::MetaDelta) -> bool
+impl core::fmt::Debug for dash_chain::MetaDelta
+pub fn dash_chain::MetaDelta::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::MetaDelta
+impl core::marker::StructuralPartialEq for dash_chain::MetaDelta
+pub struct dash_chain::MutableGroup
+pub dash_chain::MutableGroup::data_pos: u32
+pub dash_chain::MutableGroup::file: core::option::Option<i32>
+pub dash_chain::MutableGroup::n_tx: u32
+pub dash_chain::MutableGroup::status: dash_chain::Status
+pub dash_chain::MutableGroup::undo_pos: u32
+impl core::clone::Clone for dash_chain::MutableGroup
+pub fn dash_chain::MutableGroup::clone(&self) -> dash_chain::MutableGroup
+impl core::cmp::Eq for dash_chain::MutableGroup
+impl core::cmp::PartialEq for dash_chain::MutableGroup
+pub fn dash_chain::MutableGroup::eq(&self, &dash_chain::MutableGroup) -> bool
+impl core::default::Default for dash_chain::MutableGroup
+pub fn dash_chain::MutableGroup::default() -> dash_chain::MutableGroup
+impl core::fmt::Debug for dash_chain::MutableGroup
+pub fn dash_chain::MutableGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::MutableGroup
+impl core::marker::StructuralPartialEq for dash_chain::MutableGroup
+pub struct dash_chain::Needs
+pub dash_chain::Needs::block: bool
+pub dash_chain::Needs::undo: bool
+impl core::clone::Clone for dash_chain::Needs
+pub fn dash_chain::Needs::clone(&self) -> dash_chain::Needs
+impl core::cmp::Eq for dash_chain::Needs
+impl core::cmp::PartialEq for dash_chain::Needs
+pub fn dash_chain::Needs::eq(&self, &dash_chain::Needs) -> bool
+impl core::default::Default for dash_chain::Needs
+pub fn dash_chain::Needs::default() -> dash_chain::Needs
+impl core::fmt::Debug for dash_chain::Needs
+pub fn dash_chain::Needs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::Needs
+impl core::marker::StructuralPartialEq for dash_chain::Needs
+pub struct dash_chain::NoStore
+impl core::clone::Clone for dash_chain::NoStore
+pub fn dash_chain::NoStore::clone(&self) -> dash_chain::NoStore
+impl core::default::Default for dash_chain::NoStore
+pub fn dash_chain::NoStore::default() -> dash_chain::NoStore
+impl core::fmt::Debug for dash_chain::NoStore
+pub fn dash_chain::NoStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::NoStore
+impl dash_chain::HeaderStore for dash_chain::NoStore
+pub fn dash_chain::NoStore::active_at(&self, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::active_from(&self, u32) -> core::result::Result<alloc::vec::Vec<(u32, dash_consensus::ctx::BlockId)>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::by_hash(&self, &dash_primitives::block::BlockHash) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::by_id(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::chain_meta(&self) -> core::result::Result<core::option::Option<dash_chain::ChainMeta>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::children_from(&self, &dash_primitives::block::BlockHash, dash_consensus::ctx::BlockId, &mut [dash_consensus::ctx::BlockId]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::NoStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::NoStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub struct dash_chain::NodeIndex<'c, S: dash_chain::HeaderStore, R: dash_chain::Residency>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::NodeIndex<'_, S, R>
+pub fn dash_chain::NodeIndex<'_, S, R>::best_header_invalid_chain(&mut self, dash_consensus::ctx::BlockId)
+pub fn dash_chain::NodeIndex<'_, S, R>::best_header_walk_back(&mut self, dash_consensus::ctx::BlockId) -> bool
+pub fn dash_chain::NodeIndex<'_, S, R>::failed_blocks(&mut self) -> &mut dash_chain::FailedBlocks
+pub fn dash_chain::NodeIndex<'_, S, R>::mark_dirty(&mut self, dash_consensus::ctx::BlockId)
+pub fn dash_chain::NodeIndex<'_, S, R>::modify(&mut self, dash_consensus::ctx::BlockId, impl core::ops::function::FnOnce(&mut dash_chain::MutableGroup))
+pub fn dash_chain::NodeIndex<'_, S, R>::record(&self, dash_consensus::ctx::BlockId) -> dash_chain::IndexWrite
+pub fn dash_chain::NodeIndex<'_, S, R>::record_chainlock(&mut self, dash_chain::ChainLockRef) -> dash_chain::ClOutcome
+pub fn dash_chain::NodeIndex<'_, S, R>::reset_failure_flags(&mut self, dash_consensus::ctx::BlockId, bool) -> dash_chain::ResetReport
+pub fn dash_chain::NodeIndex<'_, S, R>::take_dirty(&mut self) -> alloc::vec::Vec<dash_chain::IndexWrite>
+pub fn dash_chain::NodeIndex<'_, S, R>::take_dirty_into(&mut self, impl core::ops::function::FnMut(&dash_primitives::block::BlockHash, &[u8]))
+pub struct dash_chain::Parker
+impl dash_chain::Parker
+pub fn dash_chain::Parker::new() -> alloc::sync::Arc<dash_chain::Parker>
+pub fn dash_chain::Parker::notify(&self)
+pub fn dash_chain::Parker::park(&self)
+pub fn dash_chain::Parker::park_timeout(&self, core::time::Duration) -> bool
+impl core::fmt::Debug for dash_chain::Parker
+pub fn dash_chain::Parker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::PeerId(pub i64)
+impl core::clone::Clone for dash_chain::PeerId
+pub fn dash_chain::PeerId::clone(&self) -> dash_chain::PeerId
+impl core::cmp::Eq for dash_chain::PeerId
+impl core::cmp::Ord for dash_chain::PeerId
+pub fn dash_chain::PeerId::cmp(&self, &dash_chain::PeerId) -> core::cmp::Ordering
+impl core::cmp::PartialEq for dash_chain::PeerId
+pub fn dash_chain::PeerId::eq(&self, &dash_chain::PeerId) -> bool
+impl core::cmp::PartialOrd for dash_chain::PeerId
+pub fn dash_chain::PeerId::partial_cmp(&self, &dash_chain::PeerId) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for dash_chain::PeerId
+pub fn dash_chain::PeerId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::PeerId
+pub fn dash_chain::PeerId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::PeerId
+impl core::marker::StructuralPartialEq for dash_chain::PeerId
+pub struct dash_chain::Permanent
+impl core::clone::Clone for dash_chain::Permanent
+pub fn dash_chain::Permanent::clone(&self) -> dash_chain::Permanent
+impl core::default::Default for dash_chain::Permanent
+pub fn dash_chain::Permanent::default() -> dash_chain::Permanent
+impl core::fmt::Debug for dash_chain::Permanent
+pub fn dash_chain::Permanent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::Permanent
+impl dash_chain::Residency for dash_chain::Permanent
+pub const dash_chain::Permanent::EVICTS: bool
+pub struct dash_chain::Registry
+pub dash_chain::Registry::epoch: u64
+pub dash_chain::Registry::feeds: alloc::vec::Vec<dash_chain::RegistryEntry>
+pub struct dash_chain::RegistryEntry
+pub dash_chain::RegistryEntry::id: dash_chain::FeedId
+pub dash_chain::RegistryEntry::needs: dash_chain::Needs
+pub dash_chain::RegistryEntry::seq_synced: core::option::Option<u64>
+impl dash_chain::RegistryEntry
+pub fn dash_chain::RegistryEntry::is_closing(&self) -> bool
+pub struct dash_chain::ResetReport
+pub dash_chain::ResetReport::promoted: alloc::vec::Vec<dash_consensus::ctx::BlockId>
+pub dash_chain::ResetReport::reconsidered: alloc::vec::Vec<dash_consensus::ctx::BlockId>
+impl core::clone::Clone for dash_chain::ResetReport
+pub fn dash_chain::ResetReport::clone(&self) -> dash_chain::ResetReport
+impl core::cmp::Eq for dash_chain::ResetReport
+impl core::cmp::PartialEq for dash_chain::ResetReport
+pub fn dash_chain::ResetReport::eq(&self, &dash_chain::ResetReport) -> bool
+impl core::default::Default for dash_chain::ResetReport
+pub fn dash_chain::ResetReport::default() -> dash_chain::ResetReport
+impl core::fmt::Debug for dash_chain::ResetReport
+pub fn dash_chain::ResetReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::ResetReport
+pub struct dash_chain::Services
+pub dash_chain::Services::clock: alloc::sync::Arc<dyn dash_clock::Clock>
+pub dash_chain::Services::fail: alloc::sync::Arc<dyn dash_chain::FailStop>
+pub dash_chain::Services::sporks: alloc::sync::Arc<dyn dash_chain::SporkView>
+impl core::clone::Clone for dash_chain::Services
+pub fn dash_chain::Services::clone(&self) -> dash_chain::Services
+pub struct dash_chain::SnapshotExpired
+impl core::clone::Clone for dash_chain::SnapshotExpired
+pub fn dash_chain::SnapshotExpired::clone(&self) -> dash_chain::SnapshotExpired
+impl core::cmp::Eq for dash_chain::SnapshotExpired
+impl core::cmp::PartialEq for dash_chain::SnapshotExpired
+pub fn dash_chain::SnapshotExpired::eq(&self, &dash_chain::SnapshotExpired) -> bool
+impl core::error::Error for dash_chain::SnapshotExpired
+impl core::fmt::Debug for dash_chain::SnapshotExpired
+pub fn dash_chain::SnapshotExpired::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chain::SnapshotExpired
+pub fn dash_chain::SnapshotExpired::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::SnapshotExpired
+impl core::marker::StructuralPartialEq for dash_chain::SnapshotExpired
+pub struct dash_chain::StaticSporks
+impl dash_chain::StaticSporks
+pub fn dash_chain::StaticSporks::for_network(&dash_params::types::ChainParams, core::option::Option<bool>) -> dash_chain::StaticSporks
+pub fn dash_chain::StaticSporks::set(&self, bool)
+impl core::fmt::Debug for dash_chain::StaticSporks
+pub fn dash_chain::StaticSporks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl dash_chain::SporkView for dash_chain::StaticSporks
+pub fn dash_chain::StaticSporks::chainlocks_enabled(&self) -> bool
+pub struct dash_chain::Status(pub u32)
+impl dash_chain::Status
+pub const dash_chain::Status::ASSUMED_VALID: u32
+pub const dash_chain::Status::CONFLICT_CHAINLOCK: u32
+pub const dash_chain::Status::FAILED_CHILD: u32
+pub const dash_chain::Status::FAILED_MASK: u32
+pub const dash_chain::Status::FAILED_VALID: u32
+pub const dash_chain::Status::HAVE_DATA: u32
+pub const dash_chain::Status::HAVE_MASK: u32
+pub const dash_chain::Status::HAVE_UNDO: u32
+pub const dash_chain::Status::VALID_CHAIN: u32
+pub const dash_chain::Status::VALID_MASK: u32
+pub const dash_chain::Status::VALID_RESERVED: u32
+pub const dash_chain::Status::VALID_SCRIPTS: u32
+pub const dash_chain::Status::VALID_TRANSACTIONS: u32
+pub const dash_chain::Status::VALID_TREE: u32
+pub const dash_chain::Status::VALID_UNKNOWN: u32
+pub fn dash_chain::Status::bits(self) -> u32
+pub fn dash_chain::Status::has(self, u32) -> bool
+pub fn dash_chain::Status::is_valid(self, u32) -> bool
+pub fn dash_chain::Status::raise_validity(self, u32) -> (dash_chain::Status, bool)
+impl core::clone::Clone for dash_chain::Status
+pub fn dash_chain::Status::clone(&self) -> dash_chain::Status
+impl core::cmp::Eq for dash_chain::Status
+impl core::cmp::PartialEq for dash_chain::Status
+pub fn dash_chain::Status::eq(&self, &dash_chain::Status) -> bool
+impl core::default::Default for dash_chain::Status
+pub fn dash_chain::Status::default() -> dash_chain::Status
+impl core::fmt::Debug for dash_chain::Status
+pub fn dash_chain::Status::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chain::Status
+pub fn dash_chain::Status::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chain::Status
+impl core::marker::StructuralPartialEq for dash_chain::Status
+pub struct dash_chain::StatusReader
+impl dash_chain::StatusReader
+pub fn dash_chain::StatusReader::arm(&mut self, dash_chain::Notify) -> bool
+pub fn dash_chain::StatusReader::next_events(&mut self) -> smallvec::SmallVec<[dash_chain::StatusEvent; 2]>
+pub fn dash_chain::StatusReader::poll_changed(&mut self, &mut core::task::wake::Context<'_>) -> core::task::poll::Poll<()>
+impl core::ops::drop::Drop for dash_chain::StatusReader
+pub fn dash_chain::StatusReader::drop(&mut self)
+pub struct dash_chain::StepBudgetStats
+pub dash_chain::StepBudgetStats::cap: usize
+pub dash_chain::StepBudgetStats::marks_peak: usize
+pub dash_chain::StepBudgetStats::peak: usize
+impl core::clone::Clone for dash_chain::StepBudgetStats
+pub fn dash_chain::StepBudgetStats::clone(&self) -> dash_chain::StepBudgetStats
+impl core::cmp::Eq for dash_chain::StepBudgetStats
+impl core::cmp::PartialEq for dash_chain::StepBudgetStats
+pub fn dash_chain::StepBudgetStats::eq(&self, &dash_chain::StepBudgetStats) -> bool
+impl core::default::Default for dash_chain::StepBudgetStats
+pub fn dash_chain::StepBudgetStats::default() -> dash_chain::StepBudgetStats
+impl core::fmt::Debug for dash_chain::StepBudgetStats
+pub fn dash_chain::StepBudgetStats::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::StepBudgetStats
+impl core::marker::StructuralPartialEq for dash_chain::StepBudgetStats
+pub struct dash_chain::StepTail
+pub dash_chain::StepTail::active: core::option::Option<dash_chain::ActiveDiff>
+pub dash_chain::StepTail::cl: core::option::Option<dash_chain::ClPersisted>
+pub dash_chain::StepTail::meta: dash_chain::MetaDelta
+impl core::clone::Clone for dash_chain::StepTail
+pub fn dash_chain::StepTail::clone(&self) -> dash_chain::StepTail
+impl core::cmp::Eq for dash_chain::StepTail
+impl core::cmp::PartialEq for dash_chain::StepTail
+pub fn dash_chain::StepTail::eq(&self, &dash_chain::StepTail) -> bool
+impl core::fmt::Debug for dash_chain::StepTail
+pub fn dash_chain::StepTail::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::StepTail
+impl core::marker::StructuralPartialEq for dash_chain::StepTail
+pub struct dash_chain::TipCell
+impl dash_chain::TipCell
+pub fn dash_chain::TipCell::snapshot(&self) -> alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+pub struct dash_chain::TipChange
+pub dash_chain::TipChange::connected: alloc::vec::Vec<dash_chain::BlockRef>
+pub dash_chain::TipChange::disconnected: alloc::vec::Vec<dash_chain::BlockRef>
+pub dash_chain::TipChange::last_seq: u64
+pub dash_chain::TipChange::snap: alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+impl core::clone::Clone for dash_chain::TipChange
+pub fn dash_chain::TipChange::clone(&self) -> dash_chain::TipChange
+impl core::fmt::Debug for dash_chain::TipChange
+pub fn dash_chain::TipChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::TipFacts
+pub dash_chain::TipFacts::best_header: dash_consensus::ctx::BlockId
+pub dash_chain::TipFacts::best_header_hash: dash_primitives::block::BlockHash
+pub dash_chain::TipFacts::best_header_height: u32
+pub dash_chain::TipFacts::best_header_time: u32
+pub dash_chain::TipFacts::best_header_work: dash_chain::Work
+pub dash_chain::TipFacts::tip: dash_consensus::ctx::BlockId
+pub dash_chain::TipFacts::tip_hash: dash_primitives::block::BlockHash
+pub dash_chain::TipFacts::tip_height: u32
+pub dash_chain::TipFacts::tip_time: u32
+pub dash_chain::TipFacts::tip_work: dash_chain::Work
+impl core::clone::Clone for dash_chain::TipFacts
+pub fn dash_chain::TipFacts::clone(&self) -> dash_chain::TipFacts
+impl core::cmp::Eq for dash_chain::TipFacts
+impl core::cmp::PartialEq for dash_chain::TipFacts
+pub fn dash_chain::TipFacts::eq(&self, &dash_chain::TipFacts) -> bool
+impl core::fmt::Debug for dash_chain::TipFacts
+pub fn dash_chain::TipFacts::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::TipFacts
+impl core::marker::StructuralPartialEq for dash_chain::TipFacts
+pub struct dash_chain::TipPlan
+pub dash_chain::TipPlan::connect: alloc::vec::Vec<dash_chain::BlockRef>
+pub dash_chain::TipPlan::disconnect: alloc::vec::Vec<dash_chain::BlockRef>
+pub dash_chain::TipPlan::fork: dash_chain::BlockRef
+impl core::clone::Clone for dash_chain::TipPlan
+pub fn dash_chain::TipPlan::clone(&self) -> dash_chain::TipPlan
+impl core::cmp::Eq for dash_chain::TipPlan
+impl core::cmp::PartialEq for dash_chain::TipPlan
+pub fn dash_chain::TipPlan::eq(&self, &dash_chain::TipPlan) -> bool
+impl core::fmt::Debug for dash_chain::TipPlan
+pub fn dash_chain::TipPlan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::TipPlan
+pub struct dash_chain::TipSummary
+pub dash_chain::TipSummary::connected: u32
+pub dash_chain::TipSummary::disconnected: u32
+pub dash_chain::TipSummary::fork: dash_chain::BlockRef
+pub dash_chain::TipSummary::snap: alloc::sync::Arc<dash_chain::ChainReadSnapshot>
+pub dash_chain::TipSummary::sub_steps: u32
+impl core::clone::Clone for dash_chain::TipSummary
+pub fn dash_chain::TipSummary::clone(&self) -> dash_chain::TipSummary
+impl core::fmt::Debug for dash_chain::TipSummary
+pub fn dash_chain::TipSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct dash_chain::TipTarget
+pub dash_chain::TipTarget::c: u32
+pub dash_chain::TipTarget::d: u32
+pub dash_chain::TipTarget::fork: dash_chain::BlockRef
+impl core::clone::Clone for dash_chain::TipTarget
+pub fn dash_chain::TipTarget::clone(&self) -> dash_chain::TipTarget
+impl core::cmp::Eq for dash_chain::TipTarget
+impl core::cmp::PartialEq for dash_chain::TipTarget
+pub fn dash_chain::TipTarget::eq(&self, &dash_chain::TipTarget) -> bool
+impl core::fmt::Debug for dash_chain::TipTarget
+pub fn dash_chain::TipTarget::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chain::TipTarget
+impl core::marker::StructuralPartialEq for dash_chain::TipTarget
+pub struct dash_chain::VirtualTip
+impl dash_chain::VirtualTip
+pub fn dash_chain::VirtualTip::cursor(&self) -> dash_consensus::ctx::BlockId
+pub fn dash_chain::VirtualTip::disconnected(&self) -> &[dash_consensus::ctx::BlockId]
+pub fn dash_chain::VirtualTip::notified_tips(&self) -> &[dash_consensus::ctx::BlockId]
+impl core::clone::Clone for dash_chain::VirtualTip
+pub fn dash_chain::VirtualTip::clone(&self) -> dash_chain::VirtualTip
+impl core::cmp::Eq for dash_chain::VirtualTip
+impl core::cmp::PartialEq for dash_chain::VirtualTip
+pub fn dash_chain::VirtualTip::eq(&self, &dash_chain::VirtualTip) -> bool
+impl core::fmt::Debug for dash_chain::VirtualTip
+pub fn dash_chain::VirtualTip::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chain::VirtualTip
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::TipHost<S, R> for dash_chain::VirtualTip
+pub type dash_chain::VirtualTip::Error = dash_chain::ChainError
+pub fn dash_chain::VirtualTip::conflicting_marked(&mut self, &mut dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId, bool) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::contains(&self, &dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId) -> core::result::Result<bool, dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::disconnect_tip(&mut self, &mut dash_chain::HeaderChain<S, R>) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::tip(&self, &dash_chain::HeaderChain<S, R>) -> dash_consensus::ctx::BlockId
+pub const dash_chain::ACTIVE_PATHS_BYTES: usize
+pub const dash_chain::CHAIN_SCHEMA: u32
+pub const dash_chain::CONTROL_BYTES: usize
+pub const dash_chain::CONTROL_PAYLOAD_MAX: usize
+pub const dash_chain::DEFAULT_COLD_CACHE: u32
+pub const dash_chain::DEFAULT_MAX_TIP_AGE: core::time::Duration
+pub const dash_chain::FEED_FIXED_BYTES: usize
+pub const dash_chain::MAX_CONTROL_KINDS: usize
+pub const dash_chain::MAX_FEEDS: u32
+pub const dash_chain::MTP_UNKNOWN: i64
+pub const dash_chain::RETAIN_AT_MOST: usize
+pub const dash_chain::STEP_FIXED_BYTES: usize
+pub trait dash_chain::AnchoredAncestry: core::marker::Sync
+pub fn dash_chain::AnchoredAncestry::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+pub fn dash_chain::AnchoredAncestry::floor(&self) -> u32
+pub fn dash_chain::AnchoredAncestry::header(&self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_consensus::ctx::HeaderCtx, dash_chain::AncestryError>
+pub fn dash_chain::AnchoredAncestry::prev(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::AnchoredAncestry for dash_chain::HeaderChain<S, R>
+pub fn dash_chain::HeaderChain<S, R>::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+pub fn dash_chain::HeaderChain<S, R>::floor(&self) -> u32
+pub fn dash_chain::HeaderChain<S, R>::header(&self, dash_consensus::ctx::BlockId) -> core::result::Result<dash_consensus::ctx::HeaderCtx, dash_chain::AncestryError>
+pub fn dash_chain::HeaderChain<S, R>::prev(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::AncestryError>
+pub trait dash_chain::ChainSnapshot
+pub fn dash_chain::ChainSnapshot::at_height(&self, u32) -> core::option::Option<dash_chain::BlockRef>
+pub fn dash_chain::ChainSnapshot::tip(&self) -> dash_chain::BlockRef
+pub fn dash_chain::ChainSnapshot::tip_seq(&self) -> u64
+impl dash_chain::ChainSnapshot for dash_chain::FeedSnapshot
+pub fn dash_chain::FeedSnapshot::at_height(&self, u32) -> core::option::Option<dash_chain::BlockRef>
+pub fn dash_chain::FeedSnapshot::tip(&self) -> dash_chain::BlockRef
+pub fn dash_chain::FeedSnapshot::tip_seq(&self) -> u64
+pub trait dash_chain::FailStop: core::marker::Send + core::marker::Sync
+pub fn dash_chain::FailStop::is_tripped(&self) -> bool
+pub fn dash_chain::FailStop::read_failed(&self, &str)
+pub trait dash_chain::FeedSource<E>: core::marker::Send + core::marker::Sync
+pub fn dash_chain::FeedSource::snapshot(&self) -> alloc::boxed::Box<(dyn dash_chain::ChainSnapshot + '_)>
+pub fn dash_chain::FeedSource::subscribe_at(&self, dash_chain::FeedId, &dash_chain::BlockRef, &mut dyn core::ops::function::FnMut() -> core::result::Result<(), E>) -> core::result::Result<dash_chain::Handoff, dash_chain::SubscribeError<E>>
+impl<E> dash_chain::FeedSource<E> for dash_chain::ChainFeeds
+pub fn dash_chain::ChainFeeds::snapshot(&self) -> alloc::boxed::Box<(dyn dash_chain::ChainSnapshot + '_)>
+pub fn dash_chain::ChainFeeds::subscribe_at(&self, dash_chain::FeedId, &dash_chain::BlockRef, &mut dyn core::ops::function::FnMut() -> core::result::Result<(), E>) -> core::result::Result<dash_chain::Handoff, dash_chain::SubscribeError<E>>
+pub trait dash_chain::HeaderStepSink
+pub fn dash_chain::HeaderStepSink::rows(&mut self, &[dash_chain::StepRow]) -> core::result::Result<(), dash_chain::StoreError>
+pub trait dash_chain::HeaderStore: core::marker::Send + core::marker::Sync + 'static
+pub fn dash_chain::HeaderStore::active_at(&self, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::active_from(&self, u32) -> core::result::Result<alloc::vec::Vec<(u32, dash_consensus::ctx::BlockId)>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::by_hash(&self, &dash_primitives::block::BlockHash) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::by_id(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::chain_meta(&self) -> core::result::Result<core::option::Option<dash_chain::ChainMeta>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::children_from(&self, &dash_primitives::block::BlockHash, dash_consensus::ctx::BlockId, &mut [dash_consensus::ctx::BlockId]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+impl dash_chain::HeaderStore for dash_chain::NoStore
+pub fn dash_chain::NoStore::active_at(&self, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::active_from(&self, u32) -> core::result::Result<alloc::vec::Vec<(u32, dash_consensus::ctx::BlockId)>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::by_hash(&self, &dash_primitives::block::BlockHash) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::by_id(&self, dash_consensus::ctx::BlockId) -> core::result::Result<core::option::Option<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::chain_meta(&self) -> core::result::Result<core::option::Option<dash_chain::ChainMeta>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::children_from(&self, &dash_primitives::block::BlockHash, dash_consensus::ctx::BlockId, &mut [dash_consensus::ctx::BlockId]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::NoStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
+pub fn dash_chain::NoStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
+pub trait dash_chain::IndexAccess: core::marker::Send + core::marker::Sync
+pub fn dash_chain::IndexAccess::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::IndexAccess::hash(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_primitives::block::BlockHash>
+pub fn dash_chain::IndexAccess::have_data_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+pub fn dash_chain::IndexAccess::height(&self, dash_consensus::ctx::BlockId) -> core::option::Option<u32>
+pub fn dash_chain::IndexAccess::lca(&self, dash_consensus::ctx::BlockId, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::IndexAccess::lookup(&self, &dash_primitives::block::BlockHash) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::IndexAccess::status(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::Status>
+pub fn dash_chain::IndexAccess::undo_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+impl dash_chain::IndexAccess for dash_chain::ChainReader
+pub fn dash_chain::ChainReader::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::hash(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_primitives::block::BlockHash>
+pub fn dash_chain::ChainReader::have_data_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+pub fn dash_chain::ChainReader::height(&self, dash_consensus::ctx::BlockId) -> core::option::Option<u32>
+pub fn dash_chain::ChainReader::lca(&self, dash_consensus::ctx::BlockId, dash_consensus::ctx::BlockId) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::lookup(&self, &dash_primitives::block::BlockHash) -> core::option::Option<dash_consensus::ctx::BlockId>
+pub fn dash_chain::ChainReader::status(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::Status>
+pub fn dash_chain::ChainReader::undo_pos(&self, dash_consensus::ctx::BlockId) -> core::option::Option<dash_chain::FlatFilePos>
+pub trait dash_chain::IndexVisitor
+pub fn dash_chain::IndexVisitor::visit(&mut self, &dash_chain::EntryView, &dash_chain::FirstAncestors) -> core::result::Result<(), dash_chain::IndexInconsistency>
+pub trait dash_chain::Residency: dash_chain::residency::sealed::Sealed + core::marker::Send + core::marker::Sync + 'static
+pub const dash_chain::Residency::EVICTS: bool
+impl dash_chain::Residency for dash_chain::Evicting
+pub const dash_chain::Evicting::EVICTS: bool
+impl dash_chain::Residency for dash_chain::Permanent
+pub const dash_chain::Permanent::EVICTS: bool
+pub trait dash_chain::SporkView: core::marker::Send + core::marker::Sync
+pub fn dash_chain::SporkView::chainlocks_enabled(&self) -> bool
+impl dash_chain::SporkView for dash_chain::StaticSporks
+pub fn dash_chain::StaticSporks::chainlocks_enabled(&self) -> bool
+pub trait dash_chain::SubscriberFeed: core::marker::Send
+pub fn dash_chain::SubscriberFeed::is_closed(&self) -> bool
+pub fn dash_chain::SubscriberFeed::next(&mut self) -> dash_chain::Next<'_>
+pub fn dash_chain::SubscriberFeed::pop(&mut self) -> core::option::Option<dash_chain::ChainEvent>
+pub fn dash_chain::SubscriberFeed::remove_round_trip(&mut self, &dash_primitives::block::BlockHash) -> core::option::Option<(u64, u64)>
+pub fn dash_chain::SubscriberFeed::set_waker(&mut self, dash_chain::Notify)
+impl dash_chain::SubscriberFeed for dash_chain::FeedReader
+pub fn dash_chain::FeedReader::is_closed(&self) -> bool
+pub fn dash_chain::FeedReader::next(&mut self) -> dash_chain::Next<'_>
+pub fn dash_chain::FeedReader::pop(&mut self) -> core::option::Option<dash_chain::ChainEvent>
+pub fn dash_chain::FeedReader::remove_round_trip(&mut self, &dash_primitives::block::BlockHash) -> core::option::Option<(u64, u64)>
+pub fn dash_chain::FeedReader::set_waker(&mut self, dash_chain::Notify)
+pub trait dash_chain::TipHost<S: dash_chain::HeaderStore, R: dash_chain::Residency>
+pub type dash_chain::TipHost::Error
+pub fn dash_chain::TipHost::conflicting_marked(&mut self, &mut dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId, bool) -> core::result::Result<(), Self::Error>
+pub fn dash_chain::TipHost::contains(&self, &dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId) -> core::result::Result<bool, dash_chain::ChainError>
+pub fn dash_chain::TipHost::disconnect_tip(&mut self, &mut dash_chain::HeaderChain<S, R>) -> core::result::Result<(), Self::Error>
+pub fn dash_chain::TipHost::tip(&self, &dash_chain::HeaderChain<S, R>) -> dash_consensus::ctx::BlockId
+impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::TipHost<S, R> for dash_chain::VirtualTip
+pub type dash_chain::VirtualTip::Error = dash_chain::ChainError
+pub fn dash_chain::VirtualTip::conflicting_marked(&mut self, &mut dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId, bool) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::contains(&self, &dash_chain::HeaderChain<S, R>, dash_consensus::ctx::BlockId) -> core::result::Result<bool, dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::disconnect_tip(&mut self, &mut dash_chain::HeaderChain<S, R>) -> core::result::Result<(), dash_chain::ChainError>
+pub fn dash_chain::VirtualTip::tip(&self, &dash_chain::HeaderChain<S, R>) -> dash_consensus::ctx::BlockId
+pub fn dash_chain::anchor_candidate(&[dash_chain::AnchorPack], &dash_params::types::ChainParams, core::option::Option<u32>, dash_clock::NodeSeconds, u32) -> dash_chain::Anchor
+pub fn dash_chain::anchor_fallback(&[dash_chain::AnchorPack], &dash_params::types::ChainParams, &dash_chain::Anchor, dash_chain::CoverageMiss) -> dash_chain::Anchor
+pub const fn dash_chain::per_feed_cap(u32) -> usize
+pub const fn dash_chain::registry_bytes(u32) -> usize
+pub const fn dash_chain::step_cap(&dash_chain::FeedConfig, u32) -> usize
+pub fn dash_chain::updated_block_tip_schedules(dash_consensus::ctx::BlockId, core::option::Option<dash_consensus::ctx::BlockId>, bool) -> bool
+pub type dash_chain::ChainEvent = dash_chain::TipStep
+pub type dash_chain::HeaderReject = dash_consensus::validation::BlockValidationError
+pub type dash_chain::Work = dash_num::arith256::Arith256
