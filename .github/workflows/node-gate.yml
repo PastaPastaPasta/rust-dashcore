@@ -29,9 +29,11 @@
 #
 # Cache scope (DEC-713): GitHub lets a run restore caches saved on its own branch or the default branch,
 # never another branch's. So only runs on the default branch (master) build and save the closure; the
-# gating push runs on `ci/<sha>` only restore it. When a push run's key is not in master's scope, Deps
-# prints the dispatch that saves it (`snapshot: ci/<sha>`, `deps_only: true`), and the shards restore the
-# newest closure with the same toolchain and build their changed dependencies themselves.
+# gating push runs on `ci/<sha>` only restore it. When a push run's key is not in master's scope, the
+# shards restore the newest closure with the same toolchain and build their changed dependencies
+# themselves. A save (`deps_only` dispatch on master) is only worth its 3.4 GB of the free 10 GB
+# (DEC-699) for the integration tip, and only when its shards rebuilt third-party units: Summary
+# prints the dispatch then, and the cache metric (exact hits, MB restored) on every run.
 name: node-gate
 run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source)) || github.sha }}
 
@@ -75,6 +77,9 @@ env:
   # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
   # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
   CACHE_GEN: v2
+  # Third-party units the rdashd shard rebuilds even after an exact hit (cbindgen, a build dependency
+  # of dash-network; 10-29), so a save cannot help them: Summary leaves them out of its save rule.
+  ALWAYS_REBUILT: cbindgen
 
 jobs:
   deps:
@@ -87,6 +92,7 @@ jobs:
       key: ${{ steps.key.outputs.key }}
       prefix: ${{ steps.key.outputs.prefix }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      hit: ${{ steps.lookup.outputs.cache-hit }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -347,11 +353,9 @@ jobs:
 
       - name: Key not in master's scope
         if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name != github.event.repository.default_branch
-        env:
-          SNAPSHOT: ${{ inputs.snapshot || github.ref_name }}
         run: |
-          msg="the dependency closure for this key is not cached in master's scope; the shards build changed dependencies themselves. Save it with: gh workflow run node-gate.yml -R $GITHUB_REPOSITORY --ref ${{ github.event.repository.default_branch }} -f snapshot=$SNAPSHOT -f deps_only=true"
-          echo "::warning::$msg"
+          msg="this key's dependency closure is not in master's scope: the shards restore the newest one and build what changed; Summary says whether a save is worth it"
+          echo "::notice::$msg"
           echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Metrics
@@ -555,8 +559,8 @@ jobs:
           rc=0
           /usr/bin/time -f 'build_s=%e build_cpu_s=%U+%S build_peak_kb=%M' -a -o "$METRICS" \
             cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} > "$RUNNER_TEMP/build.json" || rc=$?
-          # Third-party units the restored closure should have held (0 on a good hit).
-          echo "rebuilt_third_party=$(jq -s '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not))] | length' "$RUNNER_TEMP/build.json")" | tee -a "$METRICS"
+          # Third-party units the restored closure should have held (0 on a good hit), by name.
+          jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/build.json" | tee -a "$METRICS"
           exit "$rc"
 
       - name: test
@@ -577,7 +581,8 @@ jobs:
           rc=0
           /usr/bin/time -f 'clippy_s=%e clippy_cpu_s=%U+%S clippy_peak_kb=%M' -a -o "$METRICS" \
             cargo clippy --locked --workspace --all-features --all-targets --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy.json" || rc=$?
-          echo "rebuilt_third_party=$(jq -s '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not))] | length' "$RUNNER_TEMP/clippy.json")" | tee -a "$METRICS"
+          # Third-party units the restored closure should have held (0 on a good hit), by name.
+          jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/clippy.json" | tee -a "$METRICS"
           exit "$rc"
 
       - name: Extras setup
@@ -692,6 +697,47 @@ jobs:
           pattern: metrics-*
           path: metrics
           merge-multiple: true
+
+      # DEC-699 / manager 10-29: save a closure only for the integration tip, and only when its shards
+      # rebuilt third-party units a save would have held; task branches restore master's and save nothing.
+      - name: Cache
+        env:
+          HIT: ${{ needs.deps.outputs.hit }}
+          TITLE: ${{ github.event.head_commit.message || format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source) }}
+          SNAPSHOT: ${{ inputs.snapshot || github.ref_name }}
+          MASTER: ${{ github.event.repository.default_branch }}
+        shell: python3 {0}
+        run: |
+          import glob, os
+          shards = {}
+          for path in glob.glob("metrics/*.txt"):
+              kv = dict(t.split("=", 1) for line in open(path) for t in line.split() if "=" in t)
+              if "cache" in kv:
+                  shards[os.path.basename(path)[:-4]] = kv
+          known = set(os.environ["ALWAYS_REBUILT"].split())
+          exact = sum(v["cache"] == "hit" for v in shards.values())
+          partial = sum(v["cache"] == "partial" for v in shards.values())
+          mb = sum(int(v.get("stored_bytes") or 0) for v in shards.values() if v["cache"] != "miss") / 1e6
+          units = sorted({u for v in shards.values() for u in v.get("rebuilt_units", "-").split(",")} - {"-"})
+          fixable = [u for u in units if u not in known]
+          tip = os.environ["TITLE"].startswith("ci snapshot of node/integration ")
+          if os.environ["HIT"] == "true":
+              why = "no: the key is in master's scope"
+          elif not tip:
+              why = "no: not an integration-tip snapshot (task branches restore master's closure)"
+          elif not fixable:
+              why = "no: the shards rebuilt no third-party unit a save would hold"
+          else:
+              why = "yes"
+          print(f"NODE-GATE-METRIC cache shards={len(shards)} exact={exact} partial={partial} "
+                f"restored_mb={mb:.0f} rebuilt_units={','.join(units) or '-'} save={why.split(':')[0]}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(f"cache: {exact}/{len(shards)} exact hits, {partial} partial, {mb:.0f} MB restored; "
+                        f"rebuilt third-party units: {', '.join(units) or 'none'}; save: {why}\n\n")
+          if why == "yes":
+              print(f"::warning::the integration tip rebuilt {', '.join(fixable)}: save its closure with "
+                    f"gh workflow run node-gate.yml -R {os.environ['GITHUB_REPOSITORY']} --ref {os.environ['MASTER']} "
+                    f"-f snapshot={os.environ['SNAPSHOT']} -f deps_only=true")
 
       - name: Table
         env:
