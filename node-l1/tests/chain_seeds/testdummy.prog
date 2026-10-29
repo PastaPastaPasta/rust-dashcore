@@ -1,0 +1,5 @@
+# Nine of twelve blocks signal testdummy (window 12, threshold 9): locked in, then active.
+extend main 8 signal
+extend main 8 signal
+extend main 8 signal
+extend main 8 signal

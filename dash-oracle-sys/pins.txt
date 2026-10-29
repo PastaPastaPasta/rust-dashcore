@@ -1,0 +1,11 @@
+# Dash Core pin of the consensus oracle (DEC-82: v24 only; the v23.1 pin is gone from the program).
+# The commit is the head of its branch in ~/workspace/dash: the release tag plus
+# the src/test/oracle shim. contrib/node/build-oracle.sh builds it; the sha256
+# columns are the libdash_oracle_<pin>.a it produced from a clean tree, recorded by
+# contrib/node/check-oracle-repro.sh --update-pins after two builds in different
+# cache roots came out byte-identical. dash-oracle-sys links nothing else. "-" means
+# not recorded yet. Toolchain: gcc/g++ 15.2.0 (plain), clang 21.1.8 (fuzz; relic and
+# dashbls without trace-cmp since BL-371, cached under <commit>/fuzz-nocmp), GNU ld
+# and objcopy 2.46 on x86_64 Linux (each archive's MANIFEST has the details).
+# pin   commit                                    branch                  sha256(plain)  sha256(fuzz)
+v24.0  c3e388c24ce53733efbbfe97cd173a7f8ceb201f  node/sp1-oracle-mnsync-v24.0  106dac88586c3e3fddf1d695f0500184defdfbe55cc6d9f8cece3c36627a2f4c  4e50d8781be64e78d77ec9452141f483a9104319269b6ff0d57dec9e9db28fe1

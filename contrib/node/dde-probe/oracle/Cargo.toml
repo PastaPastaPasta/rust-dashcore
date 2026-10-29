@@ -1,0 +1,20 @@
+# Standalone tool, not a workspace member. "old" is base-sdk before BS4a
+# (upstream develop 33fcc59), "new" is BS4a after its second fix round
+# (node/bsdk-bs4a-decode-domain at 0c71f50).
+[package]
+name = "dde-oracle"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+hex = "0.4"
+new-prim = { package = "dash-primitives", git = "file:///work/home/agent/workspace/base-sdk", rev = "0c71f50e4eaa1b7a3d706709eb278192591c9377", features = ["std"] }
+new-types = { package = "dash-types", git = "file:///work/home/agent/workspace/base-sdk", rev = "0c71f50e4eaa1b7a3d706709eb278192591c9377", features = ["std"] }
+old-prim = { package = "dash-primitives", git = "file:///work/home/agent/workspace/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std"] }
+old-types = { package = "dash-types", git = "file:///work/home/agent/workspace/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std"] }
+serde_json = "1"
+# The O1 oracle crate (rust-dashcore node/o1-oracle-sys) and its cached archives.
+dash-oracle-sys = { path = "../../../../dash-oracle-sys", features = ["oracle"] }

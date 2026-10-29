@@ -1,0 +1,21 @@
+# Standalone tool, not a workspace member: BS9's differential of base-sdk's
+# DKG, signature share, CoinJoin and governance messages against Dash
+# Core's reads, from the Core-linked judge (../bs9-judge, built by ../bs8-judge/build.sh). It pins
+# the base-sdk fork revision under test directly, with no [patch], so it can
+# test a head before the root's pin moves to it.
+[package]
+name = "bs9-tool"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+hex = "0.4"
+serde_json = "1"
+dash-p2p-core = { git = "file:///work/home/agent/workspace/base-sdk", rev = "8382b7662b9e47faa714bb293e76dc799edfa933", features = ["std", "serde"] }
+dash-params = { git = "file:///work/home/agent/workspace/base-sdk", rev = "8382b7662b9e47faa714bb293e76dc799edfa933" }
+dash-pkc = { git = "file:///work/home/agent/workspace/base-sdk", rev = "8382b7662b9e47faa714bb293e76dc799edfa933", features = ["std", "bls"] }
+dash-primitives = { git = "file:///work/home/agent/workspace/base-sdk", rev = "8382b7662b9e47faa714bb293e76dc799edfa933", features = ["std", "serde"] }
+dash-types = { git = "file:///work/home/agent/workspace/base-sdk", rev = "8382b7662b9e47faa714bb293e76dc799edfa933", features = ["std", "serde"] }
