@@ -1,0 +1,72 @@
+# DW E0-04.P2b — Sol review, round 2
+
+Exact head: `90a5b1f38ce9255b37176b133584572e73752c50`; fixes `e0c091c`, `a941c3b`, `90a5b1f`. Review worktree: `/work/scratch/p2b-r2-sol/wt` (detached). The source branch and review worktree were not edited, committed or pushed. This report is uncommitted.
+
+One new money-safety blocker remains. The original durable-Sent and row-less Repair fixes work in their regression cases, but Repair trusts the new tap attribution as exact ownership. The tap can attribute an unrelated reconstructed lock to a running funding call; that attribution survives closing and reopening the wallet. A self-spend conflicting only with that other lock can then resolve the current step `NotSent` after its actual proved lock's row was lost.
+
+## Authority and method
+
+Read `REVIEW-COMMON.md`, the prior `DW-E0-04-P2b-r1-sol.md`, DEC-171/DEC-179, the E0-04 design's §2a.5/§2a.6, H6/H13/H15 and §12, and all three fix diffs. Checked the pinned platform-wallet source at `bc41f1bc233dec4607d387101c1d9c2f111019b2`, especially its track-before-broadcast, best-effort asset-lock persistence, reconstruction and broadcast-error conversion.
+
+Commands used `nice -n 10`, `CARGO_BUILD_JOBS=8`, umask 022, and disk `TMPDIR=/work/scratch/p2b-r2-sol/tmp` (0700). Storage fixtures use the engine's private-directory helper. Builds have review-owned target directories. The task's disk-TMPDIR instruction overrides REVIEW-COMMON's older /dev/shm advice. No testnet funds, GitHub actions, commits, pushes, private-directory reads or process-pattern kills.
+
+Adversarial additions are confined to a copied engine crate at `/work/scratch/p2b-r2-sol/probe-src/rust/crates/dw-engine`, outside the detached worktree. Production lease logic is unchanged in the probe build. Initial probes used cached dependency artifacts copied into the review-owned `probe-target`; the final strengthened probes were rebuilt against the **fresh exact-head Cargo artifacts** in the separate review-owned `target`. All final targeted suite logs also use that fresh exact-head build. The probe exercises real admission, journal recording, status derivation and wallet-close/open methods against the existing `FakeTracked`/`FakeJournal` seams. It does not claim a mined, live-wallet reproduction of the partial-persistence scenario.
+
+## Prior finding closure
+
+| Item | Status | Evidence |
+|---|---|---|
+| R1-01 | **Original trace closed; money-safety closure incomplete** | `note_proved_funding` creates the funding Sent bundle and retains an ambiguous evidence obligation until it lands. Sent wins over self-spends; failed/panicking writes retry at the next successful write or journal close. With no known lock and recovery incomplete, Repair refuses `NoKnownLock`. The successful-write/row-loss, failed-or-panicking-write/reopen, markerless proof and index-0 attribution regressions passed. The new attribution exception nevertheless reopens the false-NotSent class in R2-01 below, with new independent evidence. |
+| R1-02 | **Closed** | `lock.rs:351` lists bound/called funding steps under their public step ids, using `funding_outcome`; finished funding calls are excluded from raw call outcomes. Resumed Sent/WillBeSent/MaybeSent/NotSent, failed calls later proved Sent, and an owed definitely-unsent resolution passed. |
+| R1-N1 | **Closed for the reported timing issue** | Phase 1 accepts Sent or BroadcastUnknown and requires one eventual Sent resolution; eventual waits use 600 s. Phase 2 no longer assumes an overdue timer is polled before 15 s. Production `LeaseConfig::permit_ttl` remains 10 s (`lease/mod.rs:344`). The exact-head reported dashd run passed 1/0 in 858.87 s. I inspected that log and the changed test; I did not rerun dashd. |
+
+A refresh commits its proof and schedules the Sent write in synchronous J/effect steps without an intervening await. Dropping its caller cannot undo the recorded obligation; the blocking write owns its completion, catches panic, and leaves ambiguity on failure. A crash before durable completion can still lose positive evidence; the standing FULL funding marker and the default-false recovery gate then park the operation, except for the unsafe ownership exception below. No additional H13 ordering or released-signature-count defect was found.
+
+## New finding
+
+### R2-01 — blocker: heuristic tap attribution authorizes an unrelated Repair conflict
+
+**Locations:** `rust/crates/dw-engine/src/platform/lease/mode_b.rs:961`–`:974` (`note_tracked`), `:521` (`own_row`), `:670`/`:714` (`own_pending_row`/Repair admission), `:349` (wallet-close retention), and `:399` (ChainLocked self-spend derives NotSent). The production unload path calls this close method at `multiwallet.rs:287`.
+
+**Scenario:**
+
+1. Registration step S at index 0 takes its durable funding permit and releases a signature. Its snapshot did not contain an older unused registration's lock B. While S is running, a reconstruction or delayed changeset stores B at the pin's singleton index 0. B belongs to another draft, but is the only matching row delivered while a signed funding call of this key runs. `note_tracked` inserts B's txid into S's `own` set. There is no correlation with the transaction S signed, nor source-call provenance in the tap.
+2. S's actual lock A is tracked in memory and can go out despite failing persistence: at the pin, `queue_asset_lock_changeset` logs a `store` error and returns normally (`asset_lock/manager.rs:220`); `build.rs:1097` tracks Built, queues it, then continues to broadcast. A fatal SQLite flush can drop the failed changeset (`sqlite/persister.rs:1159`); the desktop store tap runs only after a successful inner store (`dw-engine/src/store.rs:103`), and the pinned manager removal does not snapshot the missing row back to disk. The call ends ambiguously. A reaches ChainLocked. At index 0 its proved row is untrusted; its failed stores never attributed A through the tap. S reads Sent from A while that row stands, but no synthetic Sent bundle is owed for A.
+3. Close and reopen the wallet within the same session. A's unpersisted tracked row disappears; B's durable pending row remains. Core spend/finality data and asset-lock rows are separate best-effort changesets, so the wallet may retain A's spent inputs without its tracked row, and have remaining spendable inputs of B. Recovery is incomplete. `wallet_closed` only resets resume state and ends passes: it retains `own`, including the false attribution of B.
+4. Repair sees a matching pending row B which `own_pending_row` calls S's own. It bypasses `NoKnownLock` despite `recovery_complete == false`. Its draft must take an input of B, but nothing requires a conflict with missing A. With A's inputs already spent and no unsettled Core spend, a self-spend of the remaining funding coins can ChainLock. The derivation then reports S `NotSent` although A already paid. H11/registration discard consumers may discard and fund again. This is the same money-safety consequence R1-01 required the recovery guard to prevent.
+
+B must be an unused/unadopted singleton lock, so the managed-identity re-keying does not correct its index. If B's inputs are unavailable, `LockInputsSpent` refuses; if its Core spend is unsettled, `SpendUnsettled` refuses. The unsafe case is the explicitly incomplete/partially persisted wallet where B still has a spendable input and A does not. The new guard was meant to refuse precisely incomplete ownership evidence, rather than assume the Core and asset-lock projections stayed complete together.
+
+**Evidence:** The independent tests `review_r2_unrelated_reconstruction_must_not_authorize_repair` and `review_r2_unrelated_conflict_must_not_resolve_current_not_sent` model that allowed row-loss state. They deliver B through the real tap admission method while S is signed, include A in the live snapshot, close/open, remove only A, and leave recovery false. Production logic admits Repair with `Ok([(B, B_inputs)])` instead of `NoKnownLock`, then accepts the recorded self-spend and returns `Some(NotSent)`. The final strengthened tests additionally observe A's ChainLocked row as Sent before close, check that no Sent bundle was journaled, and reopen the journal in a fresh table: the false `NotSent` survives that process restart. Sources: `/work/scratch/p2b-r2-sol/attribution-probes.rs`; compile command: `probe-compile-command.json`; output: `adversarial-probes.log` (**1 passed, 2 failed**, exit 101). The output prints `current before row loss: Some(Sent), durable Sent: false`, then `current after unrelated conflict: Some(NotSent)` and `current after process restart: Some(NotSent)`. These are invariant failures, not wall-clock flakes.
+
+**Fix:** Separate conservative matching for positive Sent from evidence sufficient to prove a negative resolution. Timing plus a funding key is not exact transaction ownership. Repair must require an authenticated association to the funding call's actual transaction/input set, or complete recovery; until that association is available, a row known only through the tap heuristic should not waive `NoKnownLock`. Invalidate process-local ownership guesses when the wallet is reloaded. Clearing on close addresses this reproduced lifecycle, but robust provenance or a conservative refusal is preferable to treating a temporal coincidence as exact ownership. Retain this regression with A proved, its row lost, B's input available, and recovery incomplete.
+
+## Residual assessments
+
+| Residual | Assessment |
+|---|---|
+| Repair cannot resolve a lock with no row until DP1-05 supplies recovery completeness | **Fail-safe when no ownership exception bypasses it.** Default `false` and `NoKnownLock` park a row-less marker. The withheld-T1 and no-known-lock tests pass. R2-01 means the overall Repair claim is not yet fail-safe. DP1-05 must uphold the documented snapshot/completeness/reset contract. |
+| Index-0 registration first proved after process restart is not journaled because attribution is not persisted | **The isolated residual fails closed.** The independent restart probe observes Sent without a durable synthetic Sent, loses the row, gets MaybeSent, and Repair refuses NoKnownLock. This loses durable positive history/liveness, but permits no second funding. Wallet close/open differs from process restart: attribution survives it, which enables R2-01. |
+| Durable Sent may over-approximate, costing one step liveness | **Safe for preventing another payment when used only as positive evidence.** An older lock credited as Sent prevents re-funding and can strand the step. The tap attribution itself is not sound ownership evidence, however. Its reuse for negative Repair is unsafe; the paragraph's general fail-closed characterization must be qualified/fixed as R2-01 describes. |
+| F5: unknown sweep chunk's txid is absent from MixedCoinsSweepResult | **Liveness/observability residual within a loaded wallet.** The unknown chunk retains its Tx owner; later never-broadcast chunks release only their owners. It can remain held indefinitely and cannot be explicitly identified/abandoned from this result. This is safer than releasing on ambiguity. Reservations are in memory and unload clears them, so this is not a durable reservation guarantee across reopen/crash. The self-sweep returns to the same wallet; I found no new double-pay/lost-funds defect in the reviewed settlement change. Naming the ambiguous txid and outcome remains useful work for its CoinJoin/FFI owner. |
+
+## Sweep, H6 and validation
+
+The sweep classifier matches the pinned error contract: `BroadcastError::Rejected` converts to `TransactionBroadcast`; `MaybeSent` converts to `TransactionBroadcastUnconfirmed` (`broadcaster.rs:47`). `settle_sweep_failure` releases from chunk n on a definite rejection and from n+1 for every other error. It retains the possibly-out chunk and uses owner-specific releases. Successful earlier chunks keep their claims until their inputs are observed spent. The built-in reservation regression passed for ambiguous, rejected and no-peer outcomes. A cancelled/panicking path that retains never-broadcast reservations can cost liveness until observation/unload; it is not evidence permitting a retry of an ambiguous transaction. No new cross-owner release defect was found.
+
+H6's source changes were not part of these fixes. Its 10 targeted tests passed, including concurrent rows, trigger coalescing, stale-pass completion rejection, stop/close, reopen and journal-recovery triggers. The Mode B library-resume semantics remain as documented; I am not expanding their guarantee to Mode A or end-to-end Platform registration.
+
+Independent validation logs are under `/work/scratch/p2b-r2-sol`:
+
+- Fresh exact-head `cargo test -p dw-engine --lib platform::lease::mode_b_tests -- --test-threads=8`: **46/0**, build/test exit 0 (`mode-b-tests.log`), including durable Sent, write failures/panic/reopen, Repair refusals and lock-report cases. The initial cached-artifact replay also passed **46/0** (`mode-b-replay-tests.log`).
+- Call permits: **22/0** (`call-tests.log`), including marker durability, kill/cancellation, signer closure and signature-in-flight cases.
+- Resume: **10/0** (`resume-tests.log`). Mode B session/store/fence cases: **6/0** (`mode-b-session-tests.log`). CoinJoin/sweep: **4/0** (`sweep-tests.log`).
+- `CallBeforeMarker`: **caught**, exit 101 with `no permit while the marker's write runs` (`call-before-marker-mutation.log`).
+- Dispatch, split, design and model-mutation checks: **passed**. `cargo fmt --all -- --check`: **passed**.
+- Independent attribution probes, rebuilt using fresh exact-head dependencies: **1 passed, 2 failed**, exit 101 (`adversarial-probes.log`), demonstrating R2-01 including observed Sent before row loss and false NotSent after process restart. The passing probe checks the documented index-0 process-restart residual. Compilation passed (`probe-compile-exact.log`).
+
+The reported `/work/scratch/e0-04-p2b/gate.log` identifies 90a5b1f and GATE EXIT 0: fmt/clippy, 962/0 workspace tests, four design checks, 10-seed stress 3/0, the caught CallBeforeMarker mutation and BL-76 1/0 (858.87 s). I inspected the supplied logs; the full workspace, clippy, 10-seed stress and dashd results are implementer evidence, not independent reruns here. The existing green tests do not cover the newly reproduced false ownership/Repair interleaving.
+
+**Verdict:** CHANGES-REQUIRED
+
+Sol gate satisfied: no
