@@ -1,0 +1,5 @@
+# An equal-work fork made active by PRECIOUS.
+extend main 1
+fork 1 1
+precious tip#0
+extend main 1
