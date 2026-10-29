@@ -1,0 +1,37 @@
+# Standalone tool, not a workspace member: BS7's differential helpers. It
+# links the base-sdk fork pinned by the root (BS7 is merged into it), through
+# the [patch] below, which repeats the root's table as in cs2-diff and adds
+# dash-p2p-core, and, with the `oracle` feature, the O1 oracle for the
+# in-process `tx` and `block` targets. Build from a copy of rust-dashcore
+# (`git archive HEAD`), like ../oracle, so dash-oracle-sys finds its workspace.
+# The `oracle` feature also links CS0's dash-consensus.
+[package]
+name = "bs7-tool"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+oracle = ["dep:dash-oracle-sys", "dep:dash-consensus"]
+
+[dependencies]
+hex = "0.4"
+serde_json = "1"
+dash-p2p-core = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std", "serde"] }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std", "serde"] }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std", "serde"] }
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", features = ["std"] }
+dash-oracle-sys = { path = "../../../../dash-oracle-sys", features = ["oracle"], optional = true }
+dash-consensus = { path = "../../../../dash-consensus", optional = true }
+
+# The root Cargo.toml's table (which has dash-p2p-core too); keep them equal.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
