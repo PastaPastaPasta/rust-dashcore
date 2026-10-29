@@ -1,0 +1,26 @@
+# DW DP4-02 independent security review, round 3
+
+Reviewed detached `b14573e7` against my round-2 head `fb85d08c`, using `git diff fb85d08c..b14573e7 -- rust docs/design docs/contracts`. Scope: round-2 M1, M2, the kept-failure nit, and regressions in D36–D38. I ignored moved `main`.
+
+**Verdict: CHANGES REQUIRED.** The watch-state registration and off publication are atomic, and D37 closes the cancelled-setter disk reorder. Two escape points still break the promised off boundary.
+
+## Findings
+
+1. **MAJOR — An avatar-triggered DNS query can start after off has returned.** `rust/crates/dw-engine/src/platform/avatar_fetch.rs:174-183` submits `getaddrinfo` to `spawn_blocking`. The weak-reference check occurs before `to_socket_addrs`, and dropping the lookup future detaches a worker that has passed that check. Concrete schedule: an `avatar` fetch for an uncached host starts a resolver worker; the worker upgrades `still`, then is descheduled. An off publishes the new epoch, `unless_revoked` drops the fetch, the ticket deregisters, and `set_load_contact_pictures(false)` returns (`avatar.rs:269-287,301-315`; `profile.rs:255-264`). The worker resumes and executes `to_socket_addrs`, which can emit DNS traffic for that avatar host after the completed off. This is an avatar read, not the expressly allowed `prepare_avatar` path. The new test of `SystemResolver` only resolves `localhost`; it does not exercise cancellation. The residual is therefore a possible network request, not merely CPU work on a blocking thread. Retain and drain active resolver workers before off returns, or make DNS cancellation enforceable at the network boundary.
+
+2. **MAJOR — A contact picture can be delivered after the completed off.** `rust/crates/dw-engine/src/platform/avatar.rs:523-527` calls `ticket.finish()` while `for_profile` still holds the result. The outer `avatar_of` has yet to map and return it (`avatar.rs:980-985`), and the public `DashPay::avatar` waits for a separately spawned runtime task (`profile.rs:227-237`; `names.rs:868-877`). Concrete schedule: a cached contact thumbnail is found; `finish()` sees on and removes its last read count; the avatar task or its awaiting caller is descheduled. Off publishes its epoch, sees no older read, and returns. The avatar task/caller then returns `Some(AvatarImage)` after off. Even without instruction-level preemption, the spawned task can complete before off while its caller is not polled until afterward. The tests pause before the finish point and do not prove the public answer boundary. Keep the response-time promise only if the result is rechecked at the actual API delivery point, or revise the contract to define the read as answered at the internal finish step.
+
+## Boundary assessment
+
+- **M1:** Registration and epoch capture in `Pictures::ticket` share a watch write lock (`avatar.rs:147-159`), so a read cannot register after the off snapshot with the old epoch. The off publishes before `drained`, which waits for every earlier count (`avatar.rs:164-199,231-241`). URL-lock, identity-lock, permit, Platform and fetch waits use the revocation select; the new `fetch` and `platform` pause hooks sit after the first biased revocation poll and before the request future is polled (`avatar.rs:269-287`). A slow fetch itself is abandoned promptly, and the SDK retry loop stays inside the awaited Platform future. Findings 1 and 2 leave the DNS and public-answer portions of M1 open. Cache-row and thumbnail blocking jobs (`avatar.rs:436-448,555-564`) do not race revocation, so a stuck storage operation can also extend the off drain and then session close; I found no operation-gate/transition/URL-lock cycle in the ordinary path.
+- **M2:** `set_load_contact_pictures` takes the transition turn, then calls `on_runtime` with no suspension point before `rt.spawn` (`profile.rs:255-264`; `session.rs:665-679`). Once spawned, one task owns the turn through the blocking SQLite job, memory publication and off drain (`avatar.rs:220-243`). A cancelled caller cannot release the turn while its job is pending, and a later off cannot write out of order. `close` drains admitted guards, then waits for the transition mutex (`session.rs:749-752`). I found no remaining cancelled-setter reorder or close race in this path.
+- **D38:** Kept Platform failures carry an epoch and are reused only in that epoch (`avatar.rs:859-873`); a failure found after revocation becomes `Ok(None)` (`avatar.rs:810-820`). The round-2 stale-failure nit is closed at the internal read boundary. Finding 2 also applies to delivery of an error that was decided before off.
+
+## Validation
+
+- `git diff --check fb85d08c..b14573e7`: passed.
+- `git log --format='%h %G? %s' fb85d08c..b14573e7`: both commits reported good signatures (`G`).
+- `CARGO_TARGET_DIR=/work/scratch/dw-dp402-r3-sol/target cargo test -p dw-engine avatar`: **32 passed, 0 failed** in the library test binary; the other binaries had no matching tests.
+- `CARGO_TARGET_DIR=/work/scratch/dw-dp402-r3-sol/target cargo test -p dw-engine --lib profile_tests`: **23 passed, 0 failed**. Several tests crossed Rust's 60-second warning under shared load; all completed without a rerun.
+
+No internet avatar fetches were made. The detached checkout stayed clean and was removed with its private target after validation.
