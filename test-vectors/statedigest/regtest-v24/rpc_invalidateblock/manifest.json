@@ -1,0 +1,16 @@
+{
+ "nodes": [
+  "node0",
+  "node1",
+  "node2"
+ ],
+ "recorded": [
+  "node0",
+  "node1",
+  "node2"
+ ],
+ "source": "backfill: frozen/ and unstarted_nodes",
+ "test": "rpc_invalidateblock.py",
+ "test_args": [],
+ "unstarted": []
+}

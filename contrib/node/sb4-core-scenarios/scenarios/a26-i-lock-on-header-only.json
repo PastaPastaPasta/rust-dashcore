@@ -1,0 +1,40 @@
+{
+ "name": "a26-i-lock-on-header-only",
+ "description": "lock on header-only A1001 while the tip is A1000: floor A1001, tip A1000",
+ "rows": [
+  "A-26"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 1000,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A1000",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A1001"
+  }
+ ]
+}

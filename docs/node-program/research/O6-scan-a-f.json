@@ -1,0 +1,4426 @@
+{
+ "core_citation": "v24.0.0-rc.4",
+ "networks": {
+  "mainnet": {
+   "counters": {
+    "b.type.8192": 3,
+    "blocks": 2094671,
+    "c.c1_window_overpay": 222,
+    "c.c2_superblock": 89,
+    "c.candidates": 1817,
+    "c.subsidy_checked": 1817,
+    "c.window_within": 1506,
+    "d.cbtx": 1066511,
+    "d.sig.valid": 106895,
+    "d.version.1": 60480,
+    "d.version.2": 899136,
+    "d.version.3": 106895,
+    "f.commitments": 225760,
+    "f.enabled.nonnull": 93015,
+    "f.enabled.null": 132745,
+    "f.type.LLMQ_100_67": 75108,
+    "f.type.LLMQ_400_60": 10262,
+    "f.type.LLMQ_400_85": 10434,
+    "f.type.LLMQ_50_60": 85339,
+    "f.type.LLMQ_60_75": 44617,
+    "txs": 53395175
+   },
+   "hit_counts": {
+    "b.pre_dip3": 3,
+    "c.c1_window_overpay": 222,
+    "c.c2_superblock": 89,
+    "c.window_within": 1506
+   },
+   "incomplete": [
+    "1 blk scan issues (bytes skipped)",
+    "blk00250.dat@20110026: no magic: 14405 bytes skipped"
+   ],
+   "inputs": {
+    "blk_bytes": 33573132282,
+    "blk_files": 251,
+    "duplicate_records": 1,
+    "files_digest": "de23d85d6b29771f47fa2d6a1f048b404a60619d5da395145357f45f95b9299c",
+    "records_above_tip": 56,
+    "scan_issues": 1,
+    "unlinked_records": 137,
+    "v24": {
+     "state": "never active"
+    }
+   },
+   "notes": [
+    "one 14,405-byte region at blk00250.dat@20110026 holds no block record; every best-chain height to 2,094,670 has a record"
+   ],
+   "range": {
+    "from": 0,
+    "to": 2094670
+   },
+   "scan_a": {
+    "hits": 0
+   },
+   "scan_b": {
+    "hits": [
+     {
+      "blk": {
+       "file": 34,
+       "record_offset": 128058112
+      },
+      "block": "000000000000000cdf5cc24c3beb0669b31e942d1301e07b53d6f0c7db10860d",
+      "class": "b.pre_dip3",
+      "coinbase_one_byte_script": false,
+      "exemption_used": false,
+      "height": 842284,
+      "n_in": 1,
+      "n_out": 2,
+      "tx_index": 0,
+      "txid": "53fa8159168128ed8c0d31c2c2b6466f32ca27a69ea6fb114c1655bdfc734ac6",
+      "type": 8192,
+      "version": 0
+     },
+     {
+      "blk": {
+       "file": 35,
+       "record_offset": 20882128
+      },
+      "block": "000000000000002ee530aa44afb452e7ad03c1ef2c5dc1c935b67a7f2c8d3a7a",
+      "class": "b.pre_dip3",
+      "coinbase_one_byte_script": false,
+      "exemption_used": false,
+      "height": 844394,
+      "n_in": 1,
+      "n_out": 2,
+      "tx_index": 0,
+      "txid": "c811fe2d7b02261e1e0f48f731549d7cef891a27a4595253a44308e58d6ba6b2",
+      "type": 8192,
+      "version": 0
+     },
+     {
+      "blk": {
+       "file": 37,
+       "record_offset": 42627956
+      },
+      "block": "0000000000000019e35731a0bd438de286810bc597e48fdd2ff1699db8e0574b",
+      "class": "b.pre_dip3",
+      "coinbase_one_byte_script": false,
+      "exemption_used": false,
+      "height": 866404,
+      "n_in": 1,
+      "n_out": 2,
+      "tx_index": 0,
+      "txid": "5a78111e6f647204eb25744e022b906342ae4f3563794d1c2383e96a562245fc",
+      "type": 8192,
+      "version": 0
+     }
+    ]
+   },
+   "scan_c": {
+    "c1_window_overpay": {
+     "count": 222,
+     "first_height": 332320,
+     "last_height": 614813,
+     "max_excess_duffs": 252900000000,
+     "sum_excess_duffs": 12243495166089
+    },
+    "c1_window_overpay_rows": [
+     {
+      "blk": {
+       "file": 7,
+       "record_offset": 110347381
+      },
+      "block": "000000000014702a849cddf3145c495086ef5235b8e1a08fbea8e9c17c7d149b",
+      "coinbase_value": 118108031847,
+      "excess": 117600000000,
+      "height": 332320,
+      "payments_limit": null,
+      "reward": 508031847,
+      "txid": "4aaedeff9d18fa486ff9d6df57fc6497d6cd0bf2376a44cd95441f9e6096f6c1"
+     },
+     {
+      "blk": {
+       "file": 7,
+       "record_offset": 110371573
+      },
+      "block": "000000000008ad3b2d5419b8206c02b3ec1abf10bd3039de15ce2e5ce0e13680",
+      "coinbase_value": 253401428573,
+      "excess": 252900000000,
+      "height": 332321,
+      "payments_limit": null,
+      "reward": 501428573,
+      "txid": "d5f7bd8656e97ad009f1b842bf9dc775bf7fc3f8ceca11cfb7c552237ce680c9"
+     },
+     {
+      "blk": {
+       "file": 7,
+       "record_offset": 110350550
+      },
+      "block": "000000000010ac0d276f4c44274274022b82769386f26926d6890903763721a5",
+      "coinbase_value": 216017857144,
+      "excess": 215600000000,
+      "height": 332322,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "6ece84bb36f58f26cfcccfee74806c62bfbe83443d3426b82ebad42d63b1afb5"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29828940
+      },
+      "block": "000000000001ab48d6ddfa0900214f65dbaae8d156e21096d9f3e01e2afeabef",
+      "coinbase_value": 216101428573,
+      "excess": 215600000000,
+      "height": 348936,
+      "payments_limit": null,
+      "reward": 501428573,
+      "txid": "b9e9735cc2451bab4b760e7a90a5dd1f6d0c055188dcbc213eac07a41da037c7"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29829176
+      },
+      "block": "00000000000f8eff521463c554aa53488ce336f25a1f8acb611eb33d44eb1fd8",
+      "coinbase_value": 118185000000,
+      "excess": 117600000000,
+      "height": 348937,
+      "payments_limit": null,
+      "reward": 585000000,
+      "txid": "2e7f4c896dda361625ee4b89739f3140b9b9cf05870ee3a0ac5d2171bb178fd1"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29852502
+      },
+      "block": "00000000001997e9f31a3e9903e12b35bcc19b280186d6fba5dd0367abb7da20",
+      "coinbase_value": 31366530833,
+      "excess": 30865000000,
+      "height": 348938,
+      "payments_limit": null,
+      "reward": 501530833,
+      "txid": "9cf3e4d52f459dad013179840893f2b0c3b2052797ad9e0ec4f22e1839953888"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29870706
+      },
+      "block": "0000000000043877ac15f7dd9d99924f3100c9aeba6bd99efa01506ffaf68c2f",
+      "coinbase_value": 202985002250,
+      "excess": 202400000000,
+      "height": 348939,
+      "payments_limit": null,
+      "reward": 585002250,
+      "txid": "3633b5728bd9bc1bcb687008cab7075fbe27fbc2e2b2768b7d3cefbd2421c6cf"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29850090
+      },
+      "block": "0000000000073f651c1018bad6a4e68a9c577c3dafbf19f3b32677800768bd52",
+      "coinbase_value": 26353306929,
+      "excess": 25768166089,
+      "height": 348940,
+      "payments_limit": null,
+      "reward": 585140840,
+      "txid": "9c0c77d008cf20bfd6ce6fdae35a071f6ecf6cf61650aa08df05349347594c8e"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29853194
+      },
+      "block": "00000000001da8297e97ec4f35c945c4eec612cc1e9d6c3acb6e6a597122fbb7",
+      "coinbase_value": 142285000000,
+      "excess": 141700000000,
+      "height": 348941,
+      "payments_limit": null,
+      "reward": 585000000,
+      "txid": "81f1f766747bfcd8d32eadb45f2a6ca7f0a0ececd2a31ee206be2156a39deb3c"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 29875748
+      },
+      "block": "0000000000071499556cb23d298218fdc7ece99f498fbe3c0947c0ed891c4efe",
+      "coinbase_value": 13372023788,
+      "excess": 12700000000,
+      "height": 348942,
+      "payments_limit": null,
+      "reward": 672023788,
+      "txid": "975bdf3ef9bffeafd697439ada19980a67028fbcca917e89df1c05bf13bb98aa"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 79745574
+      },
+      "block": "0000000000065623577e66fa6a806f46f4788552ab4fc38565f8511fc8e136a7",
+      "coinbase_value": 118101428573,
+      "excess": 117600000000,
+      "height": 365552,
+      "payments_limit": null,
+      "reward": 501428573,
+      "txid": "c64fd11580255c7ccfe1094635e4c2796c8545d1f92bf68548fc9ecab4377c2f"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 79747379
+      },
+      "block": "00000000000e0080b70bd1d3f1fff6afe8e6a8d457a31b609c0580ffc268a9dc",
+      "coinbase_value": 216017857144,
+      "excess": 215600000000,
+      "height": 365553,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "1605ef9b28569a0daf429151f698f630b2c2763e9988b358da5d9d8ea6fc670f"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 79760033
+      },
+      "block": "0000000000127f3f0cdf64f16e5ba921ed44ce30c4bb2c57b6e264c3d3c15f12",
+      "coinbase_value": 195650865395,
+      "excess": 195223000000,
+      "height": 365554,
+      "payments_limit": null,
+      "reward": 427865395,
+      "txid": "a55018c6d46bd4d0df1394a3b771e6fb3d54ccd650d4f6d83eb4e55714974730"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 79749847
+      },
+      "block": "00000000000d9d13a3f63afc38ce46249c27032a000f9d7aa3723602df060a4b",
+      "coinbase_value": 44267857144,
+      "excess": 43850000000,
+      "height": 365555,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "3e7b7f5892bb02c2472fb8d561fcb8b8100d426048ea694fc831b0380a55a63b"
+     },
+     {
+      "blk": {
+       "file": 8,
+       "record_offset": 79741744
+      },
+      "block": "00000000000b1d2134011146309e0d23b4f9fbf98291edf0ec5bb56dafe250f3",
+      "coinbase_value": 179285474605,
+      "excess": 178779000000,
+      "height": 365556,
+      "payments_limit": null,
+      "reward": 506474605,
+      "txid": "628e6be964a7b873e3cffc39ed0ec5e43f2be1f2675fba34ce0a6f00b0d33258"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40622307
+      },
+      "block": "0000000000053206a7e5d6ea521e7493b028aefb2a9682eff2891c1ba1e78519",
+      "coinbase_value": 61443859404,
+      "excess": 61026000000,
+      "height": 398784,
+      "payments_limit": null,
+      "reward": 417859404,
+      "txid": "0214bafb7daf15dae8929235938029ca8e7aaa850dceff115387d44ed532b8f8"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40607603
+      },
+      "block": "00000000000a48eec8db06a8ce99096f6656c3dca9204eb9979a14989529cc3a",
+      "coinbase_value": 118017857144,
+      "excess": 117600000000,
+      "height": 398785,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "45fbc33b7b1646641683d79c687d7271eab0881a3ca8984591ae0b4d6994470f"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40543590
+      },
+      "block": "000000000010c0d4e8ec24eee2dff34d016915858eaf45f992078abac671bb92",
+      "coinbase_value": 216019059165,
+      "excess": 215600000000,
+      "height": 398786,
+      "payments_limit": null,
+      "reward": 419059165,
+      "txid": "ff6b7d259f0b292fda3b3a407810780446f20800c8c057b9c64ce1965858a94b"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40593292
+      },
+      "block": "000000000015b05d1f118f958aaf556ce707441a477d86f96e88abe49d49f807",
+      "coinbase_value": 59419048853,
+      "excess": 59000000000,
+      "height": 398787,
+      "payments_limit": null,
+      "reward": 419048853,
+      "txid": "bd984fc0b37ef774f2990a24fd9ec4aed337f0ca066b1039a1d911163dc6f2a0"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40622773
+      },
+      "block": "00000000000df45ff641c2288dd278f4091f9107d104c05df23d923a44c2a580",
+      "coinbase_value": 210420044910,
+      "excess": 210000000000,
+      "height": 398788,
+      "payments_limit": null,
+      "reward": 420044910,
+      "txid": "8c6625f4bea36de472a09d309bf96434562bd78f1bb80e824ef397badf6dda76"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40649458
+      },
+      "block": "000000000002d25f1fa5bf88af54993e1731b13a0d9025a36cd24bb3697af065",
+      "coinbase_value": 15417857144,
+      "excess": 15000000000,
+      "height": 398789,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "57ecba5dd01e343e5fcf1fee2f3cc430cfd1d0dfd13f53e159a105f10ccb8e91"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40641534
+      },
+      "block": "00000000000adfa7b9eab9f16a847a81ab0b813a5d04ea5c968f527bf5c9c93c",
+      "coinbase_value": 14417869044,
+      "excess": 14000000000,
+      "height": 398790,
+      "payments_limit": null,
+      "reward": 417869044,
+      "txid": "0f9d0350b178cae5078f1260f9b901054f59806b8817890c379819dadfb3fc1f"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 40661430
+      },
+      "block": "00000000000cdf7aa8f563807fb0a26bada9d370b0155fcbc7b2f338536b7cec",
+      "coinbase_value": 110417861654,
+      "excess": 110000000000,
+      "height": 398791,
+      "payments_limit": null,
+      "reward": 417861654,
+      "txid": "893ea7b0d07f34243ed8553c7a4c58e2b5df1b9cf01fdc89cc2e8b0f82fda221"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92639178
+      },
+      "block": "0000000000056aa1260c0eeab2bf21da258e1a528ba6c9a20a739b70d7330af2",
+      "coinbase_value": 917859394,
+      "excess": 500000000,
+      "height": 415400,
+      "payments_limit": null,
+      "reward": 417859394,
+      "txid": "0648f54195294abc92cd20c92f46fe39fccb6136566e11321faf743f7d7cb5dc"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92628992
+      },
+      "block": "00000000000cc29189869f1317728d42513de877fd02a2f45bca131bab2c8782",
+      "coinbase_value": 61443869124,
+      "excess": 61026000000,
+      "height": 415401,
+      "payments_limit": null,
+      "reward": 417869124,
+      "txid": "eacbdc4e80ad86ce8418231d277c98c4fdcf1711c1119ef4231cd0efec8976f0"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92630904
+      },
+      "block": "00000000000d32c610cdabae770ab0c842e94a59f46c7f41a272760037350e65",
+      "coinbase_value": 118022784827,
+      "excess": 117600000000,
+      "height": 415402,
+      "payments_limit": null,
+      "reward": 422784827,
+      "txid": "953ba1107e5c2a33518dc3f6b6a02cd499c1658673e06b07ec1668f8beb2fe9b"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92637412
+      },
+      "block": "000000000006fafa1d02bb4f7bf6e5af8ae62296b63bb8eb6298f70846b9d177",
+      "coinbase_value": 210417870514,
+      "excess": 210000000000,
+      "height": 415403,
+      "payments_limit": null,
+      "reward": 417870514,
+      "txid": "4c8dedc3a7d1ec07de2ad48b91d5285544b7b85c00fbc71f058b9d515ab3dcf8"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92632815
+      },
+      "block": "00000000000f43102850eea23ed934d5149ebae465f7cb8fe2c39693f84b8ac1",
+      "coinbase_value": 10417863904,
+      "excess": 10000000000,
+      "height": 415404,
+      "payments_limit": null,
+      "reward": 417863904,
+      "txid": "1954c920efae68318e5f6c97f703170d85aac7988aa820f08403b4d8509e5c7f"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92635724
+      },
+      "block": "00000000000f05cdd95cf0b93f8ba2ca74ca3a6b995452f40a81405a03b2a045",
+      "coinbase_value": 216019226705,
+      "excess": 215600000000,
+      "height": 415405,
+      "payments_limit": null,
+      "reward": 419226705,
+      "txid": "e9a18f2282804d9b8d8a9392e94ddbef20d7b9a677c338e2c2fb213e73450b8f"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92630395
+      },
+      "block": "00000000000a940e7d34567d37050534b8c2f77fb3376f35ce485dee96a01ae1",
+      "coinbase_value": 72187859404,
+      "excess": 71770000000,
+      "height": 415406,
+      "payments_limit": null,
+      "reward": 417859404,
+      "txid": "4a7012582634d411b14cdcde0070334e203a9a0b1aed5516a2a8261c50ee8f85"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92633731
+      },
+      "block": "00000000000db9a9c3d790fd03926984d30876db12cbd1c5407ea66aec605ccb",
+      "coinbase_value": 20420069156,
+      "excess": 20000000000,
+      "height": 415407,
+      "payments_limit": null,
+      "reward": 420069156,
+      "txid": "a40a1c96efa865a9d4ac5918aa1536772cee7076e26f223c2e1b9e4dee937765"
+     },
+     {
+      "blk": {
+       "file": 9,
+       "record_offset": 92632531
+      },
+      "block": "000000000001382c7451a60b2eef273e615097f4dcd8fb980187669819d88274",
+      "coinbase_value": 14417857144,
+      "excess": 14000000000,
+      "height": 415408,
+      "payments_limit": null,
+      "reward": 417857144,
+      "txid": "eb8f972a15f1c6bc06d490d16e4b055e6c835652e7adf4f4f46701cd33a6ca46"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22727490
+      },
+      "block": "00000000000d15a2db2535b3677dcebb4a5a5ce6c3f99d61dd4d5654e5f0f5ce",
+      "coinbase_value": 61424012465,
+      "excess": 61026000000,
+      "height": 432016,
+      "payments_limit": null,
+      "reward": 398012465,
+      "txid": "dfa2e8482d9bd89779fb8d5dc3d5dc7f8b59d209efd7da58d5e67b7a3157b344"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22711005
+      },
+      "block": "000000000008c5a6e1d33a048c3b6e9b651f6d7a148d17cd674cc9b36bae82f0",
+      "coinbase_value": 117989981539,
+      "excess": 117600000000,
+      "height": 432017,
+      "payments_limit": null,
+      "reward": 389981539,
+      "txid": "810c8777abd89dec769a7592b582c08e6fd447d358d29dc3ed0f82deec9f8bc0"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22722436
+      },
+      "block": "000000000006a5708834059616cd6ae38b37dcd6edbb4f328d30fae9aefe9dae",
+      "coinbase_value": 10394512939,
+      "excess": 10000000000,
+      "height": 432018,
+      "payments_limit": null,
+      "reward": 394512939,
+      "txid": "66f6d8cbda3ecd20554ad1f69b75455ad3bd06792779b22fe9aeda2e58aa5793"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22729257
+      },
+      "block": "00000000000f176827ed82b3898914b9e124adae37b9d440f16211a4b9dadfd2",
+      "coinbase_value": 210390193631,
+      "excess": 210000000000,
+      "height": 432019,
+      "payments_limit": null,
+      "reward": 390193631,
+      "txid": "0d45c935e758726d9b88c928c4d7938d601d348b46dc7702223e4768155c1758"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22755398
+      },
+      "block": "0000000000003c34524e3901eaf80f4ce7e55a97307de0bb92d3e0ed5586abd3",
+      "coinbase_value": 216009207047,
+      "excess": 215600000000,
+      "height": 432020,
+      "payments_limit": null,
+      "reward": 409207047,
+      "txid": "31e2fa6af47044b6b5ed442e6054c5785e4e5b37e52e8db9e159f8aa57d45a60"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22742963
+      },
+      "block": "000000000004534cb0643a099faa001d9a333c0acea1ff522891458232142f90",
+      "coinbase_value": 72237806831,
+      "excess": 71770000000,
+      "height": 432021,
+      "payments_limit": null,
+      "reward": 467806831,
+      "txid": "cafaa56d19bc2f53d67abed660c4845660f2039bf7231b73d01b0dbcf066fd1d"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22730218
+      },
+      "block": "00000000000d7a886d5f379d40ab845bd300f89d982bfd22bca1d744d3f5578d",
+      "coinbase_value": 5465612246,
+      "excess": 5000000000,
+      "height": 432022,
+      "payments_limit": null,
+      "reward": 465612246,
+      "txid": "0cdba1cdbdc90d23267e70f6bbe3687167e2b0e0ad3745a4c18521f32c7fc0d0"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22730502
+      },
+      "block": "0000000000158db1bedae0db2773b3e4d4d7d22d9726f512bf2f779925f70c93",
+      "coinbase_value": 40543233667,
+      "excess": 40000000000,
+      "height": 432023,
+      "payments_limit": null,
+      "reward": 543233667,
+      "txid": "6beb8028657d42ddf4fdbaf9192ec804cf39a6e2a9305ea3967a6335820faecd"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 22748843
+      },
+      "block": "00000000001ca8909b24ff99307eac0437f218608ee5516097e96c22e888ae47",
+      "coinbase_value": 6043218807,
+      "excess": 5500000000,
+      "height": 432024,
+      "payments_limit": null,
+      "reward": 543218807,
+      "txid": "1fdd47cf54f8987f575f230400e7efa32877a67df6d427e31b1a859d58aa20b0"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82784768
+      },
+      "block": "0000000000122ce86bf9b563507a22e828746e2d70f19e3703518526a42c258f",
+      "coinbase_value": 117990391262,
+      "excess": 117600000000,
+      "height": 448632,
+      "payments_limit": null,
+      "reward": 390391262,
+      "txid": "59cdfe408a71661361c9d840bf7dc06dfcd3ccbed674ae5f22d093b58a892178"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82818140
+      },
+      "block": "0000000000019f381c8e19a9994acbd1a73028b5ea8da32f92c0cfeed8667b8d",
+      "coinbase_value": 61424401959,
+      "excess": 61026000000,
+      "height": 448633,
+      "payments_limit": null,
+      "reward": 398401959,
+      "txid": "7f3acea97debfcdfe99c0d42df412aadac53dc1eae9a929430afed884677e5d1"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82843993
+      },
+      "block": "000000000007439d8c24f978a004f8fca7ac090f927dbb47530bb9349d501f7d",
+      "coinbase_value": 10390638585,
+      "excess": 10000000000,
+      "height": 448634,
+      "payments_limit": null,
+      "reward": 390638585,
+      "txid": "006cbffa4766231856c8cf8eda3be633d95c4678a153d027539c07724dae6ceb"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82862264
+      },
+      "block": "00000000001e586f4efa7b62f3ceaf59f95533187bb4c0bd7bb21e84206528b5",
+      "coinbase_value": 216148275070,
+      "excess": 215600000000,
+      "height": 448635,
+      "payments_limit": null,
+      "reward": 548275070,
+      "txid": "21e65cc34e9cd78c7c66f15e33ff4c0871188d82f00f609fe3c00c6b18be6f98"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82896144
+      },
+      "block": "0000000000247012ab443def6c4fbe666c41b5a379a78d7f497ad918352ed6e4",
+      "coinbase_value": 10123047894,
+      "excess": 9500000000,
+      "height": 448636,
+      "payments_limit": null,
+      "reward": 623047894,
+      "txid": "a4b5bb669efb112be748f080a2f216fec2449a79151ff61dc579700c376092ce"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82805235
+      },
+      "block": "000000000001336daa8ed029ef6bf21eb489d644ad5012a46e29ba8a73e74b6c",
+      "coinbase_value": 79498418369,
+      "excess": 78800000000,
+      "height": 448637,
+      "payments_limit": null,
+      "reward": 698418369,
+      "txid": "b4d5b717183c1c37c9ae66c185ca41abfc733e22b22c0c55ee2bd4e99a15484b"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82878713
+      },
+      "block": "00000000000c0adc472281be77fc7d35993cd73924293dc86eb868c185e7e50c",
+      "coinbase_value": 15777052730,
+      "excess": 15000000000,
+      "height": 448638,
+      "payments_limit": null,
+      "reward": 777052730,
+      "txid": "34994c7807212c83042b70967cf5676442e5fdf3223f311d99ea3ccd785f83b1"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82855804
+      },
+      "block": "000000000024e93600f64599fa9324cf0d3df32231f988fb6e162f1da68c56b4",
+      "coinbase_value": 5357102710,
+      "excess": 4580000000,
+      "height": 448639,
+      "payments_limit": null,
+      "reward": 777102710,
+      "txid": "c35ef001137f7c3121736ee0a22a65246297bb4e544159ec76eb7dc68e1943ba"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82880838
+      },
+      "block": "00000000001c2e1d18657fdb17d60e0af22674b97017c3e46c10532a64b61954",
+      "coinbase_value": 70944038250,
+      "excess": 70167000000,
+      "height": 448640,
+      "payments_limit": null,
+      "reward": 777038250,
+      "txid": "02f8eab8a23ac2fe4154e12852de51eaba566d7807733a662627db65793c8db9"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82743930
+      },
+      "block": "000000000001bc3b30267ae34a6b12ebd667f495f5761ea964b52ab12dfc0d06",
+      "coinbase_value": 1369651490,
+      "excess": 500000000,
+      "height": 448641,
+      "payments_limit": null,
+      "reward": 869651490,
+      "txid": "d260cef03a63f3d880075e776acf1a30cc1e8b277b5997685dd82a27e649640d"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82874323
+      },
+      "block": "00000000001b31dd64a0d3ffa0ab790d44aaf1ce67efa6239e0c6d9a4a48e5b3",
+      "coinbase_value": 25853624701,
+      "excess": 25000000000,
+      "height": 448642,
+      "payments_limit": null,
+      "reward": 853624701,
+      "txid": "819fc04e2da26aaea039e390c3d4ea73b0d16a1cf9676827fe8a6c06189b6895"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 82905635
+      },
+      "block": "00000000000d5b375b10c133acbbd2ba4f3f346630c893d958b21c00eb8b6d48",
+      "coinbase_value": 78508826533,
+      "excess": 77500000000,
+      "height": 448643,
+      "payments_limit": null,
+      "reward": 1008826533,
+      "txid": "e2d9c8263b54db6f6467d8081f0d42d0837528c1420f903f2ab78a0086de262d"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127923427
+      },
+      "block": "00000000000c2d120bbd2ad5ff2a3dc366ed5abe9c99d7fc15abfcfc36d1ef06",
+      "coinbase_value": 117988010205,
+      "excess": 117600000000,
+      "height": 465248,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "246dfe99f203c8f086442f130cc91ff84ecb61c17f757c808595f30889f849dc"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127939616
+      },
+      "block": "0000000000056f7879674f2b6881245129a6aeecd53436a2d809c90532f54476",
+      "coinbase_value": 61416015165,
+      "excess": 61026000000,
+      "height": 465249,
+      "payments_limit": null,
+      "reward": 390015165,
+      "txid": "b95c26945e712bb74f95ba8a2fe578907c776e04c55c4b87d58c1115dd54aa52"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127945151
+      },
+      "block": "00000000000f2174f68de98ddcbb63482cb32d7822a2b349fc140a6c51102f4c",
+      "coinbase_value": 215988012465,
+      "excess": 215600000000,
+      "height": 465250,
+      "payments_limit": null,
+      "reward": 388012465,
+      "txid": "6edf285f2c0547ea96e563d996194f9c8a28ed466072f70d9bfaa5fbe0c1a05e"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127923667
+      },
+      "block": "00000000000ac6d12de78aeb05961ba11f79b5b8ddee37de99cb096949ec4896",
+      "coinbase_value": 105695012465,
+      "excess": 105307000000,
+      "height": 465251,
+      "payments_limit": null,
+      "reward": 388012465,
+      "txid": "a95a33f5530ddaa512ea2aa48b377e6d82a6df10574b78a5562df3c4a65923bf"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127924892
+      },
+      "block": "0000000000067dcb581d67e54a154f83893b99cc5a2d60ec554445d0487ad66a",
+      "coinbase_value": 15388010205,
+      "excess": 15000000000,
+      "height": 465252,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "23356978937e157b0f32eef57114a47248ed01d8531a18f5e1f50c403cb85070"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127945617
+      },
+      "block": "00000000000a2f3feed76ac38042e0e9ea731a54e279a00fa8d00a2c20bfcad1",
+      "coinbase_value": 16227423180,
+      "excess": 15837000000,
+      "height": 465253,
+      "payments_limit": null,
+      "reward": 390423180,
+      "txid": "a4a4dfdcbfa270cb4aa3b0635c54f00f0f63b24afb19a54e554b06ae9684f159"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127984442
+      },
+      "block": "000000000006c6242e9f7109fa96f98942ea463ac2963e660c1b9fc2e6e21923",
+      "coinbase_value": 5280460466,
+      "excess": 4887000000,
+      "height": 465254,
+      "payments_limit": null,
+      "reward": 393460466,
+      "txid": "5d2450ee2d1952bd4a2552012521ac4b3bf57114dc1941466c78c6c9d71c078e"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127963034
+      },
+      "block": "000000000012082dc9fdb0e5860ad2783e1706fe5351734efc99d43f2f2ba7dd",
+      "coinbase_value": 4968010205,
+      "excess": 4580000000,
+      "height": 465255,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "0c7cddc38f00d270fd3c3ca73ab0473d41e467f3617b4cb9b1a3536d54acce1b"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127954289
+      },
+      "block": "0000000000019d8b803fc9af240b39af2764e0d1bd52b1f627c3cbb36cab8378",
+      "coinbase_value": 70565021505,
+      "excess": 70167000000,
+      "height": 465256,
+      "payments_limit": null,
+      "reward": 398021505,
+      "txid": "d85cabdf6cb2b7b5c2c22273d2912550fb4aa9ae8e3069da4c4db16a191281f9"
+     },
+     {
+      "blk": {
+       "file": 10,
+       "record_offset": 127983511
+      },
+      "block": "000000000013b92fcaccc71f24289017aae35513bdb1404d2fb54eef7d65fb3a",
+      "coinbase_value": 77888024705,
+      "excess": 77500000000,
+      "height": 465257,
+      "payments_limit": null,
+      "reward": 388024705,
+      "txid": "44851d7e564a512640159d9ade60716dc809d929452d86c3895a08004d1b7aa0"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38444457
+      },
+      "block": "000000000006f0174477d5b2be22150feeac7990d368d3d7cc87f81c85be1237",
+      "coinbase_value": 117988010205,
+      "excess": 117600000000,
+      "height": 481864,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "5f6f40f7402ba83eb723a848b9fb05f946ec095c9824f824f9415ebcfaf414a3"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38437871
+      },
+      "block": "000000000005f56ebc3f4241a22a06f8a7a336814ed81f0aa0288578913a252a",
+      "coinbase_value": 61414010205,
+      "excess": 61026000000,
+      "height": 481865,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "f8531224b71a4c764e2679979044730feda9da94356df73f751d63cb3613e92a"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38438715
+      },
+      "block": "00000000000606c6407f96cde2a667b609abe4207271873e37d06d16278578d0",
+      "coinbase_value": 215997752545,
+      "excess": 215600000000,
+      "height": 481866,
+      "payments_limit": null,
+      "reward": 397752545,
+      "txid": "836ce93fca3756870c896655e893da56ecae42e07c3735ead0c1dec59996b025"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38445678
+      },
+      "block": "000000000000cfef23e7a8784ff12dd68de4ed8a38d4f6a65cc4fff3b2513b8d",
+      "coinbase_value": 5275010205,
+      "excess": 4887000000,
+      "height": 481867,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "7ee6d8a464efabd59e858da930c7dda32eecad2d50cafa08d07910aa42643dad"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38436493
+      },
+      "block": "0000000000079db926378c2819e1e390d818dbad87e3ae37fb903e3b21c67170",
+      "coinbase_value": 15388010205,
+      "excess": 15000000000,
+      "height": 481868,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "917c27fa50e1e884b30e1d7f60130edf2ee9349b799c9513c75294fb87caca46"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38436973
+      },
+      "block": "000000000003d9ba7c3ef16e30ac2b22fa25f1649ced78d5ee7757964264af85",
+      "coinbase_value": 4968012465,
+      "excess": 4580000000,
+      "height": 481869,
+      "payments_limit": null,
+      "reward": 388012465,
+      "txid": "ad789394bc243f7819dbafd9789f09cd0e359e8dac7fabe518f5f36f2391d470"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38437631
+      },
+      "block": "00000000000033476f98f94c88d81917b555e50cd324d2dbc3c521845eb842e5",
+      "coinbase_value": 95388010205,
+      "excess": 95000000000,
+      "height": 481870,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "64a4ce6c925e50bbd9c0f2740f135da6ef16a4f8fe1fc302fcef4365ea800a4e"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38445918
+      },
+      "block": "00000000000011c60593852b46cb386cb64b86f6af1947ee950819d28188bd2e",
+      "coinbase_value": 70559911923,
+      "excess": 70167000000,
+      "height": 481871,
+      "payments_limit": null,
+      "reward": 392911923,
+      "txid": "1d4a832a2783d9246b119ef42249ee9ee792d9cdb311d6d4700faef3b26e42a3"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38444733
+      },
+      "block": "0000000000065989b4ce431d175cc1a69a06fd3383d7c3a8e361ab273754d6e8",
+      "coinbase_value": 4636010205,
+      "excess": 4248000000,
+      "height": 481872,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "de3f7801d3870a20a3ab3548a492ebaf12757696c9583dff31cbb929065fed2e"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38444973
+      },
+      "block": "000000000006cb82d9a4f1c0feccf481d4b27d9635a98a304b44bd9c81195ef9",
+      "coinbase_value": 10789010205,
+      "excess": 10401000000,
+      "height": 481873,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "7a7ac80563662f8d8ec7bede29ac58547937c536078e785ca9ed637b50b3903e"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38441078
+      },
+      "block": "0000000000083517d9f126164987dbbbb1426aa1f4b4d435c2242e0f297a5509",
+      "coinbase_value": 49441698743,
+      "excess": 49049000000,
+      "height": 481874,
+      "payments_limit": null,
+      "reward": 392698743,
+      "txid": "fdf2284a6165a3256f84648c8c071c3846306df8a1e7ff9418cb0249eba9d623"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38452860
+      },
+      "block": "000000000005f8de018521e6042a65ac784f600ce58e27bc6cb85222ef27f76c",
+      "coinbase_value": 8256010205,
+      "excess": 7868000000,
+      "height": 481875,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "8e84cf4f095495c4ef7745286652c004fed15da58f671b0908f20051b2151735"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 38457830
+      },
+      "block": "0000000000033e180ae6306ae951859d394332891339d030a1e40592d60bfca3",
+      "coinbase_value": 77888010205,
+      "excess": 77500000000,
+      "height": 481876,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "e6407b10df0b835d590c29f6ef74c8618e92d783dc80b2c1855bfef9e6f67d68"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83792646
+      },
+      "block": "000000000001d804336c90739e5d6c5514409328fc5ed76e3dab989de41dcf74",
+      "coinbase_value": 61417080118,
+      "excess": 61026000000,
+      "height": 498480,
+      "payments_limit": null,
+      "reward": 391080118,
+      "txid": "1017b50dd33ce1851deb37671f912563725344d29878f4e12b676de8c1944da4"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83776386
+      },
+      "block": "000000000002bce4d8f9baddad5951213f5cdef61972c41be4569d2a07a94c6a",
+      "coinbase_value": 117988010205,
+      "excess": 117600000000,
+      "height": 498481,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "741508f98b4b3c9143e37dbe5bf83c0ccebc7f23c8fdb45d867d46a86336d6d9"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83795523
+      },
+      "block": "000000000000d5ad54254f2c369fe1c952646cc90daa2943481c073157dc2885",
+      "coinbase_value": 12688010205,
+      "excess": 12300000000,
+      "height": 498482,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "6c715856c5b03bc713d7e326d0e7f3995d25abceb62331bb8271fcd2a31b4c0c"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83796351
+      },
+      "block": "0000000000008d2408317f28fbae95bcab2f40f6c79decc6511eb5056d4147fe",
+      "coinbase_value": 45357010205,
+      "excess": 44969000000,
+      "height": 498483,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "a6b1a428d235a4fe047f2e74342abca2584bb59dd2576a63826749be6bbbcdd4"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83791955
+      },
+      "block": "0000000000013cb5f625326422386e5451101f89866585c6304a5bccc0622ddb",
+      "coinbase_value": 60747014725,
+      "excess": 60359000000,
+      "height": 498484,
+      "payments_limit": null,
+      "reward": 388014725,
+      "txid": "011c8a6bbc8a1370dd3368f2ac91e7817780f77cf5ab071c98c2a18aa17271bd"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83766931
+      },
+      "block": "000000000001f3b7eec1a80e0b7509d83c2ccba9fc43de312ae92b362c024d31",
+      "coinbase_value": 61333214725,
+      "excess": 60945000000,
+      "height": 498485,
+      "payments_limit": null,
+      "reward": 388214725,
+      "txid": "a1041b912bb9e628323cc75a11bebc97f01f63e78c5d6e292c5b576100db1641"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83768740
+      },
+      "block": "000000000001c316a7e328c106cfe2f60a29956d31a9ea4f72f35b3ba84ce372",
+      "coinbase_value": 4756055209,
+      "excess": 4368000000,
+      "height": 498486,
+      "payments_limit": null,
+      "reward": 388055209,
+      "txid": "0279b04cdd3de669c6fc1595c52fe8746777b9c2a5622d57dc7e533152099857"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83795841
+      },
+      "block": "000000000001cc359635948a2fd737946d7d9dfc22e132df4f49173629c832d0",
+      "coinbase_value": 74680010205,
+      "excess": 74292000000,
+      "height": 498487,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "544d3e4cdb2a5bdebb46eb7c385468ad2a4bf647084a886f3c30cf255bb5c8f4"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83766239
+      },
+      "block": "00000000000228410d58c413b0880fa44810537bfbd23503d04d374fdb298312",
+      "coinbase_value": 27445112465,
+      "excess": 27057000000,
+      "height": 498488,
+      "payments_limit": null,
+      "reward": 388112465,
+      "txid": "a590e6ab32d7267eecea2074148321f20fd40177b78516375d26cc9008b57921"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83780446
+      },
+      "block": "000000000001077b0d154e23ed4f449ca09c2ab92978a38941a243c13e106554",
+      "coinbase_value": 4578122154,
+      "excess": 4190000000,
+      "height": 498489,
+      "payments_limit": null,
+      "reward": 388122154,
+      "txid": "df15c825774cb7d0cfada91b942a2a38b899f50ae7893ca436085dd682b3891e"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83826801
+      },
+      "block": "00000000000099542c39a5891b1775f06add1ebf9699b97f4d23446aa473de48",
+      "coinbase_value": 41990010205,
+      "excess": 41602000000,
+      "height": 498490,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "1e9db3411b2be76e1721abe11cee59335511fe7d94aaeed5e9c58f4d7f236dc2"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83802988
+      },
+      "block": "000000000001f81866fc0cc2e61b5166aee647191f06bc4b3ec7c89f6050db6b",
+      "coinbase_value": 95905010205,
+      "excess": 95517000000,
+      "height": 498491,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "7a047a339f27abdd0117f105d560ec009e9f922d9a08c5831333df1ee974ec48"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83803624
+      },
+      "block": "000000000001c1cbefa9fef5a5b4c2808c7f675b799154e134f173bf930fffa5",
+      "coinbase_value": 10888018455,
+      "excess": 10500000000,
+      "height": 498492,
+      "payments_limit": null,
+      "reward": 388018455,
+      "txid": "444a5d6f8abd97761d9a2f1cbec10f7a6a2874261b6bb88407485cd6df151c52"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83814819
+      },
+      "block": "0000000000008c350887d60f50cade0838806b8ff62fd1208aa85d13c2f4cfdb",
+      "coinbase_value": 35686014715,
+      "excess": 35297000000,
+      "height": 498493,
+      "payments_limit": null,
+      "reward": 389014715,
+      "txid": "98e983da713e8e25e7c95cbc1d62ec7821a599338e11ed38e402621bdf358bca"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83802670
+      },
+      "block": "000000000001ac0b19768eefee0fad7d38b059ca9f6f3d1620644f13653436ae",
+      "coinbase_value": 4447010205,
+      "excess": 4059000000,
+      "height": 498494,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "fb5b34c41c7fcaf7f4f9dc3647d2c2ad6ea10e2526f1d57f3a29cf6af3d1410b"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83817969
+      },
+      "block": "000000000001955c1bbb434324b419894d3fc9a107f5d106ae89ed6a3ae9f00d",
+      "coinbase_value": 13787224405,
+      "excess": 13398000000,
+      "height": 498495,
+      "payments_limit": null,
+      "reward": 389224405,
+      "txid": "2fcb4d3040b52bf8fc9c343764782f3a81abafeed6b14950da860af0ac0b9d03"
+     },
+     {
+      "blk": {
+       "file": 11,
+       "record_offset": 83826483
+      },
+      "block": "0000000000011d2010121159492ba0aba9e495dd3a8268703b7a3905ec36ec21",
+      "coinbase_value": 77888010205,
+      "excess": 77500000000,
+      "height": 498496,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "d9edbd18cd891e20fc91407ae4602d7781eec1048eb8b4a45b6e064cbc551f5b"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7078656
+      },
+      "block": "00000000000223f902893eb7694707fed30c282eaec2c1009751bbb1452e687b",
+      "coinbase_value": 117988018245,
+      "excess": 117600000000,
+      "height": 515096,
+      "payments_limit": null,
+      "reward": 388018245,
+      "txid": "2247723b586d7b26f37b5b75b4a05e0af6301d20ef8148161bfd9191ea743c0b"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7088638
+      },
+      "block": "000000000002faccbf78083c2fc54f3bfae959574a5aa3a6a6d871b4c2b871f3",
+      "coinbase_value": 61414010205,
+      "excess": 61026000000,
+      "height": 515097,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "f2f2fd1cb8ee98877cd564051703acddc8e6674d04a420d2dc58b0c57e89cb8a"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7081104
+      },
+      "block": "000000000002d600c97a67e1e66691b349b750c26c0fbf8c4266f7ecabb3841d",
+      "coinbase_value": 12689203809,
+      "excess": 12300000000,
+      "height": 515098,
+      "payments_limit": null,
+      "reward": 389203809,
+      "txid": "c1378056954f5ae85a867e3b24dc7a6a4a644a9e7c6ca6a0a46fb5084c32b1e0"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7089379
+      },
+      "block": "000000000001dac6626a761ca13d28e788f668363a9291151ee6f16459d07f06",
+      "coinbase_value": 20363018465,
+      "excess": 19975000000,
+      "height": 515099,
+      "payments_limit": null,
+      "reward": 388018465,
+      "txid": "d2ac76cba338c027e3ab1d6ea1d9e44eea184ec208881a26e9baff780fd86054"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7094894
+      },
+      "block": "000000000001c292dabecd230ef750777908cba8169cd261beb81f6e7f72c640",
+      "coinbase_value": 65535996156,
+      "excess": 65141000000,
+      "height": 515100,
+      "payments_limit": null,
+      "reward": 394996156,
+      "txid": "69713bf11321cfd2f1c6b66de2273e6e7d8bf79b239dd5f45f9f3506b4d01619"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7090444
+      },
+      "block": "000000000002b2eee041ee7e83d91992ab421e9c8b0b8a4f9fbe0d6139249720",
+      "coinbase_value": 129791341320,
+      "excess": 129399000000,
+      "height": 515101,
+      "payments_limit": null,
+      "reward": 392341320,
+      "txid": "473ced7514f5648b6338590035f38ce49aab3ed0bee02dae702b86122a2d7e0f"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7144660
+      },
+      "block": "000000000002167606ebf16a8593b84b1a4e4df2ecd36413b1a1c2f6df500d32",
+      "coinbase_value": 43481527391,
+      "excess": 43037000000,
+      "height": 515102,
+      "payments_limit": null,
+      "reward": 444527391,
+      "txid": "b92d0d6e52738c2ca4e598baf8947912aba13d47808a244e52eb6afdb0c64e93"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7140007
+      },
+      "block": "000000000000aa4c820d14db03aec7c9a3a8b74609b785d6d2b2b72c73a442bc",
+      "coinbase_value": 6175209383,
+      "excess": 5785000000,
+      "height": 515103,
+      "payments_limit": null,
+      "reward": 390209383,
+      "txid": "d06136af3f6739393546f990206dba510765d8926b20123ed4ec03a134ffa775"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7135537
+      },
+      "block": "00000000000283dbbf2267a8899d513a5ed794d89af3a53e1475ebcce1ad2dbc",
+      "coinbase_value": 29249899977,
+      "excess": 28858000000,
+      "height": 515104,
+      "payments_limit": null,
+      "reward": 391899977,
+      "txid": "19f7998068b2d3edb3c9c9146a240fd80c1a0a3c974b0c0c4300adf4e2b4bb56"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7207314
+      },
+      "block": "0000000000043cc613de584ecc063bab445c7a4ba85f8bdd891d9de4b59624c5",
+      "coinbase_value": 44832130426,
+      "excess": 44433000000,
+      "height": 515105,
+      "payments_limit": null,
+      "reward": 399130426,
+      "txid": "63d385604b5d4d84506f154d1ceba254976a2bc907ff831eaf6e8e880c9efe5a"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7116198
+      },
+      "block": "000000000001bbdf11320f55fa0773f951afbf08a6a84c5da05ad88688341a2f",
+      "coinbase_value": 65529210205,
+      "excess": 65141000000,
+      "height": 515106,
+      "payments_limit": null,
+      "reward": 388210205,
+      "txid": "703a5dd4e7170578c15794bb99a559be500b31591b633cd9ec408f4bd48364f8"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7139725
+      },
+      "block": "0000000000054da5e3472dea399a2a81e39e28742f4d422b4c1cc3b4d80ee210",
+      "coinbase_value": 8388010205,
+      "excess": 8000000000,
+      "height": 515107,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "ec157d4d059af8e7c24870f97a67993c688d3aa58d2aecd1bdca0d7fba6ae718"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7097754
+      },
+      "block": "000000000001d292d9b508d466f1f65e9a62a622cf167025a61fb9e06020df45",
+      "coinbase_value": 70388424224,
+      "excess": 70000000000,
+      "height": 515108,
+      "payments_limit": null,
+      "reward": 388424224,
+      "txid": "d1279ce6867af4006b1a85d16fedd785e2f57454af59307f619ec5b14d56f8a1"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7111575
+      },
+      "block": "0000000000012f48da2106183506e9642f1b40f50623fe007c917a4121a4a800",
+      "coinbase_value": 35388020208,
+      "excess": 35000000000,
+      "height": 515109,
+      "payments_limit": null,
+      "reward": 388020208,
+      "txid": "3221ab36a71d346bcba3f74257826cb90d719b8752d1cf20c7470479ef779948"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7121480
+      },
+      "block": "0000000000017b9ef57995c096924a1a87bd99a44fe7e8d82c2e767d513ecc6b",
+      "coinbase_value": 22892428182,
+      "excess": 22500000000,
+      "height": 515110,
+      "payments_limit": null,
+      "reward": 392428182,
+      "txid": "006d3b4b194447412068e92a00af169f9f0b73a6b963ec7c613da7da14338589"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 7119621
+      },
+      "block": "0000000000005a492fd1d437c49167df2b36a55d9cd4dbbcb861d49f1e98d3af",
+      "coinbase_value": 4756195619,
+      "excess": 4367000000,
+      "height": 515111,
+      "payments_limit": null,
+      "reward": 389195619,
+      "txid": "61cc25a53202a763c72a49aa3d47766899806275c92f54871dc2bb42d46c9bfb"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82095973
+      },
+      "block": "0000000000000387eb5602b10c919351a221afc3c2b1d86b2e2f2c02368afcf1",
+      "coinbase_value": 118012613683,
+      "excess": 117600000000,
+      "height": 531712,
+      "payments_limit": null,
+      "reward": 412613683,
+      "txid": "0ef9003dfbd79fa1590649a8e08e995808c8eb2bca73d8459b277950f63b7f57"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82133125
+      },
+      "block": "0000000000005f6eeeb06e104ff87f25c28c8555c9e0baa4ec95f1fbbf832a25",
+      "coinbase_value": 12688010205,
+      "excess": 12300000000,
+      "height": 531713,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "e4ee6bb3b4ccc6d5d229489fcecde58ee30a46ae69ab6f3efbc0b4f70ec589a9"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82115767
+      },
+      "block": "00000000000276667a84faa530c6fa2b6fccc1c0612bbeb7d654f0da0b363b63",
+      "coinbase_value": 61414314415,
+      "excess": 61026000000,
+      "height": 531714,
+      "payments_limit": null,
+      "reward": 388314415,
+      "txid": "02502dfe719c9b29ab89c3e0fa24c1314c12604464c03a609a39f82953a7e27b"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82044464
+      },
+      "block": "000000000000f60882eca733dc89ce869933d790f2c6ee781e49cd12f5eadca1",
+      "coinbase_value": 7006230205,
+      "excess": 6617000000,
+      "height": 531715,
+      "payments_limit": null,
+      "reward": 389230205,
+      "txid": "f8e353a442f09aac9e139fd6eda3fe0bb58da80731d9973d265db387404a156a"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82125971
+      },
+      "block": "00000000000255962b1b02d83a9f6ea1a0b94104778fa541aaa0a3bd4e52e53c",
+      "coinbase_value": 35962013945,
+      "excess": 35574000000,
+      "height": 531716,
+      "payments_limit": null,
+      "reward": 388013945,
+      "txid": "5656f5ed7a74faf4567afa316f6dd163110dd6c73b0c45349b37674740bf1658"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82130417
+      },
+      "block": "0000000000024351a6b80087a980696004c6f6eab599a2c6d16219932048a686",
+      "coinbase_value": 5561030205,
+      "excess": 5173000000,
+      "height": 531717,
+      "payments_limit": null,
+      "reward": 388030205,
+      "txid": "53855be69f6506dfb13eba6cbc197d6e9646d17ea11a857d61c465e5f9a14a58"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82074252
+      },
+      "block": "0000000000036da348b127164907a5a754e182b940601e113e32035dcea3a6ae",
+      "coinbase_value": 2699053333,
+      "excess": 2300000000,
+      "height": 531718,
+      "payments_limit": null,
+      "reward": 399053333,
+      "txid": "0af8756082a387f8f47da4217118a4ec06d025299e52aa39e155b478be4ef305"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82106262
+      },
+      "block": "00000000000086813dcff1d98e8ae7b10184df1cebae6b5db2be8a226b937e21",
+      "coinbase_value": 104798373917,
+      "excess": 104410000000,
+      "height": 531719,
+      "payments_limit": null,
+      "reward": 388373917,
+      "txid": "fbd1e70f872b3aab1867f5e9bac2c8256d3c3d86410d2c4bfa41526904712e1d"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82143804
+      },
+      "block": "00000000000274692efd9c18890d13bb36820bf581655ea65a89afdfdd39e784",
+      "coinbase_value": 21575010205,
+      "excess": 21187000000,
+      "height": 531720,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "bce5b51adb4317497b4fdab1d3a207f0545ba2bcadde1156f7269cdbdf3a9cba"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82153153
+      },
+      "block": "000000000001f20a9cb0d3238f762f964d1c809ef0bbab292d8eb5c014cec28b",
+      "coinbase_value": 3186010205,
+      "excess": 2798000000,
+      "height": 531721,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "2950894b9b1d5e027bf4063e669f6e9c6d098109d6dcd376cfb7c9e5c0fb9764"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82144088
+      },
+      "block": "000000000000be67c4f2ba9caaa2162e421a0162cf804f7d67611a281bfc44c9",
+      "coinbase_value": 150140118445,
+      "excess": 149751000000,
+      "height": 531722,
+      "payments_limit": null,
+      "reward": 389118445,
+      "txid": "9ec1d8669b6d32ae40cb76f619f93c582121ebced5abaad6c7680364960fd3e8"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82133421
+      },
+      "block": "00000000000187167608f41d6bd589794962d0c56b7cdcef3ad9a72ca8345a57",
+      "coinbase_value": 33721110742,
+      "excess": 33333000000,
+      "height": 531723,
+      "payments_limit": null,
+      "reward": 388110742,
+      "txid": "2207a3d15b0a020cb0707c590af53901675b03b72698fc85009a57af42ef102f"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82122590
+      },
+      "block": "00000000000168d936486bdc3cef8603dbc84181cd7c433eb0ca1fe0361c0c2a",
+      "coinbase_value": 9488010205,
+      "excess": 9100000000,
+      "height": 531724,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "6be77099ecfe660713541abb7a8f013c551a7b51c5aab59faae1361e4dfe330a"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82137183
+      },
+      "block": "000000000003b2d17739301ce5d2864988dbb78d80052f255197323d4a14d76a",
+      "coinbase_value": 75287077784,
+      "excess": 74899000000,
+      "height": 531725,
+      "payments_limit": null,
+      "reward": 388077784,
+      "txid": "c85e04eb9da48a10a633edd7d7ae1d90a6db8e2029acec457c9624e38c27c123"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82058421
+      },
+      "block": "000000000003c7d0a9713abf065a0a7afd7fac139693187880c549e1529105f3",
+      "coinbase_value": 1416982780,
+      "excess": 1000000000,
+      "height": 531726,
+      "payments_limit": null,
+      "reward": 416982780,
+      "txid": "a52f90dfe946b4016b85b53e0a6de6e4cd184a6512d227fa598a3b782373ecc0"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82155376
+      },
+      "block": "000000000005fe64af7e8bd8a1ae6607f766293e7162aa8fe75a1d87bff53e5c",
+      "coinbase_value": 46854261605,
+      "excess": 46466000000,
+      "height": 531727,
+      "payments_limit": null,
+      "reward": 388261605,
+      "txid": "09872abec7d24e17a26a6a3cf1194ab62fb3f655b463eae2251fa02081795bb5"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82051084
+      },
+      "block": "0000000000063efe6694cd948eed127b82ae90e9dc5dd78aa70e51897cf7cbe9",
+      "coinbase_value": 16337035444,
+      "excess": 15945000000,
+      "height": 531728,
+      "payments_limit": null,
+      "reward": 392035444,
+      "txid": "f8a870f0da3cfc42531884d0baad444d6817b07c29979dce72c75548b907a816"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82150682
+      },
+      "block": "00000000000078c17d2a5d279f5ddb194599a5091d20607098c7a62618d8c55e",
+      "coinbase_value": 8388020205,
+      "excess": 8000000000,
+      "height": 531729,
+      "payments_limit": null,
+      "reward": 388020205,
+      "txid": "330e2d1d610606320291f57d2d83980a653a3b24d527363f7f72c37854270cf7"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82080251
+      },
+      "block": "000000000006f7b7b11a67561404fb3ef3f92280ec8c038e518dde1c2c224293",
+      "coinbase_value": 10388010205,
+      "excess": 10000000000,
+      "height": 531730,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "6fcb5b3ca17dd31fd2926f6baf0b66b25e23e348e3722fcddb4aba83263484da"
+     },
+     {
+      "blk": {
+       "file": 12,
+       "record_offset": 82080535
+      },
+      "block": "000000000005f12352dbd8511bc9e7cb809c18028b91e3b65b230cad88889d9e",
+      "coinbase_value": 22888010205,
+      "excess": 22500000000,
+      "height": 531731,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "e720f6cb900cd37f25d1a08a67d71b00e54e21818198f403ac2823012d1c5414"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10526033
+      },
+      "block": "00000000000086e1800dab6486131d4e0c10f046cd8b441540857c6fef5aae6f",
+      "coinbase_value": 117991888987,
+      "excess": 117600000000,
+      "height": 548328,
+      "payments_limit": null,
+      "reward": 391888987,
+      "txid": "34514cd12c95e46a14e5cfdea4f5b25a532f17ac02731d0db2990119b550a1c1"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10515892
+      },
+      "block": "0000000000019292df0c983985b71de2be987a42fc21326b931c390aa68b7d6d",
+      "coinbase_value": 12688010205,
+      "excess": 12300000000,
+      "height": 548329,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "6492708eb0cf0ad30c7863bea57c7f0e26ddadb499d7c73c1ff4433a6ad918a6"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10546878
+      },
+      "block": "000000000000d3b371eae1f483daaebd1929d76a1d84fd3d717ffd5f5d2cec7a",
+      "coinbase_value": 61414010205,
+      "excess": 61026000000,
+      "height": 548330,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "6d555605075b9c327a32dddb8c3c65c95ae77c776bbea20060031c5eb38aed93"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10556641
+      },
+      "block": "000000000000ad741b9aef22f58d9fb6b200a529e1f6785b8965c64980caef00",
+      "coinbase_value": 100389563082,
+      "excess": 100000000000,
+      "height": 548331,
+      "payments_limit": null,
+      "reward": 389563082,
+      "txid": "bda026284583dded701bf2c865a8f824e0a082eeba4e33fee5b65046495aaeff"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10557444
+      },
+      "block": "000000000000d5c1d8c86ea5e7b6a289618fe7499458f43862a45b81e18d9810",
+      "coinbase_value": 33722010205,
+      "excess": 33333000000,
+      "height": 548332,
+      "payments_limit": null,
+      "reward": 389010205,
+      "txid": "22ecca874ef25c303972b6851eeabf16d5908cf62f7c4fe2535e0dc7f54c784d"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10568028
+      },
+      "block": "000000000001eb45e5a0caf0d2efef8155232935cae4f4a3e181243cba052a7b",
+      "coinbase_value": 60440012465,
+      "excess": 60052000000,
+      "height": 548333,
+      "payments_limit": null,
+      "reward": 388012465,
+      "txid": "e3cfa18cc337725ee4b130594f658d196fe93451b12652f4079a84669951ab3a"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10547480
+      },
+      "block": "000000000000d66b14b0710d9eb9c4145869b18c81d0419415f49fe3c476a578",
+      "coinbase_value": 173738879900,
+      "excess": 173346000000,
+      "height": 548334,
+      "payments_limit": null,
+      "reward": 392879900,
+      "txid": "9a5260b5656dc50a66264f8cafdac1e8d8a1160540bc9a8382d24ae8cbf7d93e"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10568504
+      },
+      "block": "00000000000079d587ecda904d3d44db43a432c768ca801e12115d50e487e6b4",
+      "coinbase_value": 9791010205,
+      "excess": 9403000000,
+      "height": 548335,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "cd9bff7c23fb425e3a4a09ffddac4ee1e779d7d576fdd63d7fb4ba06b0222ac4"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10568788
+      },
+      "block": "00000000000238a2ba59226f47f42eeeacf2408770d192bc63c3f5830f63893e",
+      "coinbase_value": 53103010205,
+      "excess": 52715000000,
+      "height": 548336,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "e1f19b99337c59e7b582e351230004065ebf7a98f24e44109e1b47060dbab7f7"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10567042
+      },
+      "block": "0000000000001dc794f23cc488fe608542a2b931c39412819e93f9aa0042543d",
+      "coinbase_value": 10388110205,
+      "excess": 10000000000,
+      "height": 548337,
+      "payments_limit": null,
+      "reward": 388110205,
+      "txid": "fc2b07a430585c895504ec63969fa0c56d35260f26368cfd40b72724c54ddac9"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10554078
+      },
+      "block": "0000000000017e5f522f81a5005cef8545b181414436718d519032e84005057c",
+      "coinbase_value": 2988010205,
+      "excess": 2600000000,
+      "height": 548338,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "29c61c25285f0ed0da078b8789b65a11bb976030e75b78c4b8994ec94f410b39"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10547162
+      },
+      "block": "000000000000288e9ac2cfc6b3fa19cc37dab2770670e095f3903367d97bd113",
+      "coinbase_value": 36565010205,
+      "excess": 36177000000,
+      "height": 548339,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "7ea89cc9b02a1ad8bfd15712c7fc1ba79833b8c16e305730e560683fc5a8034e"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10575183
+      },
+      "block": "000000000002136a6381b52c955c851b037e39b9fe2fc72bd19c5363e133efdf",
+      "coinbase_value": 23522029911,
+      "excess": 23126000000,
+      "height": 548340,
+      "payments_limit": null,
+      "reward": 396029911,
+      "txid": "5f9d9ea4b372240f234efaa8e1885e597a7d3cb5597c614d9c57f8518d078b57"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10585266
+      },
+      "block": "000000000000242cf2dc84b8ee664e6e1b71bb56a9105a19f110062d8b4a08b6",
+      "coinbase_value": 3280010205,
+      "excess": 2892000000,
+      "height": 548341,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "69f815dd812d56f43d645008340b45b8a19ce096060fba57ebd8158ee80fa45a"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10574108
+      },
+      "block": "0000000000015c68b24f11c91a04addc7d56fb21deeddc72d29d332d480ed5c4",
+      "coinbase_value": 8752010205,
+      "excess": 8364000000,
+      "height": 548342,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "37e0328066d15ce0ee27dae950220463c8bf1a87a1f0734aefc0cce3b5d5f5a1"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10574426
+      },
+      "block": "000000000000c5ddad2df1f6a9091f7d5bd074697d2aba3801fde884e8015807",
+      "coinbase_value": 25428552405,
+      "excess": 25039000000,
+      "height": 548343,
+      "payments_limit": null,
+      "reward": 389552405,
+      "txid": "5656b0199f907bad439fb7baf1c03829e1ded3a7cc42f79c0bad4bc4973b7d4e"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 10569106
+      },
+      "block": "000000000001d74c7b3e0c69535cd1f0f1bb094814748b561ec3a8aeaaa7b4f3",
+      "coinbase_value": 14890198016,
+      "excess": 14500000000,
+      "height": 548344,
+      "payments_limit": null,
+      "reward": 390198016,
+      "txid": "ca926b092c01f45fe2c719a9ceb270a76a06e1ff9e99367d760b9e487392a39f"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71684248
+      },
+      "block": "0000000000006c04e2387ccb76ab377ab5d4dccbbecd8104b17508407a2a12e3",
+      "coinbase_value": 117988010205,
+      "excess": 117600000000,
+      "height": 564944,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "4f7572743d599f7e7cb20c6a0c7faf45e1d3657b31b1ecc6404780ee3f2872c2"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71672373
+      },
+      "block": "0000000000015fddcab826a7bd5193aec32e9ae090c44f2d25f54334b2e02333",
+      "coinbase_value": 12690740203,
+      "excess": 12300000000,
+      "height": 564945,
+      "payments_limit": null,
+      "reward": 390740203,
+      "txid": "053ddd279680b46dc540b68112ec8ed7277e256dd712e7a93c66caaaa814893d"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71673252
+      },
+      "block": "000000000000aa9332b8f91a8e05a783dba826cf9b0dd276aae1658aee1e6833",
+      "coinbase_value": 61438868843,
+      "excess": 61026000000,
+      "height": 564946,
+      "payments_limit": null,
+      "reward": 412868843,
+      "txid": "d94ad99dd0089e337433dd58fe5f51f32666a9e00a9596831b174d2a3a2de04b"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71684532
+      },
+      "block": "0000000000000ebbff75f84003ceb37db56f43746fe83724c18a47192cc62553",
+      "coinbase_value": 33721010205,
+      "excess": 33333000000,
+      "height": 564947,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "71f9f843b14cfad42020ffde8082be4fd9b292c72b78944670339389b51d88d8"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71677047
+      },
+      "block": "0000000000003f2126237da3f7729b61b17c7c99188978d349a897f150e76c72",
+      "coinbase_value": 9938010205,
+      "excess": 9550000000,
+      "height": 564948,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "fdedaa242f35f439db59d9f6651eea7572a492d8b09ea158171eb96b71928fc7"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71685010
+      },
+      "block": "0000000000013ba207492ff494f03460d10314b57a8f6115b703f336e767c949",
+      "coinbase_value": 10408230205,
+      "excess": 10000000000,
+      "height": 564949,
+      "payments_limit": null,
+      "reward": 408230205,
+      "txid": "a31f2da6f2e705daf35b5aec5a52e1afcf43659b3708be4cafedc1db514ca8cd"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71677286
+      },
+      "block": "000000000000a42f924b236c8891532e964196610ee38b85b2f293befa481cd9",
+      "coinbase_value": 199712139774,
+      "excess": 199321000000,
+      "height": 564950,
+      "payments_limit": null,
+      "reward": 391139774,
+      "txid": "d367e2bffadb44368528859fa1827ed8f571a6b28e36adfba921b701f82de189"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71699620
+      },
+      "block": "00000000000079b6cd51f883809bd6ae312e0932dce17205c9ff179dc2ad17a0",
+      "coinbase_value": 8753404551,
+      "excess": 8364000000,
+      "height": 564951,
+      "payments_limit": null,
+      "reward": 389404551,
+      "txid": "4f88185e3da387d1eb5792e552172a82626fd058dc869d06407e554715fdd794"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71709855
+      },
+      "block": "00000000000118f49e6989d07478d6770cf7b801ce2c03d5dea499a72dccdc7b",
+      "coinbase_value": 7888010205,
+      "excess": 7500000000,
+      "height": 564952,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "df91e98c28bd350353b989052811c1cf09598ca2e660e25c01a2e66804018de5"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71704525
+      },
+      "block": "000000000000756f34ae2455152a420fd23f91e4cf38c46d766bca4460168023",
+      "coinbase_value": 59688026976,
+      "excess": 59300000000,
+      "height": 564953,
+      "payments_limit": null,
+      "reward": 388026976,
+      "txid": "a82618ea1b811cf4bda0a51253db478c44ac54bc8eebec15225bca840031293a"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71558303
+      },
+      "block": "0000000000002ef4085308d9e58a43f0199a12f5a2dc6dd67a6dfece25741d92",
+      "coinbase_value": 20088010205,
+      "excess": 19700000000,
+      "height": 564954,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "8110189db86826d6d6e5a52b8a260cb538d8f50112e5bcf290d3ad336b99c56a"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71681906
+      },
+      "block": "000000000000c23d0c566506bfa2db46640ddcb6843ad36719142dd28a19cd74",
+      "coinbase_value": 5090204751,
+      "excess": 4700000000,
+      "height": 564955,
+      "payments_limit": null,
+      "reward": 390204751,
+      "txid": "4cb2360214c1d89826a6ecc398013702dbd327f9615d6a71b2458987e6417bf3"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71708027
+      },
+      "block": "0000000000015d7252b545e0b35a308214ad66b69812c6c2a307d36f58abdfbe",
+      "coinbase_value": 11208010205,
+      "excess": 10800000000,
+      "height": 564956,
+      "payments_limit": null,
+      "reward": 408010205,
+      "txid": "a25cbade79216360cc84881b86e595e8b5ad9a96028b8ab726c7dac526501620"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71709377
+      },
+      "block": "00000000000032d1c1adb0bb3431fff3785780e66412e0b3325487a987bebfc2",
+      "coinbase_value": 25472010205,
+      "excess": 25084000000,
+      "height": 564957,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "edf6d6bc1b25eccf047ae529ef7dcf63be4fd7b2fbfc571002c62c9a1312a19f"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71684771
+      },
+      "block": "00000000000124ec5fd220bc9da2ba2988f2bdd1ec4a9a584914fe43414b46b7",
+      "coinbase_value": 35888010205,
+      "excess": 35500000000,
+      "height": 564958,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "27a0a8474689a3c9f616855f903e6e749b92670defebc20bd4ea81713bac8cc5"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71791439
+      },
+      "block": "000000000000ff951fd3fa716591afaf685dde1c83acce180c6e6871699ffead",
+      "coinbase_value": 20044010205,
+      "excess": 19656000000,
+      "height": 564959,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "e01f50a1196e490770719110b5c918556e4fefba8d818f0166148dd542000689"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71791757
+      },
+      "block": "0000000000001fad5936005c8bd3142aa53f118eb081bad406ebf6fbf06ce1b9",
+      "coinbase_value": 3595788530,
+      "excess": 3205000000,
+      "height": 564960,
+      "payments_limit": null,
+      "reward": 390788530,
+      "txid": "bd85d20a9a657d4d1cfc4a1efbfbd212e019a586ad42cd9ea5ce45bd615fc8bf"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 71804233
+      },
+      "block": "000000000000da9c54256bd8c3e02939cabd7da0a3e5dd4e888bc70e6b9bb048",
+      "coinbase_value": 25388022206,
+      "excess": 25000000000,
+      "height": 564961,
+      "payments_limit": null,
+      "reward": 388022206,
+      "txid": "06b65f04184ab64cd76865374a76621f32e627c3ff36aad3cc9fa6bef3af6e12"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131169111
+      },
+      "block": "0000000000001ef987ef5940b8ccc831f17e4e32641e2876b77a545ab8e2d98e",
+      "coinbase_value": 117988010205,
+      "excess": 117600000000,
+      "height": 581560,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "42945783f0d6c51708c89c9c611085618d1df951baf948485b76b1233c5dcbb4"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131262981
+      },
+      "block": "000000000000d97e0e478c3ed793ae1f1a083d5b59dd3fa470be4d167d248825",
+      "coinbase_value": 12689192235,
+      "excess": 12300000000,
+      "height": 581561,
+      "payments_limit": null,
+      "reward": 389192235,
+      "txid": "d49231443f7ba4c92a28c134eaf9bf596970bdda6b05d41ee667a01e16f96922"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131272666
+      },
+      "block": "0000000000005792321dc1bb8cddaefc0aaa7eb5d21fcceca38cfe69ed747c27",
+      "coinbase_value": 199711751654,
+      "excess": 199321000000,
+      "height": 581562,
+      "payments_limit": null,
+      "reward": 390751654,
+      "txid": "2fd07ae8c19d41511eb60ba9c6c877079c32764fff5c145054b2864ef14821d0"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131267378
+      },
+      "block": "0000000000000226bc682578c236c643f064896e36c75a94b8c018d66ebb5336",
+      "coinbase_value": 9942969217,
+      "excess": 9550000000,
+      "height": 581563,
+      "payments_limit": null,
+      "reward": 392969217,
+      "txid": "689810d6ee85650308bf79fd50410e8ee2472e1db6fd73f8f2a8183fa703b8d4"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131263524
+      },
+      "block": "000000000000f8a419bd2a1cb8f9984d3ec1a31770b8c1312a46aaf987f58722",
+      "coinbase_value": 61415673902,
+      "excess": 61026000000,
+      "height": 581564,
+      "payments_limit": null,
+      "reward": 389673902,
+      "txid": "6e750156494eb64b8bc7d997c9a69fce8545bbb03fd3c212edc7362d45e4dd5c"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131269536
+      },
+      "block": "000000000000b1f267e5d846ecd42b661d20a40ec54e4daba09cff48fb61f529",
+      "coinbase_value": 37682943857,
+      "excess": 37279000000,
+      "height": 581565,
+      "payments_limit": null,
+      "reward": 403943857,
+      "txid": "ef5f0fb205a5e87b7d6336861ce92fee2e25681403677a2ec994ad42c5a1c5ea"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131276614
+      },
+      "block": "0000000000004a78e6414875b7e5d1d7959e3d75eada6b13dcfabec3de726ed3",
+      "coinbase_value": 9890734866,
+      "excess": 9500000000,
+      "height": 581566,
+      "payments_limit": null,
+      "reward": 390734866,
+      "txid": "380ee5ae5da8ba1713371eee644e9dec46c25695f4b7cd2c39057b2edd60c51f"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131179449
+      },
+      "block": "00000000000099de1f5b86cc11c6413c0250f44e672a0c197799a15db64f1b93",
+      "coinbase_value": 67426225376,
+      "excess": 67036000000,
+      "height": 581567,
+      "payments_limit": null,
+      "reward": 390225376,
+      "txid": "e3996257c2f8452c03b87d93bafcc3a8369493fe45a64719e9d47eeb1e74b9ca"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131280135
+      },
+      "block": "0000000000008293e5c8eaf008b9d26fc51af804d8ea312c0b9f8caef357cdfb",
+      "coinbase_value": 68117402916,
+      "excess": 67727000000,
+      "height": 581568,
+      "payments_limit": null,
+      "reward": 390402916,
+      "txid": "30f961656a8e4c5eddd286aa194476507937d270768650738d85b522f41b8158"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131401100
+      },
+      "block": "000000000000431c5fcb753be95103d62ec1c5b3f4430a9e432ac574f511f10b",
+      "coinbase_value": 17967733621,
+      "excess": 17569000000,
+      "height": 581569,
+      "payments_limit": null,
+      "reward": 398733621,
+      "txid": "2429031df3b19a0687d473dc4b1b3c1054a466ef800e85c5582f6712a930d7b3"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131278108
+      },
+      "block": "000000000000d796c747a58521894d904268af7aa22540800b3aec31f6ac8f1c",
+      "coinbase_value": 58754125842,
+      "excess": 58366000000,
+      "height": 581570,
+      "payments_limit": null,
+      "reward": 388125842,
+      "txid": "78b1200609ac694075acb6bc2b2e63655aaf0cf68118f723e970cbd2eb6c4c91"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131408532
+      },
+      "block": "00000000000009c71a11c7ff1f5cceff03e49dbe3c53291c0a65a7c0c5097b9c",
+      "coinbase_value": 30961205128,
+      "excess": 30572000000,
+      "height": 581571,
+      "payments_limit": null,
+      "reward": 389205128,
+      "txid": "98a8e5d4514d46addce59722e366ab99d9e1a2763af75cd9c1dc4cd376a020fa"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131408293
+      },
+      "block": "000000000001674338211ab97bb2be44be46674431a965ac69585280ae2ccfb7",
+      "coinbase_value": 22888010205,
+      "excess": 22500000000,
+      "height": 581572,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "4558c134b27c184b9abf9136dfbb89e36cf689c267176ae69912d8a82a06d9a8"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131410003
+      },
+      "block": "000000000000d3a0f0de6335687df6299f651839c3935ca8e80737b35ed5d6aa",
+      "coinbase_value": 20088010205,
+      "excess": 19700000000,
+      "height": 581573,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "4bf656c252530440bb59b74d629a462a14f2391ed0bea3cbc3744916338f9197"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131410321
+      },
+      "block": "000000000000f39a6fda7bdd1f3fe7e611ba0bd97d70b05444ed6a1d7e09c534",
+      "coinbase_value": 13721010205,
+      "excess": 13333000000,
+      "height": 581574,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "80f7dcda9fffb166ee07eccbe697ff08a94ea798b93ade2d4131e95ff880970e"
+     },
+     {
+      "blk": {
+       "file": 13,
+       "record_offset": 131407535
+      },
+      "block": "000000000000d8380b963cfb7a41fd3426fe99ee4d2747b7b8394dcbe9c9d769",
+      "coinbase_value": 1990734865,
+      "excess": 1600000000,
+      "height": 581575,
+      "payments_limit": null,
+      "reward": 390734865,
+      "txid": "65070e1fa433d023ca36e212bbb502e7e22e27d72ce5b1ff104a99d302e57e29"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54535371
+      },
+      "block": "00000000000082abab2b757f82f5558faa84c3b884920665b935dbb3b93b6d60",
+      "coinbase_value": 117990979477,
+      "excess": 117600000000,
+      "height": 598176,
+      "payments_limit": null,
+      "reward": 390979477,
+      "txid": "67c92bb0883edff7978615ad4cf4cd01f1271bc8bcefed0494765b740ecd7b7b"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54546136
+      },
+      "block": "000000000001047b30200d383ea08dd3409394191bc8681499b0aa5c3b876da4",
+      "coinbase_value": 12703395202,
+      "excess": 12300000000,
+      "height": 598177,
+      "payments_limit": null,
+      "reward": 403395202,
+      "txid": "1e98e5f0c9f15f15bc9a7af4703ef2954ef79cf246c9e4d7f87d4c6d96a19417"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54560008
+      },
+      "block": "000000000000e92948189fd9ba778985bd591031efc6a40d740d3411d90ffa39",
+      "coinbase_value": 199709016975,
+      "excess": 199321000000,
+      "height": 598178,
+      "payments_limit": null,
+      "reward": 388016975,
+      "txid": "94c00e12030aee66690eb02a956a8c936e98c300e145fd80c80de120e0e6633f"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54545841
+      },
+      "block": "00000000000001b27fcf144b2c76c5ef9aed43616d36f7fccc02cd6b84931dfa",
+      "coinbase_value": 21331010205,
+      "excess": 20943000000,
+      "height": 598179,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "f1d0ce4ad008b0a51e89b5f4572ce73f7f396f58bdeebbbc029aa0a63310587b"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54556630
+      },
+      "block": "000000000000ae446fcb1e1803d8d4f0f3e778cbacbdb1b3be953af31c515801",
+      "coinbase_value": 4189196722,
+      "excess": 3800000000,
+      "height": 598180,
+      "payments_limit": null,
+      "reward": 389196722,
+      "txid": "5276cbb3fe186d8ad0cd4a9fbf2245e4c3942dbea9bbfbc5203fd8e130d2373d"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54571153
+      },
+      "block": "000000000000660f616e6f0ce54116aa1e585088a82043a0a2673ab11685fd6f",
+      "coinbase_value": 59379654699,
+      "excess": 58985000000,
+      "height": 598181,
+      "payments_limit": null,
+      "reward": 394654699,
+      "txid": "e016edf296e703ad7a53d9519173566fbc20626420d4eae23a6d40d9cc857b19"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54544030
+      },
+      "block": "000000000000727bf7645e710d6cd802ceb7603299f5a8794a5c70bd3eeaa97e",
+      "coinbase_value": 33853523940,
+      "excess": 33464000000,
+      "height": 598182,
+      "payments_limit": null,
+      "reward": 389523940,
+      "txid": "f18a803f5274309cf96619ebfa429b66511971cc56712b498f47aae7047261a1"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54534317
+      },
+      "block": "0000000000004e381e06058181c128d87e432410284f0b9ad5a4fa5e29e0f181",
+      "coinbase_value": 7161010205,
+      "excess": 6772000000,
+      "height": 598183,
+      "payments_limit": null,
+      "reward": 389010205,
+      "txid": "f42bcf522cb5b20e6081ba6b84795573e51e5170398d382572d389b66f637475"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54570408
+      },
+      "block": "000000000000d0c9681b2627234cb607fecdce9c0abb29d454bc52b12b025bc7",
+      "coinbase_value": 62555221994,
+      "excess": 62166000000,
+      "height": 598184,
+      "payments_limit": null,
+      "reward": 389221994,
+      "txid": "85af5069302cfdedafe5497b1e173fde89b7ff67a5024f1f5fce9c72f068854b"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54572650
+      },
+      "block": "0000000000003f10af90b6e316ec7e57923e830bf99501a82112cffafbf38106",
+      "coinbase_value": 20102353372,
+      "excess": 19700000000,
+      "height": 598185,
+      "payments_limit": null,
+      "reward": 402353372,
+      "txid": "139ecc22965207aeab53c2fc81d1007d81a088f85eab995502025ce54219185e"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54580149
+      },
+      "block": "0000000000004fe17aef8a033def299c5c16b7bb87504a055889a24733ab375e",
+      "coinbase_value": 3693494801,
+      "excess": 3300000000,
+      "height": 598186,
+      "payments_limit": null,
+      "reward": 393494801,
+      "txid": "8d683a7b955bf24084f47428f16b5b4051549af0bd4e3dcf7b540b54dc3b185b"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54579492
+      },
+      "block": "0000000000006096294efbe4857b0649c10ade456df61df5e40d18b278220085",
+      "coinbase_value": 5688110205,
+      "excess": 5300000000,
+      "height": 598187,
+      "payments_limit": null,
+      "reward": 388110205,
+      "txid": "6b04823492f60a9d121d2d458a6d0b33f80ca7c66a9d0e728b17fe3466c7d5de"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54562815
+      },
+      "block": "00000000000049398f5ff791ac447902e5f97e8a78273a1f635726c112e9d1b7",
+      "coinbase_value": 21566190505,
+      "excess": 21178000000,
+      "height": 598188,
+      "payments_limit": null,
+      "reward": 388190505,
+      "txid": "917ebca5a0b94d4a160ab8c49e5f3030ca3c07affae5abaef7a16cef4ba7f0ec"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54644070
+      },
+      "block": "000000000000f69bedba0390f64c5a3a020ef9b313a6c49e651597b5f26c3351",
+      "coinbase_value": 21097010205,
+      "excess": 20709000000,
+      "height": 598189,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "d41da2267624c4844b2834350c24716f1a254f42dc7bfb5f2673f02fbeda155a"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54627681
+      },
+      "block": "000000000000475ace4230b56fd17becd1326bd86ca1917959045545bc616bcd",
+      "coinbase_value": 6540209317,
+      "excess": 6150000000,
+      "height": 598190,
+      "payments_limit": null,
+      "reward": 390209317,
+      "txid": "4bb71d5787a48f6e76ea260a23c23093ab6627c29a988d6dc9f57f6a6c8576ea"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54579208
+      },
+      "block": "0000000000010294d27b54e5939e3b8685ee1b06a955541fd71877ee02e6a51f",
+      "coinbase_value": 1988010205,
+      "excess": 1600000000,
+      "height": 598191,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "fb43c7b28f2457435208a895a027ab0bc53b8defe90d94035a229df5962a88b5"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54570124
+      },
+      "block": "000000000000f5331e1c3664e2a5ff73afdf47c6eaa9c778bd33e36d3da31620",
+      "coinbase_value": 30388010205,
+      "excess": 30000000000,
+      "height": 598192,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "677645a6090682a4006e215cbdbbc3beeaf3e18866105c88968fe48c8d83cb8c"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54638296
+      },
+      "block": "0000000000019fe511e53496b47ab2aeec4c451daafff96f536bc5510dddcaf5",
+      "coinbase_value": 61129015951,
+      "excess": 60741000000,
+      "height": 598193,
+      "payments_limit": null,
+      "reward": 388015951,
+      "txid": "848fa9e6e9bd2cf331a9aee3c99169e0e2bdda6604e0a906ea1845bc04e85761"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54656901
+      },
+      "block": "0000000000026e2aa37db41c1f73f533d300d389b7405232cdfad71ab74322bb",
+      "coinbase_value": 14405762771,
+      "excess": 14000000000,
+      "height": 598194,
+      "payments_limit": null,
+      "reward": 405762771,
+      "txid": "846b494dc81191251b4dec0a9c19265c5ace3a8220b8fb7a52097c315b7fff14"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 54620044
+      },
+      "block": "000000000001cd52b71933ac66cef7c881d5ab2dc2733b113b095aa7fa0e548f",
+      "coinbase_value": 13726784295,
+      "excess": 13333000000,
+      "height": 598195,
+      "payments_limit": null,
+      "reward": 393784295,
+      "txid": "c1fbf6e3fc1c762d327044dc7c566a54fc8a889bef043a81216004b93bdca1e7"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115597273
+      },
+      "block": "000000000000ae33048a72dfc2a81be5dc2660969d1fdaa5a1c2724155a48cf7",
+      "coinbase_value": 118006490548,
+      "excess": 117600000000,
+      "height": 614792,
+      "payments_limit": null,
+      "reward": 406490548,
+      "txid": "4cc88e2b4c3b25909cca8d39ae3abd323b52dc9034390c0496a72fd0dda468e2"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115611676
+      },
+      "block": "0000000000007cccb2a44f5bf24a1c005bd9aaf356c32ec0be8cbaa9fb6304de",
+      "coinbase_value": 16888034725,
+      "excess": 16500000000,
+      "height": 614793,
+      "payments_limit": null,
+      "reward": 388034725,
+      "txid": "ff71cee3f9b83d98f7ef785f6f68203a5979a6516b8acd587589cac7e0c5e5ec"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115576074
+      },
+      "block": "00000000000013b1261e51d2f54af36540f11c962406340f2685706b115e50f0",
+      "coinbase_value": 12688320205,
+      "excess": 12300000000,
+      "height": 614794,
+      "payments_limit": null,
+      "reward": 388320205,
+      "txid": "9a5407a9104dd80bd1c185d3996d2baa6ec75b097f6d78c0085c6a1fc885348e"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115612843
+      },
+      "block": "00000000000010bd11532a9992c799f6fc70b179619e50a7db6112637468720c",
+      "coinbase_value": 3690396057,
+      "excess": 3300000000,
+      "height": 614795,
+      "payments_limit": null,
+      "reward": 390396057,
+      "txid": "0d37f5901aa108286f114d0102526994cba3c18d4c66fca62864e833b97297cc"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115644078
+      },
+      "block": "000000000000c57248f0b284750594b306ccbddcd31bee24d528d0971ca6f605",
+      "coinbase_value": 15214897115,
+      "excess": 14823000000,
+      "height": 614796,
+      "payments_limit": null,
+      "reward": 391897115,
+      "txid": "d69c86774efce0ce4d67fd8528826c6109369d6f8e5c66055f80cb21a0895768"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115623961
+      },
+      "block": "00000000000063d57fbbe493373471b1bbdb5fdf1f816c3da0eee3bc9f17a2b7",
+      "coinbase_value": 80521553755,
+      "excess": 80129000000,
+      "height": 614797,
+      "payments_limit": null,
+      "reward": 392553755,
+      "txid": "089d6b9055b15acfa58c8df0bedf0edb8055075acd0f5d6c6613936205f1df15"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115337196
+      },
+      "block": "0000000000013638854b7572bf91702293f60712480e9a087af410b0ed85456e",
+      "coinbase_value": 218695963084,
+      "excess": 218306000000,
+      "height": 614798,
+      "payments_limit": null,
+      "reward": 389963084,
+      "txid": "102e06da800fbb06be33c63b8bfa33fbf51645121ba432b02a229bf39dded8c9"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115623496
+      },
+      "block": "000000000000bb6f67cd5dcdebd8ad06932b73a4786f2f302f1fae0bc61446ed",
+      "coinbase_value": 36394020205,
+      "excess": 36006000000,
+      "height": 614799,
+      "payments_limit": null,
+      "reward": 388020205,
+      "txid": "33e5efa3713e409e8f366d85e491245bd029ae9c7890c62106bb18247082e8b6"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115661821
+      },
+      "block": "000000000000a9e3ebb9ceeb4c7c4851363fbdaeb53eb88d18cfe71ca8b1a82b",
+      "coinbase_value": 14288010205,
+      "excess": 13900000000,
+      "height": 614800,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "0487cfc8d5ccda36d01e8229a92c72029c4d41be399d93e63a408cc61470c42e"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115661537
+      },
+      "block": "000000000001094d607b764ce0ee3139c524dbfc464f544254efe77edb44baa8",
+      "coinbase_value": 7875010205,
+      "excess": 7487000000,
+      "height": 614801,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "f1e5ebe6bfa0572355b7eb3ad6114cdf543a3c3bd205988cb11f4558fdb0cacc"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115337807
+      },
+      "block": "0000000000008699646dc30addc91760a15813819c1df72db708c763bff3959c",
+      "coinbase_value": 35019010205,
+      "excess": 34631000000,
+      "height": 614802,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "583aeca2e166c34714e8a579ecd8209ea95caee3a8017a6f80871e14b60e6b53"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115435673
+      },
+      "block": "000000000000a837ed51d8ad02cf17b957af17d8c73b619cd06c9c3505768a81",
+      "coinbase_value": 30407922489,
+      "excess": 30000000000,
+      "height": 614803,
+      "payments_limit": null,
+      "reward": 407922489,
+      "txid": "06204817b157f4db8c386585f1725288aafd3781386d830cf35d5bfbea4477ce"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115487624
+      },
+      "block": "000000000000f340d5368950679f7f2223eafb521b3d289881b55107de002d1a",
+      "coinbase_value": 5388010205,
+      "excess": 5000000000,
+      "height": 614804,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "16049a765f88d05617eebe67988d48c3eb82b6d9058b7847ed71dd39ed300009"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115693493
+      },
+      "block": "0000000000004c7b98fe962dd727f8ea7465d867ff5db75ae94d7c578f2c4ddb",
+      "coinbase_value": 40860418420,
+      "excess": 40471000000,
+      "height": 614805,
+      "payments_limit": null,
+      "reward": 389418420,
+      "txid": "4ae3ba6dd45d0d3582e6b50382640f3a4ecf4687aebfb9e87f535d552fe23f3b"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115630426
+      },
+      "block": "00000000000013816fdef671ac71140d99ba21c406a122a1e97710f498940353",
+      "coinbase_value": 29118658620,
+      "excess": 28709000000,
+      "height": 614806,
+      "payments_limit": null,
+      "reward": 409658620,
+      "txid": "2c204d9bcb4d3eb850dd8b3ac808c98ad8f3124ec1e38acc3b1bd3cc8a6a0313"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115498103
+      },
+      "block": "00000000000054dab5017f2367b0c83f31c06cdc03660811148a4c8c64e34546",
+      "coinbase_value": 14088010205,
+      "excess": 13700000000,
+      "height": 614807,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "99e572351e4aaa46bd039aa9e1bee5bb4e08c7bb3ad2abacb8ebd336159c1371"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115498342
+      },
+      "block": "000000000000c6001219b43e6322317c22f97651287716a82369eeeb51111c4c",
+      "coinbase_value": 18209210205,
+      "excess": 17821000000,
+      "height": 614808,
+      "payments_limit": null,
+      "reward": 388210205,
+      "txid": "ffcf4d783ebf4f61bed1026ded572aa24bf77874799de0c2a63d6719cb8abdfb"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115646102
+      },
+      "block": "0000000000014afebde8447ddb39a37e7cea632ece6462ee01e0955b110d3094",
+      "coinbase_value": 2389625722,
+      "excess": 2000000000,
+      "height": 614809,
+      "payments_limit": null,
+      "reward": 389625722,
+      "txid": "051cf5902785cb3b933c0915360c65e3e8be3589edb9712d540a0b87c73deef6"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115517836
+      },
+      "block": "000000000000139bc8ba795c40ba23d77e787633c37f48f374cbc3dc0b5c1736",
+      "coinbase_value": 2688010205,
+      "excess": 2300000000,
+      "height": 614810,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "91a99cf2cbd2a0796a990063fddb56f0054d0a7b14ec6aea8663293a19bcce82"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115518120
+      },
+      "block": "000000000000605bd76a64f1e338d768d500c482345d1314a3866852b9fe58c9",
+      "coinbase_value": 6988010205,
+      "excess": 6600000000,
+      "height": 614811,
+      "payments_limit": null,
+      "reward": 388010205,
+      "txid": "acc60e8e3e2a31c6de6a03f56db3cc03514813dd2dad7f0e39025ba9cb280d07"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115617878
+      },
+      "block": "000000000000df8ac8d3a58af0665a9ee3d1bd16299c121b9c031089f17a094e",
+      "coinbase_value": 13729637508,
+      "excess": 13333000000,
+      "height": 614812,
+      "payments_limit": null,
+      "reward": 396637508,
+      "txid": "62fcabeb2759425667ab27cfd87dc006515850e7db55c801cda78afbea5a0042"
+     },
+     {
+      "blk": {
+       "file": 14,
+       "record_offset": 115643614
+      },
+      "block": "00000000000004861bd681bbce2c6f5803ea290e42a9a0028a5f4be73c290b02",
+      "coinbase_value": 1990010205,
+      "excess": 1600000000,
+      "height": 614813,
+      "payments_limit": null,
+      "reward": 390010205,
+      "txid": "f0e97fcd01f3e1bc89fa554cdabc4256373b71800d995ac8dff32b4ac502cee4"
+     }
+    ],
+    "c2_superblock": {
+     "count": 89,
+     "first_height": 631408,
+     "last_height": 2093616,
+     "max_excess_duffs": 852600000000,
+     "sum_excess_duffs": 47646105034369
+    },
+    "c2_superblock_rows": [
+     {
+      "blk": {
+       "file": 15,
+       "record_offset": 115414747
+      },
+      "block": "00000000000043b7e91affd798788a512f1810b74d90b8230f4cab19ee2606eb",
+      "coinbase_value": 646026340565,
+      "excess": 645666000000,
+      "height": 631408,
+      "payments_limit": 665184988184,
+      "reward": 360340565,
+      "txid": "bb979b6c621b4ac6fc8f5eb1e687c7b1dae29fb81ae20cc99f52105656667028"
+     },
+     {
+      "blk": {
+       "file": 17,
+       "record_offset": 30404627
+      },
+      "block": "000000000000169cdece570f2d6c3f8d7051aab50de9428a1753e4d837148db8",
+      "coinbase_value": 517768803342,
+      "excess": 517407000000,
+      "height": 648024,
+      "payments_limit": 665184988184,
+      "reward": 361803342,
+      "txid": "6a681a0e14b87543dbff359fed7d07fca16440df7b970aee2ecb3b8f79439fcf"
+     },
+     {
+      "blk": {
+       "file": 18,
+       "record_offset": 44849585
+      },
+      "block": "0000000000008c7d23ba006a9b9bc9eb49174e2f08593aab887dd7fc1a9d5468",
+      "coinbase_value": 605251168634,
+      "excess": 604888000000,
+      "height": 664640,
+      "payments_limit": 665184988184,
+      "reward": 363168634,
+      "txid": "c410b1d13687fea646813c7c3da2ea53f4bb02e174b45b07192e30b14ca5ffad"
+     },
+     {
+      "blk": {
+       "file": 19,
+       "record_offset": 95824770
+      },
+      "block": "00000000000043536784b65394bc7971fb771b707dac238b9fa58ba3a12fa532",
+      "coinbase_value": 530432328867,
+      "excess": 530072000000,
+      "height": 681256,
+      "payments_limit": 665184988184,
+      "reward": 360328867,
+      "txid": "d564f8b36733dcd24f982c11587f516b4c1f188ef1efbe691117d14c7597669e"
+     },
+     {
+      "blk": {
+       "file": 20,
+       "record_offset": 123192393
+      },
+      "block": "0000000000002e77a04c30db003824affa8a6692945bf7e8d0886d588f59d136",
+      "coinbase_value": 443505460173,
+      "excess": 443144769230,
+      "height": 697872,
+      "payments_limit": 665184988184,
+      "reward": 360690943,
+      "txid": "d730f2154cd41f52f2a263f9dd086b7d78739a612fb24a28d14291c9cb1514c8"
+     },
+     {
+      "blk": {
+       "file": 22,
+       "record_offset": 22100722
+      },
+      "block": "00000000000007bb9074fbdd7e6c0804d5fc61b2116e75a1dabccc1fe9f9cca6",
+      "coinbase_value": 455495295114,
+      "excess": 455134769230,
+      "height": 714488,
+      "payments_limit": 665184988184,
+      "reward": 360525884,
+      "txid": "8842beef9a6df1c19de86984cfb55df77d86a22ef5d3910fe8248fa8c50709fd"
+     },
+     {
+      "blk": {
+       "file": 23,
+       "record_offset": 84016506
+      },
+      "block": "000000000000049beed1c4390cedc90de2131cb45a718ce302bbf0abf30f0802",
+      "coinbase_value": 440816996657,
+      "excess": 440456666666,
+      "height": 731104,
+      "payments_limit": 665184988184,
+      "reward": 360329991,
+      "txid": "db1b9850cfbde5d9a536a16aad04189804701f817ca4cc3a72caf61d92c8b511"
+     },
+     {
+      "blk": {
+       "file": 25,
+       "record_offset": 11791996
+      },
+      "block": "000000000000015f6c3eabc73017d2337b903bde6e46de1886d02831081f6800",
+      "coinbase_value": 460957121857,
+      "excess": 460596826666,
+      "height": 747720,
+      "payments_limit": 665184988184,
+      "reward": 360295191,
+      "txid": "89be31a46a0a8eee3d7ab75289089ef53ca2224a52f44b6affa10e364a237742"
+     },
+     {
+      "blk": {
+       "file": 26,
+       "record_offset": 53317592
+      },
+      "block": "00000000000000230eb7dee0694d12278e4ff8d1fc710a2cd75cf92c0a2a4af5",
+      "coinbase_value": 602509761028,
+      "excess": 602149326666,
+      "height": 764336,
+      "payments_limit": 665184988184,
+      "reward": 360434362,
+      "txid": "428552597f7e55f239e71fa7dd8b88c8f909fb8731d73481e59b9e51f5a0f10b"
+     },
+     {
+      "blk": {
+       "file": 28,
+       "record_offset": 8814926
+      },
+      "block": "00000000000000264a48b88f673f324177973ff97ab31a4cad99ccbae0bd1c13",
+      "coinbase_value": 545639138981,
+      "excess": 545276660000,
+      "height": 780952,
+      "payments_limit": 665184988184,
+      "reward": 362478981,
+      "txid": "fbf5846d3b4ee8ae10d63d785cb4a44055ec866204a33b456375de8b8ec1f3f9"
+     },
+     {
+      "blk": {
+       "file": 30,
+       "record_offset": 27001465
+      },
+      "block": "0000000000000007c37aa6ae4a32401ebe8f02f2eccccb8d465c2924a29749c2",
+      "coinbase_value": 387552547481,
+      "excess": 387190000000,
+      "height": 797568,
+      "payments_limit": 665184988184,
+      "reward": 362547481,
+      "txid": "c31e915f174d0e924c409b9287a2010a5f071d0c313e6c44a6b7d7289c9c532f"
+     },
+     {
+      "blk": {
+       "file": 32,
+       "record_offset": 19546778
+      },
+      "block": "00000000000000027c21f59da985052d07221b9e220749765720a226cd450179",
+      "coinbase_value": 518429887713,
+      "excess": 518060000000,
+      "height": 814184,
+      "payments_limit": 665184988184,
+      "reward": 369887713,
+      "txid": "9a5c9781f5f084a99162b37ccbb62bacd9895585c30e1419350ca1315a6dc1ce"
+     },
+     {
+      "blk": {
+       "file": 33,
+       "record_offset": 115353679
+      },
+      "block": "000000000000000f8b282e64c13fb83c0b41045f025d8d9df28d27c005fd3ca2",
+      "coinbase_value": 662318555594,
+      "excess": 661958000000,
+      "height": 830800,
+      "payments_limit": 665184988184,
+      "reward": 360555594,
+      "txid": "12a437b0c885f95d5f7c115fc544aa02845f9c9c39afd3aea821c27158029fb4"
+     },
+     {
+      "blk": {
+       "file": 35,
+       "record_offset": 60880005
+      },
+      "block": "000000000000000830afb794894af48dfe4d38c1cd1ef789ccab3a066e017d25",
+      "coinbase_value": 611732745064,
+      "excess": 611392000000,
+      "height": 847416,
+      "payments_limit": 617671768808,
+      "reward": 340745064,
+      "txid": "26b6d1890fe36c298a96fe3b57ff82ee4d62cf6ed268e0af18a0470de01c51aa"
+     },
+     {
+      "blk": {
+       "file": 37,
+       "record_offset": 5740121
+      },
+      "block": "00000000000000089e962ff0a24446dfbff1026d5a5817c3a386b169608b1cd7",
+      "coinbase_value": 590532773634,
+      "excess": 590198000000,
+      "height": 864032,
+      "payments_limit": 617671768808,
+      "reward": 334773634,
+      "txid": "ac674014902595f668ce000eda2a7a3b706acb2a91a7f26ee2173fa7005b14b1"
+     },
+     {
+      "blk": {
+       "file": 38,
+       "record_offset": 103727514
+      },
+      "block": "0000000000000038bebbf2eafc449eca9bddee8d15ad4d5366cc735e62d0781b",
+      "coinbase_value": 594723569087,
+      "excess": 594389000000,
+      "height": 880648,
+      "payments_limit": 617671768808,
+      "reward": 334569087,
+      "txid": "7b6a08f4047be6b4368eed9685c17a46807ae0b5d130164acec9332c585b8dbe"
+     },
+     {
+      "blk": {
+       "file": 40,
+       "record_offset": 111376914
+      },
+      "block": "0000000000000012baaa06d5a151bb8b923a82efa7fe4c0be44ebe2f0e773dcb",
+      "coinbase_value": 617532185806,
+      "excess": 617197000000,
+      "height": 897264,
+      "payments_limit": 617671768808,
+      "reward": 335185806,
+      "txid": "ffca80bc965f7be23b5b85fdfe8e0cd3823f4e14451f2575e1ea2991fcf7009c"
+     },
+     {
+      "blk": {
+       "file": 44,
+       "record_offset": 26210121
+      },
+      "block": "000000000000000d5b4dbe6e233b5b6035e25bcd3128d93c58220b093f3c9154",
+      "coinbase_value": 617727608111,
+      "excess": 617393000000,
+      "height": 913880,
+      "payments_limit": 617671768808,
+      "reward": 334608111,
+      "txid": "90063342a29ccc582c14d2ff1afd34a20ca040f7d7b44ced26982a9a96682611"
+     },
+     {
+      "blk": {
+       "file": 45,
+       "record_offset": 118829074
+      },
+      "block": "000000000000004586b2ea1591f9ca63bcf7baa78c0806850fbe8641c38048e0",
+      "coinbase_value": 616834733727,
+      "excess": 616500000000,
+      "height": 930496,
+      "payments_limit": 617671768808,
+      "reward": 334733727,
+      "txid": "62272babfe42d3fece61a196591450c919d08453f4a86afe05ee2bed3f0f3aa4"
+     },
+     {
+      "blk": {
+       "file": 47,
+       "record_offset": 52115201
+      },
+      "block": "0000000000000001db34ab63cafaa3e6234fd834ba3661a322ade220400d57e7",
+      "coinbase_value": 599234637115,
+      "excess": 598900000000,
+      "height": 947112,
+      "payments_limit": 617671768808,
+      "reward": 334637115,
+      "txid": "5ae441a6c6c81a5a1ca6013e871a09bd98fa9b2d5f5c0c059227ffba7751b2d0"
+     },
+     {
+      "blk": {
+       "file": 49,
+       "record_offset": 68383014
+      },
+      "block": "0000000000000002c21eab0103b40ba858d110d61ee41deaf40cf92b4344f6ec",
+      "coinbase_value": 602434566531,
+      "excess": 602100000000,
+      "height": 963728,
+      "payments_limit": 617671768808,
+      "reward": 334566531,
+      "txid": "08b2d1b366b92e2e7a83be639561ec2c659ed469fa3a1ff45b40fcef8ce91821"
+     },
+     {
+      "blk": {
+       "file": 55,
+       "record_offset": 127411450
+      },
+      "block": "000000000000000463229e5817999534923015ee91017ea48fbfb342c2e46263",
+      "coinbase_value": 612534665421,
+      "excess": 612200000000,
+      "height": 980344,
+      "payments_limit": 617671768808,
+      "reward": 334665421,
+      "txid": "3b2bf36b8c14ae130264839b2a514585d128e6f676492b7f9c9a509278891ada"
+     },
+     {
+      "blk": {
+       "file": 57,
+       "record_offset": 97204953
+      },
+      "block": "0000000000000029737647f07d2f192e8a99f43e4a3032d8e32972e3e470e614",
+      "coinbase_value": 594134663136,
+      "excess": 593800000000,
+      "height": 996960,
+      "payments_limit": 617671768808,
+      "reward": 334663136,
+      "txid": "4e8aa69797ecc9d2602e54d3839530cb85e9388b2195e8997a70ed9871863f2d"
+     },
+     {
+      "blk": {
+       "file": 60,
+       "record_offset": 10471472
+      },
+      "block": "000000000000003c38d14a9fb52f6448d97f350199440977f2c3d96c39d7b6aa",
+      "coinbase_value": 609747296922,
+      "excess": 609411178180,
+      "height": 1013576,
+      "payments_limit": 617671768808,
+      "reward": 336118742,
+      "txid": "d3d068b16ec344e2eb92be37082d23d50bdfcb1619eb5469b39eb60904b040b6"
+     },
+     {
+      "blk": {
+       "file": 62,
+       "record_offset": 112151683
+      },
+      "block": "000000000000001a4479e71e523b4c45f225f5dd3dabfebf79b09d0a3d2952a6",
+      "coinbase_value": 617165055977,
+      "excess": 616830059251,
+      "height": 1030192,
+      "payments_limit": 617671768808,
+      "reward": 334996726,
+      "txid": "946c61f63475a73b35a794fbfc9d5ff484d97d97a989ad5c985478796a5eadb1"
+     },
+     {
+      "blk": {
+       "file": 65,
+       "record_offset": 78694760
+      },
+      "block": "00000000000000248d4f83caf6f2623987e97b9d65b518a5b44a398ece9883e7",
+      "coinbase_value": 617804172059,
+      "excess": 617469442851,
+      "height": 1046808,
+      "payments_limit": 617671768808,
+      "reward": 334729208,
+      "txid": "2f32ff2b5870da18bef45971f4d27419743d34a5cc05312a967f5ae486478998"
+     },
+     {
+      "blk": {
+       "file": 68,
+       "record_offset": 86041325
+      },
+      "block": "000000000000001d09bf8a9bd11c9ccde59b97ce23709921fa254584d71eff91",
+      "coinbase_value": 507865644212,
+      "excess": 507554948643,
+      "height": 1063424,
+      "payments_limit": 573552350816,
+      "reward": 310695569,
+      "txid": "be5b34477de633e6331519c2989bbc826b087003ec8ccfb474e6f0e1c7f0fc4b"
+     },
+     {
+      "blk": {
+       "file": 71,
+       "record_offset": 104540535
+      },
+      "block": "000000000000000acd41d2e4a3ef380a6e53865ec3bd8ab1f8117c8a7aebfe5b",
+      "coinbase_value": 542258207413,
+      "excess": 541947280002,
+      "height": 1080040,
+      "payments_limit": 573552350816,
+      "reward": 310927411,
+      "txid": "530a2d667882e4c6ab7d9c220ee43b39c771973b6c5259265912047af0bff37a"
+     },
+     {
+      "blk": {
+       "file": 74,
+       "record_offset": 92404155
+      },
+      "block": "000000000000000c43df820465cf30f4e9d8a38330c5f7c4fcb90780aa88df38",
+      "coinbase_value": 571474459050,
+      "excess": 571163759673,
+      "height": 1096656,
+      "payments_limit": 573552350816,
+      "reward": 310699377,
+      "txid": "457819a94baf38ea6e4ec7786e88b4689410feb612abeb4215871da62ce425f5"
+     },
+     {
+      "blk": {
+       "file": 78,
+       "record_offset": 29970728
+      },
+      "block": "00000000000000024a4b4e0cad3d3a3afceb341656006f216c7a5a87e38e4cf8",
+      "coinbase_value": 564910560979,
+      "excess": 564598759673,
+      "height": 1113272,
+      "payments_limit": 573552350816,
+      "reward": 311801306,
+      "txid": "f4b45020d5d177250625c271bb720734e9c31a649ce33c9cabc35cc62fb8a589"
+     },
+     {
+      "blk": {
+       "file": 83,
+       "record_offset": 6125800
+      },
+      "block": "000000000000000208a5e746d2b2a862ef8d29617a6894849bc568089f600aec",
+      "coinbase_value": 555489168035,
+      "excess": 555177464656,
+      "height": 1129888,
+      "payments_limit": 573552350816,
+      "reward": 311703379,
+      "txid": "63dbc8be03f4f81b93392ada85def50f290dfb4d2fb1a91e63aabe1b2a0117a3"
+     },
+     {
+      "blk": {
+       "file": 86,
+       "record_offset": 66659229
+      },
+      "block": "0000000000000001bdb459d40859df95476de9f65a2a7e1888ebbf182eee9527",
+      "coinbase_value": 569500727491,
+      "excess": 569190044755,
+      "height": 1146504,
+      "payments_limit": 573552350816,
+      "reward": 310682736,
+      "txid": "5a09f381a3a0e13d74fd0b419b4111d7ca8be21f659eb036e2baa1a2e5a2fdac"
+     },
+     {
+      "blk": {
+       "file": 89,
+       "record_offset": 108994547
+      },
+      "block": "000000000000000ca2ac42a6d3fa13d3137f6d08d36fa78b9b38feade7acace7",
+      "coinbase_value": 566161722500,
+      "excess": 565851017470,
+      "height": 1163120,
+      "payments_limit": 573552350816,
+      "reward": 310705030,
+      "txid": "58701e8106e73ac1bcf2e1bd91a8756aa7bcd8394b99903abfde31b43d0bbb6b"
+     },
+     {
+      "blk": {
+       "file": 93,
+       "record_offset": 33676426
+      },
+      "block": "0000000000000004d51d2a0aa932310afc518ed6bbca4c87435d2491a79914bb",
+      "coinbase_value": 548878968180,
+      "excess": 548568273670,
+      "height": 1179736,
+      "payments_limit": 573552350816,
+      "reward": 310694510,
+      "txid": "ce32d58871e823008a949291975f050388d74a7b6895734f64651b00b05e5df1"
+     },
+     {
+      "blk": {
+       "file": 96,
+       "record_offset": 127751648
+      },
+      "block": "000000000000000af780f63d16de1561eb63450cad812720bc4fc4f18cc382e0",
+      "coinbase_value": 488310401152,
+      "excess": 487999267706,
+      "height": 1196352,
+      "payments_limit": 573552350816,
+      "reward": 311133446,
+      "txid": "dd2e3e8cb0a9c59334f22f7cf11887f786f06c07f52f04170bbebc9340aaa680"
+     },
+     {
+      "blk": {
+       "file": 100,
+       "record_offset": 113324639
+      },
+      "block": "0000000000000012902a55f15f5cdf6307903c356bb0488d2ab69d0e96e4ec0a",
+      "coinbase_value": 568536538869,
+      "excess": 568225828939,
+      "height": 1212968,
+      "payments_limit": 573552350816,
+      "reward": 310709930,
+      "txid": "f5198fb950e76335ce3507426e6e84d8f47bbf4f530b248c9a76dd20f09211a9"
+     },
+     {
+      "blk": {
+       "file": 104,
+       "record_offset": 51320108
+      },
+      "block": "0000000000000015713d893c71c33c634b043e538203274a4a2321e7b3ffd4d0",
+      "coinbase_value": 511907009457,
+      "excess": 511595999184,
+      "height": 1229584,
+      "payments_limit": 573552350816,
+      "reward": 311010273,
+      "txid": "9a5520ac204644c607090cb5cb3cecb486cc837418112e6489cc970ed764a44f"
+     },
+     {
+      "blk": {
+       "file": 109,
+       "record_offset": 87997263
+      },
+      "block": "000000000000001619610af3f5996086ea9ec3ebcc7d615a13ad1238db478aba",
+      "coinbase_value": 555142393833,
+      "excess": 554831337142,
+      "height": 1246200,
+      "payments_limit": 573552350816,
+      "reward": 311056691,
+      "txid": "dddf0d66556a14c33da058546129d67ec250225f1a62ec1081eab036136bb91d"
+     },
+     {
+      "blk": {
+       "file": 112,
+       "record_offset": 119076232
+      },
+      "block": "000000000000001b6f7e7d85906adfb3163652296a58655ac42574bc2706ba5c",
+      "coinbase_value": 482847919921,
+      "excess": 482559324783,
+      "height": 1262816,
+      "payments_limit": 532584323384,
+      "reward": 288595138,
+      "txid": "0f33a4cccac5d422b009fa91db86ba6550125d1ff99c84ef95bf0f0fb93896bb"
+     },
+     {
+      "blk": {
+       "file": 116,
+       "record_offset": 82633002
+      },
+      "block": "00000000000000160534e8ffefdea41b751b70e6a6c4b0a583dacdc66629700d",
+      "coinbase_value": 527876258121,
+      "excess": 527587785621,
+      "height": 1279432,
+      "payments_limit": 532584323384,
+      "reward": 288472500,
+      "txid": "728f5871db186d6bbe9d572582442b83a6cdc26abe0fd8d8183f9d4e62328f6b"
+     },
+     {
+      "blk": {
+       "file": 120,
+       "record_offset": 49836628
+      },
+      "block": "0000000000000009c23ba21e46945f6a014d1a917cd0e1ddffcf6a7707576eda",
+      "coinbase_value": 502786005760,
+      "excess": 502497510079,
+      "height": 1296048,
+      "payments_limit": 532584323384,
+      "reward": 288495681,
+      "txid": "38433e547dd46c977d2ede48804047c17ebbb8e9ceb0916649f944c422e15125"
+     },
+     {
+      "blk": {
+       "file": 123,
+       "record_offset": 117726176
+      },
+      "block": "0000000000000004a61670e79e305b66f8e2bba9d792c11c3a0f2618ff0a4926",
+      "coinbase_value": 442257729509,
+      "excess": 441969241599,
+      "height": 1312664,
+      "payments_limit": 532584323384,
+      "reward": 288487910,
+      "txid": "322a1dbeff1beeaa00baab234689775249ec1ff1a0db081a07a6fb7f71d7f889"
+     },
+     {
+      "blk": {
+       "file": 127,
+       "record_offset": 68384804
+      },
+      "block": "0000000000000013b20048769db546883ca12c9174b2022f7b7021740182d347",
+      "coinbase_value": 479881487735,
+      "excess": 479590449073,
+      "height": 1329280,
+      "payments_limit": 532584323384,
+      "reward": 291038662,
+      "txid": "dc8fd11643c529384bee1df5867fa5f5bb6daeb93ecc6ac0348b13baf2880adb"
+     },
+     {
+      "blk": {
+       "file": 131,
+       "record_offset": 52940726
+      },
+      "block": "0000000000000008f377a490c4aefc70cd5d8d537583c267ef197fef64a7ad15",
+      "coinbase_value": 491341846818,
+      "excess": 491053145571,
+      "height": 1345896,
+      "payments_limit": 532584323384,
+      "reward": 288701247,
+      "txid": "82f565618919fa2771fe6fd502dd2f6d26955ddc033b8b400d9aa8f45ddce859"
+     },
+     {
+      "blk": {
+       "file": 135,
+       "record_offset": 88344169
+      },
+      "block": "0000000000000001d1db1530ed91cccab54ad77c535ed2413c8ed5980a23bfe1",
+      "coinbase_value": 516833764949,
+      "excess": 516545089795,
+      "height": 1362512,
+      "payments_limit": 532584323384,
+      "reward": 288675154,
+      "txid": "0d544dd0927f59c726dcdf20aa9a527cd3c6a31b3a12c78bcc33bec9250e623a"
+     },
+     {
+      "blk": {
+       "file": 139,
+       "record_offset": 25821062
+      },
+      "block": "000000000000000afecd3ab8c45c69bcf9556a8b2c871cb15ed51d9457bd703d",
+      "coinbase_value": 531483666054,
+      "excess": 531195089795,
+      "height": 1379128,
+      "payments_limit": 532584323384,
+      "reward": 288576259,
+      "txid": "a6d772b4b0b9f26d64b5dae625a3a96385019751dac1ba3c3be6384edf3614e6"
+     },
+     {
+      "blk": {
+       "file": 142,
+       "record_offset": 105863909
+      },
+      "block": "0000000000000008411e3c2efeefdb5e7c46202b5befafe3b70516c418bc563c",
+      "coinbase_value": 502006066463,
+      "excess": 501717164252,
+      "height": 1395744,
+      "payments_limit": 532584323384,
+      "reward": 288902211,
+      "txid": "67cf0b027322537af59f0f02349dc59c3a071f5dcac4991c5c88561f977aa113"
+     },
+     {
+      "blk": {
+       "file": 147,
+       "record_offset": 31834324
+      },
+      "block": "000000000000000b61461a61eab3c27a3b1497d7f0a3a4abb10907a5e1736048",
+      "coinbase_value": 504293156260,
+      "excess": 504004683760,
+      "height": 1412360,
+      "payments_limit": 532584323384,
+      "reward": 288472500,
+      "txid": "f97480b92324a881db9f8b36ba36842170661334ab0d3e180d54e0624896ff70"
+     },
+     {
+      "blk": {
+       "file": 151,
+       "record_offset": 90271131
+      },
+      "block": "0000000000000002b5a06bb74caec887bf54d6c4dfe8f6af474ec1db67a7a68b",
+      "coinbase_value": 522328261643,
+      "excess": 522039683760,
+      "height": 1428976,
+      "payments_limit": 532584323384,
+      "reward": 288577883,
+      "txid": "1a227ff0f9257b97e878210956ed44a24fcab01ed6ad898ed81d0d49aaeadd84"
+     },
+     {
+      "blk": {
+       "file": 154,
+       "record_offset": 81638611
+      },
+      "block": "000000000000000191188faf99dd7e2fadac57da61aa5b0ae9d05aa74969e0f6",
+      "coinbase_value": 531493341048,
+      "excess": 531204683760,
+      "height": 1445592,
+      "payments_limit": 532584323384,
+      "reward": 288657288,
+      "txid": "f551c2c9606f9e0bfe04cf3a67d0226b3cd64b6e0f158022c56801ee9ee80326"
+     },
+     {
+      "blk": {
+       "file": 159,
+       "record_offset": 180794
+      },
+      "block": "00000000000000072fae3f72ce05177b790db565532b44661d86301c5810a6b8",
+      "coinbase_value": 528216194038,
+      "excess": 527927502268,
+      "height": 1462208,
+      "payments_limit": 532584323384,
+      "reward": 288691770,
+      "txid": "5a124a18f64cc88fcb6b3dfc6daf7ece992d8af0d6d1769e057b849e571deb98"
+     },
+     {
+      "blk": {
+       "file": 163,
+       "record_offset": 40148728
+      },
+      "block": "0000000000000002096816f80ca75f95b2c87bc98cec25afe5028b7e5667789a",
+      "coinbase_value": 492867867322,
+      "excess": 492600000000,
+      "height": 1478824,
+      "payments_limit": 494542589560,
+      "reward": 267867322,
+      "txid": "f2ef3a16211759d9862636a89dcdbe4ab35bae922cac5caaacbf6dbc1b8ef5c3"
+     },
+     {
+      "blk": {
+       "file": 166,
+       "record_offset": 92310797
+      },
+      "block": "000000000000001384fd8f4c0ddaa1f21011e7dd1deca30be5a4b51a562d8285",
+      "coinbase_value": 490368059874,
+      "excess": 490100000000,
+      "height": 1495440,
+      "payments_limit": 494542589560,
+      "reward": 268059874,
+      "txid": "7a9b10f7ea616827ef69b52ada3c734e25c7de40fe3b3c18e2ee6739ae78e191"
+     },
+     {
+      "blk": {
+       "file": 169,
+       "record_offset": 16842668
+      },
+      "block": "000000000000002a889e4a487120856ed34cd5c7085ebb95f6fb29b105ef8f35",
+      "coinbase_value": 478868148357,
+      "excess": 478600000000,
+      "height": 1512056,
+      "payments_limit": 494542589560,
+      "reward": 268148357,
+      "txid": "abe37cf22553400c3021a27a4d843ba1f5df00d39a47b7fb24b7bc6b986b42ae"
+     },
+     {
+      "blk": {
+       "file": 171,
+       "record_offset": 14224555
+      },
+      "block": "00000000000000071c76f58d7a3760921cd1de5b4a60aafff690eb0edc0c4230",
+      "coinbase_value": 488468208197,
+      "excess": 488200000000,
+      "height": 1528672,
+      "payments_limit": 494542589560,
+      "reward": 268208197,
+      "txid": "6761156efa1db353bc9b8c3f73cb6c5601de52699704136e235caee08218b18e"
+     },
+     {
+      "blk": {
+       "file": 173,
+       "record_offset": 19635368
+      },
+      "block": "000000000000000e42d5b374815608a93cefe594b999c0090d0258c5414cb609",
+      "coinbase_value": 466968008432,
+      "excess": 466700000000,
+      "height": 1545288,
+      "payments_limit": 494542589560,
+      "reward": 268008432,
+      "txid": "e660084692f1e60354cfde82d60217931fb70d184c2463333d49c5d4ae1006c5"
+     },
+     {
+      "blk": {
+       "file": 175,
+       "record_offset": 14902396
+      },
+      "block": "000000000000001ed74266a8c815ffba17210ac64ca14b993931c2a494cb231d",
+      "coinbase_value": 476267997296,
+      "excess": 476000000000,
+      "height": 1561904,
+      "payments_limit": 494542589560,
+      "reward": 267997296,
+      "txid": "14c9c90326be68fefe231aed3099c4c5a40ecf9d0081341be09fa6016cdde2aa"
+     },
+     {
+      "blk": {
+       "file": 177,
+       "record_offset": 66865642
+      },
+      "block": "0000000000000018f5b011d3110790c02cc53b4d4f337417d20a47bffd85765f",
+      "coinbase_value": 483367897963,
+      "excess": 483100000000,
+      "height": 1578520,
+      "payments_limit": 494542589560,
+      "reward": 267897963,
+      "txid": "af740d67540efb3a473ad9715d783fc6b53234210fd0f9d96976e1c3f9d1fb18"
+     },
+     {
+      "blk": {
+       "file": 179,
+       "record_offset": 100217158
+      },
+      "block": "00000000000000189129fb9e3c1ef495d2de05c114e589771a97fde0e986c954",
+      "coinbase_value": 432368448292,
+      "excess": 432100000000,
+      "height": 1595136,
+      "payments_limit": 494542589560,
+      "reward": 268448292,
+      "txid": "c00d6d0ed0fe21c6df3e5774353d75b6f0b13b31d082e8b7a9926b6bc5e99c01"
+     },
+     {
+      "blk": {
+       "file": 182,
+       "record_offset": 32120623
+      },
+      "block": "00000000000000002bfb7c0d1351f012aa50bee3d5c1432104733566ab474b4a",
+      "coinbase_value": 482768025527,
+      "excess": 482500000000,
+      "height": 1611752,
+      "payments_limit": 494542589560,
+      "reward": 268025527,
+      "txid": "9df4b2a1beef89279f4d848eef0a2cf3cabcc73784e2d8711572afee7a47e6c2"
+     },
+     {
+      "blk": {
+       "file": 184,
+       "record_offset": 129268389
+      },
+      "block": "0000000000000015ac5ae089ca979fdad5de2aa27cb228c9804ce981d6e3b0e6",
+      "coinbase_value": 490367912600,
+      "excess": 490100000000,
+      "height": 1628368,
+      "payments_limit": 494542589560,
+      "reward": 267912600,
+      "txid": "31fb670d6c09d1483dedd1286fa928d997a753d28e6d19105efd297a2afa0b17"
+     },
+     {
+      "blk": {
+       "file": 187,
+       "record_offset": 73826251
+      },
+      "block": "000000000000000dfb34c23cf8272f97a228815d4475998e9b08ebe2ed76dff3",
+      "coinbase_value": 484368106072,
+      "excess": 484100000000,
+      "height": 1644984,
+      "payments_limit": 494542589560,
+      "reward": 268106072,
+      "txid": "6e521d554694285b7f180509bdf5421b640ffe3bf327e890f8b5d86b0090f6de"
+     },
+     {
+      "blk": {
+       "file": 190,
+       "record_offset": 2346924
+      },
+      "block": "0000000000000014dcc5ef5c6ee529cf7d9ea0b6f897daa1c7209633f8764e6f",
+      "coinbase_value": 461568126978,
+      "excess": 461300000000,
+      "height": 1661600,
+      "payments_limit": 494542589560,
+      "reward": 268126978,
+      "txid": "890f37b12fcc7b77e2349bcb69a36bd8daba281bc069d01d87e1efa9bc237eef"
+     },
+     {
+      "blk": {
+       "file": 192,
+       "record_offset": 117993727
+      },
+      "block": "0000000000000006a745f2d0f4ea59bad5d0423b856770f9dc295d588951a980",
+      "coinbase_value": 462569473302,
+      "excess": 462300000000,
+      "height": 1678216,
+      "payments_limit": 494542589560,
+      "reward": 269473302,
+      "txid": "0a4d787a3dc0b23c535466f48519d0164414c245fc87bac952bcabd5a7cd0683"
+     },
+     {
+      "blk": {
+       "file": 195,
+       "record_offset": 19719170
+      },
+      "block": "00000000000000154bb322bbab76e7bece14d6e52e1eea8e22439a54e281dc59",
+      "coinbase_value": 459298933942,
+      "excess": 459050000000,
+      "height": 1694832,
+      "payments_limit": 459218120064,
+      "reward": 248933942,
+      "txid": "7e9d193c7978cf041380a772f26c27d53b099879a1287c4937ed77cab8276251"
+     },
+     {
+      "blk": {
+       "file": 197,
+       "record_offset": 52271294
+      },
+      "block": "000000000000001fb93c6f1c9f4754fa6e2cbf3d3730130e775574fa87f49ebd",
+      "coinbase_value": 428748793542,
+      "excess": 428500000000,
+      "height": 1711448,
+      "payments_limit": 459218120064,
+      "reward": 248793542,
+      "txid": "5789f0705bedd57d3e5fa02148561fb6b9fd5d191d3e380c4153ae33c044e0d9"
+     },
+     {
+      "blk": {
+       "file": 199,
+       "record_offset": 61516377
+      },
+      "block": "00000000000000037358ce819fbeecad7ddc16477569438010b9b737a7842036",
+      "coinbase_value": 459248786793,
+      "excess": 459000000000,
+      "height": 1728064,
+      "payments_limit": 459218120064,
+      "reward": 248786793,
+      "txid": "6adbd7feb4232a1b69ab2a06afa6bf407286c0eefac4a2e26babab6d02277d72"
+     },
+     {
+      "blk": {
+       "file": 201,
+       "record_offset": 62234700
+      },
+      "block": "000000000000002a399ad9bf6fe5e4df8021899a8c2ef7da64521b32ffe65867",
+      "coinbase_value": 454748850342,
+      "excess": 454500000000,
+      "height": 1744680,
+      "payments_limit": 459218120064,
+      "reward": 248850342,
+      "txid": "780e13fc3d15d3fa6f18197242ae8960123db37aa69e568032d53592d200e0d5"
+     },
+     {
+      "blk": {
+       "file": 203,
+       "record_offset": 85380450
+      },
+      "block": "0000000000000018e9d97a1f5fd9601be4bbdd51821ad7e7e47dac22d98b15f9",
+      "coinbase_value": 454848825912,
+      "excess": 454600000000,
+      "height": 1761296,
+      "payments_limit": 459218120064,
+      "reward": 248825912,
+      "txid": "48d5872c4174e26fc86052bcb0fefe66d6e98d57a9eb9225fa75f2b282903a3c"
+     },
+     {
+      "blk": {
+       "file": 206,
+       "record_offset": 3954684
+      },
+      "block": "000000000000002eb6e820b03c8fe60077ebfeb423357eb14f7b49c316fff5c1",
+      "coinbase_value": 459248829482,
+      "excess": 459000000000,
+      "height": 1777912,
+      "payments_limit": 459218120064,
+      "reward": 248829482,
+      "txid": "93fbcfe7012ecb55b3c472ba8bcb45f9ae4f87be4f294169236e2c302b97e40d"
+     },
+     {
+      "blk": {
+       "file": 208,
+       "record_offset": 16667888
+      },
+      "block": "000000000000004826be4b67dbbc82f3d0da08eb29a5a8a17a8d7e6e268c89f5",
+      "coinbase_value": 386948827217,
+      "excess": 386700000000,
+      "height": 1794528,
+      "payments_limit": 459218120064,
+      "reward": 248827217,
+      "txid": "86a1be2da26d45f4f055df77275c307426e81aab19db7186058b139b60fde3b0"
+     },
+     {
+      "blk": {
+       "file": 210,
+       "record_offset": 67415189
+      },
+      "block": "0000000000000014165dfe04c8e36f904f7a0676d7380372889cc5ae46818678",
+      "coinbase_value": 459049018433,
+      "excess": 458800000000,
+      "height": 1811144,
+      "payments_limit": 459218120064,
+      "reward": 249018433,
+      "txid": "3f88feea13ac5dd63371eccd65d62db351babaf3cd3629581c5214ae2b6a8f49"
+     },
+     {
+      "blk": {
+       "file": 212,
+       "record_offset": 107598268
+      },
+      "block": "000000000000000e257ef9f6041a6a1ca950bdc7646428f24ea0b291142f4195",
+      "coinbase_value": 413048831722,
+      "excess": 412800000000,
+      "height": 1827760,
+      "payments_limit": 459218120064,
+      "reward": 248831722,
+      "txid": "f8690dfa5f5ee5fa98a50e750a9833fa583fdb4dc49ebb4e7a818cf93de75077"
+     },
+     {
+      "blk": {
+       "file": 215,
+       "record_offset": 8388832
+      },
+      "block": "0000000000000022fe4aeac5452a1a0168666a15f4f520b8ba8d9f9b2d7b0d27",
+      "coinbase_value": 458648790872,
+      "excess": 458400000000,
+      "height": 1844376,
+      "payments_limit": 459218120064,
+      "reward": 248790872,
+      "txid": "6325fb2abda34bfbede98e5d829e8d9fbc803fc6fb4dc5d7e3afcbf91b776ea4"
+     },
+     {
+      "blk": {
+       "file": 217,
+       "record_offset": 58944615
+      },
+      "block": "000000000000001a31dbe2485382f8cc3fce90045893bcfaf827dfd522a589e9",
+      "coinbase_value": 450048880375,
+      "excess": 449800000000,
+      "height": 1860992,
+      "payments_limit": 459218120064,
+      "reward": 248880375,
+      "txid": "b33a390b36d5e3c21f23989f3db6aa697f065cbe96a8c4fa896533be1968ca19"
+     },
+     {
+      "blk": {
+       "file": 219,
+       "record_offset": 86503240
+      },
+      "block": "000000000000001e564d325834c67b7f4964d47bcdcca96e20cda4305e4cbcb6",
+      "coinbase_value": 459028982117,
+      "excess": 458780000000,
+      "height": 1877608,
+      "payments_limit": 459218120064,
+      "reward": 248982117,
+      "txid": "977c54a901683ce883f201afc63e655dbfe0b035301aeded89df3a5b4fd8fdd9"
+     },
+     {
+      "blk": {
+       "file": 221,
+       "record_offset": 110580988
+      },
+      "block": "000000000000002a7bea3ce01d673be50f1dc27f5398c22d55cb12dd4af83ea5",
+      "coinbase_value": 426430967232,
+      "excess": 426200000000,
+      "height": 1894224,
+      "payments_limit": 426416823400,
+      "reward": 230967232,
+      "txid": "cdf4c3db878b10c979a7b805d546ffec6f41a7802642224b1ebdf9251ba6b3cd"
+     },
+     {
+      "blk": {
+       "file": 224,
+       "record_offset": 42771422
+      },
+      "block": "00000000000000041712b912a853e99e2d74ccd9514faf051895b84630c53d49",
+      "coinbase_value": 426431024025,
+      "excess": 426200000000,
+      "height": 1910840,
+      "payments_limit": 426416823400,
+      "reward": 231024025,
+      "txid": "78fc4aa47938cb7df03e91b49e38194f99b457553fd12b2de5924f2a783b5f1a"
+     },
+     {
+      "blk": {
+       "file": 226,
+       "record_offset": 41661251
+      },
+      "block": "000000000000000ee9598f6133ac5e4cbb407566bdeb1e4695e769cea4049c30",
+      "coinbase_value": 426432461666,
+      "excess": 426200000000,
+      "height": 1927456,
+      "payments_limit": 426416823400,
+      "reward": 232461666,
+      "txid": "4edbce3b7848c9d707feece96fd695a032cc005cf3ae76627ef09430adaa12dd"
+     },
+     {
+      "blk": {
+       "file": 228,
+       "record_offset": 60573597
+      },
+      "block": "00000000000000045f8534493d5d954866d75faa8aabf5f8b322848b3c54f0b7",
+      "coinbase_value": 426431087175,
+      "excess": 426200000000,
+      "height": 1944072,
+      "payments_limit": 426416823400,
+      "reward": 231087175,
+      "txid": "3499bcffdd6f160749f7a33d0eabfe49cde07edb0e9ca251f989f778a1f37851"
+     },
+     {
+      "blk": {
+       "file": 230,
+       "record_offset": 97525315
+      },
+      "block": "0000000000000017392d65002ee553ea235dd761c0713f3403c6d5b91296baa9",
+      "coinbase_value": 426531405192,
+      "excess": 426300000000,
+      "height": 1960688,
+      "payments_limit": 426416823400,
+      "reward": 231405192,
+      "txid": "c215095ea4d69a8aa67496c3e640958a8bd97642aa4b498336a7cc752c9134c8"
+     },
+     {
+      "blk": {
+       "file": 232,
+       "record_offset": 64189750
+      },
+      "block": "0000000000000029f5ca1e05db992636b15f2b70ce7f1080e1ae869282182b46",
+      "coinbase_value": 423030999368,
+      "excess": 422800000000,
+      "height": 1977304,
+      "payments_limit": 426416823400,
+      "reward": 230999368,
+      "txid": "e1af2693d81efe580f40fc4034fedcdee2e4ae53587e8e22cf77148398d18381"
+     },
+     {
+      "blk": {
+       "file": 235,
+       "record_offset": 72843111
+      },
+      "block": "0000000000000008059d1d3d61c59aa206d9d102d9c888df9a7b61883c76364c",
+      "coinbase_value": 852805330161,
+      "excess": 852600000000,
+      "height": 1993920,
+      "payments_limit": 852833663416,
+      "reward": 205330161,
+      "txid": "e929128167acc0c87b4bf67d88fe8d74a94e8b1048e771215c69ae970dd746ab"
+     },
+     {
+      "blk": {
+       "file": 237,
+       "record_offset": 90180667
+      },
+      "block": "00000000000000283950101495baf7225db2ebffa098607c253c270361cc7e6a",
+      "coinbase_value": 851905304206,
+      "excess": 851700000000,
+      "height": 2010536,
+      "payments_limit": 852833663416,
+      "reward": 205304206,
+      "txid": "85b80b82bbe7bd233922cee0fed7740c07c8c97925a69409735599dd7faf214c"
+     },
+     {
+      "blk": {
+       "file": 240,
+       "record_offset": 3875180
+      },
+      "block": "00000000000000089a570fbd70daf5954f94a13b2d75b0b427cd25b8a0d1dd10",
+      "coinbase_value": 847805530552,
+      "excess": 847600000000,
+      "height": 2027152,
+      "payments_limit": 852833663416,
+      "reward": 205530552,
+      "txid": "a66c1bf6e48522c6cc97f499e251c2b0ae43f083507285c1e0325b9d24ec13ee"
+     },
+     {
+      "blk": {
+       "file": 242,
+       "record_offset": 37404944
+      },
+      "block": "0000000000000024f95ba433965354678e56c285440bd5e2016fd7150093804c",
+      "coinbase_value": 814005309681,
+      "excess": 813800000000,
+      "height": 2043768,
+      "payments_limit": 852833663416,
+      "reward": 205309681,
+      "txid": "83b2a17f81279d70796b6b398a279f60c4afd21fbae1442157766864ab262c9a"
+     },
+     {
+      "blk": {
+       "file": 244,
+       "record_offset": 78853123
+      },
+      "block": "00000000000000045668a3bda9df857ac979814edab1da972143754aafba58db",
+      "coinbase_value": 717305433401,
+      "excess": 717100000000,
+      "height": 2060384,
+      "payments_limit": 852833663416,
+      "reward": 205433401,
+      "txid": "ce25b9b8ea328e24c18f0df9c0433bd23e43c102a19066f588aef0165e878f59"
+     },
+     {
+      "blk": {
+       "file": 247,
+       "record_offset": 49247811
+      },
+      "block": "000000000000002ad87954758958508fdee10c180c269ba382dc6180f3ab6573",
+      "coinbase_value": 845405614785,
+      "excess": 845200000000,
+      "height": 2077000,
+      "payments_limit": 852833663416,
+      "reward": 205614785,
+      "txid": "f2b959a60e192e1a25d53efe7e1f6c27439d3ed72bd34e2223c34816269e0606"
+     },
+     {
+      "blk": {
+       "file": 249,
+       "record_offset": 126216972
+      },
+      "block": "00000000000000103c5617123ac11d3037700e687555bd7899c1407cd5127f6c",
+      "coinbase_value": 820405900469,
+      "excess": 820200000000,
+      "height": 2093616,
+      "payments_limit": 852833663416,
+      "reward": 205900469,
+      "txid": "ff30eefb4860309a66847f007582d8dc29df1ee1965b2ff545d45a988a6b89da"
+     }
+    ],
+    "c3_anomalies": 0,
+    "candidates": 1817,
+    "subsidy_checked": 1817,
+    "subsidy_mismatch": 0,
+    "superblock_within": {
+     "count": 0
+    },
+    "window_within": {
+     "count": 1506,
+     "first_height": 332323,
+     "last_height": 614819,
+     "max_excess_duffs": 0,
+     "sum_excess_duffs": 0
+    }
+   },
+   "scan_d": {
+    "cbtx_by_version": {
+     "1": 60480,
+     "2": 899136,
+     "3": 106895
+    },
+    "cl_sig_states": {
+     "valid": 106895
+    },
+    "hits": 0,
+    "v24_state": {
+     "state": "never active"
+    }
+   },
+   "scan_e": {
+    "flags": 0,
+    "signals": []
+   },
+   "scan_f": {
+    "by_type": {
+     "LLMQ_100_67": 75108,
+     "LLMQ_400_60": 10262,
+     "LLMQ_400_85": 10434,
+     "LLMQ_50_60": 85339,
+     "LLMQ_60_75": 44617
+    },
+    "commitments": 225760,
+    "enabled_nonnull": 93015,
+    "enabled_null": 132745,
+    "hits": 0
+   },
+   "stale_hit_counts": {},
+   "status": "partial: oracle block data ends at 2,094,670; see manager",
+   "tip": {
+    "hash": "0000000000000008e53829d71dfa617a35e406718f0ef0af269987cb287e3bb7",
+    "height": 2094670
+   },
+   "unparsed": 0
+  },
+  "testnet": {
+   "counters": {
+    "blocks": 1580929,
+    "c.c2_superblock": 11980,
+    "c.candidates": 65718,
+    "c.subsidy_checked": 65718,
+    "c.superblock_within": 53718,
+    "c.window_within": 20,
+    "d.cbtx": 1573929,
+    "d.sig.valid": 675829,
+    "d.version.1": 71800,
+    "d.version.2": 826300,
+    "d.version.3": 672900,
+    "d.version.4": 2929,
+    "e.bit.10": 1,
+    "e.bit.11": 1,
+    "e.bit.12": 1,
+    "e.bit.13": 1,
+    "f.commitments": 643580,
+    "f.enabled.nonnull": 218365,
+    "f.enabled.null": 425215,
+    "f.type.LLMQ_100_67": 180316,
+    "f.type.LLMQ_25_67": 70333,
+    "f.type.LLMQ_400_60": 48416,
+    "f.type.LLMQ_400_85": 79201,
+    "f.type.LLMQ_50_60": 153092,
+    "f.type.LLMQ_60_75": 112222,
+    "stale.blocks": 2,
+    "stale.d.cbtx": 2,
+    "stale.d.sig.valid": 2,
+    "stale.d.version.3": 1,
+    "stale.d.version.4": 1,
+    "stale.txs": 32,
+    "txs": 8655032
+   },
+   "hit_counts": {
+    "c.c2_superblock": 11980,
+    "c.window_within": 20,
+    "e.signal": 4
+   },
+   "incomplete": [],
+   "inputs": {
+    "blk_bytes": 3920288475,
+    "blk_files": 30,
+    "duplicate_records": 0,
+    "files_digest": "5c67cfbbc9b74803d9cf72d1bbef85ab217493e550247e026979743d437f2a54",
+    "records_above_tip": 1,
+    "scan_issues": 0,
+    "unlinked_records": 0,
+    "v24": {
+     "from_height": 1578000,
+     "state": "active"
+    }
+   },
+   "range": {
+    "from": 0,
+    "to": 1580928
+   },
+   "scan_a": {
+    "hits": 0
+   },
+   "scan_b": {
+    "hits": []
+   },
+   "scan_c": {
+    "c1_window_overpay": {
+     "count": 0
+    },
+    "c2_superblock": {
+     "count": 11980,
+     "first_height": 4464,
+     "last_height": 1580496,
+     "max_excess_duffs": 100112000000,
+     "sum_excess_duffs": 27960984081519
+    },
+    "c3_anomalies": 0,
+    "candidates": 65718,
+    "subsidy_checked": 65718,
+    "subsidy_mismatch": 0,
+    "superblock_within": {
+     "count": 53718
+    },
+    "window_within": {
+     "count": 20,
+     "first_height": 4100,
+     "last_height": 4159,
+     "max_excess_duffs": 0,
+     "sum_excess_duffs": 0
+    }
+   },
+   "scan_d": {
+    "cbtx_by_version": {
+     "1": 71800,
+     "2": 826300,
+     "3": 672900,
+     "4": 2929
+    },
+    "cl_sig_states": {
+     "valid": 675829
+    },
+    "hits": 0,
+    "v24_state": {
+     "from_height": 1578000,
+     "state": "active"
+    }
+   },
+   "scan_e": {
+    "flags": 0,
+    "signals": [
+     {
+      "bit": 10,
+      "blk": {
+       "file": 22,
+       "record_offset": 31833908
+      },
+      "block": "0000000b44620357dea68febbe5d47656bdbaae86a8232166bda450655ab48b6",
+      "height": 1066623,
+      "mtp_prev": 1721313865,
+      "payload_version": 1,
+      "quorum_hash": "000000b42f291cb9d0dd36285d32e778fa399ec360f84439b9e71128d4a59e45",
+      "sig": "valid",
+      "txid": "d181cbadde2eb5b613185a51bd0176d6ae6782bbbc4ae943e918663c241689a5"
+     },
+     {
+      "bit": 11,
+      "blk": {
+       "file": 23,
+       "record_offset": 6517963
+      },
+      "block": "0000006c2dfec8c65f230cb674cafd19097d0fd8ce287624f528f42c8c1ca769",
+      "height": 1140644,
+      "mtp_prev": 1731645185,
+      "payload_version": 1,
+      "quorum_hash": "000000f3cec96c16331d61f57d6df690dd30a364fd8043d44ecfd00732be449e",
+      "sig": "valid",
+      "txid": "e11f8b2dab4adc05a5c159aeb3c5892d64af96757004aa62106b24fe89d69b45"
+     },
+     {
+      "bit": 12,
+      "blk": {
+       "file": 25,
+       "record_offset": 19091144
+      },
+      "block": "000000488846d2c8b3c358a8afa77e7f5ef671ecc90c1298648968c557c44410",
+      "height": 1349780,
+      "mtp_prev": 1761113872,
+      "payload_version": 1,
+      "quorum_hash": "000000393915428c36685ad0fbf71860fa48dab762b21e129313ab2c9c0fbd90",
+      "sig": "valid",
+      "txid": "d6220b5d9ca0318f24befcf0e6a748bb84836bd79efbdcf165867da638292220"
+     },
+     {
+      "bit": 13,
+      "blk": {
+       "file": 28,
+       "record_offset": 57948513
+      },
+      "block": "00000018f4fe1c38aaab3a6969753df499db2caec8ab002c985127c29a202c7b",
+      "height": 1565132,
+      "mtp_prev": 1790987492,
+      "payload_version": 1,
+      "quorum_hash": "000000036fa298fe9be31e9f401ab2da36a8378a6f961a6979ece3caee3bb0fa",
+      "sig": "valid",
+      "txid": "46a47fe65c9fd29e9379f3f74020df33dabb1d4095c8da6b1fa05e508b74a491"
+     }
+    ]
+   },
+   "scan_f": {
+    "by_type": {
+     "LLMQ_100_67": 180316,
+     "LLMQ_25_67": 70333,
+     "LLMQ_400_60": 48416,
+     "LLMQ_400_85": 79201,
+     "LLMQ_50_60": 153092,
+     "LLMQ_60_75": 112222
+    },
+    "commitments": 643580,
+    "enabled_nonnull": 218365,
+    "enabled_null": 425215,
+    "hits": 0
+   },
+   "stale_hit_counts": {},
+   "status": "complete",
+   "tip": {
+    "hash": "0000009b99c31d8c2b8a6adea147c42cdaa5eed0d7fdbb49b53ac13180273882",
+    "height": 1580954
+   },
+   "unparsed": 0
+  }
+ },
+ "oracle": "Dash Core v24.0.0-rc.3",
+ "scan_code_commit": "264f43e44",
+ "scans": "a-f (R4 \u00a72.3.5)",
+ "schema_version": 1,
+ "task": "O6"
+}
