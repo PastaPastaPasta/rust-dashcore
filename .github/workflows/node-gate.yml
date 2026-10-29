@@ -77,8 +77,14 @@ env:
   # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
   # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
   CACHE_GEN: v2
-  # Third-party units the rdashd shard rebuilds even after an exact hit (cbindgen, a build dependency
-  # of dash-network; 10-29), so a save cannot help them: Summary leaves them out of its save rule.
+  # `<CACHE_GEN>-<hash of the deps job's build list>`, which the deps job checks (BL-520): a change
+  # to that list fails every run until CACHE_GEN is bumped and this re-pinned to the hash it prints.
+  # v2 was saved by v8's list; the pin is v10's, so only later changes need a bump.
+  CACHE_GEN_BUILDS: v2-dc0b48b9422f4d3f
+  # Third-party units the closure in use lacks, which Summary's save rule leaves out (BL-520): the
+  # rdashd shard's cbindgen (its --bin/--test selection leaves clap build-only, so cbindgen links
+  # debuginfo-0 clap units and gets its own hash), which v8's deps job, the one that saved the v2
+  # closure, never built. Empty this once a v9+ deps job has saved the closure for a new key.
   ALWAYS_REBUILT: cbindgen
 
 jobs:
@@ -141,6 +147,36 @@ jobs:
           echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
           rustc -Vv
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+
+      # BL-520: the key does not cover this file, so a closure saved under one build list keeps
+      # hitting after the list changes (v9's rdashd shard ran on v8's closure). The build list is how
+      # this job plans, builds, strips and saves, read from the copy of this file that runs, without
+      # comments or blank lines.
+      - name: CACHE_GEN covers the build list
+        shell: python3 {0}
+        run: |
+          import hashlib, os, subprocess, sys, yaml
+          sha = os.environ["GITHUB_SHA"]
+          subprocess.run(["git", "fetch", "-q", "--depth=1", "origin", sha], check=True)
+          text = subprocess.run(["git", "show", "FETCH_HEAD:.github/workflows/node-gate.yml"],
+                                check=True, capture_output=True, text=True).stdout
+          steps = {s.get("name"): s for s in yaml.safe_load(text)["jobs"]["deps"]["steps"]}
+          parts = ["\n".join(line.rstrip() for line in steps[name]["run"].splitlines()
+                             if line.strip() and not line.strip().startswith("#"))
+                   for name in ("Shard plan", "Strip script", "Build every selection")]
+          parts.append(steps["Save the dependency closure"]["with"]["path"])
+          build_hash = hashlib.sha256("\0".join(parts).encode()).hexdigest()[:16]
+          gen, pin = os.environ["CACHE_GEN"], os.environ["CACHE_GEN_BUILDS"]
+          want = f"{gen}-{build_hash}"
+          if pin == want:
+              print(f"CACHE_GEN {gen} covers this build list ({build_hash}, {sha})")
+              sys.exit(0)
+          if pin.startswith(f"{gen}-"):
+              print(f"::error::the deps job's build list changed ({build_hash}) under CACHE_GEN {gen}: "
+                    f"bump CACHE_GEN and set CACHE_GEN_BUILDS to <new CACHE_GEN>-{build_hash}")
+          else:
+              print(f"::error::CACHE_GEN_BUILDS {pin} is not CACHE_GEN {gen}'s pin: set it to {want}")
+          sys.exit(1)
 
       - name: Shard plan
         id: plan
