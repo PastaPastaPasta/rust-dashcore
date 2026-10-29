@@ -1,0 +1,85 @@
+# Test group configuration for CI
+# CI will fail if any workspace crate is not assigned to a group or excluded
+
+groups:
+  core:
+    - dashcore
+    - dashcore-crypto
+    - dashcore_hashes
+    - dashcore-private
+    - dash-network
+    - dash-core-vectors
+    - node-sink  # private-sink test infrastructure for node tests (PLAN §7)
+    - node-test-ports  # free ports for the nodes tests start (BL-221)
+
+  spv:
+    - dash-spv
+    - dash-spv-cli
+    - dash-network-seeds
+
+  wallet:
+    - key-wallet
+    - key-wallet-manager
+
+  ffi:
+    - dash-spv-ffi
+    - key-wallet-ffi
+
+  rpc:
+    - dashcore-rpc
+    - dashcore-rpc-json
+
+  # Node program groups (docs/node-program/designs/A1-architecture.md §2.3).
+  # Crates join them as they land; the integration gate runs them locally.
+  # node-pure and node-shared hold exactly the P/Pn and S crates of
+  # contrib/node/layers.toml (verify-groups checks it).
+  node-pure:  # P and Pn: sans-io crates; contrib/node/check-pure.sh enforces their bans
+    - dash-sha256
+    - dash-consensus
+    - dash-x11
+    - dash-evo
+    - dash-dml
+    - dash-governance  # governance objects, votes, triggers and tallies (GV1a); layer Pn
+    - dash-coinjoin  # CoinJoin rules: validation, DSTX/dsq relay, sessions, rounds (CJ0); layer P
+    - dash-filters  # BIP158 codec, Dash element set, filter-header chain (SB9); layer P
+    - dash-statedigest  # StateDigest v1 record grammar (O8)
+    - dash-netaddr  # CNetAddr/CService and the resolver-free name helpers (EV1 D28); layer P
+  node-shared:  # S: shared runtime crates; contrib/node/check-shared.sh enforces their bans
+    - dash-p2p-transport  # sans-io: layers.toml marks it `pure`, so check-pure.sh holds it to the pure bans too;
+                          # its interop tests need dashd v24 (DASHD_V24_PATH)
+    - dash-p2p  # connections, handshake, gates, AddrMan, BanList, dials (SB6)
+    - dash-clock  # NodeClock, mock time, the adjusted-time seam (SB0 §2.3)
+    - dash-chain  # the shared header chain (SB4)
+    - dash-kv  # the engine contract, the in-memory engine, ST3a's model (SB0 §2.2)
+    - dash-kv-sqlite  # the SPV store's SQLite engine (SB0 §9.4)
+    - dash-mnlist  # SPV's MN-list, quorum and lock engine (SB11, SB0 §5.3)
+  node-runtime:
+    - dashd-store
+    - dashd-chainstate
+    - dashd-rpc  # layer N: the RPC server (HTTP, auth, dispatch, control commands; RP0)
+    - dashd-node  # layer N: init/shutdown order, Core-format logging, scheduler, host services
+    - rdashd  # layer A: the node daemon's main, signals and -daemon; its differential tests need
+              # dashd v24 (DASHD_V24_PATH)
+    - dashd-p2p  # P2a-core: the message processor over dash-p2p (sim tests with --all-features)
+    - dashd-net  # P2a-net: dial threads, binds, peers.dat files, address relay (sim tests with --all-features)
+    - dashd-masternode  # SP0: the spork manager; its transcript tests replay dashd v24 fixtures
+    - dashd-mining  # MN0: CreateNewBlock and the regtest nonce loop
+    - dash-testkit  # layer T: RustNode/MixedNetwork harness (O16). Starts the rdashd at
+                    # RDASHD_PATH (build-and-test.yml builds it); its mixed-network test needs DASHD_PATH
+  node-app:
+    - dash-args  # shared library: Core's ArgsManager and option tables
+    - dash-coreimport
+    - dash-rpc-spec  # its dashd help test needs dashd v24 (DASHVERSION=24.0.0-rc.4 contrib/setup-dashd.py)
+    - rdash-cli  # host tool; XCLI runs it against the stock dash-cli and a v24 dashd (DASHD_V24_PATH)
+  node-conformance:  # needs the dashd oracles
+    - dash-conformance
+    - node-l1  # L1 comparisons against the in-process oracle; run with --features oracle
+
+# Crates intentionally not tested (with reason)
+excluded:
+  - integration_test  # Requires live Dash node
+  - dash-fuzz  # Honggfuzz binary targets, tested by fuzz.yml
+  - masternode-seeds-fetcher  # Tooling binary; needs live dashd RPC, exercised by update-masternode-seeds.yml
+  - dash-spv-bench  # Benchmarking binary
+  - git-state  # Compile-time proc-macro with no tests, exercised via dash-spv
+  - dash-oracle-sys  # Links Dash Core built by contrib/node/build-oracle.sh; run with --features oracle (node-conformance)

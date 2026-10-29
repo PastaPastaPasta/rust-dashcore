@@ -1,0 +1,54 @@
+{
+ "name": "hx1-reconsider-ignore-cl",
+ "description": "B91..B105 (fork A90) is the tip when a lock on A100 marks B91..B105 conflicting and reorgs to A100; reconsiderblock(B91) leaves the marks; reconsiderblock(B91, ignore_chainlocks=true) clears B91's alone (B92.. keep theirs), so A100 stays the tip; a CLSIG for B105 whose signature fails is not recorded or relayed",
+ "rows": [
+  "HX1-X2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A90",
+   "count": 15,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "reconsider",
+   "block": "B91"
+  },
+  {
+   "op": "reconsider",
+   "block": "B91",
+   "ignore_chainlocks": true
+  },
+  {
+   "op": "cl",
+   "block": "B105",
+   "sig": "bad"
+  }
+ ]
+}
