@@ -30,7 +30,7 @@
 # one across snapshots, dispatch this workflow on the default branch with `snapshot: ci/<sha>` and
 # `deps_only: true` once per new key (the default branch needs this file for that).
 name: node-gate
-run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only' || github.sha) }}
+run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of node/integration {0}', inputs.source)) || github.sha }}
 
 on:
   push:
@@ -39,6 +39,10 @@ on:
     inputs:
       snapshot:
         description: "ci/<12-hex> snapshot branch to check out (default: the dispatched ref)"
+        required: false
+        type: string
+      source:
+        description: "Full SHA the snapshot was made from; names the run like a push run (deps checks it)"
         required: false
         type: string
       deps_only:
@@ -84,12 +88,21 @@ jobs:
       - name: Toolchain
         env:
           SNAPSHOT: ${{ inputs.snapshot }}
+          SOURCE: ${{ inputs.source }}
         run: |
           echo "job_t0=$(date +%s)" >> "$GITHUB_ENV"
           [ -z "$SNAPSHOT" ] || [[ "$SNAPSHOT" =~ ^ci/[0-9a-f]{12}$ ]] || { echo "::error::snapshot '$SNAPSHOT' is not ci/<12-hex>"; exit 1; }
+          # A dispatched run named after a source commit must be running that commit's snapshot.
+          if [ -n "$SOURCE" ]; then
+            if ! [[ "$SOURCE" =~ ^[0-9a-f]{40}$ ]] || [ "ci/${SOURCE:0:12}" != "$SNAPSHOT" ] \
+              || [ "$(git log -1 --format=%B)" != "ci snapshot of node/integration $SOURCE" ]; then
+              echo "::error::source '$SOURCE' is not what $SNAPSHOT snapshots"; exit 1
+            fi
+          fi
           git log -1 --format='%H %s'
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
           rustc -Vv
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
@@ -255,6 +268,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
@@ -264,19 +278,25 @@ jobs:
       - name: PyYAML
         run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
-      # The export points the base SDK [patch] at the public fork (fork-push-sources.txt); this is
-      # its inverse, onto a clone of that fork, so the checks see agentbox's `file://` layout.
+      # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
+      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
       - name: Base SDK pin to a local clone
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            git clone -q --bare "$public" "$RUNNER_TEMP/base-sdk"
-            sed -i "s|\"$public\"|\"file://$RUNNER_TEMP/base-sdk\"|g" Cargo.toml
-            sed -i "s|source = \"git+$public?|source = \"git+file://$RUNNER_TEMP/base-sdk?|g" Cargo.lock
-            echo "base SDK pin: $public -> file://$RUNNER_TEMP/base-sdk"
+          # The other workspaces (contrib/node tools) keep the local URL the export leaves alone; the
+          # clone goes there, so the root and they name one fork, as on agentbox.
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir"
+            sed -i "s|\"$public\"|\"$local\"|g" Cargo.toml
+            sed -i "s|source = \"git+$public?|source = \"git+$local?|g" Cargo.lock
+            echo "base SDK pin: $public -> $local"
             git diff --stat
           else
-            echo "::notice::the base SDK [patch] source is '$public', not one public URL; left as is"
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
           fi
 
       # The same steps, in the same order, as gate-fast's static lane. r2 runs when its script exists.
@@ -307,9 +327,12 @@ jobs:
             echo "::notice::$f is not in the snapshot; its matrix check compares ci-groups.yml with itself"
           fi
           python3 .github/scripts/ci_config.py verify-groups
+      # gate-fast runs its own copy of this check; the tree's copy lands with node/ci-stage0.
       - name: self-devdep
         if: ${{ !cancelled() }}
-        run: python3 -I contrib/node/check-self-devdep.py
+        run: |
+          if [ -e contrib/node/check-self-devdep.py ]; then python3 -I contrib/node/check-self-devdep.py
+          else echo "::warning::self-devdep NOT RUN: no contrib/node/check-self-devdep.py in this tree"; fi
       - name: sb12a-captures
         if: ${{ !cancelled() }}
         run: python3 -I -B contrib/node/test-sb12a-captures.py
@@ -361,6 +384,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
           echo "restore_t0=$(date +%s.%N)" >> "$GITHUB_ENV"
 
       - name: Restore the dependency closure
@@ -449,20 +473,26 @@ jobs:
           rustup target add aarch64-linux-android
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
-      # The export points the base SDK [patch] at the public fork (fork-push-sources.txt); this is
-      # its inverse, onto a clone of that fork, so the checks see agentbox's `file://` layout.
+      # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
+      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
       - name: Base SDK pin to a local clone
         if: matrix.kind == 'extras'
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            git clone -q --bare "$public" "$RUNNER_TEMP/base-sdk"
-            sed -i "s|\"$public\"|\"file://$RUNNER_TEMP/base-sdk\"|g" Cargo.toml
-            sed -i "s|source = \"git+$public?|source = \"git+file://$RUNNER_TEMP/base-sdk?|g" Cargo.lock
-            echo "base SDK pin: $public -> file://$RUNNER_TEMP/base-sdk"
+          # The other workspaces (contrib/node tools) keep the local URL the export leaves alone; the
+          # clone goes there, so the root and they name one fork, as on agentbox.
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir"
+            sed -i "s|\"$public\"|\"$local\"|g" Cargo.toml
+            sed -i "s|source = \"git+$public?|source = \"git+$local?|g" Cargo.lock
+            echo "base SDK pin: $public -> $local"
             git diff --stat
           else
-            echo "::notice::the base SDK [patch] source is '$public', not one public URL; left as is"
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
           fi
 
       - name: Install cargo-deny
@@ -487,7 +517,12 @@ jobs:
 
       - name: private tests skip cleanly
         if: ${{ matrix.kind == 'extras' && !cancelled() }}
-        run: /usr/bin/time -f 'private_s=%e' -a -o "$METRICS" contrib/node/check-private-tests.sh --expect-skipped
+        run: |
+          if grep -q -- '--expect-skipped' contrib/node/check-private-tests.sh; then
+            /usr/bin/time -f 'private_s=%e' -a -o "$METRICS" contrib/node/check-private-tests.sh --expect-skipped
+          else
+            echo "::warning::private tests skip check NOT RUN: this tree's check-private-tests.sh has no --expect-skipped"
+          fi
 
       - name: public-api
         if: ${{ matrix.kind == 'extras' && !cancelled() }}
