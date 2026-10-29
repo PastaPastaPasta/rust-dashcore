@@ -1,0 +1,74 @@
+[package]
+name = "dash-dml"
+description = "Dash Core's authoritative evo state for the Rust Dash node: the deterministic masternode list, the evo store, the per-block records, the credit pool and the MNHF signals. Node-only. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_dml"
+path = "src/lib.rs"
+
+[features]
+# Builders for tests in this crate and its consumers (EV2 §2.1 `testkit`): masternodes, plus
+# dash-evo's in-memory block tree, and the block replay, which runs the reference twin too.
+test-utils = ["dash-evo/test-utils", "xcheck"]
+# The reference twin (`reference.rs`, EV2 §3.4), for node-l1, node-fuzz, the benches and
+# `-consensusxcheck` (D5).
+xcheck = []
+
+[dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-evo = { path = "../dash-evo" }
+# Core-exact `CNetAddr`/`CService`, `SplitHostPort`, `IsBadPort`, the numeric `Lookup` (EV1 D28).
+dash-netaddr = { path = "../dash-netaddr" }
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# `bls`: the stored operator key is BS11a-t's `BlsLazyPk` (Core `CBLSLazyPublicKey`).
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# EV2 §2.1 and DEC-50(6): an exact pin. It contains `unsafe` (through imbl-sized-chunks), and a
+# bump could change iteration or diff behaviour, so a bump is a CON change that re-runs the model
+# fuzz and the L1 targets.
+imbl = "=7.0.2"
+
+[dev-dependencies]
+criterion = "0.8.1"
+dash-dml = { path = ".", features = ["test-utils"] }
+# LQ1a's model facade (`dash_evo::llmq::reference`), for `tests/node_members.rs`.
+dash-evo = { path = "../dash-evo", features = ["reference"] }
+# `benches/unique_map_compare.rs` only: the Fx hasher the collision fixture targets (EV2 §5.5).
+rustc-hash = "=2.1.3"
+
+# `cfg(fuzzing)`: libFuzzer builds fix the unique map's hasher key (BL-370).
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+# PF0 rows (contrib/node/perfgate/workloads.toml).
+[[bench]]
+name = "mnlist"
+harness = false
+
+[[bench]]
+name = "dml_build"
+harness = false
+
+[[bench]]
+name = "sml_root"
+harness = false
+
+[[bench]]
+name = "qc_block"
+harness = false
+
+# A one-time comparison of the unique map's hasher (EV2 §5.5, DEC-50(3)); recorded in
+# ARCHITECTURE.md, not a PF0 row.
+[[bench]]
+name = "unique_map_compare"
+harness = false

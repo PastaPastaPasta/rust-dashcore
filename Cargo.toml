@@ -1,0 +1,195 @@
+[workspace]
+members = ["dash", "crypto", "dash-network", "hashes", "internals", "fuzz", "rpc-client", "rpc-json", "rpc-integration-test", "key-wallet", "key-wallet-manager", "key-wallet-ffi", "dash-spv", "dash-spv-ffi", "dash-spv-cli", "git-state", "dash-network-seeds", "masternode-seeds-fetcher", "dash-spv-bench", "test-vectors", "dash-sha256", "dash-x11", "dash-oracle-sys", "conformance", "dash-kv", "dash-kv-sqlite", "dashd-store", "dashd-chainstate", "dash-coreimport", "dash-consensus", "dash-evo", "dash-dml", "dash-governance", "dash-coinjoin", "dash-clock", "dash-chain", "node-sink", "node-test-ports", "node-l1", "dash-args", "dash-rpc-spec", "dash-p2p-transport", "dash-filters", "rdash-cli", "dash-p2p", "dash-netaddr", "dash-statedigest", "dashd-node", "dashd-rpc", "rdashd", "dashd-p2p", "dash-testkit", "dashd-net", "dashd-masternode", "dash-mnlist", "dashd-mining"]
+# The bake-off harness builds LevelDB and MDBX from C/C++ sources; it is a standalone tool with
+# its own lockfile and target/ (build it from its directory).
+exclude = ["dashd-store-bakeoff"]
+resolver = "2"
+
+[workspace.dependencies]
+# Packages shared across crates
+bincode = { package = "grovedb-bincode", version = "=2.1.0" }
+bincode_derive = { package = "grovedb-bincode-derive", version = "=2.1.0" }
+futures = "0.3"
+rayon = "1.11"
+# Must match the version used in `bitcoin-crypto` and `dash-pkc`. dash-consensus pins it exactly
+# (`=0.33.1`, with `secp256k1-sys =0.14.1`): the vendored libsecp256k1 verifies every script
+# signature, so a bump fails to resolve until that pin moves with it (see dash-consensus/Cargo.toml).
+# Not pinned here, so the published crates keep a caret requirement.
+secp256k1 = "0.33.1"
+serde = { version = "1.0.219", default-features = false }
+zeroize = { version = "1.8", features = ["derive"] }
+
+# Packages from `dashpay/base-sdk`, MUST share same version ACROSS crates
+# (enforced by `crypto/tests/base_sdk_pin.rs` and `contrib/node/check-base-sdk-pins.sh`).
+# `rev` is the upstream commit the fork is based on; builds take the fork through
+# the `[patch]` below. Members use `workspace = true`, never a git or path dep of
+# their own. Move both tables with `contrib/node/bump-base-sdk.sh`.
+dash-num = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-p2p-core = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-params = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-pow = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+
+# Packages from `rust-bitcoin/rust-bitcoin`, `bitcoin-crypto` uses revision due to `secp256k1`
+base58ck = { version = "0.5.0" }
+bitcoin_hashes = { version = "0.14.101", default-features = false }
+bitcoin-crypto = { git = "https://github.com/rust-bitcoin/rust-bitcoin", rev = "7ba35c7c1dd63892bfb9c9395bbd80e2ab5df516", default-features = false }
+hex-conservative = { version = "1.3.0" }
+
+[workspace.package]
+authors = ["The rust-dashcore Developers"]
+edition = "2024"
+license = "CC0-1.0"
+repository = "https://github.com/dashpay/rust-dashcore"
+rust-version = "1.89.0"
+version = "0.45.0"
+
+[patch.crates-io]
+dashcore_hashes = { path = "hashes" }
+# Use directly from GitHub while we don't have ownership of the crate on crates.io
+rs-x11-hash = { git = "https://github.com/dashpay/rs-x11-hash", tag = "0.1.9" }
+
+# Every base SDK package resolves to one revision of the local fork branch
+# `node/base-sdk` (docs/node-program/BASE-SDK-FORK.md). Lists exactly the
+# packages declared above, at one `rev` that `node/base-sdk` contains.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+
+[profile.release]
+# Default to unwinding for most crates
+panic = "unwind"
+
+[profile.release.package.dash-fuzz]
+# Disable LTO and keep debuginfo for honggfuzz to avoid link GC issues
+codegen-units = 16
+debug = 1
+
+# The mobile products (dash-spv-ffi, key-wallet-ffi; SB0 §2.3, SB2): size first, speed on the
+# header-sync path. Build with `--profile mobile`; check-mobile.sh (L7) does once this table exists.
+[profile.mobile]
+inherits = "release"
+# No LTO (SB2 D2): with fat LTO the overrides below were not enough (the late optimisation passes
+# run at the linking crate's opt-level, `s`), and it saved 6 KB.
+lto = false
+codegen-units = 1
+opt-level = "s"
+
+# The hashing crates a header sync runs (SB2 D1), at the speed `release` gives them. `dash-pow`
+# is still a dependency of dash-consensus and base-sdk's dash-primitives, but none of its code is
+# linked today, so its entry is a guard.
+[profile.mobile.package.dash-pow]
+opt-level = 3
+
+[profile.mobile.package.dash-x11]
+opt-level = 3
+
+[profile.mobile.package.dash-sha256]
+opt-level = 3
+
+[profile.mobile.package.dashcore_hashes]
+opt-level = 3
+
+# The C backends: cargo hands a package's opt-level to its build script as OPT_LEVEL, which `cc`
+# turns into -O3. blst's own build.rs pins -O2 (SB2 D3).
+[profile.mobile.package.blst]
+opt-level = 3
+
+[profile.mobile.package.blake3]
+opt-level = 3
+
+# The header path that PF0's `spv-headers-*` rows run (SB2 D4); at opt-level s two of the three
+# rows were above `release` on QEMU aarch64.
+[profile.mobile.package.dash-spv]
+opt-level = 3
+
+[profile.mobile.package.dash-consensus]
+opt-level = 3
+
+[profile.mobile.package.dashcore]
+opt-level = 3
+
+[profile.mobile.package.dash-primitives]
+opt-level = 3
+
+[profile.mobile.package.dash-types]
+opt-level = 3
+
+[profile.mobile.package.dash-chain]
+opt-level = 3
+
+[profile.mobile.package.dash-num]
+opt-level = 3
+
+[profile.mobile.package.dash-params]
+opt-level = 3
+
+[profile.mobile.package.bitcoin_hashes]
+opt-level = 3
+
+[profile.mobile.package.dash-p2p-core]
+opt-level = 3
+
+[profile.dev]
+# Default to unwinding for most crates
+
+[profile.dev.package.dash-pow]
+# X11 (eleven chained hashes) is two orders of magnitude slower unoptimised. Its users:
+# `dash-consensus` without its `dash-x11` feature (SB12a D23), and base-sdk's
+# `dash-primitives` (`BlockHeader::hash`, which `Headers2::decode` calls per header, as in
+# dash-spv's bridge round trips over 8,000-header replies); unoptimised, the debug tests
+# that hash many headers would take seconds.
+opt-level = 3
+
+[profile.dev.package.dash-x11]
+# Unoptimised, one X11 hash takes about 0.9 ms (5 microseconds optimised), 2.6x the C library
+# built at -O0; that makes every debug test that hashes many headers slow.
+opt-level = 3
+
+[profile.dev.package.dashd-chainstate]
+# The coins cache's tests run millions of layer operations (Core's two 40,000-step simulations,
+# DEC-108's churn test); hashbrown's generic code is compiled here, and unoptimised it makes
+# them take minutes.
+opt-level = 1
+
+[profile.dev.package.dashd-store]
+# ST3a's power-loss model explores thousands of crash images per test run; unoptimised it does
+# not fit the PR gate's budget (DEC-63 Q11).
+opt-level = 2
+
+[profile.dev.package.dash-kv]
+# The same model, which moved here with the engine contract (SB10): the explorer, the engines
+# and the checks are this crate's code.
+opt-level = 2
+
+[profile.dev.package.bitcoin_hashes]
+# The power-loss checks hash every recovered block and digest (DEC-63 Q11).
+opt-level = 2
+
+[profile.dev.package.dash-sha256]
+# Unoptimised, the AVX2 eight-way SHA256D64 transform (the merkle path, and the self-test
+# dash-sha256 runs on first use) has a stack frame of about 300 KB, enough to overflow a
+# 2 MB test thread that is already deep (node-l1's oracle tests). Optimised: under 3 KB.
+opt-level = 3
+
+[profile.dev.package.dash-p2p-transport]
+# BIP324: Core's packet vectors encrypt and decrypt megabyte packets several times, and the
+# interop and fuzz tests run whole sessions. ChaCha20 and Poly1305 are generic, so they are
+# compiled into this crate (and the two below): unoptimised, the vectors take minutes.
+opt-level = 3
+
+[profile.dev.package.chacha20]
+opt-level = 3
+
+[profile.dev.package.chacha20poly1305]
+opt-level = 3
+
+[profile.dev.package.poly1305]
+opt-level = 3
