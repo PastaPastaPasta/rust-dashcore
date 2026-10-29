@@ -283,16 +283,17 @@ jobs:
       - name: Base SDK pin to a local clone
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          # The other workspaces (contrib/node tools) keep the local URL the export leaves alone; the
-          # clone goes there, so the root and they name one fork, as on agentbox.
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
           local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
           if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
             dir=${local#file://}
             sudo mkdir -p "$(dirname "$dir")"
             sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
             git clone -q --bare "$public" "$dir"
-            sed -i "s|\"$public\"|\"$local\"|g" Cargo.toml
-            sed -i "s|source = \"git+$public?|source = \"git+$local?|g" Cargo.lock
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
             echo "base SDK pin: $public -> $local"
             git diff --stat
           else
@@ -479,16 +480,17 @@ jobs:
         if: matrix.kind == 'extras'
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          # The other workspaces (contrib/node tools) keep the local URL the export leaves alone; the
-          # clone goes there, so the root and they name one fork, as on agentbox.
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
           local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
           if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
             dir=${local#file://}
             sudo mkdir -p "$(dirname "$dir")"
             sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
             git clone -q --bare "$public" "$dir"
-            sed -i "s|\"$public\"|\"$local\"|g" Cargo.toml
-            sed -i "s|source = \"git+$public?|source = \"git+$local?|g" Cargo.lock
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
             echo "base SDK pin: $public -> $local"
             git diff --stat
           else
