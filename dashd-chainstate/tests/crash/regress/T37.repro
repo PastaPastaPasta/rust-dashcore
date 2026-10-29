@@ -1,0 +1,9 @@
+# CRASH planted subscriber bug T37 (CH2 §7.2 b3), minimised in 8 replays.
+harness st3a/1
+sut chainsut
+config sub=50000 invalid=- effects=- presumed=- crash=- replay=- prune=1073741824 pah=300 index=synced:2:96 planted=T37
+workload c97
+adversary realistic
+granularity write
+expect FA6
+minimality verified

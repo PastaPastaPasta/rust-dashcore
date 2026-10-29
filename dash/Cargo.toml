@@ -1,0 +1,90 @@
+[package]
+name = "dashcore"
+authors = [
+    "Samuel Westrich <sam@dash.org>",
+    "Anton Suprunchuk <anton@dash.org>",
+    "Dmitrii Golubev <dmitrii.golubev@dash.org>"
+]
+description = "General purpose library for using and interoperating with Dash Core payment chain."
+categories = ["cryptography::cryptocurrencies"]
+keywords = [ "crypto", "dash" ]
+readme = "../README.md"
+exclude = ["tests", "contrib"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# Please don't forget to add relevant features to docs.rs below
+[features]
+default = ["secp-recovery", "bincode" ]
+base64 = [ "dep:base64" ]
+rand-std = ["secp256k1/rand"]
+rand = ["secp256k1/rand"]
+serde = ["dep:serde", "dashcore-crypto/serde", "dashcore_hashes/serde", "secp256k1/serde", "dash-network/serde"]
+secp-lowmemory = ["secp256k1/lowmemory"]
+secp-recovery = ["secp256k1/recovery"]
+signer = ["secp-recovery", "rand", "base64"]
+# No-op, kept so existing `features = ["core-block-hash-use-x11"]` still resolve: `BlockHash` is X11 always.
+core-block-hash-use-x11 = []
+bls = ["dashcore-crypto/bls"]
+eddsa = ["dashcore-crypto/eddsa"]
+quorum_validation = ["bls"]
+message_verification = ["bls"]
+bincode = [ "dep:bincode", "dep:bincode_derive", "dashcore-crypto/bincode", "dashcore_hashes/bincode", "dash-network/bincode" ]
+test-utils = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+internals = { path = "../internals", package = "dashcore-private" }
+bech32 = { version = "0.9.1" }
+dashcore_hashes = { path = "../hashes", features = ["x11"] }
+dashcore-crypto = { path = "../crypto" }
+dash-network = { path = "../dash-network" }
+dash-filters = { path = "../dash-filters" }
+# `sml`'s verification lives in dash-evo (SB7, SB0 §5.5); dashcore keeps the old signatures,
+# converting to dash-evo's base-sdk types.
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true }
+# `Transaction::decode`: the special-transaction payloads go to dash-filters as base-sdk values.
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec"] }
+secp256k1 = { workspace = true }
+serde = { workspace = true, features = ["derive", "alloc", "rc"], optional = true }
+
+base64 = { version = "0.22", optional = true }
+bitcoinconsensus = { version = "0.20.2-0.5.0", default-features = false, optional = true }
+anyhow = { version= "1.0" }
+hex-conservative = { workspace = true }
+bincode = { workspace = true, optional = true }
+bincode_derive = { workspace = true, optional = true }
+blake3 = "1.8.1"
+thiserror = "2"
+bitvec = "1.0"
+tracing = "0.1"
+
+[dev-dependencies]
+serde_json = "1.0.140"
+serde_test = "1.0.177"
+serde_derive = "1.0.219"
+secp256k1 = { workspace = true, features = ["recovery", "rand"] }
+bincode = { workspace = true, features = ["serde"] }
+assert_matches = "1.5.0"
+dashcore = { path = ".", features = ["message_verification", "quorum_validation", "signer"] }
+criterion = "0.5"
+test-case = "3.3"
+dash-core-vectors = { path = "../test-vectors" }
+
+[[example]]
+name = "handshake"
+
+[[bench]]
+name = "transaction"
+harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(bench)', 'cfg(fuzzing)', 'cfg(kani)'] }
