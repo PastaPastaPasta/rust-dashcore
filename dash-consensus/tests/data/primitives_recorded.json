@@ -1,0 +1,122 @@
+{
+  "provenance": "Computed by Dash Core's oracle (dash-oracle-sys), identical on pins v24.0.0-rc.3-69-g244073f5a232; regenerate with node-l1's recorded_fixtures test.",
+  "merkle": [
+    {
+      "name": "empty",
+      "leaves": [],
+      "root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mutated": false
+    },
+    {
+      "name": "one leaf",
+      "leaves": [
+        1
+      ],
+      "root": "0101010101010101010101010101010101010101010101010101010101010101",
+      "mutated": false
+    },
+    {
+      "name": "[a,b,c] not mutated",
+      "leaves": [
+        1,
+        2,
+        3
+      ],
+      "root": "223e023fadf1f053df26988871f893c821c28edf77d64a955e6c2a02d547bdac",
+      "mutated": false
+    },
+    {
+      "name": "[a,b,b] not mutated: the odd tail's duplicate is not compared",
+      "leaves": [
+        1,
+        2,
+        2
+      ],
+      "root": "cc0207a8ae45d383f9bdb4d5934e4349b64dfddb9c7e326bd399cd00d8deb5c6",
+      "mutated": false
+    },
+    {
+      "name": "[a,a,b] mutated",
+      "leaves": [
+        1,
+        1,
+        2
+      ],
+      "root": "7fded568353887319deb535bd166526b6a74bcf048c20de3d00df35163af852f",
+      "mutated": true
+    },
+    {
+      "name": "[A,B,B,C] not mutated: only pairs at even offsets",
+      "leaves": [
+        1,
+        2,
+        2,
+        3
+      ],
+      "root": "230510f9af0f2d865eb557dad473e8e6c81ff3b089502790f69df0c4f29fcfa3",
+      "mutated": false
+    },
+    {
+      "name": "[A,B,C,C] mutated",
+      "leaves": [
+        1,
+        2,
+        3,
+        3
+      ],
+      "root": "223e023fadf1f053df26988871f893c821c28edf77d64a955e6c2a02d547bdac",
+      "mutated": true
+    },
+    {
+      "name": "[a,b,c,d,e,f]",
+      "leaves": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "root": "7b66d521a8037fd37d8730a5a77b304c0994bf45fc6e225cb79073f087cf97e9",
+      "mutated": false
+    },
+    {
+      "name": "[a,b,c,d,e,f,e,f]: same root, mutated one level up",
+      "leaves": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        5,
+        6
+      ],
+      "root": "7b66d521a8037fd37d8730a5a77b304c0994bf45fc6e225cb79073f087cf97e9",
+      "mutated": true
+    },
+    {
+      "name": "five leaves",
+      "leaves": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "root": "26e2870f72368b3f8baef83fa26282d95d9c194e1f33d90a12932e0f6022e5d3",
+      "mutated": false
+    }
+  ],
+  "block813851": {
+    "hash": "83cf7a04b0b7dc9e15f6159cbcaf9419aeac0d3e63d2b7d80800000000000000",
+    "merkle_root": "1b3557581d6254eaaefe096056b89af7d64139ebfe22e6a0a5033031f6853ef6",
+    "mutated": false
+  },
+  "check_block_tx_failure": {
+    "block_hex": "04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020102ffffffff010100000000000000015100000000010000000207070707070707070707070707070707070707070707070707070707070707070000000000ffffffff07070707070707070707070707070707070707070707070707070707070707070000000000ffffffff010100000000000000015100000000",
+    "result": 1,
+    "reason": "bad-txns-inputs-duplicate",
+    "debug_message": "Transaction check failed (tx hash 40b44bda029dcda3b8f5e7f8f8a2379ca945b33a8f902d5b57399bc83945c1ee) "
+  }
+}
