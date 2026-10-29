@@ -173,7 +173,7 @@ jobs:
           rustc_hash=$(rustc -Vv | sha256sum | cut -c1-16)
           prefix=node-deps-$CACHE_GEN-${{ runner.os }}-$rustc_hash-
           echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
-          echo "key=$prefix${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '**/Cargo.toml', '.github/ci-groups.yml') }}" >> "$GITHUB_OUTPUT"
+          echo "key=${prefix}${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '**/Cargo.toml', '.github/ci-groups.yml') }}" >> "$GITHUB_OUTPUT"
 
       - name: Look up the dependency closure
         id: lookup
