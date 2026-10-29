@@ -1,0 +1,36 @@
+# A consumer of dash-spv and dash-spv-ffi outside the workspace (SB3): it takes
+# the libraries as a host does, with no default features and none of the
+# dev-dependency features the workspace's own tests unify in (`test-utils`
+# turns `log-file` on). Run it with contrib/node/check-spv-feature-off.sh.
+[package]
+name = "spv-feature-off"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+dash-spv = { path = "../../../dash-spv", default-features = false }
+dash-spv-ffi = { path = "../../../dash-spv-ffi", default-features = false }
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[features]
+log-file = ["dash-spv/log-file", "dash-spv-ffi/log-file"]
+env-filter = ["dash-spv/env-filter", "dash-spv-ffi/env-filter"]
+
+# Its own workspace root: its own Cargo.lock and target/, no feature
+# unification with the repository's workspace.
+[workspace]
+
+# The root manifest's base SDK pin (BASE-SDK-FORK.md): without it this
+# workspace resolves base-sdk upstream, which the workspace crates do not build against.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }

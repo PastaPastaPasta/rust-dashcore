@@ -1,0 +1,1775 @@
+//! BIP32-like implementation for BLS12-381.
+//!
+//! Implementation of hierarchical deterministic wallets for BLS12-381,
+//! matching the dashbls (`bls-signatures`) `ExtendedPrivateKey` /
+//! `ExtendedPublicKey` scheme used by Dash Core and DashSync for masternode
+//! operator keys (DIP-3 `m/9'/coin'/3'/3'`).
+//!
+//! Key differences from standard BIP32:
+//! - Uses BLS12-381 curve instead of secp256k1
+//! - Keys are 32 bytes (private) and 48 bytes (public)
+//! - Uses "BLS HD seed" as the HMAC key for master key generation
+//! - Supports both hardened and non-hardened derivation
+//! - Hardened child HMAC input is `sk(32) || index(4 BE) || {0,1}` — unlike
+//!   secp256k1 BIP32 there is **no** leading `0x00` byte
+//!
+//! # Serialization modes
+//!
+//! Non-hardened derivation feeds the parent public key into the HMAC, so the
+//! G1 serialization format is part of the derivation itself — dashbls
+//! parameterizes it as `fLegacy`. Both modes are supported, mirroring dashbls:
+//!
+//! - [`ExtendedBLSPrivKey::derive_priv`] / [`ExtendedBLSPubKey::derive_pub`]
+//!   use the **modern** (IETF/basic-scheme) serialization, like dashbls
+//!   `PrivateChild(i)` with the default `fLegacy = false`.
+//! - [`ExtendedBLSPrivKey::derive_priv_legacy`] /
+//!   [`ExtendedBLSPubKey::derive_pub_legacy`] use the **legacy** Dash
+//!   serialization (`fLegacy = true`). This is what dashbls/DashSync use for
+//!   masternode operator keys (DIP-3 `m/9'/coin'/3'/3'`), so the provider-key
+//!   account layer derives with these.
+//! - The `*_with_mode` variants take an explicit [`BlsScheme`].
+//!
+//! Hardened derivation never serializes the public key, so the mode only
+//! matters for non-hardened children. Output serialization is likewise
+//! available in both formats ([`ExtendedBLSPubKey::to_bytes`] /
+//! [`ExtendedBLSPubKey::to_bytes_legacy`]).
+
+use core::fmt;
+use dashcore_hashes::{sha256, Hash, HashEngine, Hmac, HmacEngine};
+use std::error;
+
+// NOTE: We use Bls12381G2Impl for BLS keys (48-byte public keys)
+use dashcore::bls_sig_utils::{BLSPublicKey, BlsScheme, BlsSkBytes};
+
+/// The scheme an [`ExtendedBLSPubKey`] stores its key bytes under.
+///
+/// Storage is fixed; the derivation mode only decides what gets hashed.
+const CANONICAL: BlsScheme = BlsScheme::Modern;
+
+use dashcore::Network;
+#[cfg(feature = "serde")]
+use serde::Deserialize;
+
+use crate::bip32::{ChainCode, ChildNumber, DerivationPath, Fingerprint};
+use hex_conservative::DisplayHex;
+
+/// The HMAC key used for generating the master key.
+const MASTER_HMAC_KEY: &[u8] = b"BLS HD seed";
+
+/// Errors that can occur in BLS HD key derivation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    /// Invalid derivation path string
+    InvalidDerivationPath,
+    /// Invalid seed length
+    InvalidSeed,
+    /// Invalid private key
+    InvalidPrivateKey,
+    /// Invalid public key
+    InvalidPublicKey,
+    /// Invalid chain code
+    InvalidChainCode,
+    /// Cannot derive public key from hardened
+    CannotDeriveFromHardenedPublic,
+    /// BLS error
+    BLSError(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidDerivationPath => write!(f, "Invalid derivation path"),
+            Error::InvalidSeed => write!(f, "Invalid seed"),
+            Error::InvalidPrivateKey => write!(f, "Invalid private key"),
+            Error::InvalidPublicKey => write!(f, "Invalid public key"),
+            Error::InvalidChainCode => write!(f, "Invalid chain code"),
+            Error::CannotDeriveFromHardenedPublic => {
+                write!(f, "Cannot derive public key from hardened")
+            }
+            Error::BLSError(e) => write!(f, "BLS error: {}", e),
+        }
+    }
+}
+
+impl error::Error for Error {}
+
+/// Extended BLS private key for HD derivation
+#[derive(Clone)]
+pub struct ExtendedBLSPrivKey {
+    /// Network this key is for
+    pub network: Network,
+    /// Depth in the HD tree
+    pub depth: u8,
+    /// Parent key fingerprint
+    pub parent_fingerprint: Fingerprint,
+    /// Child number
+    pub child_number: ChildNumber,
+    /// Private key (BLS secret key)
+    private_key: BlsSkBytes,
+    /// Chain code for derivation
+    pub chain_code: ChainCode,
+}
+
+// Hand-written (not `#[derive(Zeroize)]`) so every field is named and the
+// derivation metadata gets cleared alongside the key. `Drop` (below) calls
+// this, so the key is wiped on scope exit with no caller action required.
+// Cf. `ExtendedPrivKey` in `bip32`.
+impl zeroize::Zeroize for ExtendedBLSPrivKey {
+    fn zeroize(&mut self) {
+        // Secret key material.
+        self.private_key.zeroize();
+        self.chain_code.zeroize();
+        // Derivation metadata — cleared too so the whole value is wiped.
+        self.depth.zeroize();
+        self.parent_fingerprint.zeroize();
+        self.child_number = ChildNumber::Normal {
+            index: 0,
+        };
+        self.network = Network::Mainnet; // repr(u8)=0 discriminant, the "zero" value
+    }
+}
+
+impl Drop for ExtendedBLSPrivKey {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.zeroize();
+    }
+}
+
+/// HMAC-SHA256 over `input || suffix` used for extended key derivation.
+fn derivation_hmac(key: &[u8], input: &[u8], suffix: u8) -> [u8; 32] {
+    let mut engine: HmacEngine<sha256::Hash> = HmacEngine::new(key);
+    engine.input(input);
+    engine.input(&[suffix]);
+
+    *Hmac::<sha256::Hash>::from_engine(engine).as_byte_array()
+}
+
+impl ExtendedBLSPrivKey {
+    /// Create a new master key from a seed
+    pub fn new_master(network: Network, seed: &[u8]) -> Result<Self, Error> {
+        // Allow shorter seeds for testing compatibility with C++ implementation
+        // In production, seeds should be at least 16 bytes for security
+        #[cfg(not(test))]
+        if seed.len() < 16 || seed.len() > 64 {
+            return Err(Error::InvalidSeed);
+        }
+        #[cfg(test)]
+        if seed.len() < 8 || seed.len() > 64 {
+            return Err(Error::InvalidSeed);
+        }
+
+        // Following the bls-signatures C++ implementation:
+        // They do two separate HMAC-SHA256 operations with different suffixes
+
+        // First HMAC with seed||0 for the private key
+        let private_key_bytes = derivation_hmac(MASTER_HMAC_KEY, seed, 0);
+
+        // #[cfg(test)]
+        // {
+        //     eprintln!("Seed length: {}", seed.len());
+        //     eprintln!("Seed||0 (hex): {}", seed_with_suffix.to_lower_hex_string());
+        //     eprintln!("HMAC output (hex): {}", private_key_bytes.to_lower_hex_string());
+        // }
+
+        // The C++ implementation reduces modulo the curve order
+        let private_key = BlsSkBytes::from_bytes(private_key_bytes)
+            .as_scheme(CANONICAL)
+            .canonicalize()
+            .map_err(|_| Error::InvalidPrivateKey)?;
+
+        // #[cfg(test)]
+        // {
+        //     eprintln!("After from_be_bytes (hex): {}", (*private_key.to_bytes()).to_lower_hex_string());
+        // }
+
+        // Second HMAC with seed||1 for the chain code
+        let chain_code_bytes = derivation_hmac(MASTER_HMAC_KEY, seed, 1);
+
+        Ok(ExtendedBLSPrivKey {
+            network,
+            depth: 0,
+            parent_fingerprint: Default::default(),
+            child_number: ChildNumber::from_normal_idx(0).unwrap(),
+            private_key,
+            chain_code: ChainCode::from(chain_code_bytes),
+        })
+    }
+
+    /// Derive a child private key using the modern (IETF) public key
+    /// serialization for non-hardened children.
+    ///
+    /// Equivalent to dashbls `PrivateChild(i)` with the default
+    /// `fLegacy = false`. For Dash masternode operator keys use
+    /// [`Self::derive_priv_legacy`], which matches DashSync.
+    pub fn derive_priv(&self, child: ChildNumber) -> Result<Self, Error> {
+        self.derive_priv_with_mode(child, BlsScheme::Modern)
+    }
+
+    /// Derive a child private key using the legacy Dash public key
+    /// serialization for non-hardened children.
+    ///
+    /// Equivalent to dashbls `PrivateChild(i, fLegacy = true)` — the mode
+    /// dashbls/DashSync use for masternode operator keys.
+    pub fn derive_priv_legacy(&self, child: ChildNumber) -> Result<Self, Error> {
+        self.derive_priv_with_mode(child, BlsScheme::Legacy)
+    }
+
+    /// Derive a child private key with an explicit serialization mode.
+    ///
+    /// The mode selects the G1 serialization of the parent public key in the
+    /// HMAC input for non-hardened children; hardened derivation never
+    /// serializes the public key, so both modes agree there.
+    pub fn derive_priv_with_mode(
+        &self,
+        child: ChildNumber,
+        format: BlsScheme,
+    ) -> Result<Self, Error> {
+        // DIP-14 256-bit children are defined for secp256k1 only; dashbls has
+        // no 256-bit index, and `u32::from` would collapse every one to the same key.
+        if child.is_256_bits() {
+            return Err(Error::InvalidDerivationPath);
+        }
+
+        // Build the input data for HMAC, following dashbls
+        // `ExtendedPrivateKey::PrivateChild` (extendedprivatekey.cpp)
+        let mut input_data = Vec::new();
+
+        if child.is_hardened() {
+            // Hardened derivation: private_key || index
+            // (no leading 0x00 — that prefix belongs to secp256k1 BIP32,
+            // where it pads the 33-byte pubkey slot; dashbls doesn't use it)
+            input_data.extend_from_slice(self.private_key.as_bytes());
+        } else {
+            // Non-hardened derivation: public_key || index
+            let hashed = self
+                .public_key()?
+                .as_scheme(CANONICAL)
+                .reencode(format)
+                .map_err(|_| Error::InvalidPrivateKey)?;
+            input_data.extend_from_slice(hashed.as_bytes());
+        }
+        let child_bytes = u32::from(child).to_be_bytes();
+        input_data.extend_from_slice(&child_bytes);
+
+        // First HMAC-SHA256 with suffix 0 for the private key
+        let key_bytes = derivation_hmac(&self.chain_code[..], &input_data, 0);
+
+        // Second HMAC-SHA256 with suffix 1 for the chain code
+        let chain_code_bytes = derivation_hmac(&self.chain_code[..], &input_data, 1);
+
+        // Derive the new private key using proper scalar field arithmetic
+        let derived_private_key = self
+            .private_key
+            .as_scheme(CANONICAL)
+            .add_tweak(&key_bytes)
+            .map_err(|_| Error::InvalidPrivateKey)?;
+
+        Ok(ExtendedBLSPrivKey {
+            network: self.network,
+            depth: self.depth + 1,
+            parent_fingerprint: self.fingerprint()?,
+            child_number: child,
+            private_key: derived_private_key,
+            chain_code: ChainCode::from(chain_code_bytes),
+        })
+    }
+
+    pub fn from_parts(
+        network: Network,
+        depth: u8,
+        parent_fingerprint: Fingerprint,
+        child_number: ChildNumber,
+        private_key: BlsSkBytes,
+        chain_code: ChainCode,
+    ) -> Result<Self, Error> {
+        Ok(ExtendedBLSPrivKey {
+            network,
+            depth,
+            parent_fingerprint,
+            child_number,
+            private_key: private_key
+                .as_scheme(CANONICAL)
+                .canonicalize()
+                .map_err(|_| Error::InvalidPrivateKey)?,
+            chain_code,
+        })
+    }
+
+    /// Get the private key bytes
+    pub fn private_key(&self) -> &BlsSkBytes {
+        &self.private_key
+    }
+
+    /// Get the public key for this private key
+    pub fn public_key(&self) -> Result<BLSPublicKey, Error> {
+        self.private_key.as_scheme(CANONICAL).public_key().map_err(|_| Error::InvalidPrivateKey)
+    }
+
+    /// Get the public key bytes (modern/IETF serialization)
+    pub fn public_key_bytes(&self) -> Result<[u8; 48], Error> {
+        Ok(self.public_key()?.to_bytes())
+    }
+
+    /// Get the public key bytes in Dash legacy serialization.
+    ///
+    /// This is the format dashbls/DashSync use throughout the BLS HD chain.
+    pub fn public_key_bytes_legacy(&self) -> Result<[u8; 48], Error> {
+        Ok(self
+            .public_key()?
+            .as_scheme(CANONICAL)
+            .reencode(BlsScheme::Legacy)
+            .map_err(|_| Error::InvalidPublicKey)?
+            .to_bytes())
+    }
+
+    /// Get the fingerprint of this key
+    pub fn fingerprint(&self) -> Result<Fingerprint, Error> {
+        use dashcore_hashes::hash160;
+        let public_key_bytes = self.public_key_bytes()?;
+        let hash = hash160::Hash::hash(&public_key_bytes);
+        let mut fingerprint_bytes = [0u8; 4];
+        fingerprint_bytes.copy_from_slice(&hash[..4]);
+        Ok(Fingerprint::from_bytes(fingerprint_bytes))
+    }
+
+    /// Get the extended public key
+    pub fn to_extended_pub_key(&self) -> Result<ExtendedBLSPubKey, Error> {
+        Ok(ExtendedBLSPubKey {
+            network: self.network,
+            depth: self.depth,
+            parent_fingerprint: self.parent_fingerprint,
+            child_number: self.child_number,
+            public_key: self.public_key()?,
+            chain_code: self.chain_code,
+        })
+    }
+
+    /// Derive at a path using the modern (IETF) serialization mode
+    /// (see [`Self::derive_priv`]).
+    pub fn derive_path(&self, path: &DerivationPath) -> Result<Self, Error> {
+        self.derive_path_with_mode(path, BlsScheme::Modern)
+    }
+
+    /// Derive at a path using the legacy Dash serialization mode
+    /// (see [`Self::derive_priv_legacy`]).
+    pub fn derive_path_legacy(&self, path: &DerivationPath) -> Result<Self, Error> {
+        self.derive_path_with_mode(path, BlsScheme::Legacy)
+    }
+
+    /// Derive at a path with an explicit serialization mode.
+    pub fn derive_path_with_mode(
+        &self,
+        path: &DerivationPath,
+        format: BlsScheme,
+    ) -> Result<Self, Error> {
+        let mut key = self.clone();
+        for child in path.as_ref() {
+            key = key.derive_priv_with_mode(*child, format)?;
+        }
+        Ok(key)
+    }
+}
+
+/// Extended BLS public key for HD derivation
+#[derive(Clone)]
+pub struct ExtendedBLSPubKey {
+    /// Network this key is for
+    pub network: Network,
+    /// Depth in the HD tree
+    pub depth: u8,
+    /// Parent key fingerprint
+    pub parent_fingerprint: Fingerprint,
+    /// Child number
+    pub child_number: ChildNumber,
+    /// Public key (BLS G2 element - 48 bytes)
+    pub public_key: BLSPublicKey,
+    /// Chain code for derivation
+    pub chain_code: ChainCode,
+}
+
+impl ExtendedBLSPubKey {
+    /// Create from a private key
+    pub fn from_private_key(priv_key: &ExtendedBLSPrivKey) -> Result<Self, Error> {
+        Ok(ExtendedBLSPubKey {
+            network: priv_key.network,
+            depth: priv_key.depth,
+            parent_fingerprint: priv_key.parent_fingerprint,
+            child_number: priv_key.child_number,
+            public_key: priv_key.public_key()?,
+            chain_code: priv_key.chain_code,
+        })
+    }
+
+    /// Derive a child public key using the modern (IETF) serialization mode
+    /// (only for non-hardened derivation).
+    pub fn ckd_pub(&self, child: ChildNumber) -> Result<Self, Error> {
+        self.derive_pub(child)
+    }
+
+    /// Derive a child public key using the modern (IETF) public key
+    /// serialization (only for non-hardened derivation).
+    ///
+    /// Equivalent to dashbls `PublicChild(i)` with the default
+    /// `fLegacy = false`. For Dash masternode operator keys use
+    /// [`Self::derive_pub_legacy`], which matches DashSync.
+    pub fn derive_pub(&self, child: ChildNumber) -> Result<Self, Error> {
+        self.derive_pub_with_mode(child, BlsScheme::Modern)
+    }
+
+    /// Derive a child public key using the legacy Dash public key
+    /// serialization (only for non-hardened derivation).
+    ///
+    /// Equivalent to dashbls `PublicChild(i, fLegacy = true)` — the mode
+    /// dashbls/DashSync use for masternode operator keys.
+    pub fn derive_pub_legacy(&self, child: ChildNumber) -> Result<Self, Error> {
+        self.derive_pub_with_mode(child, BlsScheme::Legacy)
+    }
+
+    /// Derive a child public key with an explicit serialization mode
+    /// (only for non-hardened derivation).
+    pub fn derive_pub_with_mode(
+        &self,
+        child: ChildNumber,
+        format: BlsScheme,
+    ) -> Result<Self, Error> {
+        if child.is_hardened() {
+            return Err(Error::CannotDeriveFromHardenedPublic);
+        }
+        // See `derive_priv_with_mode`.
+        if child.is_256_bits() {
+            return Err(Error::InvalidDerivationPath);
+        }
+
+        // Build the input data for HMAC: public_key || index — matches
+        // dashbls `ExtendedPublicKey::PublicChild`, whose fLegacy flag
+        // corresponds to `format`.
+        let mut input_data = Vec::new();
+        let hashed = self
+            .public_key
+            .as_scheme(CANONICAL)
+            .reencode(format)
+            .map_err(|_| Error::InvalidPublicKey)?;
+        input_data.extend_from_slice(hashed.as_bytes());
+        let child_bytes = u32::from(child).to_be_bytes();
+        input_data.extend_from_slice(&child_bytes);
+
+        // First HMAC-SHA256 with suffix 0 for the tweak
+        let tweak_bytes = derivation_hmac(&self.chain_code[..], &input_data, 0);
+
+        // Second HMAC-SHA256 with suffix 1 for the chain code
+        let chain_code_bytes = derivation_hmac(&self.chain_code[..], &input_data, 1);
+
+        let derived_pubkey = self
+            .public_key
+            .as_scheme(CANONICAL)
+            .add_tweak(&tweak_bytes)
+            .map_err(|_| Error::InvalidPublicKey)?;
+
+        Ok(ExtendedBLSPubKey {
+            network: self.network,
+            depth: self.depth + 1,
+            parent_fingerprint: self.fingerprint(),
+            child_number: child,
+            public_key: derived_pubkey,
+            chain_code: ChainCode::from(chain_code_bytes),
+        })
+    }
+
+    /// Get the fingerprint of this key
+    pub fn fingerprint(&self) -> Fingerprint {
+        use dashcore_hashes::hash160;
+        let public_key_bytes = self.public_key.to_bytes();
+        let hash = hash160::Hash::hash(&public_key_bytes);
+        let mut fingerprint_bytes = [0u8; 4];
+        fingerprint_bytes.copy_from_slice(&hash.as_byte_array()[..4]);
+        Fingerprint::from_bytes(fingerprint_bytes)
+    }
+
+    /// Get the public key bytes (modern/IETF serialization)
+    pub fn to_bytes(&self) -> [u8; 48] {
+        let bytes = self.public_key.to_bytes();
+        let mut array = [0u8; 48];
+        array.copy_from_slice(&bytes[..48.min(bytes.len())]);
+        array
+    }
+
+    /// Get the public key bytes in Dash legacy serialization.
+    ///
+    /// This is the format dashbls/DashSync use throughout the BLS HD chain.
+    pub fn to_bytes_legacy(&self) -> Result<[u8; 48], Error> {
+        Ok(self
+            .public_key
+            .as_scheme(CANONICAL)
+            .reencode(BlsScheme::Legacy)
+            .map_err(|_| Error::InvalidPublicKey)?
+            .to_bytes())
+    }
+
+    /// Derive at a path using the modern (IETF) serialization mode
+    /// (only non-hardened paths allowed; see [`Self::derive_pub`]).
+    pub fn derive_path(&self, path: &DerivationPath) -> Result<Self, Error> {
+        self.derive_path_with_mode(path, BlsScheme::Modern)
+    }
+
+    /// Derive at a path using the legacy Dash serialization mode
+    /// (only non-hardened paths allowed; see [`Self::derive_pub_legacy`]).
+    pub fn derive_path_legacy(&self, path: &DerivationPath) -> Result<Self, Error> {
+        self.derive_path_with_mode(path, BlsScheme::Legacy)
+    }
+
+    /// Derive at a path with an explicit serialization mode
+    /// (only non-hardened paths allowed).
+    pub fn derive_path_with_mode(
+        &self,
+        path: &DerivationPath,
+        format: BlsScheme,
+    ) -> Result<Self, Error> {
+        let mut key = self.clone();
+        for child in path.as_ref() {
+            key = key.derive_pub_with_mode(*child, format)?;
+        }
+        Ok(key)
+    }
+}
+
+impl fmt::Debug for ExtendedBLSPrivKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ExtendedBLSPrivKey")
+            .field("network", &self.network)
+            .field("depth", &self.depth)
+            .field("parent_fingerprint", &self.parent_fingerprint)
+            .field("child_number", &self.child_number)
+            .field("chain_code", &self.chain_code)
+            .field("private_key", &"[REDACTED]")
+            .finish()
+    }
+}
+
+impl fmt::Debug for ExtendedBLSPubKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ExtendedBLSPubKey")
+            .field("network", &self.network)
+            .field("depth", &self.depth)
+            .field("parent_fingerprint", &self.parent_fingerprint)
+            .field("child_number", &self.child_number)
+            .field("chain_code", &self.chain_code)
+            .field("public_key", &self.public_key.to_bytes().to_lower_hex_string())
+            .finish()
+    }
+}
+
+// Manual serde implementations for ExtendedBLSPrivKey
+#[cfg(feature = "serde")]
+impl serde::Serialize for ExtendedBLSPrivKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ExtendedBLSPrivKey", 6)?;
+        state.serialize_field("network", &self.network)?;
+        state.serialize_field("depth", &self.depth)?;
+        state.serialize_field("parent_fingerprint", &self.parent_fingerprint)?;
+        state.serialize_field("child_number", &self.child_number)?;
+        state.serialize_field("private_key", self.private_key.as_bytes().as_slice())?;
+        state.serialize_field("chain_code", &self.chain_code)?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ExtendedBLSPrivKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Helper {
+            network: Network,
+            depth: u8,
+            parent_fingerprint: Fingerprint,
+            child_number: ChildNumber,
+            private_key: [u8; 32],
+            chain_code: ChainCode,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+        let private_key = BlsSkBytes::from_bytes(helper.private_key)
+            .as_scheme(CANONICAL)
+            .canonicalize()
+            .map_err(|_| serde::de::Error::custom("Invalid BLS private key"))?;
+
+        Ok(ExtendedBLSPrivKey {
+            network: helper.network,
+            depth: helper.depth,
+            parent_fingerprint: helper.parent_fingerprint,
+            child_number: helper.child_number,
+            private_key,
+            chain_code: helper.chain_code,
+        })
+    }
+}
+
+// Manual serde implementations for ExtendedBLSPubKey
+#[cfg(feature = "serde")]
+impl serde::Serialize for ExtendedBLSPubKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ExtendedBLSPubKey", 6)?;
+        state.serialize_field("network", &self.network)?;
+        state.serialize_field("depth", &self.depth)?;
+        state.serialize_field("parent_fingerprint", &self.parent_fingerprint)?;
+        state.serialize_field("child_number", &self.child_number)?;
+        state.serialize_field("public_key", self.public_key.as_bytes().as_slice())?;
+        state.serialize_field("chain_code", &self.chain_code)?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ExtendedBLSPubKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Helper {
+            network: Network,
+            depth: u8,
+            parent_fingerprint: Fingerprint,
+            child_number: ChildNumber,
+            public_key: Vec<u8>,
+            chain_code: ChainCode,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+        let public_key = BLSPublicKey::try_from(helper.public_key.as_slice())
+            .map_err(|e| serde::de::Error::custom(format!("Invalid BLS public key: {}", e)))?
+            .as_scheme(CANONICAL)
+            .canonicalize()
+            .map_err(|e| serde::de::Error::custom(format!("Invalid BLS public key: {}", e)))?;
+
+        Ok(ExtendedBLSPubKey {
+            network: helper.network,
+            depth: helper.depth,
+            parent_fingerprint: helper.parent_fingerprint,
+            child_number: helper.child_number,
+            public_key,
+            chain_code: helper.chain_code,
+        })
+    }
+}
+
+// Manual bincode implementations for ExtendedBLSPrivKey
+#[cfg(feature = "bincode")]
+impl bincode::Encode for ExtendedBLSPrivKey {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        self.network.encode(encoder)?;
+        self.depth.encode(encoder)?;
+        self.parent_fingerprint.encode(encoder)?;
+        self.child_number.encode(encoder)?;
+        // Encode private key as bytes
+        (*self.private_key.to_bytes()).encode(encoder)?;
+        self.chain_code.encode(encoder)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "bincode")]
+impl<C> bincode::Decode<C> for ExtendedBLSPrivKey {
+    fn decode<D: bincode::de::Decoder<Context = C>>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let network = Network::decode(decoder)?;
+        let depth = u8::decode(decoder)?;
+        let parent_fingerprint = Fingerprint::decode(decoder)?;
+        let child_number = ChildNumber::decode(decoder)?;
+        let private_key_bytes: [u8; 32] = <[u8; 32]>::decode(decoder)?;
+        let private_key =
+            BlsSkBytes::from_bytes(private_key_bytes).as_scheme(CANONICAL).canonicalize().map_err(
+                |_| bincode::error::DecodeError::OtherString("Invalid BLS private key".to_string()),
+            )?;
+        let chain_code = ChainCode::decode(decoder)?;
+
+        Ok(ExtendedBLSPrivKey {
+            network,
+            depth,
+            parent_fingerprint,
+            child_number,
+            private_key,
+            chain_code,
+        })
+    }
+}
+
+#[cfg(feature = "bincode")]
+impl<'de, C> bincode::BorrowDecode<'de, C> for ExtendedBLSPrivKey {
+    fn borrow_decode<D: bincode::de::BorrowDecoder<'de, Context = C>>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        <Self as bincode::Decode<C>>::decode(decoder)
+    }
+}
+
+// Manual bincode implementations for ExtendedBLSPubKey
+#[cfg(feature = "bincode")]
+impl bincode::Encode for ExtendedBLSPubKey {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        self.network.encode(encoder)?;
+        self.depth.encode(encoder)?;
+        self.parent_fingerprint.encode(encoder)?;
+        self.child_number.encode(encoder)?;
+        // Encode public key as bytes
+        // A `Vec`, as before: the decoder reads a length-prefixed field.
+        self.public_key.to_bytes().to_vec().encode(encoder)?;
+        self.chain_code.encode(encoder)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "bincode")]
+impl<C> bincode::Decode<C> for ExtendedBLSPubKey {
+    fn decode<D: bincode::de::Decoder<Context = C>>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let network = Network::decode(decoder)?;
+        let depth = u8::decode(decoder)?;
+        let parent_fingerprint = Fingerprint::decode(decoder)?;
+        let child_number = ChildNumber::decode(decoder)?;
+        let public_key_bytes: Vec<u8> = Vec::<u8>::decode(decoder)?;
+        let public_key = BLSPublicKey::try_from(public_key_bytes.as_slice())
+            .map_err(|e| {
+                bincode::error::DecodeError::OtherString(format!("Invalid BLS public key: {}", e))
+            })?
+            .as_scheme(CANONICAL)
+            .canonicalize()
+            .map_err(|e| {
+                bincode::error::DecodeError::OtherString(format!("Invalid BLS public key: {}", e))
+            })?;
+        let chain_code = ChainCode::decode(decoder)?;
+
+        Ok(ExtendedBLSPubKey {
+            network,
+            depth,
+            parent_fingerprint,
+            child_number,
+            public_key,
+            chain_code,
+        })
+    }
+}
+
+#[cfg(feature = "bincode")]
+impl<'de, C> bincode::BorrowDecode<'de, C> for ExtendedBLSPubKey {
+    fn borrow_decode<D: bincode::de::BorrowDecoder<'de, Context = C>>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        <Self as bincode::Decode<C>>::decode(decoder)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "bincode")]
+    #[test]
+    fn stored_pub_key_that_is_not_a_point_is_rejected() {
+        use super::*;
+
+        // 48 bytes of the right length but off the curve. Decoding has to
+        // say so, rather than hand back a key that blows up on first use.
+        let cfg = bincode::config::standard();
+        let sk = ExtendedBLSPrivKey::new_master(Network::Testnet, &[7u8; 32]).unwrap();
+        let pk = sk.to_extended_pub_key().unwrap();
+
+        let mut buf = bincode::encode_to_vec(&pk, cfg).unwrap();
+        let valid = pk.public_key.to_bytes();
+        let at = buf.windows(48).position(|w| w == valid).expect("key bytes are in the buffer");
+        buf[at..at + 48].copy_from_slice(&[0xAAu8; 48]);
+
+        let decoded: Result<(ExtendedBLSPubKey, usize), _> = bincode::decode_from_slice(&buf, cfg);
+        assert!(decoded.is_err(), "a key that is not a point decoded anyway");
+    }
+
+    use super::*;
+
+    /// BIP39 seed for "abandon abandon ... about" (empty passphrase).
+    const SEED64: &str = "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4";
+
+    fn master_from_seed64() -> ExtendedBLSPrivKey {
+        let seed = hex_conservative::decode_to_vec(SEED64).unwrap();
+        ExtendedBLSPrivKey::new_master(Network::Mainnet, &seed).unwrap()
+    }
+
+    #[test]
+    fn test_master_key_generation() {
+        let seed = b"this is a test seed for BLS HD key derivation";
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, seed).unwrap();
+
+        assert_eq!(master.depth, 0);
+        assert_eq!(master.parent_fingerprint, Fingerprint::default());
+    }
+
+    #[test]
+    fn test_key_derivation() {
+        let seed = b"test seed for BLS derivation";
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, seed).unwrap();
+
+        // Test hardened derivation
+        let child_hardened =
+            master.derive_priv(ChildNumber::from_hardened_idx(0).unwrap()).unwrap();
+        assert_eq!(child_hardened.depth, 1);
+        assert_eq!(child_hardened.parent_fingerprint, master.fingerprint().unwrap());
+
+        // Test non-hardened derivation
+        let child_normal = master.derive_priv(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+        assert_eq!(child_normal.depth, 1);
+        assert_eq!(child_normal.parent_fingerprint, master.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn test_public_key_derivation() {
+        let seed = b"test seed for BLS public key derivation";
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, seed).unwrap();
+        let master_pub = master.to_extended_pub_key().unwrap();
+
+        // Should be able to derive non-hardened child
+        let child_pub = master_pub.derive_pub(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+        assert_eq!(child_pub.depth, 1);
+
+        // Should fail for hardened derivation
+        let hardened_result = master_pub.derive_pub(ChildNumber::from_hardened_idx(0).unwrap());
+        assert!(hardened_result.is_err());
+    }
+
+    #[test]
+    fn test_derivation_matches_through_private_and_public() {
+        // Test vector from C++ implementation
+        // Seed: {1, 50, 6, 244, 24, 199, 1, 25}
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Test single child derivation
+        // Child index: 238757
+        let child_index = 238757;
+
+        // Derive public key through private key
+        let child_priv =
+            master_priv.derive_priv(ChildNumber::from_normal_idx(child_index).unwrap()).unwrap();
+        let pk1 = child_priv.to_extended_pub_key().unwrap().public_key;
+
+        // Derive public key directly from parent public key
+        let child_pub =
+            master_pub.derive_pub(ChildNumber::from_normal_idx(child_index).unwrap()).unwrap();
+        let pk2 = child_pub.public_key;
+
+        // They should be equal
+        assert_eq!(
+            pk1.to_bytes(),
+            pk2.to_bytes(),
+            "Public key derived through private key should equal public key derived directly"
+        );
+    }
+
+    #[test]
+    fn test_derivation_path_consistency() {
+        // Test vector from C++ implementation
+        // Path: m/0/3/8/1
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Derive through private keys
+        let derived_priv = master_priv
+            .derive_priv(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        let pk_from_priv = derived_priv.to_extended_pub_key().unwrap().public_key;
+
+        // Derive through public keys
+        let derived_pub = master_pub
+            .derive_pub(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        let pk_from_pub = derived_pub.public_key;
+
+        // They should be equal
+        assert_eq!(
+            pk_from_priv.to_bytes(),
+            pk_from_pub.to_bytes(),
+            "Public key derived through private key path should equal public key derived through public key path"
+        );
+    }
+
+    #[test]
+    fn test_public_child_derivation_from_parent() {
+        // Test vector from C++ implementation
+        // Seed: {1, 50, 6, 244, 24, 199, 1, 0, 0, 0}
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 0, 0, 0];
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Child index: 13
+        let child_index = 13;
+
+        // Get public key from private derivation
+        let pk1 = master_priv
+            .derive_priv(ChildNumber::from_normal_idx(child_index).unwrap())
+            .unwrap()
+            .to_extended_pub_key()
+            .unwrap();
+
+        // Get public key from public derivation
+        let pk2 =
+            master_pub.derive_pub(ChildNumber::from_normal_idx(child_index).unwrap()).unwrap();
+
+        // They should be equal
+        assert_eq!(
+            pk1.public_key.to_bytes(),
+            pk2.public_key.to_bytes(),
+            "Extended public keys should match"
+        );
+        assert_eq!(pk1.chain_code, pk2.chain_code, "Chain codes should match");
+    }
+
+    #[test]
+    fn test_hardened_public_derivation_fails() {
+        // Test that hardened derivation from public key fails
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Hardened index: (1 << 31) + 3
+        let hardened_index = (1u32 << 31) + 3;
+
+        // Private key derivation should work
+        let priv_result = master_priv.derive_priv(ChildNumber::from(hardened_index)).unwrap();
+        assert_eq!(priv_result.depth, 1);
+
+        // Public key derivation should fail
+        let pub_result = master_pub.derive_pub(ChildNumber::from(hardened_index));
+        assert!(pub_result.is_err(), "Hardened derivation from public key should fail");
+
+        if let Err(e) = pub_result {
+            match e {
+                Error::CannotDeriveFromHardenedPublic => (),
+                _ => panic!("Expected CannotDeriveFromHardenedPublic error, got {:?}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_unhardened_derivation_consistency() {
+        // Test multiple unhardened derivations
+        let seed = b"test seed for unhardened BLS derivation";
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, seed).unwrap();
+        let master_pub = master.to_extended_pub_key().unwrap();
+
+        // Test with child 42
+        let child_priv_42 = master.derive_priv(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+        let child_pub_42 =
+            master_pub.derive_pub(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+
+        assert_eq!(
+            child_priv_42.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            child_pub_42.public_key.to_bytes()
+        );
+
+        // Test grandchild derivation (42 -> 12142)
+        let grandchild_priv =
+            child_priv_42.derive_priv(ChildNumber::from_normal_idx(12142).unwrap()).unwrap();
+        let grandchild_pub =
+            child_pub_42.derive_pub(ChildNumber::from_normal_idx(12142).unwrap()).unwrap();
+
+        assert_eq!(
+            grandchild_priv.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            grandchild_pub.public_key.to_bytes()
+        );
+    }
+
+    #[test]
+    fn test_derive_path_method() {
+        // Test the derive_path method for both private and public keys
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Create a non-hardened path
+        let path = DerivationPath::from(vec![
+            ChildNumber::from_normal_idx(0).unwrap(),
+            ChildNumber::from_normal_idx(3).unwrap(),
+            ChildNumber::from_normal_idx(8).unwrap(),
+            ChildNumber::from_normal_idx(1).unwrap(),
+        ]);
+
+        // Derive using path method on private key
+        let derived_priv = master_priv.derive_path(&path).unwrap();
+
+        // Derive using path method on public key
+        let derived_pub = master_pub.derive_path(&path).unwrap();
+
+        // They should match
+        assert_eq!(
+            derived_priv.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            derived_pub.public_key.to_bytes()
+        );
+    }
+
+    #[test]
+    fn test_long_derivation_path() {
+        // Test from C++ implementation: m/(2^31+5)/0/0/(2^31+56)/70/4
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+
+        // Build the long derivation path: m/(2^31+5)/0/0/(2^31+56)/70/4
+        let derived = master
+            .derive_priv(ChildNumber::from_hardened_idx(5).unwrap())
+            .unwrap() // Hardened (2^31+5)
+            .derive_priv(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_hardened_idx(56).unwrap())
+            .unwrap() // Hardened (2^31+56)
+            .derive_priv(ChildNumber::from_normal_idx(70).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(4).unwrap())
+            .unwrap();
+
+        // Verify depth is correct
+        assert_eq!(derived.depth, 6);
+
+        // Verify chain code is properly updated
+        assert_ne!(derived.chain_code, master.chain_code);
+
+        // Verify the key can still derive children
+        let child = derived.derive_priv(ChildNumber::from_normal_idx(100).unwrap()).unwrap();
+        assert_eq!(child.depth, 7);
+    }
+
+    #[test]
+    fn test_serialization_roundtrip() {
+        // Test serialization and deserialization of extended keys
+        let seed = vec![1u8, 50, 6, 244, 25, 199, 1, 25]; // C++ test vector
+
+        let master_priv = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let master_pub = master_priv.to_extended_pub_key().unwrap();
+
+        // Test private key serialization with serde
+        #[cfg(feature = "serde")]
+        {
+            // Serialize to JSON
+            let serialized = serde_json::to_string(&master_priv).unwrap();
+            // Deserialize back
+            let deserialized: ExtendedBLSPrivKey = serde_json::from_str(&serialized).unwrap();
+
+            // Verify they match
+            assert_eq!(master_priv.depth, deserialized.depth);
+            assert_eq!(master_priv.parent_fingerprint, deserialized.parent_fingerprint);
+            assert_eq!(master_priv.child_number, deserialized.child_number);
+            assert_eq!(master_priv.chain_code, deserialized.chain_code);
+            assert_eq!(master_priv.private_key.to_bytes(), deserialized.private_key.to_bytes());
+
+            // Test public key serialization
+            let pub_serialized = serde_json::to_string(&master_pub).unwrap();
+            let pub_deserialized: ExtendedBLSPubKey =
+                serde_json::from_str(&pub_serialized).unwrap();
+
+            assert_eq!(master_pub.depth, pub_deserialized.depth);
+            assert_eq!(master_pub.parent_fingerprint, pub_deserialized.parent_fingerprint);
+            assert_eq!(master_pub.child_number, pub_deserialized.child_number);
+            assert_eq!(master_pub.chain_code, pub_deserialized.chain_code);
+            assert_eq!(master_pub.public_key.to_bytes(), pub_deserialized.public_key.to_bytes());
+        }
+
+        // Test bincode serialization
+        #[cfg(feature = "bincode")]
+        {
+            // Test private key
+            let encoded =
+                bincode::encode_to_vec(&master_priv, bincode::config::standard()).unwrap();
+            let decoded: ExtendedBLSPrivKey =
+                bincode::decode_from_slice(&encoded, bincode::config::standard()).unwrap().0;
+
+            assert_eq!(master_priv.depth, decoded.depth);
+            assert_eq!(master_priv.parent_fingerprint, decoded.parent_fingerprint);
+            assert_eq!(master_priv.child_number, decoded.child_number);
+            assert_eq!(master_priv.chain_code, decoded.chain_code);
+            assert_eq!(master_priv.private_key.to_bytes(), decoded.private_key.to_bytes());
+
+            // Test public key
+            let pub_encoded =
+                bincode::encode_to_vec(&master_pub, bincode::config::standard()).unwrap();
+            let pub_decoded: ExtendedBLSPubKey =
+                bincode::decode_from_slice(&pub_encoded, bincode::config::standard()).unwrap().0;
+
+            assert_eq!(master_pub.depth, pub_decoded.depth);
+            assert_eq!(master_pub.parent_fingerprint, pub_decoded.parent_fingerprint);
+            assert_eq!(master_pub.child_number, pub_decoded.child_number);
+            assert_eq!(master_pub.chain_code, pub_decoded.chain_code);
+            assert_eq!(master_pub.public_key.to_bytes(), pub_decoded.public_key.to_bytes());
+        }
+    }
+
+    #[test]
+    fn test_serialization_and_derivation() {
+        // Test that serialized keys can be used for derivation (matching C++ test)
+        let seed = vec![1u8, 50, 6, 244, 25, 199, 1, 25];
+
+        let esk = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let epk = esk.to_extended_pub_key().unwrap();
+
+        // Derive child 238757 through private key
+        let pk1 = esk
+            .derive_priv(ChildNumber::from_normal_idx(238757).unwrap())
+            .unwrap()
+            .to_extended_pub_key()
+            .unwrap()
+            .public_key;
+
+        // Derive child 238757 through public key
+        let pk2 = epk.derive_pub(ChildNumber::from_normal_idx(238757).unwrap()).unwrap().public_key;
+
+        assert_eq!(pk1.to_bytes(), pk2.to_bytes());
+
+        // Test path m/0/3/8/1
+        let sk3 = esk
+            .derive_priv(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        let pk4 = epk
+            .derive_pub(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        assert_eq!(
+            sk3.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            pk4.public_key.to_bytes()
+        );
+    }
+
+    #[test]
+    fn test_c_plus_plus_test_vectors() {
+        // Test exact C++ test vectors for compatibility
+
+        // Test vector 1: {1, 50, 6, 244, 24, 199, 1, 25}
+        let seed1 = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+        let esk1 = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed1).unwrap();
+
+        // Test hardened child derivation
+        let esk77_hardened = esk1.derive_priv(ChildNumber::from_hardened_idx(77).unwrap()).unwrap();
+        let esk77_hardened_copy =
+            esk1.derive_priv(ChildNumber::from_hardened_idx(77).unwrap()).unwrap();
+
+        // Keys derived with same index should be equal
+        assert_eq!(
+            esk77_hardened.private_key.to_bytes(),
+            esk77_hardened_copy.private_key.to_bytes()
+        );
+        assert_eq!(esk77_hardened.chain_code, esk77_hardened_copy.chain_code);
+
+        // Test non-hardened derivation
+        let esk77_normal = esk1.derive_priv(ChildNumber::from_normal_idx(77).unwrap()).unwrap();
+
+        // Hardened and non-hardened should be different
+        assert_ne!(esk77_hardened.private_key.to_bytes(), esk77_normal.private_key.to_bytes());
+
+        // Test vector 2: {1, 50, 6, 244, 24, 199, 1, 0, 0, 0}
+        let seed2 = vec![1u8, 50, 6, 244, 24, 199, 1, 0, 0, 0];
+        let esk2 = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed2).unwrap();
+        let epk2 = esk2.to_extended_pub_key().unwrap();
+
+        // Test public child derivation
+        let pk1 = esk2
+            .derive_priv(ChildNumber::from_normal_idx(13).unwrap())
+            .unwrap()
+            .to_extended_pub_key()
+            .unwrap();
+        let pk2 = epk2.derive_pub(ChildNumber::from_normal_idx(13).unwrap()).unwrap();
+
+        assert_eq!(pk1.public_key.to_bytes(), pk2.public_key.to_bytes());
+        assert_eq!(pk1.chain_code, pk2.chain_code);
+    }
+
+    #[test]
+    fn test_legacy_hd_compatibility() {
+        // Test compatibility with C++ ExtendedPrivateKey/ExtendedPublicKey patterns
+
+        // Test vector: {1, 50, 6, 244, 24, 199, 1, 0, 0, 0}
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 0, 0, 0];
+        let esk = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        let epk = esk.to_extended_pub_key().unwrap();
+
+        // Test PublicChild(13) derivation
+        let pk1 = esk
+            .derive_priv(ChildNumber::from_normal_idx(13).unwrap())
+            .unwrap()
+            .to_extended_pub_key()
+            .unwrap();
+        let pk2 = epk.derive_pub(ChildNumber::from_normal_idx(13).unwrap()).unwrap();
+
+        // Public keys should match whether derived through private or public path
+        assert_eq!(pk1.public_key.to_bytes(), pk2.public_key.to_bytes());
+        assert_eq!(pk1.chain_code, pk2.chain_code);
+        assert_eq!(pk1.depth, pk2.depth);
+        assert_eq!(pk1.child_number, pk2.child_number);
+
+        // Test with another seed: {1, 50, 6, 244, 25, 199, 1, 25}
+        let seed2 = vec![1u8, 50, 6, 244, 25, 199, 1, 25];
+        let esk2 = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed2).unwrap();
+        let epk2 = esk2.to_extended_pub_key().unwrap();
+
+        // Test child 238757 derivation
+        let pk1_238757 = esk2
+            .derive_priv(ChildNumber::from_normal_idx(238757).unwrap())
+            .unwrap()
+            .public_key()
+            .unwrap();
+        let pk2_238757 =
+            epk2.derive_pub(ChildNumber::from_normal_idx(238757).unwrap()).unwrap().public_key;
+
+        assert_eq!(pk1_238757.to_bytes(), pk2_238757.to_bytes());
+
+        // Test path m/0/3/8/1
+        let sk3 = esk2
+            .derive_priv(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_priv(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        let pk4 = epk2
+            .derive_pub(ChildNumber::from_normal_idx(0).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(3).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(8).unwrap())
+            .unwrap()
+            .derive_pub(ChildNumber::from_normal_idx(1).unwrap())
+            .unwrap();
+
+        assert_eq!(sk3.public_key().unwrap().to_bytes(), pk4.public_key.to_bytes());
+    }
+
+    #[test]
+    fn test_extended_unhardened_derivation() {
+        // Test with extended seed from C++ test suite
+        let seed1 = vec![
+            1u8, 50, 6, 244, 24, 199, 1, 25, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+            17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        ];
+
+        let master1 = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed1).unwrap();
+        let master1_pub = master1.to_extended_pub_key().unwrap();
+
+        // Test child 42 unhardened
+        let child_sk = master1.derive_priv(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+        let child_pk = master1_pub.derive_pub(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+
+        assert_eq!(
+            child_sk.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            child_pk.public_key.to_bytes()
+        );
+
+        // Test grandchild 12142
+        let grandchild_sk =
+            child_sk.derive_priv(ChildNumber::from_normal_idx(12142).unwrap()).unwrap();
+        let grandchild_pk =
+            child_pk.derive_pub(ChildNumber::from_normal_idx(12142).unwrap()).unwrap();
+
+        assert_eq!(
+            grandchild_sk.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            grandchild_pk.public_key.to_bytes()
+        );
+
+        // Test with second seed vector from C++
+        let seed2 = vec![
+            2u8, 50, 6, 244, 24, 199, 1, 25, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+            17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        ];
+
+        let master2 = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed2).unwrap();
+        let master2_pub = master2.to_extended_pub_key().unwrap();
+
+        // Test unhardened child 42
+        let child_sk_unhardened =
+            master2.derive_priv(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+        let child_pk_unhardened =
+            master2_pub.derive_pub(ChildNumber::from_normal_idx(42).unwrap()).unwrap();
+
+        // Test hardened child 42
+        let child_sk_hardened =
+            master2.derive_priv(ChildNumber::from_hardened_idx(42).unwrap()).unwrap();
+
+        // Verify unhardened derivation consistency
+        assert_eq!(
+            child_sk_unhardened.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            child_pk_unhardened.public_key.to_bytes()
+        );
+
+        // Verify hardened != unhardened
+        assert_ne!(
+            child_sk_hardened.private_key.to_bytes(),
+            child_sk_unhardened.private_key.to_bytes()
+        );
+        assert_ne!(
+            child_sk_hardened.to_extended_pub_key().unwrap().public_key.to_bytes(),
+            child_pk_unhardened.public_key.to_bytes()
+        );
+    }
+
+    #[test]
+    fn test_hardened_vs_unhardened_comparison() {
+        // Comprehensive test comparing hardened vs unhardened derivation
+        let seed = vec![1u8, 50, 6, 244, 24, 199, 1, 25];
+        let master = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+
+        // Test with index 77 (matching C++ test)
+        let unhardened_index = 77;
+
+        // Derive hardened child
+        let child_hardened =
+            master.derive_priv(ChildNumber::from_hardened_idx(77).unwrap()).unwrap();
+        let child_hardened_copy =
+            master.derive_priv(ChildNumber::from_hardened_idx(77).unwrap()).unwrap();
+
+        // Derive unhardened child
+        let child_unhardened =
+            master.derive_priv(ChildNumber::from_normal_idx(unhardened_index).unwrap()).unwrap();
+
+        // Hardened derivation should be deterministic
+        assert_eq!(
+            child_hardened.private_key.to_bytes(),
+            child_hardened_copy.private_key.to_bytes(),
+            "Hardened derivation should be deterministic"
+        );
+        assert_eq!(child_hardened.chain_code, child_hardened_copy.chain_code);
+        assert_eq!(child_hardened.depth, child_hardened_copy.depth);
+
+        // Hardened and unhardened should produce different keys
+        assert_ne!(
+            child_hardened.private_key.to_bytes(),
+            child_unhardened.private_key.to_bytes(),
+            "Hardened and unhardened derivation should produce different keys"
+        );
+        assert_ne!(
+            child_hardened.chain_code, child_unhardened.chain_code,
+            "Hardened and unhardened should have different chain codes"
+        );
+
+        // Both should have correct depth
+        assert_eq!(child_hardened.depth, 1);
+        assert_eq!(child_unhardened.depth, 1);
+
+        // Both should have correct parent fingerprint
+        assert_eq!(child_hardened.parent_fingerprint, master.fingerprint().unwrap());
+        assert_eq!(child_unhardened.parent_fingerprint, master.fingerprint().unwrap());
+    }
+
+    /// Reference vectors generated with dashbls (dashpay/bls-signatures @ 0842b17,
+    /// the C++ library DashSync uses via FFI): `ExtendedPrivateKey::FromSeed` +
+    /// `PrivateChild(i, fLegacy=true)`. These pin our derivation to the exact
+    /// bytes Dash Core / DashSync produce (see issue #878).
+    mod dashbls_vectors {
+        use super::*;
+
+        fn hardened(idx: u32) -> ChildNumber {
+            ChildNumber::from_hardened_idx(idx).unwrap()
+        }
+
+        #[test]
+        fn master_from_seed() {
+            let master = master_from_seed64();
+            assert_eq!(
+                master.private_key.to_bytes().to_lower_hex_string(),
+                "27d1e600fe5ce42e9a18fe064aa0c1b8ee6754289013a86eb1e8af985ddc55c5"
+            );
+            assert_eq!(
+                master.chain_code[..].to_lower_hex_string(),
+                "2a680de50ab918089c65f47e6f32363eb8fbb915a61e9a10e0f882aa1c12aef9"
+            );
+            assert_eq!(
+                master.public_key_bytes_legacy().unwrap().to_lower_hex_string(),
+                "883389cd6c289b97bfa18cc7b7c873397b4d753269d47d2fa29dda1682c1565687ccb19dd016398da7c9724f8a58bdef"
+            );
+            assert_eq!(
+                master.public_key_bytes().unwrap().to_lower_hex_string(),
+                "a83389cd6c289b97bfa18cc7b7c873397b4d753269d47d2fa29dda1682c1565687ccb19dd016398da7c9724f8a58bdef"
+            );
+        }
+
+        #[test]
+        fn mainnet_operator_account_and_keys() {
+            // DIP-3 operator path m/9'/5'/3'/3' — every level hardened.
+            let master = master_from_seed64();
+            let account = master
+                .derive_priv(hardened(9))
+                .unwrap()
+                .derive_priv(hardened(5))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap();
+
+            assert_eq!(
+                account.private_key.to_bytes().to_lower_hex_string(),
+                "5f36c0e346c6e6275d6550a09857325e3f54f2a962eb09a48f61756f7b4bbfb0"
+            );
+            assert_eq!(
+                account.chain_code[..].to_lower_hex_string(),
+                "d9659c1bde2fd0e0f799f2f66bbbcfc7378fdea624d73d5d4749dc7222daea5e"
+            );
+
+            // Operator keys 0..2 (non-hardened children — exercises the
+            // legacy-serialization HMAC input).
+            let expected = [
+                (
+                    "11122e1ad656d0610ce0f80d40da874d67ea656a3e66ed371c915ec3a488a43a",
+                    "078cad04aae29eb76171937eb7101452b401b026efbc27db840f130374e6a9ec8443d917277f8921e0ba6678a7709875",
+                    "878cad04aae29eb76171937eb7101452b401b026efbc27db840f130374e6a9ec8443d917277f8921e0ba6678a7709875",
+                ),
+                (
+                    "1a4e3318640cd4e50222184d0ea111abf8a0c18a0e5dc3ed45dad85009db4e31",
+                    "0c04974d14df3b5eb23787e21642d25c47609d966bb80f504854e4675657c63f4c4c7056f3f007671b911eb390dec4f7",
+                    "8c04974d14df3b5eb23787e21642d25c47609d966bb80f504854e4675657c63f4c4c7056f3f007671b911eb390dec4f7",
+                ),
+                (
+                    "107ab3ddb1f1277dd082f3f6c9187145a614c6f0c97e4e5f3c8912ba5bba6200",
+                    "0d14cad34409c74f9dd587fc00be01ca0c527e3793f016eb2a612d78ec45c650e8942fbff3e1ab44a21a6e575ebe80a1",
+                    "8d14cad34409c74f9dd587fc00be01ca0c527e3793f016eb2a612d78ec45c650e8942fbff3e1ab44a21a6e575ebe80a1",
+                ),
+            ];
+            for (i, (sk, pk_legacy, pk_modern)) in expected.iter().enumerate() {
+                let child = account
+                    .derive_priv_legacy(ChildNumber::from_normal_idx(i as u32).unwrap())
+                    .unwrap();
+                assert_eq!(child.private_key.to_bytes().to_lower_hex_string(), *sk, "sk {}", i);
+                assert_eq!(
+                    child.public_key_bytes_legacy().unwrap().to_lower_hex_string(),
+                    *pk_legacy,
+                    "pk_legacy {}",
+                    i
+                );
+                assert_eq!(
+                    child.public_key_bytes().unwrap().to_lower_hex_string(),
+                    *pk_modern,
+                    "pk_modern {}",
+                    i
+                );
+            }
+
+            // Watch-only path: same child 0 via public derivation.
+            let account_pub = account.to_extended_pub_key().unwrap();
+            let child0_pub =
+                account_pub.derive_pub_legacy(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+            assert_eq!(child0_pub.to_bytes_legacy().unwrap().to_lower_hex_string(), expected[0].1);
+        }
+
+        #[test]
+        fn testnet_operator_account_and_key0() {
+            // Testnet operator path m/9'/1'/3'/3'.
+            let master = master_from_seed64();
+            let account = master
+                .derive_priv(hardened(9))
+                .unwrap()
+                .derive_priv(hardened(1))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap();
+            assert_eq!(
+                account.private_key.to_bytes().to_lower_hex_string(),
+                "05e18aebbe5c73f4dde3dd6a4a204da46c6efa38a38ff4fa5548b1c171154bda"
+            );
+            let child0 =
+                account.derive_priv_legacy(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+            assert_eq!(
+                child0.private_key.to_bytes().to_lower_hex_string(),
+                "3346dfd71627f9f31cad3ee66fe7b673c32cb077b2eb38c621d7e61c30e46dbd"
+            );
+            assert_eq!(
+                child0.public_key_bytes_legacy().unwrap().to_lower_hex_string(),
+                "09d8beabae708de1638487f1aff44b38e8c07d9b09f22d76329d6c8ec01e2ad4d030b660bca40ddbd222373a72c5bcef"
+            );
+        }
+
+        #[test]
+        fn chia_style_seed8_vectors() {
+            // dashbls test-suite seed {1, 50, 6, 244, 24, 199, 1, 25}.
+            let seed = [1u8, 50, 6, 244, 24, 199, 1, 25];
+            let master = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+            assert_eq!(
+                master.private_key.to_bytes().to_lower_hex_string(),
+                "3e9f7b3846c1803703f94c764b51f5ace513b2f02c4d6b2c452d8ce66e5975bd"
+            );
+            assert_eq!(
+                master.chain_code[..].to_lower_hex_string(),
+                "d8b12555b4cc5578951e4a7c80031e22019cc0dce168b3ed88115311b8feb1e3"
+            );
+
+            // Hardened child 77'
+            let c77h = master.derive_priv(hardened(77)).unwrap();
+            assert_eq!(
+                c77h.private_key.to_bytes().to_lower_hex_string(),
+                "51b31efbd83aeead1e324c5c8248f5a13bb17ba7afe29aeb5ceef7eaff49ed6f"
+            );
+            assert_eq!(
+                c77h.chain_code[..].to_lower_hex_string(),
+                "f2c8e4269bb3e54f8179a5c6976d92ca14c3260dd729981e9d15f53049fd698b"
+            );
+
+            // Non-hardened child 77 (legacy serialization in HMAC input)
+            let c77 = master.derive_priv_legacy(ChildNumber::from_normal_idx(77).unwrap()).unwrap();
+            assert_eq!(
+                c77.private_key.to_bytes().to_lower_hex_string(),
+                "3ef4f8b4d262fb8981665532b531c7889798044f7cbe4d5fae5e30435f746044"
+            );
+            assert_eq!(
+                c77.chain_code[..].to_lower_hex_string(),
+                "f428f5f011f52569c0b2004aaeda0744259f4247fd5e77649d3d25e6b491cc53"
+            );
+        }
+
+        #[test]
+        fn modern_mode_vectors() {
+            // dashbls `PrivateChild(i)` with the default fLegacy = false —
+            // the mode used by `derive_priv`/`derive_pub` without suffix.
+            let seed = [1u8, 50, 6, 244, 24, 199, 1, 25];
+            let master = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+            let c77 = master.derive_priv(ChildNumber::from_normal_idx(77).unwrap()).unwrap();
+            assert_eq!(
+                c77.private_key.to_bytes().to_lower_hex_string(),
+                "0f9b101b475e449c9995032e138b432a330738b6401f675f0632385fe8d349bf"
+            );
+            assert_eq!(
+                c77.chain_code[..].to_lower_hex_string(),
+                "c7b09e00d6b9b1676e8714e1060e0324787734809ae557a4bc8c07e9b1304ed0"
+            );
+            assert_eq!(
+                c77.public_key_bytes().unwrap().to_lower_hex_string(),
+                "a63fa533db03b400030a5eb163433ac7c8700d2301c4242e03db58d516dea0d52768d1b0d29e9f28f7707ce96d2d6108"
+            );
+
+            // Modern-mode child 0 under the operator path from the BIP39 seed.
+            // Hardened levels agree across modes; the non-hardened leaf differs.
+            let master64 = master_from_seed64();
+            let account = master64
+                .derive_priv(hardened(9))
+                .unwrap()
+                .derive_priv(hardened(5))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap()
+                .derive_priv(hardened(3))
+                .unwrap();
+            let child0_modern =
+                account.derive_priv(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+            assert_eq!(
+                child0_modern.private_key.to_bytes().to_lower_hex_string(),
+                "1669d6cc8ac08fa377d63dafcf83f1fa6aee09e2df58c490b1b1a0b0999417ec"
+            );
+            assert_eq!(
+                child0_modern.public_key_bytes().unwrap().to_lower_hex_string(),
+                "8f5d504fee1026394728781f004fee70480335c1f53156124b23e45386c7c1e2973efee3eab4ae60650fdaa8ae4460d0"
+            );
+
+            // Same leaf via legacy mode is a different key entirely.
+            let child0_legacy =
+                account.derive_priv_legacy(ChildNumber::from_normal_idx(0).unwrap()).unwrap();
+            assert_ne!(child0_modern.private_key.to_bytes(), child0_legacy.private_key.to_bytes());
+
+            // Private/public derivation stays consistent in modern mode too.
+            let child0_pub = account
+                .to_extended_pub_key()
+                .unwrap()
+                .derive_pub(ChildNumber::from_normal_idx(0).unwrap())
+                .unwrap();
+            assert_eq!(child0_pub.to_bytes(), child0_modern.public_key_bytes().unwrap());
+        }
+    }
+
+    /// API policy for handling scalars above group order
+    mod policy {
+        use super::*;
+
+        /// The BLS12-381 group order.
+        const R: &str = "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001";
+
+        /// HMAC-SHA256("BLS HD seed", SEED64 || 0).
+        const SEED64_HMAC: &str =
+            "9bbf8d5427fa6176cd52d60e544299be4224f82b9012046db1e8af975ddc55c6";
+
+        fn parse_bytes_32(hex_str: &str) -> [u8; 32] {
+            hex_conservative::decode_to_vec(hex_str).unwrap().try_into().unwrap()
+        }
+
+        /// Constructs a secret key from the supplied scalar and extracts it to find the settled value.
+        fn resolve_scalar(scalar: &[u8; 32]) -> [u8; 32] {
+            *BlsSkBytes::from_bytes(*scalar).as_scheme(CANONICAL).canonicalize().unwrap().to_bytes()
+        }
+
+        #[test]
+        fn scalar_above_the_order_is_reduced_modulo_r() {
+            let mut over = parse_bytes_32(R);
+            over[31] += 5;
+            let mut five = [0u8; 32];
+            five[31] = 5;
+
+            // r + 5 lands on 5, so the read subtracts r rather than clamping to
+            // the top of the field or dropping the high bits.
+            assert_eq!(resolve_scalar(&over), five);
+        }
+
+        #[test]
+        fn scalar_below_the_order_is_unchanged() {
+            let mut under = parse_bytes_32(R);
+            under[31] -= 1;
+
+            assert_eq!(resolve_scalar(&under), under);
+        }
+
+        #[test]
+        fn derivation_reduces_its_tweak() {
+            // Each tweak is an HMAC, so about half land above r; refusing them would've failed
+            // half of all possible values.
+            let master = master_from_seed64();
+
+            // The master seed itself produces an HMAC above r, reduced.
+            assert!(parse_bytes_32(SEED64_HMAC) >= parse_bytes_32(R));
+            assert_eq!(
+                *master.private_key.to_bytes(),
+                resolve_scalar(&parse_bytes_32(SEED64_HMAC))
+            );
+
+            // Hardened child index 1 lands above r, would be reduced.
+            let mut input = master.private_key.to_bytes().to_vec();
+            input.extend_from_slice(
+                &u32::from(ChildNumber::from_hardened_idx(1).unwrap()).to_be_bytes(),
+            );
+            assert!(derivation_hmac(&master.chain_code[..], &input, 0) >= parse_bytes_32(R));
+
+            // Iterate through the first 64, hardened and normal; 128 chances to land above r.
+            for i in 0..64u32 {
+                assert!(master.derive_priv(ChildNumber::from_normal_idx(i).unwrap()).is_ok());
+                assert!(master.derive_priv(ChildNumber::from_hardened_idx(i).unwrap()).is_ok());
+            }
+        }
+
+        #[test]
+        fn secp_secret_above_the_order_is_reduced() {
+            use crate::wallet::root_extended_keys::RootExtendedPrivKey;
+
+            // secp256k1 draws from a larger field, so about half its secrets land
+            // outside BLS's field, construct such a secret.
+            let mut secret = [0u8; 32];
+            secret[0] = 0x02;
+            secret[31] = 0xff;
+            let root = RootExtendedPrivKey {
+                root_private_key: secp256k1::SecretKey::from_secret_bytes(secret).unwrap(),
+                root_chain_code: ChainCode::from([3u8; 32]),
+            };
+
+            // the scalar is read little-endian, then reduced
+            let mut reversed = secret;
+            reversed.reverse();
+            assert!(reversed >= parse_bytes_32(R));
+
+            let converted = root.to_bls_extended_priv_key(Network::Testnet).unwrap();
+            assert_eq!(*converted.private_key.to_bytes(), resolve_scalar(&reversed));
+        }
+
+        #[test]
+        fn zero_scalar_is_refused() {
+            let read = BlsSkBytes::from_bytes([0u8; 32]).as_scheme(CANONICAL).canonicalize();
+            assert!(read.is_err());
+        }
+
+        #[test]
+        fn public_key_off_the_curve_is_refused() {
+            // A point is checked where a scalar is reduced; 48 bytes off the curve
+            // has nowhere to land.
+            let off = [0xAAu8; 48];
+            let read = BLSPublicKey::from_bytes(off).as_scheme(BlsScheme::Modern).canonicalize();
+            assert!(read.is_err());
+        }
+    }
+
+    #[test]
+    fn test_zeroize_clears_key_material() {
+        use zeroize::Zeroize;
+
+        let seed = [42u8; 32];
+        let mut key = ExtendedBLSPrivKey::new_master(Network::Testnet, &seed).unwrap();
+        assert_ne!(*key.private_key.to_bytes(), [0u8; 32]);
+        assert_ne!(key.chain_code.as_ref(), &[0u8; 32]);
+
+        key.zeroize();
+
+        assert_eq!(*key.private_key.to_bytes(), [0u8; 32]);
+        assert_eq!(key.chain_code.as_ref(), &[0u8; 32]);
+        assert_eq!(key.depth, 0);
+        assert_eq!(key.parent_fingerprint, Fingerprint::default());
+    }
+
+    /// A 32-bit index cannot hold a DIP-14 256-bit child, so derivation refuses one instead of
+    /// deriving every such child to the same key.
+    #[test]
+    fn test_256_bit_children_are_refused() {
+        let master = master_from_seed64();
+        let hardened = ChildNumber::from_hardened_idx_256([0x35; 32]);
+        let normal = ChildNumber::from_normal_idx_256([0x35; 32]);
+
+        assert!(matches!(master.derive_priv(hardened), Err(Error::InvalidDerivationPath)));
+        assert!(matches!(master.derive_priv(normal), Err(Error::InvalidDerivationPath)));
+        assert!(matches!(
+            master.to_extended_pub_key().unwrap().derive_pub(normal),
+            Err(Error::InvalidDerivationPath)
+        ));
+        let path = DerivationPath::from(vec![ChildNumber::from_hardened_idx(9).unwrap(), hardened]);
+        assert!(matches!(master.derive_path(&path), Err(Error::InvalidDerivationPath)));
+    }
+}
