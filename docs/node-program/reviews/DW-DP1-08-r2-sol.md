@@ -1,0 +1,18 @@
+# DP1-08 independent narrow review r2 — f8994506
+
+## Findings
+
+1. **Major — Per-identity timeouts can stall the Platform supervisor for minutes.** `rust/crates/dw-engine/src/platform/recovery.rs:847-850,868-880`; `rust/crates/dw-engine/src/platform/bringup.rs:290-300,363-370,385-400`. `ask_names` queries every identity without a main name **sequentially**, with a 10-second timeout for each. Both the initial check and the minute retry run through `for_wallets`, which the single supervisor awaits before it processes another wallet, unlock or readmission signal. A wallet with ten nameless/unknown identities and slow DAPI responses holds that supervisor for up to 100 seconds on each check; a newly restored or unlocked wallet waits behind unrelated name probes, and the promised one-minute retry is also missed. Multiple wallets are parallel, but the slowest wallet still blocks the supervisor. Give the whole check a bounded budget and let identity probes progress concurrently or independently of the supervisor, with at most one outstanding check per wallet. Add a delayed-response test proving that a second wallet's bring-up/unlock signal is handled while the first wallet's name queries are slow.
+
+2. **Minor — A removed wallet's in-flight answer can be reinserted after its state is forgotten.** `rust/crates/dw-engine/src/platform/recovery.rs:808-815,847-852,218-225`; `rust/crates/dw-engine/src/platform/runtime.rs:586-594`. `PlatformRuntime::forget` aborts the tracked check task and clears `NamesChecks`, but abort only takes effect at an async yield. If the final Platform query has returned and another runtime worker removes the wallet before `checks.answered` runs, the old task can insert its answer after `forget`. Reimporting the same wallet ID in the same session then inherits a stale `true` (nameless) answer and can show “No username” for an identity that now owns a name until the DPNS loop catches up. Fence applying answers with a wallet generation captured before the query and invalidated by `forget` (or serialize completion with teardown); test removal and reimport with the answer held immediately before application.
+
+## R1 closure and scope
+
+- **R1 Major:** Closed in the ordinary restore and names-pass path. The timer is gone; `names_check` starts pending, and `names_pass` asks Platform before it clears the owed state. The 4e356829 filter uses the same `evident` and `resolve_main_name` rule as live `identities()`, so refused and contested labels do not suppress the query. The DPNS query is limited to one document and uses the library's identity index. The removal race above remains a narrower way to show a false nameless state.
+- **R1 failed-refetch Minor:** Closed. `status.isError` takes precedence over cached status for Home and Join, and the shell suppresses status on an error; an identities error suppresses cached main-summary data. The read-after-success failure is covered in the browser test.
+- **R1 announcement Minor:** Closed. The `role="status"` region now contains the changing title, `(n/3)` step and lines.
+- **R1 parity Nit:** Closed. The CoinJoin tip claim was removed.
+- The version-25 contract change adds `names_check` and item 51 to a version-23 base; its implementation does not consume DP4-01's pending version-24/item-50 content. The eventual merge must retain both items.
+- Assumption: a wallet can hold several managed identities, and a Platform request may consume its full 10-second budget. This was a read-only source review of the stated head and branch delta. I relied on the gate evidence in the brief and did not repeat the large suites. I did not edit the branch.
+
+VERDICT: CHANGES-REQUESTED

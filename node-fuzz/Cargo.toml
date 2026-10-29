@@ -1,0 +1,940 @@
+[package]
+name = "node-fuzz"
+description = "libFuzzer targets of the node program: L1 differential comparisons (A1 §4.4; CS0 §9.3) and model targets (DEC-59 Q1). Run only through run.sh."
+version = "0.0.0"
+edition = "2024"
+license = "CC0-1.0"
+publish = false
+
+# A workspace of its own, so `cargo test --workspace` never links the oracle archives. It
+# repeats the root's base-sdk [patch] table, which run.sh checks before every build.
+[workspace]
+
+[lib]
+name = "node_fuzz"
+path = "src/lib.rs"
+
+[features]
+# The runner's self-test target (a comparison that always diverges on one input).
+selftest = []
+
+[dependencies]
+bitcoin_hashes = { version = "0.14.101", default-features = false, features = ["std"] }
+# The coin codec `packed_coin_roundtrip` checks the coins cache's value against (CS5a).
+dash-consensus = { path = "../dash-consensus" }
+dash-coreimport = { path = "../dash-coreimport" }
+# `dml_codec_roundtrip`: the DML codecs; `netinfo_*`: EV1's NetInfo rules.
+dash-dml = { path = "../dash-dml" }
+dash-network = { path = "../dash-network" }
+# `prodis_arith`: Core's `arith_uint256`, the reference for the pro-rata floor (EV1 §6.5).
+dash-num = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-oracle-sys = { path = "../dash-oracle-sys", features = ["oracle"] }
+# SB6: the decode policy and the gates the p2p models check.
+dash-p2p = { path = "../dash-p2p" }
+dash-p2p-core = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false, features = ["std"] }
+# test-peer: the scripted peer sets the reserved header bits.
+dash-p2p-transport = { path = "../dash-p2p-transport", features = ["test-peer"] }
+# `netinfo_*`: every network's parameters and the NetInfo wire types (EV1).
+dash-params = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false, features = ["std"] }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false, features = ["std"] }
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false }
+dash-sha256 = { path = "../dash-sha256" }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "33fcc59e1868c803f9608e0e78ee8bddf3abcee7", default-features = false, features = ["codec"] }
+# `model`: the coins model and its twin; `alloc-tag`: the tagging allocator the coins targets
+# install (CH2 §6.5, §6.7); `crash`: the CRASH model's `ChainSut` and workloads.
+dashd-chainstate = { path = "../dashd-chainstate", features = ["model", "alloc-tag", "crash"] }
+dashd-store = { path = "../dashd-store", default-features = false, features = ["model", "rocksdb"] }
+# P2a-net: the dial `sim` and the `connman_sched` check over it.
+dashd-net = { path = "../dashd-net", features = ["sim"] }
+# P3: `cmpct_reconstruct`'s and `block_download_model`'s checks (in its `sim` module).
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+libfuzzer-sys = "0.4"
+node-l1 = { path = "../node-l1", features = ["oracle"] }
+node-sink = { path = "../node-sink" }
+
+[[bin]]
+name = "diff_tx_decode"
+path = "fuzz_targets/diff_tx_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_block_decode"
+path = "fuzz_targets/diff_block_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_header_decode"
+path = "fuzz_targets/diff_header_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_codec_primitives"
+path = "fuzz_targets/diff_codec_primitives.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_coin_decode"
+path = "fuzz_targets/diff_coin_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_undo_decode"
+path = "fuzz_targets/diff_undo_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bsdk_tx_decode"
+path = "fuzz_targets/diff_bsdk_tx_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bsdk_block_decode"
+path = "fuzz_targets/diff_bsdk_block_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bsdk_header_decode"
+path = "fuzz_targets/diff_bsdk_header_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_decode"
+path = "fuzz_targets/diff_payload_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_check_transaction"
+path = "fuzz_targets/diff_check_transaction.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_check_block"
+path = "fuzz_targets/diff_check_block.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_contextual_check_tx"
+path = "fuzz_targets/diff_contextual_check_tx.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_contextual_check_block_header"
+path = "fuzz_targets/diff_contextual_check_block_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_contextual_check_block"
+path = "fuzz_targets/diff_contextual_check_block.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_check_tx_inputs"
+path = "fuzz_targets/diff_check_tx_inputs.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_sequence_locks"
+path = "fuzz_targets/diff_sequence_locks.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_versionbits"
+path = "fuzz_targets/diff_versionbits.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_addrman"
+path = "fuzz_targets/diff_addrman.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_multi_handshake"
+path = "fuzz_targets/diff_p2p_multi_handshake.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_multi_headers"
+path = "fuzz_targets/diff_p2p_multi_headers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_multi_relay"
+path = "fuzz_targets/diff_p2p_multi_relay.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_headers"
+path = "fuzz_targets/diff_p2p_headers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_headers2"
+path = "fuzz_targets/diff_p2p_headers2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_inv"
+path = "fuzz_targets/diff_p2p_inv.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_addr"
+path = "fuzz_targets/diff_p2p_addr.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_addrv2"
+path = "fuzz_targets/diff_p2p_addrv2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_getaddr"
+path = "fuzz_targets/diff_p2p_getaddr.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_selfaddr"
+path = "fuzz_targets/diff_p2p_selfaddr.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_chain"
+path = "fuzz_targets/diff_chain.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_getdata"
+path = "fuzz_targets/diff_p2p_getdata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_notfound"
+path = "fuzz_targets/diff_p2p_notfound.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "kv_model"
+path = "fuzz_targets/kv_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_external_scan"
+path = "fuzz_targets/coreimport_external_scan.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_peers_dat"
+path = "fuzz_targets/coreimport_peers_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_anchors_dat"
+path = "fuzz_targets/coreimport_anchors_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_banlist_json"
+path = "fuzz_targets/coreimport_banlist_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_mempool_dat"
+path = "fuzz_targets/coreimport_mempool_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_fee_estimates_dat"
+path = "fuzz_targets/coreimport_fee_estimates_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_settings_json"
+path = "fuzz_targets/coreimport_settings_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_governance_dat"
+path = "fuzz_targets/coreimport_governance_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_mncache_dat"
+path = "fuzz_targets/coreimport_mncache_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_netfulfilled_dat"
+path = "fuzz_targets/coreimport_netfulfilled_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_sporks_dat"
+path = "fuzz_targets/coreimport_sporks_dat.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_dash_conf"
+path = "fuzz_targets/coreimport_dash_conf.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_onion_key"
+path = "fuzz_targets/coreimport_onion_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coreimport_i2p_key"
+path = "fuzz_targets/coreimport_i2p_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "packed_coin_roundtrip"
+path = "fuzz_targets/packed_coin_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coins_cache_model"
+path = "fuzz_targets/coins_cache_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coins_overlay_diff"
+path = "fuzz_targets/coins_overlay_diff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chainstate_crash"
+path = "fuzz_targets/chainstate_crash.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "undo_decode"
+path = "fuzz_targets/undo_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "connect_disconnect_roundtrip"
+path = "fuzz_targets/connect_disconnect_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "disconnect_pool"
+path = "fuzz_targets/disconnect_pool.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "coins_replay_blind"
+path = "fuzz_targets/coins_replay_blind.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "p2p_decode_model"
+path = "fuzz_targets/p2p_decode_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "p2p_gate_model"
+path = "fuzz_targets/p2p_gate_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "connman_sched"
+path = "fuzz_targets/connman_sched.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cmpct_reconstruct"
+path = "fuzz_targets/cmpct_reconstruct.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "block_download_model"
+path = "fuzz_targets/block_download_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "p2p_transport_model"
+path = "fuzz_targets/p2p_transport_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "selftest_mismatch"
+path = "fuzz_targets/selftest_mismatch.rs"
+required-features = ["selftest"]
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_clsig"
+path = "fuzz_targets/diff_p2p_clsig.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_isdlock"
+path = "fuzz_targets/diff_p2p_isdlock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qsigrec"
+path = "fuzz_targets/diff_p2p_qsigrec.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qfcommit"
+path = "fuzz_targets/diff_p2p_qfcommit.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_mnauth"
+path = "fuzz_targets/diff_p2p_mnauth.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_spork"
+path = "fuzz_targets/diff_p2p_spork.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_platformban"
+path = "fuzz_targets/diff_p2p_platformban.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qgetdata"
+path = "fuzz_targets/diff_p2p_qgetdata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qdata"
+path = "fuzz_targets/diff_p2p_qdata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_getqrinfo"
+path = "fuzz_targets/diff_p2p_getqrinfo.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qrinfo"
+path = "fuzz_targets/diff_p2p_qrinfo.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_mnlistdiff"
+path = "fuzz_targets/diff_p2p_mnlistdiff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_smlentry"
+path = "fuzz_targets/diff_p2p_smlentry.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_p2p_qsnapshot"
+path = "fuzz_targets/diff_p2p_qsnapshot.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mnlist_codec"
+path = "fuzz_targets/diff_mnlist_codec.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mnlist_diff"
+path = "fuzz_targets/diff_mnlist_diff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mnlist_order"
+path = "fuzz_targets/diff_mnlist_order.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_dml_apply"
+path = "fuzz_targets/diff_dml_apply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_dml_block"
+path = "fuzz_targets/diff_dml_block.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_check_special_tx"
+path = "fuzz_targets/diff_check_special_tx.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "prodis_arith"
+path = "fuzz_targets/prodis_arith.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mnlist_payee_queue"
+path = "fuzz_targets/mnlist_payee_queue.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_unique_hash"
+path = "fuzz_targets/diff_unique_hash.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_quorum_members"
+path = "fuzz_targets/diff_quorum_members.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_quorum_members_rot"
+path = "fuzz_targets/diff_quorum_members_rot.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_type_enabled"
+path = "fuzz_targets/diff_type_enabled.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_scan_quorums"
+path = "fuzz_targets/diff_scan_quorums.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_select_quorum"
+path = "fuzz_targets/diff_select_quorum.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_decode"
+path = "fuzz_targets/diff_bls_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_arith"
+path = "fuzz_targets/diff_bls_arith.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_aggregate"
+path = "fuzz_targets/diff_bls_aggregate.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_threshold"
+path = "fuzz_targets/diff_bls_threshold.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_ies"
+path = "fuzz_targets/diff_bls_ies.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_bls_verify"
+path = "fuzz_targets/diff_bls_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bls_engine_model"
+path = "fuzz_targets/bls_engine_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dml_codec_roundtrip"
+path = "fuzz_targets/dml_codec_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "netinfo_validate"
+path = "fuzz_targets/netinfo_validate.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "specialtx_trivial"
+path = "fuzz_targets/specialtx_trivial.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "netinfo_add_entry"
+path = "fuzz_targets/netinfo_add_entry.rs"
+test = false
+doc = false
+bench = false
+
+
+[[bin]]
+name = "diff_payload_1"
+path = "fuzz_targets/diff_payload_1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_2"
+path = "fuzz_targets/diff_payload_2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_3"
+path = "fuzz_targets/diff_payload_3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_4"
+path = "fuzz_targets/diff_payload_4.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_5"
+path = "fuzz_targets/diff_payload_5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_6"
+path = "fuzz_targets/diff_payload_6.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_7"
+path = "fuzz_targets/diff_payload_7.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_8"
+path = "fuzz_targets/diff_payload_8.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_9"
+path = "fuzz_targets/diff_payload_9.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_10"
+path = "fuzz_targets/diff_payload_10.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_11"
+path = "fuzz_targets/diff_payload_11.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_payload_12"
+path = "fuzz_targets/diff_payload_12.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_coinjoin"
+path = "fuzz_targets/diff_coinjoin.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_gov"
+path = "fuzz_targets/diff_gov.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_gov_vote"
+path = "fuzz_targets/diff_gov_vote.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_block_value_payee"
+path = "fuzz_targets/diff_block_value_payee.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_credit_pool"
+path = "fuzz_targets/diff_credit_pool.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mnhf_step"
+path = "fuzz_targets/diff_mnhf_step.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_coins_ops"
+path = "fuzz_targets/diff_coins_ops.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mnsync"
+path = "fuzz_targets/diff_mnsync.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_netfulfilled"
+path = "fuzz_targets/diff_netfulfilled.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_mncache"
+path = "fuzz_targets/diff_mncache.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "diff_flatdb_load"
+path = "fuzz_targets/diff_flatdb_load.rs"
+test = false
+doc = false
+bench = false
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+# As the root: dash-coreimport's X11 is the dashpay fork's tag (coreimport_external_scan).
+[patch.crates-io]
+rs-x11-hash = { git = "https://github.com/dashpay/rs-x11-hash", tag = "0.1.9" }
+
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "f27bc4f55ccc0ff1534b7ca6572fb237dc0909b6" }
