@@ -1,0 +1,406 @@
+# PF0 counter-gate workloads (A1 §3.11). One line per workload; see README.md.
+#
+#   name = { bench = "<package>/<bench target>", id = "<criterion bench id>" }   # a criterion benchmark
+#   name = { node = "<node-bench workload>", bin = "rdashd", args = [...] }      # a whole-node workload
+#
+# Optional: iters = N (pin the iteration count; otherwise calibrated on the base to ~200M instructions),
+# syscalls = false (skip the strace pass). Bench IDs: `cargo bench -p <package> --bench <target> -- --list`.
+
+[workload]
+# dashcore_hashes: hashing primitives
+hashes-sha256-64k     = { bench = "dashcore_hashes/hashes", id = "sha256/64k" }
+hashes-sha256d-1k     = { bench = "dashcore_hashes/hashes", id = "sha256d/1k" }
+hashes-sha512-64k     = { bench = "dashcore_hashes/hashes", id = "sha512/64k" }
+hashes-sha1-1k        = { bench = "dashcore_hashes/hashes", id = "sha1/1k" }
+hashes-ripemd160-1k   = { bench = "dashcore_hashes/hashes", id = "ripemd160/1k" }
+hashes-hash160-1k     = { bench = "dashcore_hashes/hashes", id = "hash160/1k" }
+hashes-hmac-sha256-1k = { bench = "dashcore_hashes/hashes", id = "hmac_sha256/1k" }
+hashes-hmac-sha512-1k = { bench = "dashcore_hashes/hashes", id = "hmac_sha512/1k" }
+siphash-single-16k    = { bench = "dashcore_hashes/siphash", id = "siphash24/single/16384" }
+siphash-batch-16k     = { bench = "dashcore_hashes/siphash", id = "siphash24/batch/16384" }
+# dash-filters: the SipHash copy the BIP158 codec hashes filter elements with (SB9; the rows above stay
+# for the W crates that still use dashcore_hashes' copy, BL-78 retires one of the two).
+filters-siphash-single-16k = { bench = "dash-filters/siphash", id = "siphash24/single/16384" }
+filters-siphash-batch-16k  = { bench = "dash-filters/siphash", id = "siphash24/batch/16384" }
+
+# dash-sha256: the in-repo port of Core's SHA-256 (the hashes-* rows above measure bitcoin_hashes); AVX2 is
+# the fastest backend this box has (no SHA-NI), STANDARD the portable one.
+sha256-standard       = { bench = "dash-sha256/sha256", id = "sha256/SHA256_STANDARD" }
+sha256-avx2           = { bench = "dash-sha256/sha256", id = "sha256/SHA256_AVX2" }
+sha256-32b-avx2       = { bench = "dash-sha256/sha256", id = "sha256/SHA256_32b_AVX2" }
+sha256d64-1024-avx2   = { bench = "dash-sha256/sha256", id = "sha256/SHA256D64_1024_AVX2" }
+dsha256-1m            = { bench = "dash-sha256/sha256", id = "sha256/DSHA256_1M" }
+
+# dash-evo: merkleRootMNList over 5,000 entries, a Rust full recompute following Core's algorithm (not
+# measured C++ Core) against SmlList's cached tree after k replaced entries or one insertion (SB7 BG)
+sml-root-full-5000        = { bench = "dash-evo/sml_root", id = "sml_root/full/5000" }
+sml-root-incr-5000-1      = { bench = "dash-evo/sml_root", id = "sml_root/incremental/5000/1" }
+sml-root-incr-5000-10     = { bench = "dash-evo/sml_root", id = "sml_root/incremental/5000/10" }
+sml-root-incr-5000-100    = { bench = "dash-evo/sml_root", id = "sml_root/incremental/5000/100" }
+sml-root-insert-5000      = { bench = "dash-evo/sml_root", id = "sml_root/insert/5000" }
+
+# dash-evo: Dash Core's BLS microbenchmarks (bench/bls.cpp, bench/bls_dkg.cpp, v24.0.0-rc.3) on dash-pkc's
+# bls::core, basic scheme, single thread, LCG inputs (BS11b D30, benches/bls_core.rs). Criterion IDs are Core's
+# bench names, as node-bench's microbench rows have them. BLS_Verify_Batched does its work on every 16th call
+# (Core's loop), so its iterations are pinned to whole batches.
+bls-verify-normal             = { bench = "dash-evo/bls_core", id = "bls_core/BLS_Verify_Normal" }
+bls-verify-batched            = { bench = "dash-evo/bls_core", id = "bls_core/BLS_Verify_Batched", iters = 48 }
+bls-verify-large-block-1000   = { bench = "dash-evo/bls_core", id = "bls_core/BLS_Verify_LargeBlock1000" }
+bls-verify-large-agg-1000     = { bench = "dash-evo/bls_core", id = "bls_core/BLS_Verify_LargeAggregatedBlock1000" }
+bls-pubkey-aggregate-normal   = { bench = "dash-evo/bls_core", id = "bls_core/BLS_PubKeyAggregate_Normal" }
+blsdkg-build-quorum-vvec-100  = { bench = "dash-evo/bls_core", id = "bls_core/BLSDKG_BuildQuorumVerificationVectors_simple_100" }
+blsdkg-generate-contrib-100   = { bench = "dash-evo/bls_core", id = "bls_core/BLSDKG_GenerateContributions_simple_100" }
+blsdkg-verify-shares-100      = { bench = "dash-evo/bls_core", id = "bls_core/BLSDKG_VerifyContributionShares_simple_100" }
+blsdkg-verify-shares-agg-100  = { bench = "dash-evo/bls_core", id = "bls_core/BLSDKG_VerifyContributionShares_aggregated_100" }
+# BS11a-4 D9: legacy-flag verifies (design D64) on legacy keys as decoded and resolved; not Core's rows.
+bls-verify-insecure-legacy            = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_insecure_legacy" }
+bls-verify-insecure-legacy-resolved   = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_insecure_legacy_resolved" }
+bls-verify-secure-legacy-50           = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_secure_legacy_50" }
+bls-verify-secure-legacy-50-resolved  = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_secure_legacy_50_resolved" }
+bls-verify-secure-legacy-400          = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_secure_legacy_400" }
+bls-verify-secure-legacy-400-resolved = { bench = "dash-evo/bls_core", id = "bls_core/bls_verify_secure_legacy_400_resolved" }
+
+# dash-llmq: the DKG's contribution phase on production DkgSession code (LQ4a-1 C-11, benches/dkg.rs):
+# one member's contribute, and the receive whose push is the 32nd with the 32-entry pending verify it
+# runs, at llmq_50_60 and llmq_400_60. Basic scheme, single thread, LCG draws. The verify-pending rows
+# clone a session primed once per process, but their fixture still runs 32 contributes, so their
+# instructions_total and instructions_process are mostly fixture: read their instructions counter.
+dkg-contribute-50_60        = { bench = "dash-llmq/dkg", id = "dkg/contribute/50_60" }
+dkg-contribute-400_60       = { bench = "dash-llmq/dkg", id = "dkg/contribute/400_60" }
+dkg-verify-pending-50_60    = { bench = "dash-llmq/dkg", id = "dkg/verify_pending/50_60" }
+dkg-verify-pending-400_60   = { bench = "dash-llmq/dkg", id = "dkg/verify_pending/400_60" }
+
+# dashcore: transaction encoding and decoding
+tx-size               = { bench = "dashcore/transaction", id = "transaction_size" }
+tx-serialize          = { bench = "dashcore/transaction", id = "transaction_serialize" }
+tx-serialize-logic    = { bench = "dashcore/transaction", id = "transaction_serialize_logic" }
+tx-deserialize        = { bench = "dashcore/transaction", id = "transaction_deserialize" }
+
+# key-wallet, key-wallet-manager
+kw-addrgen-100        = { bench = "key-wallet/address_generation", id = "address_generation/100" }
+kwm-filter-scan-2000  = { bench = "key-wallet-manager/filter_scan", id = "filter_scan/monitored/2000" }
+
+# dash-consensus: the versionbits reads v24 makes per block (CS4, benches/deployments.rs) on a 4,032-block regtest
+# chain where v24 (window 100, EHF) starts, locks in and activates: DeploymentActiveAfter of V24 and EVO_SHARES and
+# ComputeBlockVersion for every block once the cache holds every period (no allocation; tests/deployments_alloc.rs),
+# and v24's state at the tip from an empty cache.
+deployments-per-block-warm  = { bench = "dash-consensus/deployments", id = "deployments/per_block_warm" }
+deployments-first-walk-cold = { bench = "dash-consensus/deployments", id = "deployments/first_walk_cold" }
+
+# dash-p2p-transport: V2 (BIP324) frame decode, the per-message cost on every V2 peer (P1)
+p2p-v2-decode-64k     = { bench = "dash-p2p-transport/frame", id = "frame/v2_decode/65536" }
+
+# dash-spv: header storage
+# store: its syscall and write-syscall counts follow tokio's blocking pool, not the work: each extra pool
+# thread the scheduler happens to start adds ~18 syscalls (clone3, rseq, sigaltstack, stack mmap/mprotect, ...)
+# and eventfd wake-ups add writes (PF0 r2: 447-563 syscalls, 52-59 writes on unchanged code, the main false-FAIL
+# source). They are reported, not gated; its filesystem syscalls (fs_syscalls: 225 on every run), instructions,
+# allocations, I/O bytes, faults and RSS stay gated.
+# durable: store's headers, then `stop()`: the whole cost of making them durable; store is its foreground share.
+# warm: store's count of linked headers on a storage already holding as many, stopped. open: `DiskStorageManager::new`
+# on a stopped storage holding store's headers. All three use tokio's blocking pool like store, so their syscall
+# counts are reported, not gated.
+# persist: one explicit `persist()` of the stored headers (segment writes, renames, fsyncs), set up unmeasured.
+# Its file operations go through tokio's blocking pool too (PF0 r3: 1200-1255 syscalls on unchanged code;
+# fs_syscalls 800 and write_syscalls 200 on every run), so its total syscall count is reported, not gated.
+spv-storage-store     = { bench = "dash-spv/storage", id = "storage/disk/store", ungated = ["syscalls", "write_syscalls"] }
+spv-storage-durable   = { bench = "dash-spv/storage", id = "storage/disk/store_durable", ungated = ["syscalls", "write_syscalls"] }
+spv-storage-warm      = { bench = "dash-spv/storage", id = "storage/disk/store_warm", ungated = ["syscalls", "write_syscalls"] }
+spv-storage-open      = { bench = "dash-spv/storage", id = "storage/disk/open", ungated = ["syscalls", "write_syscalls"] }
+spv-storage-persist   = { bench = "dash-spv/storage", id = "storage/disk/persist", ungated = ["syscalls"] }
+spv-storage-get       = { bench = "dash-spv/storage", id = "storage/disk/get" }
+spv-storage-revindex  = { bench = "dash-spv/storage", id = "storage/disk/reverse_index" }
+# dash-spv: headers into dash-consensus through `dash-spv::bridge` (SB12a), over Core's mainnet replies, each
+# header hashed once, by dash-consensus (DEC-224, D17); the counter side of `spv-headers-*` for the path SB12 and
+# SB14 move onto. bridge: the crossing alone, back: dash-spv's hashed headers taken from 2,000 dash-consensus
+# headers (no X11). hash-bridge: 2,000 received headers into dash-consensus (one X11 each) and dash-spv's hashed
+# headers taken from them. headers2: a full compressed reply decompressed into dash-consensus (one X11 per header)
+# and dash-spv's hashed headers taken from it.
+spv-headers-bridge-2000             = { bench = "dash-spv/headers", id = "headers/bridge/2000" }
+spv-headers-hash-bridge-2000        = { bench = "dash-spv/headers", id = "headers/hash_and_bridge/2000" }
+spv-headers2-decompress-bridge-8000 = { bench = "dash-spv/headers", id = "headers2/decompress_and_bridge/8000" }
+
+# dashd-chainstate: the coins cache's per-op costs (CH2 §5, `coins_micro`): PackedCoin encode/decode, the tip's
+# add/fetch (active, F, database)/spend and freeze + release, a block overlay's spends, adds and commit, and the
+# layer's iter_dirty and growth (the shard rehash).
+coins-encode-p2pkh        = { bench = "dashd-chainstate/coins_micro", id = "packed/encode_p2pkh" }
+coins-encode-long         = { bench = "dashd-chainstate/coins_micro", id = "packed/encode_long" }
+coins-decode-p2pkh        = { bench = "dashd-chainstate/coins_micro", id = "packed/decode_p2pkh" }
+coins-add-10k             = { bench = "dashd-chainstate/coins_micro", id = "tip/add_10k" }
+coins-fetch-active-10k    = { bench = "dashd-chainstate/coins_micro", id = "tip/fetch_active_10k" }
+coins-fetch-frozen-10k    = { bench = "dashd-chainstate/coins_micro", id = "tip/fetch_frozen_10k" }
+# fetch_db_1k: its page faults are first touches of each iteration's fresh tip tables, and glibc's dynamic
+# mmap/trim thresholds decide which iterations land on fresh pages. CH2b b1 measured the same 50,000 allocations
+# (1,198,200 B) faulting 20,630 vs 23,091 times, and the sign flips with the PERFGATE_OUT path length; with the
+# threshold held fixed both sides give 47,600. Stopgap until BL-103 pins the threshold for every row.
+coins-fetch-db-1k         = { bench = "dashd-chainstate/coins_micro", id = "tip/fetch_db_1k", ungated = ["page_faults"] }
+coins-spend-10k           = { bench = "dashd-chainstate/coins_micro", id = "tip/spend_10k" }
+coins-freeze-release-100k = { bench = "dashd-chainstate/coins_micro", id = "tip/freeze_release_100k" }
+coins-overlay-block-1k    = { bench = "dashd-chainstate/coins_micro", id = "overlay/block_1k" }
+coins-iter-dirty-100k     = { bench = "dashd-chainstate/coins_micro", id = "layer/iter_dirty_100k" }
+coins-grow-1k-to-100k     = { bench = "dashd-chainstate/coins_micro", id = "layer/grow_1k_to_100k" }
+
+# dashd-chainstate: the flush, recovery and the open on RocksDB at -dbcache=300 (CH2 §5.7, `coins_flush`): V's
+# replay of a 2,000-block synthetic churn with each block's creates, spends and spend ages from ST1's trace, and
+# its shutdown flush; a 64 MiB F in 16 MiB sub-batches (W's steps asserted); an ALWAYS flush of a full coins
+# share; recovery of a crash image stopped after B1; and the open of one whose large B1 is only in the log. One
+# iteration each. The replay, recovery and open rows build a ~1M-coin chainstate in setup. Except the open
+# row's, the databases are quiet (no automatic compactions or statistics timers, a LOG of warnings and errors
+# only; D-b1-i), and each region ends with no flush or compaction left.
+# Their page faults are reported, not gated: they follow when RocksDB's threads free memory that a later
+# allocation could reuse, which the scheduler decides (CH2b PF0: ranges of 2-66% across 5 runs of unchanged
+# code, the open row's included). Peak RSS, allocations, I/O and syscalls stay gated. Recovery's replay can meet
+# a memtable-limit stop (2 of 5 diagnostic runs; DEC-164's retry), which adds a LOG warning (one write syscall)
+# and up to 30 allocations (0.02%), under the floors. The shutdown row's database has memtables its flush does not
+# fill, so no memtable is switched under W's writes and none can stall: with the chainstate's 16 MiB memtables, 1
+# run in 4 met the memtable-limit stop and DEC-164's retry added 98-182 allocations, and DEC-164 allows no more
+# than three memtables, so the row's are larger. Its peak RSS holds that 225 MiB memtable. It also leaves out the
+# chainstate's charged write buffer manager, whose charging to the cache the split and replay rows still gate.
+coins-replay-synth-mainnet-453371-p300 = { bench = "dashd-chainstate/coins_flush", id = "replay/synth-mainnet-453371-p300", iters = 1, ungated = ["page_faults"] }
+coins-replay-synth-testnet-435990-p300 = { bench = "dashd-chainstate/coins_flush", id = "replay/synth-testnet-435990-p300", iters = 1, ungated = ["page_faults"] }
+# CH2c D13: the same replays with W on its own thread (`ThreadDriver`), as the node runs them. W parks and wakes
+# as the scheduler runs it, so the rows' syscalls and page faults are reported, not gated.
+coins-replay-synth-mainnet-453371-thread-p300 = { bench = "dashd-chainstate/coins_flush", id = "replay/synth-mainnet-453371-thread-p300", iters = 1, ungated = ["syscalls", "page_faults"] }
+coins-replay-synth-testnet-435990-thread-p300 = { bench = "dashd-chainstate/coins_flush", id = "replay/synth-testnet-435990-thread-p300", iters = 1, ungated = ["syscalls", "page_faults"] }
+flush-split                            = { bench = "dashd-chainstate/coins_flush", id = "flush/split-64m", iters = 1, ungated = ["page_faults"] }
+coins-shutdown-flush-p300              = { bench = "dashd-chainstate/coins_flush", id = "shutdown/always-p300", iters = 1, ungated = ["page_faults"] }
+coins-recovery-mainnet                 = { bench = "dashd-chainstate/coins_flush", id = "recovery/mainnet-2000", iters = 1, ungated = ["page_faults"] }
+chainstate-open                        = { bench = "dashd-chainstate/coins_flush", id = "chainstate/open-b1-256k", iters = 1, ungated = ["page_faults"] }
+
+# dashd-chainstate: CS6's caches and script check queue (`script_checks`): 1,000 signature-cache hits (block
+# connection's soft-erasing lookup), the entry and lookup a miss pays before verifying, 1,000 script-execution
+# cache hits, and a block's inputs (every fourth a chain of three OP_CHECKDATASIGVERIFYs, the rest P2PKH)
+# checked as -par=1 checks them, with the signature cache cold or holding every signature. The caches are
+# salted with fixed nonces, so every run probes the same buckets. The queue rows run with one script-check
+# thread (-par=2) at the batch boundary (127-129 inputs) and a full block (680). Pinned to one CPU, how many
+# helpers start and which thread takes which batch follow the scheduler, so their instructions, allocations,
+# syscalls and faults are reported, not gated; their I/O and peak RSS stay gated.
+script-sigcache-hit-1k   = { bench = "dashd-chainstate/script_checks", id = "sigcache/verify_hit_1k" }
+script-sigcache-miss-1k  = { bench = "dashd-chainstate/script_checks", id = "sigcache/lookup_miss_1k" }
+script-exec-hit-1k       = { bench = "dashd-chainstate/script_checks", id = "exec/hit_1k" }
+script-serial-16-cold    = { bench = "dashd-chainstate/script_checks", id = "serial/16_cold" }
+script-serial-16-warm    = { bench = "dashd-chainstate/script_checks", id = "serial/16_warm" }
+script-serial-680-cold   = { bench = "dashd-chainstate/script_checks", id = "serial/680_cold" }
+script-serial-680-warm   = { bench = "dashd-chainstate/script_checks", id = "serial/680_warm" }
+script-queue-127-cold    = { bench = "dashd-chainstate/script_checks", id = "queue/127_cold", ungated = ["instructions", "instructions_total", "allocs", "alloc_bytes", "syscalls", "page_faults"] }
+script-queue-128-cold    = { bench = "dashd-chainstate/script_checks", id = "queue/128_cold", ungated = ["instructions", "instructions_total", "allocs", "alloc_bytes", "syscalls", "page_faults"] }
+script-queue-129-cold    = { bench = "dashd-chainstate/script_checks", id = "queue/129_cold", ungated = ["instructions", "instructions_total", "allocs", "alloc_bytes", "syscalls", "page_faults"] }
+script-queue-680-cold    = { bench = "dashd-chainstate/script_checks", id = "queue/680_cold", ungated = ["instructions", "instructions_total", "allocs", "alloc_bytes", "syscalls", "page_faults"] }
+script-queue-680-warm    = { bench = "dashd-chainstate/script_checks", id = "queue/680_warm", ungated = ["instructions", "instructions_total", "allocs", "alloc_bytes", "syscalls", "page_faults"] }
+
+# dashd-chainstate: CH3a's ConnectBlock, serial (-par=1), at -assumevalid off and on (`connect_block_micro`, CH3
+# §6.3): one SerialCore::connect of a fixed mainnet-shaped block against a warm in-memory coins cache holding the
+# coins it spends. The blocks are built in the bench (fixed keys; av-off's with RFC 6979 signatures) at mainnet
+# height 630,000 (P2SH, DERSIG, CLTV, CSV) or, for the 2 MB one, 790,000 (DIP0001), under mainnet's parameters: a
+# coinbase-only block; 500 P2PKH inputs; 250 P2SH 2-of-3 multisig inputs; P2PKH up to 1 MB (before DIP0001) and up
+# to 2 MB; 200 transactions each spending the one before it; and two rejects measured to the failure, a missing
+# coin at the last input (bad-txns-inputs-missingorspent) and a coinbase one duff over (bad-cb-amount, after the
+# last transaction's inputs; under av-off, after every script). av-off checks every input's scripts, the signature
+# and script caches consulted and missing as ConnectBlock never fills them; av-on names a header 10,000 blocks past
+# the block as assumed valid, so no script is checked, and its block is unsigned (a placeholder at a signature's
+# length, which a script check would reject). The region includes the undo record's write into a rev file on disk
+# (its checksum, one statx and one pwrite64; a 1 MiB posix_fallocate, not a heap allocation, when a record crosses
+# a chunk, which at the pinned iters no region reaches; the file restarts empty once its records pass 16 MiB,
+# outside the region), the entry's status writes and the overlay's drop; V's bracket (the EV attempt and the
+# commit, coins-overlay-block-1k) is not in it. Each iteration's setup puts the block's index entry back to
+# accepted. Outside the region, each process loads a 640,000- or 800,000-entry synthetic index (~4-5 G
+# instructions, most of the RSS) and, for av-off, signs the block's inputs (~0.35 G for the 500 signatures of
+# p2pkh-500 or multisig-250), so instructions_total is mostly setup and stays gated, as the dash-chain lines' load
+# does.
+# Sixteen serial rows; these ten fit PF0's 10-minute share (CH3a D78: 110 processes, ~490 G instructions,
+# 9.2 min at --jobs 4 measured at load 118-161, against an estimated 15.3 min for all sixteen measured at a faster
+# per-process rate). Both sides of the two script shapes, where the scripts are most of a connect; av-on only for
+# the 1 MB and 2 MB blocks (av-off is p2pkh-500's script work 11 and 21 times over, at 12.8 and 22.5 G a process),
+# chained-200 and the rejects (av-off adds only the scripts the script rows gate); av-off only for the empty block
+# (no input, so av-on adds only the assumed-valid lookup every other av-on row runs). Iterations are pinned at the
+# calibrated counts (~120-340 M instructions in the region), so no calibration process runs; raising them on the
+# 1 MB or 2 MB row past 6 or 2 brings a posix_fallocate into the region, which only instructions would show. Only
+# connect-serial-empty-av-off keeps the strace pass, for the connect path's statx beside the write: the counters
+# pass gates /proc io's write syscalls and bytes in every region, so a reject's undo write moved before its check
+# shows there. Every region counter but instructions (page faults 0, allocs, alloc bytes, /proc io) is identical
+# across processes and builds, so nothing is ungated (D79).
+# -par=4 (slice a4, CH3a D131): par4/p2pkh-500/av-off is the same block with its 500 input checks queued on a
+# CheckQueue of three threads beside the bench thread, all four on the one pinned CPU (its pool's size is explicit,
+# so RAYON_NUM_THREADS does not shrink it): the serial row's region plus the control's queue and wait. Over 10
+# processes its instructions spread by 0.04% (the workers spin and steal as the scheduler lets them) and its allocs
+# by 4 of 7,188, under the 0.5% floor, so both stay gated; alloc_bytes spreads by 0.81% (the rayon job buffers
+# follow the steals) and page faults by 0-3 against a 1-event floor, so those two are ungated. A par4 av-on row is
+# the serial one beside three idle threads (no queue without script checks, v:2649); par4's empty/av-off and
+# p2sh-multisig-250/av-off (spreads 0.02% and 0.07%) stay out of PF0's 10-minute share (about 0.9 min a row).
+# With this row the eleven take about 10.1 min at D78's measured rate, about 1% over the share (D131).
+connect-serial-empty-av-off            = { bench = "dashd-chainstate/connect_block_micro", id = "serial/empty/av-off", iters = 2000 }
+connect-serial-p2pkh-500-av-off        = { bench = "dashd-chainstate/connect_block_micro", id = "serial/p2pkh-500/av-off", iters = 1, syscalls = false }
+connect-serial-p2pkh-500-av-on         = { bench = "dashd-chainstate/connect_block_micro", id = "serial/p2pkh-500/av-on", iters = 50, syscalls = false }
+connect-serial-multisig-250-av-off     = { bench = "dashd-chainstate/connect_block_micro", id = "serial/p2sh-multisig-250/av-off", iters = 1, syscalls = false }
+connect-serial-multisig-250-av-on      = { bench = "dashd-chainstate/connect_block_micro", id = "serial/p2sh-multisig-250/av-on", iters = 100, syscalls = false }
+connect-serial-pre-dip1-1mb-av-on      = { bench = "dashd-chainstate/connect_block_micro", id = "serial/pre-dip1-1mb/av-on", iters = 5, syscalls = false }
+connect-serial-dip1-2mb-av-on          = { bench = "dashd-chainstate/connect_block_micro", id = "serial/dip1-2mb/av-on", iters = 2, syscalls = false }
+connect-serial-chained-200-av-on       = { bench = "dashd-chainstate/connect_block_micro", id = "serial/chained-200/av-on", iters = 100, syscalls = false }
+connect-serial-bad-missing-av-on       = { bench = "dashd-chainstate/connect_block_micro", id = "serial/bad-txns-inputs-missingorspent/av-on", iters = 50, syscalls = false }
+connect-serial-bad-cb-amount-av-on     = { bench = "dashd-chainstate/connect_block_micro", id = "serial/bad-cb-amount/av-on", iters = 50, syscalls = false }
+connect-par4-p2pkh-500-av-off          = { bench = "dashd-chainstate/connect_block_micro", id = "par4/p2pkh-500/av-off", iters = 1, syscalls = false, ungated = ["alloc_bytes", "page_faults"] }
+
+# dashd-chainstate: CH3a's DisconnectBlock (`disconnect_block_micro`, CH3 §6.3, a5): one SerialCore::disconnect from
+# the tip (DisconnectTip's call) of a connect_block_micro av-on block, which setup connects once and commits, into an
+# overlay over the warm cache that is dropped uncommitted, so every iteration starts from the same state and has no
+# setup of its own. The region includes the undo record's read (by path, on a fresh descriptor as Core's
+# OpenUndoFile: openat, one statx, a pread64 of the record's size field and one of the record and its checksum,
+# close), the checksum, the decode, every output's spend and compare and every input's ApplyTxInUndo; V's bracket
+# (the EV attempt, the commit, the BLS scheme) is not in it. Setup is connect_block_micro's (the 640,000-entry
+# synthetic index, ~4.4 G instructions a process), so instructions_total is mostly setup and stays gated. PF0 runs
+# one of its six rows (DEC-297): p2pkh-500, per input and output (~2.4 M instructions an iteration, pinned at 100,
+# ~240 M in the region). The other five are local and opt-in (`cargo bench -p dashd-chainstate --bench
+# disconnect_block_micro -- serial/<row>`): empty (the fixed costs, ~45 k), chained-200 (200 transactions, each
+# output restored and then spent again in reverse order, ~1.0 M), multisig-250 (p2pkh-500 but for the compressed
+# script's type) and the 1 MB and 2 MB blocks (p2pkh-500's work 10 and 21 times over). The row has no strace pass,
+# so the read's openat, statx and close are not gated; its two preads are, through /proc io's read syscalls and
+# bytes. Every region counter is identical across processes (allocations and /proc io scale exactly with the
+# iterations; page faults 0), so nothing is ungated. With it CH3a's twelve rows take about 11.0 min at D78's
+# measured rate, an estimate (DEC-297).
+disconnect-serial-p2pkh-500            = { bench = "dashd-chainstate/disconnect_block_micro", id = "serial/p2pkh-500", iters = 100, syscalls = false }
+
+# dashd-chainstate: CH3b's reorg (`reorg`, CH3 §6.3, b2c): a reorg of depth 1, 6 and 30 through V, with the real
+# connector, on a synthetic regtest chain (DIP0003, V20 and MN_RR moved out of reach, so the chain stays pre-DIP3). V
+# is wired as dashd-node wires it (CoreConnector with NoEvo hooks and NodeHelper, -par=1, the block and undo files on
+# disk, NullMempool), but with the coins in memory and never flushed, fixed salts, no listener and -checkblockindex
+# off (regtest's default walks the whole index after every step and header). Every block from 102 on spends two
+# OP_TRUE coins, the coinbase 100 below it and an output of its parent, so a branch's first block spends the two coins
+# the block it replaces spent. Each iteration's setup mines a branch of d + 1 blocks from the tip's ancestor at depth
+# d and hands V its headers and its first d blocks (requested, so stored at less work; the d-th ties the tip, which
+# stays). The region is the last block's ProcessNewBlock: CheckBlock, AcceptBlock's write and the reorg its ABC runs,
+# d DisconnectTips (the block and its undo record read from disk, DisconnectBlock, the commit) and d + 1 ConnectTips
+# (d of them reading the block; ConnectBlock with its undo write and status writes, the commit); then
+# SyncWithValidationInterfaceQueue, so the signals V staged have run. Per iteration 1.24 M, 6.57 M and 31.7 M
+# instructions (412 k, 505 k and 519 k per block over its 2d + 1 steps), 65-76% of them X11: each of the 2d block
+# reads hashes the header to check its proof of work, as Core's ReadBlockFromDisk does (~400 k), so the 0.5% floor is
+# 1.4%, 1.9% and 2.1% of the rest. Syscalls 18, 83 and 397.4 an iteration: the files' openat, statx, pread64, pwrite64
+# and close, and at depth 30 about 2.4 mprotects (glibc growing V's heap; they follow its layout, inside the floor).
+# The chain grows a block an iteration, so iterations are pinned at the calibrated counts (124-158 M instructions in
+# the region). Over 10 processes per build, syscalls repeat exactly and instructions spread by 0.01-0.07%. V parks on
+# a select whose operations are an array on its stack (BL-453); a crossbeam Select allocated them after every reply,
+# on either side of a region boundary as the scheduler put it, up to two 128-byte allocations a region. With nothing
+# of V's left to race the boundaries, allocations and their bytes repeat exactly at every depth, and are the same in
+# two builds that differed only in the setup, so they gate on every row. Page faults spread by 0-2 against a floor of
+# one event: ungated on every row, as D131's par4 row's (peak RSS still gates memory). instructions_total (0.39-0.45 G,
+# mostly the 140-block base chain and the setups' mining) gates. read_bytes
+# repeats except in one process of 10 at depths 1 and 6, 6 bytes a span more: the shim's own /proc/self/io read counts
+# in each span, and its text grows with the digits of the process's storage reads.
+reorg-depth-1  = { bench = "dashd-chainstate/reorg", id = "reorg/depth-1", iters = 100, ungated = ["page_faults"] }
+reorg-depth-6  = { bench = "dashd-chainstate/reorg", id = "reorg/depth-6", iters = 20, ungated = ["page_faults"] }
+reorg-depth-30 = { bench = "dashd-chainstate/reorg", id = "reorg/depth-30", iters = 5, ungated = ["page_faults"] }
+
+# dash-chain: the header index (SB4 §16) on a synthetic mainnet-shaped chain (H-M's length, mainnet
+# genesis and parameters; see benches/support/fixture.rs). The lookup, locator, ancestor and tip lines load that
+# 2.55M-entry index in setup, so their instructions_total (~17G against a region of 0.1-30M) and peak RSS (~1.2 GB)
+# measure `load` and the arena's footprint, which stay gated on purpose; a change to `load` therefore shows in them
+# and in the load line. The accept lines (A-25) hash and accept 2,000 real H-M headers (benches/data) on that chain
+# cut at the window; chain-accept-headers is SB4's BG gate against Core's ProcessNewBlockHeaders on the same
+# pre-state (dash-chain/tests/data/core-scenarios/bench-pnbh-mainnet-dgw.json.gz: 492,381,900 instructions; KGW's
+# is 870,185,221).
+chain-accept-headers    = { bench = "dash-chain/chain", id = "accept/mainnet-dgw-2000" }
+chain-accept-kgw-2000   = { bench = "dash-chain/chain", id = "accept/mainnet-kgw-2000" }
+chain-accept-spv-2000   = { bench = "dash-chain/chain", id = "accept/spv-anchored-w10000-2000" }
+chain-index-lookup      = { bench = "dash-chain/chain", id = "lookup/hit-miss-10k" }
+chain-locator-tip       = { bench = "dash-chain/chain", id = "locator/mainnet-tip" }
+chain-ancestor-random   = { bench = "dash-chain/chain", id = "ancestor/mainnet-random-1k" }
+chain-tip-step-publish  = { bench = "dash-chain/chain", id = "tip/connect-publish-1k" }
+chain-load-records-256k = { bench = "dash-chain/chain", id = "load/records-256k" }
+# dash-chain: the feeds (SB5 §11) on the same synthetic index, in benches/feeds.rs.
+# - feed-publish, the BG gate line: 1,000 connect steps fanned out to 8 reader threads, which drain after the
+#   last step (interleaved draining moves its instructions by ~20% with the scheduler on one CPU), plus
+#   joining them. Its budget, 1,500 instructions per (step × subscriber) after subtracting
+#   chain-tip-step-publish (the same steps, no subscriber), is checked by hand from the two lines; PF0 gates
+#   each line against its own base.
+# - feed-publish-full interleaves by construction (Q = 32): how many steps block, and so allocate a pending
+#   segment, depends on the scheduler, so its instructions, allocations and page faults are ungated.
+# - The contended variant (readers spin on intake) measures only spinning on one pinned CPU: no line until PF1.
+# - The chain-cold-* lines read records below an SPV window through ChainReader::try_entry and the cold cache.
+# - status-publish-coalesce: 1,000 status publications, each moving the best header down one block, with two
+#   readers on the bench thread whose wakers fire on every one; each takes one coalesced report after the
+#   last. status/publish-1k-0readers, unlisted, is the same publications with no reader.
+# - chain-snapshot-cold-h: 1,000 heights below an SPV window through a 256-record cold cache, each an ancestor
+#   walk down the skip links, about one MemHeaderStore read per height; chain-open-spv-w10000: SPV open at w = 10,000 over MemHeaderStore (SB13
+#   measures SQLite). Both on a regtest chain the setup appends to the store under synthetic hashes (no X11),
+#   about 45% of chain-open-spv-w10000's instructions_total at two iterations and in both lines' peak RSS.
+#   SB5's D69 (open reads each cold skip target, 69 here) moved chain-open-spv-w10000 by +208,290 instructions
+#   (+0.103%, 3 runs a side, spread 12k), +138 allocations and +97,152 alloc_bytes at two iterations.
+# - chain-spv-typical-*: SB5 §6.3's typical rows (DEC-187), SPV's whole header step (accept, stage 3,
+#   activate_segmented, the fanout to five draining subscribers) syncing 14,000 headers at w = 10,000 (desktop)
+#   and 6,000 at w = 2,048 (mobile) in steps of 2,000. Peak RSS and page faults gate the residency A-F12 bounds
+#   at 5.83 MB and 2.42 MB (DEC-187 amendment 3); allocations gate the step's allocation volume, MemHeaderStore's
+#   included. The setup mines the headers once per process (X11, about 2 per header, deterministic) and checks one
+#   sync; it is about 90% of instructions_total at two iterations, which stays gated like the other setup-heavy
+#   lines. Peak RSS includes the store's tables and the mined headers (24.1 and 13.7 MiB locally).
+feed-publish            = { bench = "dash-chain/feeds", id = "publish/connect-8sub-1k" }
+feed-publish-full       = { bench = "dash-chain/feeds", id = "publish/cursor-retry-8sub-1k", ungated = ["instructions", "instructions_total", "instructions_process", "allocs", "alloc_bytes", "page_faults"] }
+feed-reader-next        = { bench = "dash-chain/feeds", id = "reader/next-pop-compress-1k" }
+feed-subscribe-at       = { bench = "dash-chain/feeds", id = "handoff/subscribe-at-64" }
+status-publish-coalesce = { bench = "dash-chain/feeds", id = "status/publish-1k-2readers" }
+chain-cold-lru          = { bench = "dash-chain/feeds", id = "cold/lru-hit-miss-90-10" }
+chain-cold-lru-sweep    = { bench = "dash-chain/feeds", id = "cold/lru-miss-all-referenced" }
+chain-snapshot-cold-h   = { bench = "dash-chain/feeds", id = "snapshot/at-height-cold-1k" }
+chain-open-spv-w10000   = { bench = "dash-chain/feeds", id = "open/mem-w10000" }
+chain-spv-typical-w10000 = { bench = "dash-chain/feeds", id = "spv/typical-w10000" }
+chain-spv-typical-w2048  = { bench = "dash-chain/feeds", id = "spv/typical-w2048" }
+
+# dash-dml: the masternode list (EV2 §6.5; PLAN EV2a BG), over 4,000 mainnet-shaped masternodes: clone plus
+# 100 hot updates plus diff_to (crit:mnlist_clone_diff), 1,000 collateral probes of the unique map
+# (crit:mnlist_unique_probe: the key is built inside the timed loop, so it includes its allocation;
+# mnlist-unique-probe-prekeyed probes with the keys built once outside it, so only has_unique is
+# measured), and the canonical codec (crit:mnlist_codec): the reader, which decodes every
+# operator key as Core's does, and CanonicalMNListHash.
+mnlist-clone-diff         = { bench = "dash-dml/mnlist", id = "mnlist/clone_diff" }
+mnlist-unique-probe       = { bench = "dash-dml/mnlist", id = "mnlist/unique_probe" }
+mnlist-unique-probe-prekeyed = { bench = "dash-dml/mnlist", id = "mnlist/unique_probe_prekeyed" }
+mnlist-codec-decode       = { bench = "dash-dml/mnlist", id = "mnlist/codec_decode" }
+mnlist-codec-hash         = { bench = "dash-dml/mnlist", id = "mnlist/codec_hash" }
+
+# dash-dml: the build (EV2 §6.5 BG; PLAN EV2b), over mainnet's first 2,000 DIP3 blocks as a window
+# (EV2b D29: headers and special transactions as mined, other transactions as input shapes):
+# build_new_list_from_block over all of them from the default list (crit:dml_build_w1) and 10^4
+# payee() calls on the last list (crit:dml_payee), each on the fast path and the reference twin
+# (EV2b D24), and core_order() on that list with the cache reset (crit:dml_core_order). The fast
+# build's counts vary by about 0.2% between processes (the unique map's keyed hasher). The w2 rows
+# do the same over 1,371,028..1,373,027 from the list after 1,371,027 (EV2b D32: the largest list
+# sampled below the oracle's 2,090,000 ceiling, with its quorums' members), a proxy for EV2's
+# tip − 50k window, which waits for a snapshot source other than the oracle.
+dml-build-w1-fast         = { bench = "dash-dml/dml_build", id = "dml_build/w1_fast" }
+dml-build-w1-twin         = { bench = "dash-dml/dml_build", id = "dml_build/w1_twin" }
+dml-payee-fast            = { bench = "dash-dml/dml_build", id = "dml_payee/fast" }
+dml-payee-twin            = { bench = "dash-dml/dml_build", id = "dml_payee/twin" }
+dml-core-order-fast       = { bench = "dash-dml/dml_build", id = "dml_core_order/fast" }
+dml-build-w2-fast         = { bench = "dash-dml/dml_build", id = "dml_build/w2_fast" }
+dml-build-w2-twin         = { bench = "dash-dml/dml_build", id = "dml_build/w2_twin" }
+dml-payee-w2-fast         = { bench = "dash-dml/dml_build", id = "dml_payee/w2_fast" }
+dml-payee-w2-twin         = { bench = "dash-dml/dml_build", id = "dml_payee/w2_twin" }
+dml-core-order-w2-fast    = { bench = "dash-dml/dml_build", id = "dml_core_order/w2_fast" }
+
+# dash-dml: merkleRootMNList over 4,000 mainnet-shaped masternodes (EV4-serve D12; PLAN EV4-serve "BG: crit
+# incremental SML root ≥10× full"): every entry projected and hashed (sml-root-full), and SmlRootCache moved
+# to the next list with one hot change (no entry changes) or one or ten entries changed.
+sml-root-full             = { bench = "dash-dml/sml_root", id = "sml_root/full" }
+sml-root-cache-hot1       = { bench = "dash-dml/sml_root", id = "sml_root/cache_hot1" }
+sml-root-cache-cold1      = { bench = "dash-dml/sml_root", id = "sml_root/cache_cold1" }
+sml-root-cache-cold10     = { bench = "dash-dml/sml_root", id = "sml_root/cache_cold10" }
+# EV4-serve D16: a getmnlistd reply over 4,000 masternodes, the lists' Core orders computed inside (cold) or before (warm).
+mnlistdiff-cold           = { bench = "dash-dml/sml_root", id = "mnlistdiff/cold" }
+mnlistdiff-warm           = { bench = "dash-dml/sml_root", id = "mnlistdiff/warm" }
+# dash-dml: the block processor (PLAN LQ2 BG, crit:qc_block; LQ2 D18): process_block with fBLSChecks
+# over mainnet 2,089,770, which mines the 32 LLMQ_60_75 commitments of its cycle, with Core's members
+# (the duplicate pre-pass, 32 queued signature checks, ProcessCommitment and the rows).
+qc-block-mainnet          = { bench = "dash-dml/qc_block", id = "qc_block/mainnet_2089770" }
+# The CbTx v2 merkleRootQuorums of the next block over those 32 rows (crit:qc_root; LQ2 D22, DEC-325):
+# GetQcHashes' caches holding the unchanged set, and dropped as a mining block's connect drops them.
+qc-root-unchanged         = { bench = "dash-dml/qc_block", id = "qc_root/mainnet_2089771_unchanged" }
+qc-root-mined             = { bench = "dash-dml/qc_block", id = "qc_root/mainnet_2089771_mined" }
+
+# The Rust node under node-bench's fixed-input workloads: pending until the `rdashd` binary exists.
+# `measure --dashd <bin>` records the same counters for dashd. Not CPU-gated (DEC-52 4): only page faults,
+# allocated bytes and peak RSS gate them; see README "Node workloads".
+node-startup          = { node = "startup", bin = "rdashd" }
+# ND1's genesis recipe (PF0-N §12): regtest on an empty datadir, no network, no RPC, -startupnotify ready, SIGTERM.
+# Expect a shift at ND1 slice 2a (the step-7 reorder): a justified re-anchor of this row.
+node-startup-genesis  = { node = "startup-genesis", bin = "rdashd" }
+node-mempool-accept   = { node = "mempool-accept", bin = "rdashd", args = ["--txs", "2000"] }
+node-gbt              = { node = "gbt", bin = "rdashd" }
+node-rpc-getblock     = { node = "rpc", bin = "rdashd", args = ["--call", "getblock_v2", "--calls", "200"] }

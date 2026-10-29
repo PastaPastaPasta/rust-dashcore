@@ -1,0 +1,17 @@
+# Standalone tool, not a workspace member: BS7's bench gate (PLAN BG: crit
+# headers2 decode). "old" is node/base-sdk before BS7 (481f8c3), "new" is BS7
+# (node/bsdk-bs7-p2p-core at ab017ae).
+[package]
+name = "bs7-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+hex = "0.4"
+old-p2p = { package = "dash-p2p-core", git = "https://github.com/PastaPastaPasta/base-sdk", rev = "481f8c351c4f00dfad08a11063d2852e74e06016", features = ["std"] }
+old-pkc = { package = "dash-pkc", git = "https://github.com/PastaPastaPasta/base-sdk", rev = "481f8c351c4f00dfad08a11063d2852e74e06016", features = ["std"] }
+new-p2p = { package = "dash-p2p-core", git = "https://github.com/PastaPastaPasta/base-sdk", rev = "ab017aeb3eccda347dd551bfab7e062a93752855", features = ["std"] }
+new-pkc = { package = "dash-pkc", git = "https://github.com/PastaPastaPasta/base-sdk", rev = "ab017aeb3eccda347dd551bfab7e062a93752855", features = ["std"] }
