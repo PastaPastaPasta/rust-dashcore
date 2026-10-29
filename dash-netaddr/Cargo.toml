@@ -1,0 +1,25 @@
+[package]
+name = "dash-netaddr"
+description = "Dash Core's network addresses (CNetAddr, CService, CSubNet) and resolver-free name helpers (SplitHostPort, IsBadPort, the numeric Lookup, MaybeFlipIPv6toCJDNS), shared by dash-p2p and the node's NetInfo rules. Pure."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_netaddr"
+path = "src/lib.rs"
+
+[dependencies]
+# The wire forms (`AddrV2`, `ServiceV1`) and the Tor v3 name with its checksum.
+dash-primitives = { workspace = true, features = ["std"] }
+# `NET_INTERNAL` names (SHA-256, `CNetAddr::SetInternal`).
+dash-sha256 = { path = "../dash-sha256" }
+
+[dev-dependencies]
+# tests/glibc_numeric.rs compares the numeric lookup with the host's getaddrinfo (D35).
+libc = "0.2"

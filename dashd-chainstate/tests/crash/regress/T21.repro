@@ -1,0 +1,10 @@
+# CRASH planted bug T21 (CH2 §6.4), minimised in 126 replays.
+harness st3a/1
+sut chainsut
+config sub=250 invalid=22 effects=- presumed=- crash=- replay=- planted=T21
+workload c20;f;a3;c1;f
+crash 112 process-kill
+adversary realistic
+granularity write
+expect R2
+minimality verified
