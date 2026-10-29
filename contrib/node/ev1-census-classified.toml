@@ -1,0 +1,59 @@
+# The classification table of contrib/node/ev1-census.py (EV1 §3.13).
+#
+# [[nonliteral]]: every `Invalid(` call in the census scopes whose reason is not a string literal,
+# with the class Core passes, the reason expression, and every reason it can forward (with the
+# Core lines that produce them). `"*"` stands for any reason of EV1's checks, which the block
+# path re-wraps.
+#
+# [[unreachable]]: census rows no input can reach, with the Core reason why. Census closure
+# accepts these in place of an L0 vector.
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:1367"
+class = "TX_BAD_SPECIAL"
+expression = "migration_state.GetRejectReason()"
+# ApplyProUpServTx -> SetStateVersion: specialtxman.cpp:38 (AddNetInfoEntries), :94.
+reasons = ["bad-protx-netinfo-version"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:1476"
+class = "TX_BAD_SPECIAL"
+expression = "migration_state.GetRejectReason()"
+# SetStateVersion: specialtxman.cpp:38 (AddNetInfoEntries), :94.
+reasons = ["bad-protx-netinfo-version"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:826"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# CheckCbTx on the block path (CH7a).
+reasons = ["*"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:858"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# the shared-collateral covenant on the block path (CH7a).
+reasons = ["*"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:873"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# CheckSpecialTxInner on the block path (CH7a).
+reasons = ["*"]
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:49"
+reason = "bad-protx-payee-dest"
+why = "IsValidPayoutScript (providertx.cpp:20-23) admits only P2PKH and P2SH, which ExtractDestination always decodes"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:105"
+reason = "bad-protx-shares-payee-dest"
+why = "IsValidPayoutScript (providertx.cpp:20-23) admits only P2PKH and P2SH, which ExtractDestination always decodes"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:191"
+reason = "bad-protx-netinfo-addr"
+why = "Validate() never returns BadAddress: it checks IsTriviallyValid first (netinfo.cpp:353, :613), and a trivially valid entry holds a valid CService (netinfo.cpp:209-234; netinfo.h:212-216, :251)"

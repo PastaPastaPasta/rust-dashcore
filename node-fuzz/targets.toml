@@ -1,0 +1,1344 @@
+# Every node-fuzz target (O3). run.sh refuses a target that is not listed here, and
+# `fuzzctl check` fails unless this file, Cargo.toml's [[bin]] entries, the target files,
+# node_l1::TARGETS and node_fuzz::models::MODELS agree.
+#
+# owner         the crate whose code the target checks
+# kind          l1: a node-l1 comparison against Dash Core's oracle (CS0 §9.3)
+#               model: a check against a reference model (DEC-59 Q1)
+#               selftest: the runner's self-test target (run by `run.sh --selftest` only)
+# pins          the target's legs: one per pin (v24.0 only, DEC-82)
+# route         where triage puts minimised regression vectors (PLAN §7.5):
+#               private: stays in $DASH_EMBARGO_DIR; summaries give counts only. The default,
+#                        and required for every tx/block-codec target.
+#               public:  `fuzzctl export-public` may copy them out for git; STATUS lines name
+#                        the target and class
+# smoke         CPU seconds per leg in the per-PR smoke (0: none)
+# nightly       the target's weight in the nightly farm, per leg (0: not farmed)
+# public_seeds  repository directories whose files run.sh copies into the private public-seeds/
+# honggfuzz     the honggfuzz twin of the target in the workspace fuzz/ crate, if it has one.
+#               fuzzctl check fails on a fuzz/fuzz_targets/ file of a node crate (any directory
+#               but upstream's dash/ and hashes/) that no entry names.
+# min_certify_execs  executions a `fuzzctl certify` window needs before it can certify (DEC-186;
+#               default 1000000; fewer is `insufficient-progress`); set it for a slow target
+# smoke_corpus_max, smoke_corpus_max_bytes  the files and bytes of the smoke's sample of the
+#               working corpus and public seeds (BL-333; default 64 files, 4 MiB); the private
+#               seeds and fixed vectors are loaded in full whatever they say. Set from a
+#               measurement: the leg's INITED within half its smoke budget at the 90th
+#               percentile of its measured CPU-s per execution.
+
+[[target]]
+name = "diff_tx_decode"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+
+[[target]]
+name = "diff_block_decode"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+public_seeds = ["test-vectors/core/0364ed626ec2/src/bench/data"]
+
+[[target]]
+name = "diff_header_decode"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+
+# CS5a: the coins database and undo codecs (coin and undo records hold transaction outputs).
+[[target]]
+name = "diff_codec_primitives"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+
+[[target]]
+name = "diff_coin_decode"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+[[target]]
+name = "diff_undo_decode"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+# CS3: the transaction, header and block checks. v24 only (DEC-82): the comparisons have no
+# other pin.
+[[target]]
+name = "diff_check_transaction"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+[[target]]
+name = "diff_check_block"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+[[target]]
+name = "diff_contextual_check_tx"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+
+[[target]]
+name = "diff_contextual_check_block_header"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+# Its private seeds and fixed vectors alone take 12-16 of its 30 CPU-s to load (BL-333).
+smoke_corpus_max = 4
+
+[[target]]
+name = "diff_contextual_check_block"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+# O2c: BS8's overlay messages, compared with Core v24.
+# Private-route like every L1 target (mnlistdiff and qrinfo carry coinbase transactions).
+# Equal weights: `fuzzctl farm --only` gives each the same share of BS8's 24 CPU-h debt.
+[[target]]
+name = "diff_p2p_clsig"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_clsig"]
+
+[[target]]
+name = "diff_p2p_isdlock"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_isdlock"]
+
+[[target]]
+name = "diff_p2p_qsigrec"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qsigrec"]
+
+[[target]]
+name = "diff_p2p_qfcommit"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qfcommit"]
+
+[[target]]
+name = "diff_p2p_mnauth"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_mnauth"]
+
+[[target]]
+name = "diff_p2p_spork"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_spork"]
+
+[[target]]
+name = "diff_p2p_platformban"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_platformban"]
+
+[[target]]
+name = "diff_p2p_qgetdata"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qgetdata"]
+
+[[target]]
+name = "diff_p2p_qdata"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qdata"]
+
+[[target]]
+name = "diff_p2p_getqrinfo"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_getqrinfo"]
+
+[[target]]
+name = "diff_p2p_qrinfo"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qrinfo"]
+
+[[target]]
+name = "diff_p2p_mnlistdiff"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_mnlistdiff"]
+
+[[target]]
+name = "diff_p2p_smlentry"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_smlentry"]
+
+[[target]]
+name = "diff_p2p_qsnapshot"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_p2p_qsnapshot"]
+
+[[target]]
+name = "diff_mnlist_codec"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_mnlist_codec"]
+
+[[target]]
+name = "diff_mnlist_diff"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_mnlist_diff"]
+
+[[target]]
+name = "diff_mnlist_order"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_mnlist_order"]
+
+[[target]]
+name = "diff_dml_apply"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+public_seeds = ["node-fuzz/public-seeds/diff_dml_apply"]
+# About 25 executions a second per core (each builds an oracle context of ~520 headers and an
+# evodb list): the 24 CPU-hours of the EV2b gate are ~2 M.
+min_certify_execs = 300000
+
+[[target]]
+name = "diff_dml_block"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+# diff_dml_apply's input format and seeds (EV2b D40), and checked sequences (D54).
+public_seeds = ["node-fuzz/public-seeds/diff_dml_apply", "node-fuzz/public-seeds/diff_dml_block"]
+min_certify_execs = 300000
+
+[[target]]
+name = "mnlist_payee_queue"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/mnlist_payee_queue"]
+
+[[target]]
+name = "diff_unique_hash"
+owner = "dash-dml"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_unique_hash"]
+
+# LQ1a: quorum member selection, scans and selection for signing (`dash_evo::llmq`). Private
+# route: the inputs hold masternode lists (PLAN §7.5).
+[[target]]
+name = "diff_quorum_members"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_quorum_members"]
+
+[[target]]
+name = "diff_type_enabled"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_type_enabled"]
+
+[[target]]
+name = "diff_scan_quorums"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_scan_quorums"]
+
+[[target]]
+name = "diff_select_quorum"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_select_quorum"]
+
+# BS11a-1: dash-pkc's BLS decode against Core v24 (the code is the base SDK's, so node-l1
+# owns the target, as for the overlay targets).
+[[target]]
+name = "diff_bls_decode"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_decode"]
+
+# BS11a-3 D19: dash-pkc's BLS element arithmetic and IES key against Core's wrappers, dashbls
+# and relic (ABI 26's ops, every call logged). Private: exotic points reach relic's arithmetic.
+# A script runs up to 320 ops through the oracle, so a window needs fewer executions (D19).
+# ft does not count in its plateau tests (DEC-260 (2), DEC-396): cov held at 3584 over about
+# 11 fuzz-h and 86 CPU-h of farm and certify while ft gained 1 per 133k executions.
+[[target]]
+name = "diff_bls_arith"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_arith"]
+min_certify_execs = 200000
+plateau_ft = false
+
+# BS11b D25: dash-pkc's remaining BLS wrapper operations against Core's, over diff_bls_arith's
+# registers and loads: the aggregates and the secure aggregate, threshold shares and recovery,
+# and DH with multi-recipient BLS-IES. Private as diff_bls_arith is; certify and plateau as it.
+[[target]]
+name = "diff_bls_aggregate"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_aggregate"]
+min_certify_execs = 200000
+plateau_ft = false
+
+[[target]]
+name = "diff_bls_threshold"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_threshold"]
+min_certify_execs = 200000
+plateau_ft = false
+
+[[target]]
+name = "diff_bls_ies"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_ies"]
+min_certify_execs = 200000
+plateau_ft = false
+
+# BS11a-4 D10: dash-pkc's three verifications (VERIFY, VERIFY_AGG, VERIFY_SEC) against Core's
+# under both flags, on Group, invalid, kept-element and Exotic operands, over diff_bls_arith's
+# registers and loads; aggregate-then-verify and repeated hashes. Private as diff_bls_arith is;
+# certify and plateau as it.
+[[target]]
+name = "diff_bls_verify"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_bls_verify"]
+min_certify_execs = 200000
+plateau_ft = false
+
+# BS11a-3 D18: dash-pkc's Group values against their relic-engine rebuilds (Lemma T'): the
+# serializations, validity, shape and Core's equality. No oracle; private with its l1 twin.
+[[target]]
+name = "bls_engine_model"
+# dash-pkc lives in base-sdk; node-l1 owns the BLS targets here, as for diff_bls_decode.
+owner = "node-l1"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/seeds/bls_engine_model"]
+plateau_ft = false
+
+# LQ1b: DIP0024 rotation over longer chains (`dash_evo::llmq`), private for the same reason.
+[[target]]
+name = "diff_quorum_members_rot"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 3
+public_seeds = ["node-fuzz/public-seeds/diff_quorum_members_rot"]
+
+[[target]]
+name = "diff_check_tx_inputs"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+[[target]]
+name = "diff_sequence_locks"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+# CS4: versionbits (the dynamic threshold, the EHF signal height, Core's cache) and the EHF
+# stage filter.
+[[target]]
+name = "diff_versionbits"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+
+# O1c: Core's AddrMan and peer sessions (P2a §6.2-6.3). Until SB6's dash-p2p lands the node leg
+# is Core again on the same seed (a replay check); SB6 swaps in its code and takes ownership.
+[[target]]
+name = "diff_addrman"
+owner = "dash-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+
+[[target]]
+name = "diff_p2p_multi_handshake"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 16.7 execs/CPU-s (6,097 in 365 CPU-s) in a run.sh run at 809251543 (D55 check off), about half of a 3600 CPU-s window (P2a-core D58)
+min_certify_execs = 30000
+
+[[target]]
+name = "diff_p2p_multi_headers"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 16.4 execs/CPU-s (6,100 in 371 CPU-s) in a run.sh run at 809251543 (D55 check off), about half of a 3600 CPU-s window (P2a-core D58)
+min_certify_execs = 29000
+
+[[target]]
+name = "diff_p2p_multi_relay"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+# PARKED (P2a-net D32): its raw addrv2 payloads can carry BIP155 IPv6 in fc00::/8, which
+# base-sdk reads as CJDNS until BS10. Un-park in the merge that brings BS10. The relay is
+# installed (P2a-net D29; P2a-core D62's condition is met). Un-parking also needs a relay
+# witness (P2a-net D34): its floor below is throughput evidence only.
+smoke = 0
+nightly = 0
+# 33.0 execs/CPU-s (12,051 in 365 CPU-s) in a run.sh 0.1 CPU-h run at 502478334 with the relay
+# installed, about half of a 3600 CPU-s window (P2a-net D31)
+min_certify_execs = 59000
+
+[[target]]
+name = "diff_p2p_headers"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 3.03 execs/CPU-s (0.330 CPU-s/input) at 4709372ac, about half of a 3600 CPU-s window (P2a-core D53)
+min_certify_execs = 5000
+
+[[target]]
+name = "diff_p2p_headers2"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 0.94 execs/CPU-s (1.059 CPU-s/input) at 4709372ac, about half of a 3600 CPU-s window (P2a-core D53)
+min_certify_execs = 1500
+
+[[target]]
+name = "diff_p2p_inv"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 5.4 execs/CPU-s (0.185 CPU-s/input) at 81aeed4ba, about half of a 3600 CPU-s window (P2a-core D53)
+min_certify_execs = 10000
+
+[[target]]
+name = "diff_p2p_getdata"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 16.7 execs/CPU-s (0.060 CPU-s/input) at 81aeed4ba, about half of a 3600 CPU-s window (P2a-core D53)
+min_certify_execs = 30000
+
+[[target]]
+name = "diff_p2p_notfound"
+owner = "dashd-p2p"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 16.7 execs/CPU-s (0.060 CPU-s/input) at 81aeed4ba, about half of a 3600 CPU-s window (P2a-core D53)
+min_certify_execs = 30000
+
+# BS4b: base-sdk's decode domain against Core's (A1 §1.4, rule DDE). v24 only (DEC-82). Seeds are
+# cut from Core-produced data by node-l1/scripts/gen-bsdk-seeds.py.
+
+[[target]]
+name = "diff_bsdk_tx_decode"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+public_seeds = ["node-l1/tests/data/bsdk-seeds/diff_bsdk_tx_decode"]
+
+[[target]]
+name = "diff_bsdk_block_decode"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+public_seeds = ["node-l1/tests/data/bsdk-seeds/diff_bsdk_block_decode"]
+
+[[target]]
+name = "diff_bsdk_header_decode"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-l1/tests/data/bsdk-seeds/diff_bsdk_header_decode"]
+
+[[target]]
+name = "diff_payload_decode"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 4
+public_seeds = ["node-l1/tests/data/bsdk-seeds/diff_payload_decode"]
+
+# P2a-net: address relay against Core's peer session (P2a §6.2; P2a-net D14, D24, D25, D29),
+# with NodeAddressRelay installed in the node leg and fc00::/8 remapped (D30). Each certifies
+# once (D14, D31). min_certify_execs is throughput evidence only: that the relay paths run is
+# shown by node-l1's scripts_reach_core_address_paths (tests/p2p_addr.rs), not by certify.
+[[target]]
+name = "diff_p2p_addr"
+owner = "dashd-net"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 33,088 executions in a 3600 CPU-s certify window (3,940 CPU-s) at d0715cd07 on the farmed
+# corpus, under load; about half of it (P2a-net D31, D35)
+min_certify_execs = 16000
+
+[[target]]
+name = "diff_p2p_addrv2"
+owner = "dashd-net"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 33,049 executions in a 3600 CPU-s certify window (3,945 CPU-s) at d0715cd07 on the farmed
+# corpus, under load; about half of it (P2a-net D31, D35)
+min_certify_execs = 16000
+
+# O2b-3a: chain sessions driven by generated op sequences (node-program O2b §3-§6). Core alone
+# until O2b-3b (CoreOnly: shim health, the generator's expectations, same-process replay);
+# never certified in this mode. Not farmed until O2b-4 measures its floors (nightly 0).
+# Schedule S0 (S1 is O2b-4's diff_chain_par). The census goes to the run's tmp/diff_chain.stats.json.
+# A pure replay of its corpus drifts by up to 2 cov per 21 CPU-min and its ft by 0.22-1.0 % an hour
+# (BL-222): the plateau tests take 6 cov per window as flat and leave ft out (DEC-260 (2), (4)).
+# Its corpus loads differently in different processes. 8 replays of one 1626-input corpus
+# (regress/bl222-corpus, in libFuzzer's own order, as certify replays it) spread by 9 cov and 65 ft
+# (0.073 %) on the T17 pin (Core 7188798eff), and by 15 cov (17558-17573) and 101 ft (0.1135 %) on
+# the T19 pin (77dbec8242). The worst figure on either pin is kept (DEC-277): certify's two replays
+# may differ by ceil(1.5 x 15) = 23 cov and ceil(1.5 x 101) = 152 ft (DEC-271; README, certify).
+# DEC-271's 18-20 cov came from fixed-order replays of the D36 seed sets twice over (AABBCC vs
+# ABCABC, DEC-260 (1)), not from a corpus loaded the way certify loads one. Measure again as the
+# corpus grows and on every oracle pin change.
+[[target]]
+name = "diff_chain"
+owner = "node-l1"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 0
+public_seeds = ["node-fuzz/public-seeds/diff_chain"]
+plateau_cov_slack = 6
+plateau_ft = false
+replay_cov_slack = 23
+replay_ft_slack = 152
+
+[[target]]
+name = "diff_p2p_getaddr"
+owner = "dashd-net"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# about 0.93x addr's rate in the d0715cd07 farm segments (its certify window crashed first,
+# D35), so about half of a 3600 CPU-s window at that rate (P2a-net D31, D35)
+min_certify_execs = 15000
+
+# P2a-net BL-203: diff_p2p_addr's scripts out of IBD (-maxtipage 30 days on both legs), each peer
+# sending an addrMe, so MaybeSendAddr's self-announcement and its 24 h timer compare. That the
+# self-announcement runs is shown by node-l1's scripts_reach_core_self_announce, not by certify.
+[[target]]
+name = "diff_p2p_selfaddr"
+owner = "dashd-net"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+# 69,811 executions in its 1.5 CPU-h farm leg at 470211c0d (12.9 per CPU-s; 21.6 on an empty
+# corpus), under load; about half a 3600 CPU-s window at the leg's late, slower rate (P2a-net D43)
+min_certify_execs = 18000
+
+# O2a-CJ1: dash-coinjoin's session-free rules against Core's src/coinjoin (ABI 26).
+[[target]]
+name = "diff_coinjoin"
+owner = "dash-coinjoin"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_coinjoin"]
+
+# GV1a: dash-governance against Core's src/governance (O2a-GOV, ABI 26): proposals, objects and
+# triggers on the Core-produced regtest network.
+[[target]]
+name = "diff_gov"
+owner = "dash-governance"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_gov"]
+
+# GV1a: votes, and op scripts through Core's CGovernanceManager against the node's model of it
+# (tallies, sentinel flags, the best superblock and its payments).
+[[target]]
+name = "diff_gov_vote"
+owner = "dash-governance"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_gov_vote"]
+# DEC-417: plateau by cov alone. Two processes' replays of one corpus split ft into two values
+# about 470 apart: hit-count buckets in the oracle's LevelDB open and recovery, timing-dependent
+# (BL-383). cov is identical across replays (BL-370).
+plateau_ft = false
+# 14.5 execs/CPU-s (207,115 in 3.98 CPU-h, corpus loading included) in farm night gv1a-nc1 at
+# 1626458d4 on the BL-371 oracle archive, about half of a 3600 CPU-s window (GV1a D18, D34)
+min_certify_execs = 26000
+
+# EV3-1: the coinbase's value and payee checks (IsBlockValueValid, IsBlockPayeeValid) on the
+# payments fixture's blocks with their coinbases, lists and triggers edited.
+[[target]]
+name = "diff_block_value_payee"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_block_value_payee"]
+
+# EV3-2: dash-dml's credit pool against oracle_credit_pool_step, from the payments fixture's
+# credit steps with the parent's pool, the block's locks and unlocks and its CbTx edited.
+[[target]]
+name = "diff_credit_pool"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_credit_pool"]
+
+# EV3-3: dash-dml's MNHF manager against oracle_mnhf_step, on crafted regtest chains: V20's
+# placement, the deployments' windows, the stored rows, the tip's cache entry and the block's
+# signals.
+[[target]]
+name = "diff_mnhf_step"
+owner = "dash-evo"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 2
+public_seeds = ["node-fuzz/public-seeds/diff_mnhf_step"]
+
+[[target]]
+name = "kv_model"
+owner = "dashd-store"
+kind = "model"
+# The key-value layer does not depend on the release; one leg.
+pins = ["v24.0"]
+route = "public"
+smoke = 60
+nightly = 1
+
+[[target]]
+name = "coreimport_external_scan"
+owner = "dash-coreimport"
+kind = "model"
+# The block-file scanner does not depend on the release; one leg. It decodes blocks: a
+# block-codec target, so private-route (PLAN §7.5).
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 2
+honggfuzz = "fuzz/fuzz_targets/dash_coreimport/external_scan.rs"
+
+# IM1a: the Core net-state readers of dash_coreimport::netstate. The readers do not depend on the
+# release; one leg each. Seeds are the real files of dash-coreimport/tests/data/netstate.
+
+[[target]]
+name = "coreimport_peers_dat"
+owner = "dash-coreimport"
+kind = "model"
+# peers.dat (addrman formats 0-4)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 2
+public_seeds = ["node-fuzz/seeds/coreimport_peers_dat"]
+
+[[target]]
+name = "coreimport_anchors_dat"
+owner = "dash-coreimport"
+kind = "model"
+# anchors.dat
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_anchors_dat"]
+
+[[target]]
+name = "coreimport_banlist_json"
+owner = "dash-coreimport"
+kind = "model"
+# banlist.json
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_banlist_json"]
+
+[[target]]
+name = "coreimport_mempool_dat"
+owner = "dash-coreimport"
+kind = "model"
+# mempool.dat; it decodes transactions, so private-route (PLAN §7.5)
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 2
+public_seeds = ["node-fuzz/seeds/coreimport_mempool_dat"]
+
+[[target]]
+name = "coreimport_fee_estimates_dat"
+owner = "dash-coreimport"
+kind = "model"
+# fee_estimates.dat
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_fee_estimates_dat"]
+
+[[target]]
+name = "coreimport_settings_json"
+owner = "dash-coreimport"
+kind = "model"
+# settings.json
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_settings_json"]
+
+[[target]]
+name = "coreimport_governance_dat"
+owner = "dash-coreimport"
+kind = "model"
+# governance.dat (IM1b); it embeds a masternode list (PLAN §7.5), as dml_codec_roundtrip's readers do
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_governance_dat"]
+
+[[target]]
+name = "coreimport_mncache_dat"
+owner = "dash-coreimport"
+kind = "model"
+# mncache.dat (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_mncache_dat"]
+
+[[target]]
+name = "coreimport_netfulfilled_dat"
+owner = "dash-coreimport"
+kind = "model"
+# netfulfilled.dat (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_netfulfilled_dat"]
+
+[[target]]
+name = "coreimport_sporks_dat"
+owner = "dash-coreimport"
+kind = "model"
+# sporks.dat (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_sporks_dat"]
+
+[[target]]
+name = "coreimport_dash_conf"
+owner = "dash-coreimport"
+kind = "model"
+# dash.conf (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_dash_conf"]
+
+[[target]]
+name = "coreimport_onion_key"
+owner = "dash-coreimport"
+kind = "model"
+# onion_v3_private_key (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_onion_key"]
+
+[[target]]
+name = "coreimport_i2p_key"
+owner = "dash-coreimport"
+kind = "model"
+# i2p_private_key (IM1b)
+pins = ["v24.0"]
+route = "public"
+smoke = 20
+nightly = 1
+public_seeds = ["node-fuzz/seeds/coreimport_i2p_key"]
+
+# CH2a: the coins cache's value against CS5a's coin codec. A coin holds a transaction output: a
+# tx-codec target, so private-route (PLAN §7.5). The value does not depend on the release.
+[[target]]
+name = "packed_coin_roundtrip"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+[[target]]
+name = "coins_cache_model"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+[[target]]
+name = "coins_overlay_diff"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+# CH2 §6.5: the CRASH model's sweeps, one case per input. A case runs whole flushes and
+# recoveries (milliseconds), so certification needs fewer executions.
+[[target]]
+name = "chainstate_crash"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+min_certify_execs = 100000
+
+# CH3 §7.1 (D48), a5: the undo read's stream over arbitrary bytes, against Core's.
+[[target]]
+name = "undo_decode"
+owner = "dashd-store"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+# CH3 §7.1 (D48), a5: connect then disconnect of a random block, against Core's DisconnectBlock.
+[[target]]
+name = "connect_disconnect_roundtrip"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+# CH3 §7.1 (D48), b1: the disconnect pool against a reference model, over synthetic transactions
+# (no codec input). Core's own figures are b1's vectors.
+[[target]]
+name = "disconnect_pool"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+[[target]]
+name = "coins_replay_blind"
+owner = "dashd-chainstate"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+min_certify_execs = 100000
+
+[[target]]
+name = "p2p_transport_model"
+owner = "dash-p2p-transport"
+kind = "model"
+# The transports do not depend on the release; one leg. Framing and the cipher only, no
+# message decoding: public-route.
+pins = ["v24.0"]
+route = "public"
+smoke = 60
+nightly = 1
+
+# SB6: dash-p2p's decode policy against base-sdk's per-command decoder. Every command's payload
+# (tx and block payloads included), so private-route.
+[[target]]
+name = "p2p_decode_model"
+owner = "dash-p2p"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 1
+
+# SB6: dash-p2p's pre-handshake gates against a model of Core's ProcessMessage prologue. Commands
+# and peer state only: public-route.
+[[target]]
+name = "p2p_gate_model"
+owner = "dash-p2p"
+kind = "model"
+pins = ["v24.0"]
+route = "public"
+smoke = 30
+nightly = 1
+
+# P2a-net: the opencon loop in dashd-net's dial sim against ThreadOpenConnections' slot,
+# netgroup and address rules. Addresses and flags only: public-route.
+[[target]]
+name = "connman_sched"
+owner = "dashd-net"
+kind = "model"
+pins = ["v24.0"]
+route = "public"
+smoke = 30
+nightly = 1
+
+# P3 S3: compact-block reconstruction against invariants (§6.5). Its raw mode decodes
+# `cmpctblock` and `blocktxn`, transactions included, so private-route. D31's floor: a 5-minute
+# smoke. About 925 executions per CPU-second (2026-10-19), so the default min_certify_execs.
+[[target]]
+name = "cmpct_reconstruct"
+owner = "dashd-p2p"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 300
+nightly = 1
+
+# P3 S5: §6.1's in-flight accounting model (BlockRequested, RemoveBlockRequest, FinalizeNode,
+# section 12's stall start) against BlockDownload (§6.5, D106). No transaction or block decoding,
+# so public-route. D31's floor: a 5-minute smoke. About 215 executions per CPU-second on a grown
+# corpus since D108 added the per-block entry order to every step's comparison (2026-10-19: 68,974
+# in 320 CPU-s at 728b0fa86), so half a 3,600 CPU-s window is about 380,000 (D58's method, at the
+# rate a certify window's working corpus runs).
+[[target]]
+name = "block_download_model"
+owner = "dashd-p2p"
+kind = "model"
+pins = ["v24.0"]
+route = "public"
+smoke = 300
+nightly = 1
+min_certify_execs = 380000
+
+[[target]]
+name = "selftest_mismatch"
+owner = "node-fuzz"
+kind = "selftest"
+pins = []
+route = "public"
+smoke = 0
+nightly = 0
+
+# EV2a: the DML codecs (canonical list and diff, our records, Core's evodb rows). Private route:
+# the readers hold masternode state (PLAN §7.5).
+[[target]]
+name = "dml_codec_roundtrip"
+owner = "dash-dml"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 60
+nightly = 2
+public_seeds = ["node-fuzz/seeds/dml_codec_roundtrip"]
+
+# EV1-1: Core's NetInfo rules (EV1 §6.5, D29): total and deterministic, with the agreements
+# between Validate(), AddEntry and the migration predicate, until the NetInfo oracle entries make
+# them L1 targets. Private route: ProTx payload fields (PLAN §7.5).
+[[target]]
+name = "netinfo_validate"
+owner = "dash-dml"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/seeds/netinfo_validate"]
+
+[[target]]
+name = "netinfo_add_entry"
+owner = "dash-dml"
+kind = "model"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/seeds/netinfo_add_entry"]
+
+# BS6b: special-transaction payloads, one target per type, decoded by base-sdk's payload codecs
+# (which dash-consensus reads payloads with) and judged by Core's GetTxPayload. The release
+# profile is v24 only (DEC-82). Public seeds: Core-built payloads with every BLS field seeded per
+# outcome class (A1 §1.4.1).
+[[target]]
+name = "diff_payload_1"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_1"]
+
+[[target]]
+name = "diff_payload_2"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_2"]
+
+[[target]]
+name = "diff_payload_3"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_3"]
+
+[[target]]
+name = "diff_payload_4"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_4"]
+
+[[target]]
+name = "diff_payload_5"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_5"]
+
+[[target]]
+name = "diff_payload_6"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_6"]
+
+[[target]]
+name = "diff_payload_7"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_7"]
+
+[[target]]
+name = "diff_payload_8"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_8"]
+
+[[target]]
+name = "diff_payload_9"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_9"]
+
+[[target]]
+name = "diff_payload_10"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_10"]
+
+[[target]]
+name = "diff_payload_11"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_11"]
+
+[[target]]
+name = "diff_payload_12"
+owner = "dash-consensus"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 20
+nightly = 1
+public_seeds = ["node-l1/seeds/diff_payload_12"]
+
+# CH2c: CH2's coins cache against Core's coins views, aligned and hidden flush points (D2-D5).
+[[target]]
+name = "diff_coins_ops"
+owner = "dashd-chainstate"
+kind = "l1"
+pins = ["v24.0"]
+route = "private"
+smoke = 30
+nightly = 1
+public_seeds = ["node-fuzz/public-seeds/diff_coins_ops"]
+# 17.4 execs/CPU-s (62,466 in a 3600 CPU-s certify window) at e6cb3fa12, under the 1,000,000 default (CH2c, DEC-467)
+min_certify_execs = 50000
+# Certify 20261026T095110Z at e5f15d171: verdict growing (1 discovery line; cov 4601 flat, ft 27069 -> 27074,
+# +0.018%; 66,476 executions; 0 divergences, 0 crashes), accepted as converged by DEC-476 (waiver; BL-404)
