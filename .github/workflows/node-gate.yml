@@ -17,8 +17,9 @@
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
-# - a shard's `cargo test -p <its crates>` unifies dependency features across those crates only, not
-#   the whole workspace (45 of 392 dependency variants differ, cargo tree, 10-29);
+# - a shard's `cargo test -p <its crates>` gets its crates' workspace-resolved features passed in
+#   (`--features crate/feature`), but third-party dependency features still unify per shard (45 of 392
+#   dependency variants differed before that, cargo tree, 10-29);
 # - no BL-20 rerun and no per-binary time limit (test-run.py); the job timeout bounds a hang;
 # - pure and planted always run (no merge base to trigger on); oracle-diff stays local;
 # - the export points the base SDK pin at the public fork; static and extras point it back at a
@@ -129,6 +130,18 @@ jobs:
                                            check=True, capture_output=True, text=True).stdout)
           members = {p["name"] for p in meta["packages"] if p["id"] in meta["workspace_members"]}
           grouped = {c for gs in groups.values() for c in gs}
+          # `cargo test -p <crates>` unifies features across those crates only; local tier 1's
+          # `cargo test --workspace` unifies them across the workspace (dash-p2p's eviction test needs
+          # `inbound`, which only another crate's dev-dependency turns on). Each shard therefore asks for
+          # the features the workspace-wide resolve gives its own crates.
+          tree = subprocess.run(["cargo", "tree", "--locked", "--workspace", "-e", "normal,dev", "-f", "{p}|{f}",
+                                 "--prefix", "none"], check=True, capture_output=True, text=True).stdout
+          resolved = {}
+          for line in tree.splitlines():
+              pkg, _, feats = line.strip().removesuffix(" (*)").partition("|")
+              name = pkg.split(" ")[0]
+              if name in members and " (/" in pkg:
+                  resolved.setdefault(name, set()).update(f for f in feats.split(",") if f and f != "default")
           include = []
           for name, gs, opt in SHARDS:
               crates = [c for g in gs for c in groups[g]]
@@ -139,17 +152,18 @@ jobs:
               missing = [c for c in crates if c not in members]
               if missing:
                   raise SystemExit(f"shard {name}: not workspace members: {missing}")
+              feats = ",".join(f"{c}/{f}" for c in crates for f in sorted(resolved.get(c, ())))
               include.append({"shard": name, "kind": "test", "packages": " ".join(f"-p {c}" for c in crates),
-                              "rdashd": bool(opt.get("rdashd"))})
+                              "features": f"--features {feats}" if feats else "", "rdashd": bool(opt.get("rdashd"))})
           covered = [a for e in include for a in e["packages"].split() if a != "-p"]
           if len(set(covered)) != len(covered):
               raise SystemExit("a crate is in two shards")
           if set(covered) != members:
               raise SystemExit(f"members in no shard: {sorted(members - set(covered))}")
-          include += [{"shard": "clippy", "kind": "clippy", "packages": "", "rdashd": False},
-                      {"shard": "extras", "kind": "extras", "packages": "", "rdashd": False}]
+          include += [{"shard": "clippy", "kind": "clippy", "packages": "", "features": "", "rdashd": False},
+                      {"shard": "extras", "kind": "extras", "packages": "", "features": "", "rdashd": False}]
           for e in include:
-              print(f"{e['shard']}: {e['packages'] or e['kind']}")
+              print(f"{e['shard']}: {e['packages'] or e['kind']} {e['features']}")
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"matrix={json.dumps({'include': include})}\n")
 
@@ -226,10 +240,10 @@ jobs:
             echo "$(( SECONDS - s )) s; target $(du -sh target | cut -f1); $(df -h --output=avail / | tail -1) free"
             echo "::endgroup::"
           }
-          while read -r packages; do
+          while read -r selection; do
             # shellcheck disable=SC2086
-            build cargo test --locked --no-run $packages
-          done < <(jq -r '.include[] | select(.kind == "test") | .packages' <<<"$MATRIX")
+            build cargo test --locked --no-run $selection
+          done < <(jq -r '.include[] | select(.kind == "test") | "\(.packages) \(.features)"' <<<"$MATRIX")
           build cargo build --locked -p rdashd
           build cargo test --locked --no-run -p dashd-chainstate --features crash,planted-bugs --test crash_planted
           build cargo build --locked --release -p dash-consensus --lib
@@ -457,7 +471,7 @@ jobs:
         run: |
           rc=0
           /usr/bin/time -f 'build_s=%e build_cpu_s=%U+%S build_peak_kb=%M' -a -o "$METRICS" \
-            cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} > "$RUNNER_TEMP/build.json" || rc=$?
+            cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} ${{ matrix.features }} > "$RUNNER_TEMP/build.json" || rc=$?
           # Third-party units the restored closure should have held (0 on a good hit).
           echo "rebuilt_third_party=$(jq -s '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not))] | length' "$RUNNER_TEMP/build.json")" | tee -a "$METRICS"
           exit "$rc"
@@ -468,7 +482,7 @@ jobs:
           DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
         run: |
           /usr/bin/time -f 'test_s=%e test_cpu_s=%U+%S test_peak_kb=%M' -a -o "$METRICS" \
-            cargo test --locked --no-fail-fast ${{ matrix.packages }} 2>&1 | tee "$RUNNER_TEMP/test.log"
+            cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} 2>&1 | tee "$RUNNER_TEMP/test.log"
           rc=${PIPESTATUS[0]}
           grep -E "^test result" "$RUNNER_TEMP/test.log" | awk '{p+=$4; f+=$6; i+=$8} END {printf "tests_passed=%d tests_failed=%d tests_ignored=%d\n", p, f, i}' | tee -a "$METRICS"
           echo "skipped_lines=$(grep -ciE 'skipped|skipping' "$RUNNER_TEMP/test.log")" | tee -a "$METRICS"
