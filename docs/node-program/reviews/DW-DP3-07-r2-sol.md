@@ -1,0 +1,12 @@
+# Independent r2 review: DW DP3-07 at 6a47ff60
+
+Reviewed only `03113555..6a47ff60` and D13–D15. No blocking findings.
+
+- **P2 resolved.** `contactAside` supplies the counterparty name and direction when a label takes the row title; `TxRowView` places it in visually hidden text inside the row button. The Playwright assertions check the button's *accessible name* for “Coffee refund from Bob Builder” on both Home and Activity (`apps/desktop/e2e/history-contacts.spec.ts:44,48`). The helper also avoids repeating a name already used as the title.
+- **P3's new cases exercise the claimed paths.** The fixture puts Judy in the main identity's Hidden section. The browser test opens Judy's transaction, follows View contact to her aliased pane, and checks that focus falls back to the Contacts heading because the Hidden row is collapsed (`history-contacts.spec.ts:105`). The keyboard test activates a row with Enter and Space, restores focus after Escape, and activates View contact with Enter and Space (`:120`). The lock test checks the strip before locking, then verifies the chip is under an `inert` ancestor, cannot take focus, and is covered at its center by the lock screen (`:182`). These are behavior checks, not just fixture or markup checks.
+- **D14 is acceptable for this strip.** The lock screen is fixed across the viewport with an opaque background, and the shell is inert while locked. Keeping the strip mounted follows the existing shell lock behavior; the new test establishes that the strip cannot be seen or focused at the sampled chip. Discreet mode still removes it.
+- **D15's limitation is sound.** The current fixture has one contacts collection per wallet and validates an identity argument without selecting an identity-specific collection, so a second fixture identity would not meaningfully test a switch. Once the owner query reports a new main identity, Home keys its strip by that identity, the frequent query key includes it, and View contact reads the list under a key containing it. An actual identity-switch integration test remains for the fixture/model work described in D15.
+
+Checks: `pnpm build:fixture` passed in a scratch copy; focused Vitest passed (18 tests); `CI=1 pnpm exec playwright test e2e/history-contacts.spec.ts --project=chromium --workers=2` passed (16 tests); `git diff --check 03113555 6a47ff60` passed. The reviewed worktree remained clean.
+
+VERDICT: ACCEPT
