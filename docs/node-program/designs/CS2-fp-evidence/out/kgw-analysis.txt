@@ -1,0 +1,22 @@
+# pow(x_m, -1.228): variant vs correctly rounded (MPFR)
+x86_64-fma: 6 of 4032 differ from CR; masses [1695, 2109, 2337, 2381, 3083, 3111]
+x86_64-sse2: 5 of 4032 differ from CR; masses [851, 2109, 2381, 3083, 3111]
+aarch64: 6 of 4032 differ from CR; masses [1695, 2109, 2337, 2381, 3083, 3111]
+
+# EHD (d, s) per combination; masses 14..4032 (used in decisions)
+masses where (d, s) is not identical across combinations: 21
+
+# integer thresholds A_fast / A_slow per combination
+masses with differing thresholds: 0
+
+# closest approach of fl(150m/a) to each boundary (in ulps of the boundary), reference combo = x86_64-fma
+  m=2712: 35751.000 ulp
+  m=3339: 283332.000 ulp
+  m=441: 1035493.000 ulp
+  m=2426: 3822768.000 ulp
+  m=2146: 3829666.000 ulp
+  m=2539: 3995978.000 ulp
+  m=2956: 4215884.000 ulp
+  m=2399: 4693935.000 ulp
+  m=2319: 6969258.000 ulp
+  m=660: 7045961.000 ulp
