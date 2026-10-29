@@ -1,0 +1,16 @@
+[package]
+name = "dash-clock"
+description = "Time sources shared by the Rust Dash node and SPV: Core's mockable NodeClock, a steady clock, the adjusted-time seam, and Core's ISO 8601 time formatting"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "dash_clock"
+path = "src/lib.rs"
+
+[dependencies]
