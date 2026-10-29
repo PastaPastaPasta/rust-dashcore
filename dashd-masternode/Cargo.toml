@@ -1,0 +1,61 @@
+[package]
+name = "dashd-masternode"
+description = "The Rust Dash node's masternode-network services: the spork manager (SP0), and the masternode sync, netfulfilled and masternode metadata (SP1)."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dashd_masternode"
+path = "src/lib.rs"
+
+[features]
+default = ["net"]
+# The `spork`/`getsporks` handler for P2a-core's registry; rdashd turns it on (P5a D15).
+net = ["dep:dash-p2p", "dep:dashd-p2p"]
+
+[dependencies]
+# `SporkView`, the chain's SPORK_19 seam.
+dash-chain = { path = "../dash-chain" }
+# `AdjustedTime`.
+dash-clock = { path = "../dash-clock" }
+# SHA256d for the store file's checksum.
+dash-consensus = { path = "../dash-consensus" }
+# The spork core: hashes, signatures, validation, store and values; `ProTxHash` and `Effect`.
+dash-evo = { path = "../dash-evo" }
+# `CService`, the netfulfilled key.
+dash-netaddr = { path = "../dash-netaddr" }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p = { path = "../dash-p2p", optional = true }
+dash-p2p-core = { workspace = true, features = ["std"] }
+# `-sporkkey`: WIF decoding.
+dash-pkc = { workspace = true, features = ["codec", "std"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# The registry the spork handler joins.
+dashd-p2p = { path = "../dashd-p2p", optional = true }
+parking_lot = "0.12"
+secp256k1 = { workspace = true }
+tracing = "0.1"
+
+[dev-dependencies]
+# IM1b's readers of Core's flat files: the cross-test keeps the two codecs from forking (SP1 D3).
+dash-coreimport = { path = "../dash-coreimport" }
+dash-network = { path = "../dash-network" }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+tempfile = "3"
+
+[[test]]
+name = "sync_transcripts"
+# Replays the sync tick against dashd v24.0.0-rc.4's transcripts.
+required-features = ["net"]
+
+[[test]]
+name = "spork_transcripts"
+# Replays the handler against dashd's transcripts.
+required-features = ["net"]
