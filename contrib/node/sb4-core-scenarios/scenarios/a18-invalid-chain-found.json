@@ -1,0 +1,64 @@
+{
+ "name": "a18-invalid-chain-found",
+ "description": "ConnectBlock fails at C7 (InvalidChainFound, m_failed_blocks); a later header on C30 takes the lazy m_failed_blocks walk (FAILED_CHILD C8..C30, bad-prevblk)",
+ "rows": [
+  "A-18",
+  "A-28"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 20,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A5",
+   "count": 1,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "C6",
+   "count": 1,
+   "submit": "none",
+   "invalid": "cb-amount"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "C7",
+   "count": 23,
+   "submit": "none"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "C6..C30"
+   ]
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "C6..C25"
+   ]
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "C30",
+   "count": 1,
+   "submit": "headers"
+  }
+ ]
+}

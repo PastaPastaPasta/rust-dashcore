@@ -1,0 +1,16 @@
+# Today's layer-rule violations, each with the row that closes it (SB0 §2.3).
+# A ratchet over offending edges: per rule and root, `edges` lists every
+# grandfathered edge (from -> to [kind, target condition], with the version
+# and source of a package outside the workspace), exactly as check-layers.py
+# prints them. An offending edge not listed fails, a parallel route to a
+# listed package included, and so does a listed edge that no longer occurs.
+
+# IM1a's net-state readers name dash_network::Network in dash-coreimport's
+# library; BS16 maps it onto the base SDK's NetworkKind (CV3 moves the type).
+[[violation]]
+rule = "L3"
+root = "dash-coreimport without wallet"
+closes = "BS16"
+edges = [
+    "dash-coreimport -> dash-network [normal]",
+]
