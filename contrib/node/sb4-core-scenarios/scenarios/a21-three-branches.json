@@ -1,0 +1,56 @@
+{
+ "name": "a21-three-branches",
+ "description": "A100 (data), B110 active, C105 stale and header-only, from 80; lock on A100; a second enforcement changes nothing",
+ "rows": [
+  "A-21",
+  "A-21a",
+  "A-30",
+  "A-20"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A80",
+   "count": 25,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A80",
+   "count": 30,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "enforce"
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+# L6, the mobile closure (SB0 §2.3): packages the default-feature normal
+# closure of dash-spv-ffi and key-wallet-ffi must not contain, on each target
+# below. check-mobile.sh adds every Pn and N crate of layers.toml.
+#
+# The file keeps cargo-deny's shape, but check-layers.py reads the closure
+# with `cargo tree -e normal` rather than `cargo deny check bans`: cargo-deny
+# also follows build dependencies, and clap reaches the products as a build
+# dependency of cbindgen, a host tool that ships nothing. iOS is read from
+# the target-aware graph only; no build is needed (SB0 §2.3, "iOS check").
+
+[graph]
+targets = ["aarch64-linux-android", "aarch64-apple-ios"]
+
+[bans]
+deny = [
+    # Storage engines other than SQLite (libsqlite3-sys is allowed).
+    { crate = "rocksdb", reason = "node-only storage engine (SB0 L6)" },
+    { crate = "librocksdb-sys", reason = "node-only storage engine (SB0 L6)" },
+    { crate = "leveldb-sys", reason = "node-only storage engine (SB0 L6)" },
+    { crate = "libmdbx", reason = "node-only storage engine (SB0 L6)" },
+    # Allocators: mobile uses the system allocator (SB0 §7).
+    { crate = "tikv-jemallocator", reason = "the products use the system allocator (SB0 L6)" },
+    { crate = "tikv-jemalloc-sys", reason = "the products use the system allocator (SB0 L6)" },
+    { crate = "mimalloc", reason = "the products use the system allocator (SB0 L6)" },
+    # CLI and log-file plumbing that belongs in binaries.
+    { crate = "clap", reason = "argument parsing belongs to the binaries (SB0 L6; the CLIs live in dash-spv-cli)" },
+    { crate = "tracing-appender", reason = "log files are a host choice (SB0 L6; dash-spv has it behind `log-file`)" },
+    # The DML's persistent maps are node-only (EV addendum §1.1).
+    { crate = "imbl", reason = "node-only: the DML's maps stay out of the mobile closure (EV addendum §1.1)" },
+    { crate = "imbl-sized-chunks", reason = "node-only: the DML's maps stay out of the mobile closure (EV addendum §1.1)" },
+]
