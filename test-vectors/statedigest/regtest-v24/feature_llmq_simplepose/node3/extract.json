@@ -1,0 +1,97 @@
+{
+ "bip9": {
+  "groups": [],
+  "unchecked": []
+ },
+ "blocks_dat_sha256": "6a39f8d01dd1026c90d7ac6a30dfda797a1e7f69163ef60af2af8ef2ffe4fbe1",
+ "chain_args": [
+  "-llmqtestinstantsendparams=5:3",
+  "-llmqtestparams=5:3",
+  "-llmqtestplatformparams=5:3",
+  "-dip3params=2:2",
+  "-testactivationheight=v20@9999",
+  "-testactivationheight=mn_rr@9999"
+ ],
+ "check_sha256": "d85270c83cf75e3ee769639d581292b8b60154219b7a5ef05564283daf43d715",
+ "conformance_sha256": "98ac3f62376589d4b1e296eb317a67e66f4ee4ff6a35eb703603f8298272683e",
+ "core": {
+  "branch": "node/state-digest-v24.0",
+  "commit": "0a36fab32cb57c8854f3585c88f35fbaf0759f8b",
+  "compiler": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "configure": "--enable-ccache --without-gui --disable-zmq --without-miniupnpc --without-natpmp --disable-bench --disable-fuzz-binary --disable-man",
+  "depends": "NO_QT=1 NO_ZMQ=1 NO_UPNP=1 NO_NATPMP=1 NO_USDT=1",
+  "depends_id": "6d59b8793ff4d2919aeb420a9e4e0e235696f2b2",
+  "describe": "v24.0.0-rc.3-8-g0a36fab32cb5",
+  "flags": "-O2 -g1",
+  "host": "x86_64-pc-linux-gnu",
+  "modified_files": "0",
+  "sha256": {
+   "dash-cli": "f94a0bb5745b69edfa8e9d3d37d78157e242a50375f4d2b716d409adbbc29200",
+   "dash-tx": "c3ca032fb7b1dac7ca495a6652e8f184a7b8855b4aec3e1d37167ddecfd24588",
+   "dash-wallet": "e1fc9b731c6402d083f51660393d8d6ced241908319d0cf2ffd227e592219df2",
+   "dashd": "b7f7ebad7f2dbe38d8c5334586b59facf652e686be3ee2afba6aa8c71f87943a",
+   "test_dash": "513307235502e631315ae23a566e515c535c75ff418325ffd89e1b6b4eae36c0"
+  }
+ },
+ "dec177": {
+  "legs": [
+   "oracle canonical re-encode",
+   "oracle hash = RPC hash",
+   "hash = sha256d(hex)"
+  ],
+  "samples": 19,
+  "verdicts": {
+   "match": 19
+  }
+ },
+ "decisions": {
+  "sha256": "7d3cdc777e8e063232dd6566bdfa04c624f55b022734954deb8b39fe1f6dc560"
+ },
+ "digest": {
+  "sha256": "86ef29418c534278f35259f291590ef50192d1ca3010d073b159fc526bbf74b5"
+ },
+ "golden": {
+  "heights": [
+   128,
+   596
+  ],
+  "lines": 2873,
+  "sha256": "9d077ae8073c95e4b4d438e74c8c6eb1a9f03e8708ff5eeebb9e3320d6f2c5fa"
+ },
+ "mocktime": 1417732857,
+ "other_params_runs": [],
+ "reproducible": true,
+ "rig": {
+  "files": {
+   "build.sh": "4d0c82adfe58e613282ec5bdf49fba1d8581f602976123ce1c3f8609a9fea58f",
+   "common.py": "01ed0d32a4820e487ffaea87db6ab0c063f390dd612d6dbe718dcaaffcf4f8e8",
+   "dashd-wrapper": "d262d2f4a05ddc7b520ba9b2c4f26c24b6095881141a16af2183ce1bb25702f1",
+   "dml-leg.sh": "b6163dbf2a3f9926f59460708cd1c513905e9316dbb8886b3994796f20fb1694",
+   "extract.py": "c2951621e18790a8640bc3bf217c288ea93f33f5d9c53004d1e789203413b667",
+   "ft-list.txt": "4d2b371de1e8734830ed385680f9ca7f2768e7f05911af680592efcfeb2289fd",
+   "overhead.py": "6206d24629e25cb48189cd882fc16d22cbce8d290afcba92a427682674eaa58a",
+   "record-ft.py": "97485c05ba84811597b06f88991777a04eba14f690515f6292b6f64b787fc60c",
+   "store-vectors.sh": "009344803676004801eb36293c21f824c23ce02419b4148308a57a2c85b8eda6"
+  },
+  "rdc_commit": "844b946c51b39c0436acd38588b11ce74c38fc03",
+  "rig_dirty": false
+ },
+ "summary": {
+  "bip9_unchecked": [],
+  "blocks": 469,
+  "chain": "regtest",
+  "run": "4d4be6630d77a2b895e4a1521496e7ccc2851a399acc493cf4da18876a72cfa2",
+  "skipped": [],
+  "sparse": {
+   "canonical_mnlist": 19,
+   "deploymentinfo": 469,
+   "mn_payments": 469,
+   "protx_list": 469,
+   "protx_listdiff": 469,
+   "quorum_info": 34,
+   "quorum_listextended": 469,
+   "rotationinfo": 5
+  },
+  "tip": 596
+ }
+}
