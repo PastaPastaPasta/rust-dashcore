@@ -1,0 +1,21 @@
+{
+"source": "src/test/script_tests.cpp",
+"records": [
+{"script":"5152","pattern":"","count":0,"result":"5152"},
+{"script":"515253","pattern":"52","count":1,"result":"5153"},
+{"script":"535153535453","pattern":"53","count":4,"result":"5154"},
+{"script":"0302ff03","pattern":"0302ff03","count":1,"result":""},
+{"script":"0302ff030302ff03","pattern":"0302ff03","count":2,"result":""},
+{"script":"0302ff030302ff03","pattern":"02","count":0,"result":"0302ff030302ff03"},
+{"script":"0302ff030302ff03","pattern":"ff","count":0,"result":"0302ff030302ff03"},
+{"script":"0302ff030302ff03","pattern":"03","count":2,"result":"02ff0302ff03"},
+{"script":"02feed5169","pattern":"feed51","count":0,"result":"02feed5169"},
+{"script":"02feed5169","pattern":"02feed51","count":1,"result":"69"},
+{"script":"516902feed5169","pattern":"feed51","count":0,"result":"516902feed5169"},
+{"script":"516902feed5169","pattern":"02feed51","count":1,"result":"516969"},
+{"script":"00005151","pattern":"0051","count":1,"result":"0051"},
+{"script":"000051005151","pattern":"0051","count":2,"result":"0051"},
+{"script":"0003feed","pattern":"03feed","count":1,"result":"00"},
+{"script":"0003feed","pattern":"00","count":1,"result":"03feed"}
+]
+}
