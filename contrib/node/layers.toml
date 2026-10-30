@@ -1,0 +1,345 @@
+# The crate layers and the rules between them (docs/node-program/designs/
+# SB0-shared-base.md §2.1–§2.3, rules L1–L9). They replace rule R2.
+#
+# contrib/node/check-layers.py reads this file:
+#   L1  every workspace crate has exactly one layer in [crates];
+#   L2  normal and build edges, direct and transitive, point only to the
+#       layers [allowed] lists for the crate's layer;
+#   L3  N reaches W only through [w-boundary] allow_w, and the hot path
+#       reaches no W at all;
+#   L8  and the other [bans]: packages a layer's closure must not contain.
+# contrib/node/check-pure.sh (L4) checks the P and Pn crates and those
+# marked `pure`,
+# contrib/node/check-shared.sh (L5) the S crates, and
+# contrib/node/check-mobile.sh (L6, L7) the mobile products; L6 also bans
+# every Pn and N crate named here. Today's violations are listed, with the
+# row that closes each, in contrib/node/layers-baseline.toml.
+#
+# `pure = true` also holds a crate of another layer to L4's pure bans
+# (check-pure.sh), as P1 asks for the sans-io dash-p2p-transport.
+#
+# Every package Cargo resolves is classified: from a [b] source it is B,
+# else its [crates] entry, else a [patterns] match; any other package is
+# outside every layer. A copy of a listed crate from crates.io, git or a path
+# has that crate's layer and is checked like a member.
+#
+# A crate that is not a workspace member yet carries `pending`, the row or
+# branch that brings it. A pending crate that is not a member is not an
+# error; a member that still says `pending` is, so the tag goes when the
+# crate merges.
+
+# For each layer, the layers its crates may depend on (SB0 §2.3 L2). Every
+# layer may also depend on unclassified crates outside the workspace, subject
+# to [bans]. B, the base SDK, depends on nothing of this repository (it
+# replaces R2's ban on base SDK packages depending on W).
+[allowed]
+B = ["B"]
+P = ["B", "P"]
+Pn = ["B", "P", "Pn"]
+S = ["B", "P", "S"]
+V = ["B", "P", "S", "W"]
+# N reaches W only through allow_w (L3).
+N = ["B", "P", "Pn", "S", "N"]
+# W → W is the existing wallet stack (key-wallet-manager → key-wallet →
+# dashcore); W → P are compatibility re-exports.
+W = ["B", "P", "W"]
+A = ["B", "P", "Pn", "S", "V", "N", "W", "A"]
+T = ["B", "P", "Pn", "S", "V", "N", "W", "A", "T"]
+
+# B: every package from these sources, whatever its name (Cargo package
+# sources or ids, matched as prefixes). check-layers.py adds the fork the
+# root manifest's [patch] pins (base_sdk_pins.py fork).
+[b]
+sources = ["git+https://github.com/dashpay/base-sdk"]
+
+# Packages no [crates] entry names are classified by name (SB0 §2.1), inside
+# the workspace or not: an unlisted outside `dashd-*` crate is still N, so V,
+# S, P and the mobile closure (L6) may not reach it.
+[patterns]
+"dashd-*" = "N"
+
+[crates]
+# P: pure, shared (mobile).
+dash-consensus = "P"
+dash-sha256 = "P"
+# Core's network addresses and resolver-free name helpers, shared by dash-p2p and NetInfo (EV1 D28).
+dash-netaddr = "P"
+dash-x11 = "P"
+dash-evo = "P"
+dash-filters = "P"
+# CoinJoin rules (CJ0): validation, relay rules, session machines, rounds;
+# P so the wallet stack and the mobile and desktop wallets share the client rules (CJ0 D17).
+dash-coinjoin = "P"
+# Pn: pure, node-only.
+dash-dml = "Pn"
+# Governance rules (GV1a): object and vote hashes, the proposal validator, triggers, tallies.
+dash-governance = "Pn"
+# LLMQ DKG (LQ4): the session, its message batch and its phase arithmetic.
+dash-llmq = "Pn"
+# The StateDigest v1 record grammar (O8): dashd-chainstate writes it, the conformance tools read it.
+dash-statedigest = "Pn"
+# S: shared runtime (mobile).
+dash-p2p-transport = { layer = "S", pure = true }
+dash-p2p = "S"
+dash-chain = "S"
+dash-clock = "S"
+dash-kv = "S"
+dash-kv-sqlite = "S"
+dash-mnlist = "S"
+# V: the SPV client library.
+dash-spv = "V"
+# N: node runtime. dash-args and dash-rpc-spec are A1's node-side shared
+# libraries (A1 §2.3): rdashd and rdash-cli use them, mobile does not.
+dashd-store = "N"
+dashd-chainstate = "N"
+dash-coreimport = "N"
+dash-args = "N"
+dash-rpc-spec = "N"
+# The node process shell (ND1): init and shutdown order, logging, scheduler, host services.
+dashd-node = "N"
+# The message processor over dash-p2p (P2a-core): PeerManager, sync, eviction, the seams.
+dashd-p2p = "N"
+# The connection manager and address relay (P2a-net): dial threads, binds, peers.dat and anchors.dat, NodeAddressRelay.
+dashd-net = "N"
+# The RPC server (RP0): Core's HTTP server, authentication, JSON-RPC dispatch, control and chain commands.
+dashd-rpc = "N"
+# Masternode-network services (A1 §2.6): the spork manager (SP0).
+dashd-masternode = "N"
+# The block template source and regtest miner (MN0): CreateNewBlock, GenerateBlock's nonce loop.
+dashd-mining = "N"
+dashd-lockedpool = "N"
+# W: the legacy wallet and type stack.
+dashcore = "W"
+dashcore_hashes = "W"
+dashcore-crypto = "W"
+dashcore-private = "W"
+dash-network = "W"
+dash-network-seeds = "W"
+key-wallet = "W"
+key-wallet-manager = "W"
+dashcore-rpc = "W"
+dashcore-rpc-json = "W"
+# dash-spv's compile-time helper (a proc-macro): W lets dash-spv use it and
+# keeps it out of every layer below.
+git-state = "W"
+# A: products.
+dash-spv-ffi = "A"
+# The dash-spv and dash-spv-ffi command-line binaries; clap lives here, not in the libraries.
+dash-spv-cli = "A"
+# rdash-cli, the dash-cli port (AR3, DEC-03): a product binary over N's dash-args and dash-rpc-spec.
+rdash-cli = "A"
+# rdashd, the node daemon (ND1, DEC-03): its main, signals and -daemon over dashd-node.
+rdashd = "A"
+key-wallet-ffi = "A"
+# T: tests and tools.
+dash-conformance = "T"
+dash-core-vectors = "T"
+dash-fuzz = "T"
+dash-oracle-sys = "T"
+dash-spv-bench = "T"
+# dash-testkit (O16): the regtest harness over dash-spv's test-utils, for tests only.
+dash-testkit = "T"
+integration_test = "T"
+masternode-seeds-fetcher = "T"
+node-l1 = "T"
+node-sink = "T"
+# node-test-ports (BL-221): free ports for the nodes tests start.
+node-test-ports = "T"
+
+[w-boundary]
+# N crates that may reach W (L3). `crate/feature` allows only the edges the
+# feature adds: with it off, the crate's own graph has no W at all.
+allow_w = ["dashd-wallet", "dash-coreimport/wallet"]
+# N crates whose own graph, with every feature, reaches no W crate at all,
+# not even through allow_w. A name that is not a member yet is skipped.
+hot_path = ["dashd-chainstate", "dashd-p2p", "dashd-mempool", "dashd-indexes"]
+
+# Packages outside the workspace that the closure of a layer's crates must
+# not contain: normal and build edges, every feature, every target. The walk
+# stops at classified packages of other layers, which answer for their own.
+# `rule` (default L8) names the rule a hit is reported and baselined under;
+# `packages` lists other package names that count as the banned one;
+# `exempts` lists layers whose packages the walk does not enter (bincode is
+# W's own codec, behind allow_w for N).
+[bans]
+# L8: one codec below the products. The workspace's `bincode` is the
+# grovedb-bincode package.
+bincode = { layers = ["B", "P", "Pn", "S", "N"], exempts = ["W"], packages = ["bincode_derive", "grovedb-bincode", "grovedb-bincode-derive"], reason = "B, P, Pn, S and N decode protocol bytes only with base-sdk and dash-consensus (SB0 L8)" }
+# The DML's persistent maps are node-only (EV addendum §1.1, SB0 §2.2).
+imbl = { layers = ["B", "P", "S", "V"], rule = "L2", reason = "node-only: the DML's maps stay out of the shared and mobile closure (EV addendum §1.1)" }
+imbl-sized-chunks = { layers = ["B", "P", "S", "V"], rule = "L2", reason = "node-only: the DML's maps stay out of the shared and mobile closure (EV addendum §1.1)" }
+
+# L7's reference while the merge base with node/integration has no
+# contrib/node/mobile-size.txt (DEC-170): SB1's first measurement, never a
+# record on the branch. The decision cited here states its values, so changing
+# one needs a decision that states the new ones; once a merge base carries this
+# table, also one new to the change.
+[size]
+library = "libdash_spv_ffi.so"
+target = "aarch64-linux-android"
+profile = "release"
+ndk = "29.0.14206865"
+api = "24"
+bytes = 12615752
+ruling = "DEC-170"
+
+# The product registry (DEC-181, DEC-188): every artifact the program ships or
+# tests as a product, as it is built. contrib/node/check-products.py (the
+# gate's `products` step, check-products.sh; CI runs its --registry part)
+# fails on any cdylib, staticlib or bin target of a workspace member, of any
+# Cargo kind, that no row or [[product-exclusion]] names, and proves the
+# allocator rule (SB0 L5) on each row: for each target and triple, the product
+# builds with these features and profile, and a canary that sets its own
+# #[global_allocator] links against it. `allocator = "own"` marks a product
+# that installs its own allocator: its canary must conflict, and only through
+# the product's own package (DEC-188 (1)).
+# A row: package, targets (target names), triples ("host" or a target triple),
+# and optionally features (default []), default-features (default true),
+# profile (default "release"), allocator and kind ("lib", "bin" or "example",
+# needed where targets of different kinds share a name).
+# An exclusion: `kind` ("example", "test" or "bench", covering only that
+# kind's plain executables) or `package` and `targets`, with a `reason`.
+[[product-exclusion]]
+kind = "test"
+reason = "cargo test harnesses, run by the gate's test step; never shipped"
+
+[[product-exclusion]]
+kind = "bench"
+reason = "cargo bench harnesses (criterion and PF0's perfgate); never shipped"
+
+[[product-exclusion]]
+kind = "example"
+reason = "examples developers run by hand; none ships, and an example library would need a row"
+
+[[product]]
+package = "dash-spv-ffi"
+targets = ["dash_spv_ffi"]
+triples = ["host"]
+
+# The Android libraries ship from `profile.mobile` (SB2; L7 measures it), so the
+# allocator proof builds that profile for them.
+[[product]]
+package = "dash-spv-ffi"
+targets = ["dash_spv_ffi"]
+triples = ["aarch64-linux-android"]
+profile = "mobile"
+
+[[product]]
+package = "key-wallet-ffi"
+targets = ["key_wallet_ffi"]
+triples = ["host"]
+
+[[product]]
+package = "key-wallet-ffi"
+targets = ["key_wallet_ffi"]
+triples = ["aarch64-linux-android"]
+profile = "mobile"
+
+[[product]]
+package = "dash-spv-cli"
+targets = ["dash-spv", "dash-spv-ffi"]
+triples = ["host"]
+
+[[product]]
+package = "rdash-cli"
+targets = ["rdash-cli"]
+triples = ["host"]
+
+[[product]]
+package = "rdashd"
+targets = ["rdashd"]
+triples = ["host"]
+
+# dash-spv-bench/run.sh builds it with its default features, cpu-profile or
+# heap-profile, which installs jemalloc; it refuses both at once (DEC-188 (2)).
+[[product]]
+package = "dash-spv-bench"
+targets = ["dash-spv-bench"]
+triples = ["host"]
+
+[[product]]
+package = "dash-spv-bench"
+targets = ["dash-spv-bench"]
+features = ["cpu-profile"]
+triples = ["host"]
+
+[[product]]
+package = "dash-spv-bench"
+targets = ["dash-spv-bench"]
+features = ["heap-profile"]
+triples = ["host"]
+allocator = "own"
+
+[[product]]
+package = "dash-conformance"
+targets = ["dash-conformance"]
+triples = ["host"]
+
+[[product]]
+package = "masternode-seeds-fetcher"
+targets = ["masternode-seeds-fetcher"]
+triples = ["host"]
+
+[[product]]
+package = "integration_test"
+targets = ["integration_test"]
+triples = ["host"]
+
+[[product]]
+package = "dash-fuzz"
+targets = [
+    "dash_coreimport_external_scan", "dash_deser_net_msg", "dash_deserialize_address",
+    "dash_deserialize_amount", "dash_deserialize_block", "dash_deserialize_prefilled_transaction",
+    "dash_deserialize_script", "dash_deserialize_transaction", "dash_deserialize_witness",
+    "dash_outpoint_string", "dash_script_bytes_to_asm_fmt", "hashes_cbor", "hashes_json",
+    "hashes_ripemd160", "hashes_sha1", "hashes_sha256", "hashes_sha512", "hashes_sha512_256"
+]
+triples = ["host"]
+
+# The native packages of the S and pure crates' closures (DEC-188 (3)): every
+# package there with a `links` key or a build script compiling C or C++ (a
+# cc, cmake or bindgen build-dependency) needs a record, its package, version
+# and a review note confirming it does not replace or interpose malloc or free;
+# link-probe.py fails on any other. The package-name bans in shared-deny.toml
+# and pure-deny.toml stay as the early check.
+[[native]]
+package = "blst"
+version = "0.3.17"
+note = "BLS12-381 in C and assembly without heap use: its archive (host, Android) defines and calls no malloc-family symbol; reviewed SB1 r6"
+
+[[native]]
+package = "secp256k1-sys"
+version = "0.14.1"
+note = "libsecp256k1 under the rustsecp256k1_v0_14_ prefix; its archive (host, Android) defines and calls no malloc-family symbol, context create/destroy are Rust over the global allocator; reviewed SB1 r6"
+
+[[native]]
+package = "rayon-core"
+version = "1.13.0"
+note = "no native code: `links = \"rayon-core\"` only keeps one rayon-core per graph, and its build.rs compiles and links nothing (it prints rerun-if-changed alone); reached by dash-chain, whose rayon work runs in the host's injected pool (SB0 L5); reviewed train 8"
+
+# Exceptions to L5's forbidden calls (check-shared.sh): each record exempts
+# exactly one call to `path` in `function`'s body in the crate's `file`;
+# another call anywhere, a second one there, or none left fails. `until` is
+# the BACKLOG row that removes the call and the record.
+[[l5-exception]]
+crate = "dash-p2p"
+path = "std::process::abort"
+file = "src/netcore.rs"
+function = "abort_on_panic"
+decision = "DEC-205"
+until = "BL-118"
+note = "Core's TraceThread: a panic on the net loop aborts the process (SB6 D44). BL-118 routes it through an injected dash_kv::latch::AbortSink once SB10 brings it to S"
+
+[[native]]
+package = "libsqlite3-sys"
+version = "0.36.0"
+note = "the bundled SQLite amalgamation (dash-kv-sqlite, SB0 §9.3 (f)) with SQLITE_SYSTEM_MALLOC: its archive (host) defines no malloc-family symbol and calls libc malloc, realloc and free for its own buffers, replacing and interposing none; reviewed SB10 C11"
+
+# Exceptions to link-probe.py's source scan, the advisory early warning
+# (DEC-176, kept by DEC-181 (4) and DEC-188 (4)): a package in an S or pure crate's all-features closure whose
+# library sources may hold `global_allocator`. Each is an
+# [[allocator.exception]] record with package, version and dec; the cited row
+# on node/integration must hold the exact token `package@version` (DEC-181
+# (5)). None.
+[allocator]
+exception = []

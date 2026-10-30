@@ -1,0 +1,225 @@
+//! Core DashSpvClient struct definition and simple accessor methods.
+//!
+//! This module contains:
+//! - The main `DashSpvClient` struct definition
+//! - Simple getters for wallet, network, storage, etc.
+//! - Storage operations (clear_storage, clear_sync_state, clear_filters)
+//! - State queries (is_running, tip_hash, tip_height, chain_state, stats)
+//! - Configuration updates
+//! - Terminal UI accessors
+
+use crate::sml_engine::MasternodeListEngine;
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock};
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
+
+use super::ClientConfig;
+use crate::error::{Result, SpvError};
+use crate::network::NetworkManager;
+use crate::pool::CpuPool;
+use crate::storage::{
+    PersistentBlockHeaderStorage, PersistentBlockStorage, PersistentFilterHeaderStorage,
+    PersistentFilterStorage, PersistentMetadataStorage, StorageManager,
+};
+use crate::sync::{Managers, SyncCoordinator};
+use key_wallet_manager::WalletInterface;
+
+pub(super) type SyncManagers<W> = Managers<
+    PersistentBlockHeaderStorage,
+    PersistentFilterHeaderStorage,
+    PersistentFilterStorage,
+    PersistentBlockStorage,
+    PersistentMetadataStorage,
+    W,
+>;
+
+/// Main Dash SPV client with generic trait-based architecture.
+///
+/// # Generic Design Philosophy
+///
+/// This struct uses three generic parameters (`W`, `N`, `S`) instead of concrete types or
+/// trait objects. This design choice provides significant benefits for a library:
+///
+/// ## Benefits of Generic Architecture
+///
+/// ### 1. **Zero-Cost Abstraction** ⚡
+/// - No runtime overhead from virtual dispatch (vtables)
+/// - Compiler can fully inline and optimize across trait boundaries
+/// - Critical for a wallet library where performance matters
+///
+/// ### 2. **Compile-Time Type Safety** ✅
+/// - Errors caught at compile time, not runtime
+/// - No possibility of trait object casting errors
+/// - Strong guarantees about component compatibility
+///
+/// ### 3. **Library Flexibility** 🔌
+/// - Users can plug in their own `WalletInterface` implementations
+/// - Custom `NetworkManager` for specialized network requirements
+/// - Alternative `StorageManager` (in-memory, cloud, custom DB)
+/// - Essential for a reusable library
+///
+/// ### 4. **Testing Without Mocks** 🧪
+/// - Test implementations (`MockNetworkManager`) are
+///   first-class types, not runtime injections
+/// - No conditional compilation or feature flags needed for tests
+/// - Type system ensures test and production code are compatible
+///
+/// ### 5. **No Binary Bloat** 📦
+/// - Despite being generic, production binaries contain only ONE instantiation
+/// - Test-only implementations are behind `#[cfg(test)]` and don't ship
+/// - Same binary size as trait objects, but with zero runtime cost
+///
+/// ## Type Parameters
+///
+/// - `W: WalletInterface` - Handles UTXO tracking, address management, transaction processing
+/// - `N: NetworkManager` - Manages peer connections, message routing, network protocol
+/// - `S: StorageManager` - Persistent storage for headers, filters, chain state
+/// - Event handlers are stored as `Vec<Arc<dyn EventHandler>>`
+///
+/// ## Common Configurations
+///
+/// While this struct is generic, most users will use standard configurations:
+///
+/// ```ignore
+/// // Production configuration
+/// type StandardSpvClient = DashSpvClient<
+///     WalletManager,
+///     PeerNetworkManager,
+///     DiskStorageManager,
+/// >;
+///
+/// // Test configuration
+/// type TestSpvClient = DashSpvClient<
+///     WalletManager,
+///     MockNetworkManager,
+///     DiskStorageManager,
+/// >;
+/// ```
+///
+/// ## Why Not Trait Objects?
+///
+/// Using `Arc<dyn WalletInterface>` instead of generics would:
+/// - Add 5-10% runtime overhead from vtable dispatch
+/// - Prevent compiler optimizations across trait boundaries
+/// - Make the codebase less flexible for library users
+/// - Not reduce binary size (production has one instantiation anyway)
+///
+/// The generic design is an intentional, beneficial architectural choice for a library.
+pub struct DashSpvClient<W: WalletInterface, N: NetworkManager, S: StorageManager> {
+    pub(super) config: Arc<RwLock<ClientConfig>>,
+    pub(super) network: Arc<Mutex<N>>,
+    pub(super) storage: Arc<Mutex<S>>,
+    /// External wallet implementation (required)
+    pub(super) wallet: Arc<RwLock<W>>,
+    pub(super) masternode_engine:
+        Option<Arc<RwLock<MasternodeListEngine<PersistentBlockHeaderStorage>>>>,
+    pub(super) sync_coordinator: Arc<Mutex<SyncCoordinator>>,
+    /// The running sync loop, `None` while stopped. A loop whose `shutdown` is
+    /// cancelled has failed and waits to be torn down. `run` and `stop` hold
+    /// the lock throughout, so they never overlap.
+    pub(super) sync_loop: Arc<Mutex<Option<SyncLoop>>>,
+    pub(super) event_handlers: Arc<Vec<Arc<dyn super::EventHandler>>>,
+    /// The CPU pool every set of sync managers runs on, fixed when the client is created
+    /// ([`ClientConfig::cpu_pool`], or one the client built).
+    pub(super) cpu_pool: CpuPool,
+}
+
+/// The background task of a running client.
+pub(super) struct SyncLoop {
+    pub(super) task: JoinHandle<()>,
+    /// Stops the loop and the event monitors it runs.
+    pub(super) shutdown: CancellationToken,
+}
+
+impl<W: WalletInterface, N: NetworkManager, S: StorageManager> Clone for DashSpvClient<W, N, S> {
+    fn clone(&self) -> Self {
+        Self {
+            config: Arc::clone(&self.config),
+            network: Arc::clone(&self.network),
+            storage: Arc::clone(&self.storage),
+            wallet: Arc::clone(&self.wallet),
+            masternode_engine: self.masternode_engine.clone(),
+            sync_coordinator: Arc::clone(&self.sync_coordinator),
+            sync_loop: Arc::clone(&self.sync_loop),
+            event_handlers: Arc::clone(&self.event_handlers),
+            cpu_pool: self.cpu_pool.clone(),
+        }
+    }
+}
+
+impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, N, S> {
+    // ============ Simple Getters ============
+
+    /// Get a reference to the wallet.
+    pub fn wallet(&self) -> &Arc<RwLock<W>> {
+        &self.wallet
+    }
+
+    /// Get the network configuration.
+    pub async fn network(&self) -> dashcore::Network {
+        self.config.read().await.network
+    }
+
+    /// Get access to storage manager (requires locking).
+    pub fn storage(&self) -> Arc<Mutex<S>> {
+        self.storage.clone()
+    }
+
+    // ============ State Queries ============
+
+    /// Check if the client is running. Waits for an ongoing `run` or `stop` to finish.
+    pub async fn is_running(&self) -> bool {
+        self.sync_loop.lock().await.as_ref().is_some_and(|running| !running.shutdown.is_cancelled())
+    }
+
+    /// Returns the current chain tip hash if available.
+    pub async fn tip_hash(&self) -> Option<dashcore::BlockHash> {
+        let storage = self.storage.lock().await;
+        storage.get_tip().await.map(|tip| *tip.hash())
+    }
+
+    /// Returns the current chain tip height (absolute), accounting for checkpoint base.
+    pub async fn tip_height(&self) -> u32 {
+        self.storage.lock().await.get_tip_height().await.unwrap_or(0)
+    }
+
+    // ============ Storage Operations ============
+
+    /// Stop the client and clear all persisted storage (headers, filters, state, sync state)
+    /// and the in-memory state derived from it.
+    pub async fn clear_storage(&self) -> Result<()> {
+        self.stop().await;
+
+        self.storage.lock().await.clear().await?;
+
+        self.sync_coordinator.lock().await.reset_progress();
+        if let Some(engine) = &self.masternode_engine {
+            let network = self.config.read().await.network;
+            let headers = self.storage.lock().await.block_headers();
+            *engine.write().await = MasternodeListEngine::new(network, headers);
+        }
+
+        Ok(())
+    }
+
+    // ============ Configuration ============
+
+    /// Update the client configuration.
+    pub async fn update_config(&self, new_config: ClientConfig) -> Result<()> {
+        // Validate new configuration
+        new_config.validate().map_err(SpvError::Config)?;
+
+        let mut config = self.config.write().await;
+
+        // Ensure network hasn't changed
+        if new_config.network != config.network {
+            return Err(SpvError::Config("Cannot change network on running client".to_string()));
+        }
+
+        // Update configuration
+        *config = new_config;
+
+        Ok(())
+    }
+}
