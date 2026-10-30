@@ -1,0 +1,69 @@
+# DW-E0-03, round 2 — focused security review
+
+Reviewed `dw/e0-03-signer-glue` at `119ee066e357340d16c353d88d2c20893c2f6a66`, with `git diff main...HEAD`; merge-base/main was `7c15b5d026edde71d976b493a26827a25bb37e67`. Paths below are relative to `/work/home/agent/workspace/dw-wt/e0-03-signer-glue`. Read REVIEW-COMMON, the original brief, both round-1 reviews, CLAUDE.md, the amended DASHPAY/engine contracts, and the fixes. The current dependency pins are Platform `bc41f1bc233dec4607d387101c1d9c2f111019b2` and rust-dashcore `40268cc0402a8933ec539f16b2d634c4e25876ad`; the original fixture provenance is Platform `bc321362b9`.
+
+No branch files were modified, and no commit, push or GitHub comment was made. Independent test sources, executables and logs are under `/work/scratch/dw-e0-03-r2-gpt/`.
+
+## Findings
+
+### M1 — major: the scan accepts another vault's grant token
+
+**Locations:** `rust/crates/dw-vault/src/platform.rs:302`, `rust/crates/dw-vault/src/vault.rs:1371`, `rust/crates/dw-vault/src/types.rs:164`; token construction at `rust/crates/dw-vault/src/vault.rs:1061`.
+
+`scan_key` now requires a `PlatformOp` token and checks its wallet, purpose and epoch. However, `GrantToken` contains no issuing-vault identity. `token_signer` treats a token without an owned DEK as authority to use the receiving vault's full DEK whenever the wallet ID and the two independent numeric epochs match. The receiving vault need never have authorized or redeemed that grant.
+
+**Reproduction:** the scratch test `scan_refuses_foreign_vault_token` creates an encrypted, fully unlocked target vault and a separate unencrypted source vault. Both store the public wallet ID `[1; 32]` and have their initial epoch, but their deterministic seeds differ (`[0x5a; 64]` versus `[0x7f; 64]`). It authorizes and redeems `PlatformOp` **only on the source**, with `Credential::None`, then calls `target.scan_key(&wallet, &foreign_token)?.master_key()`. This succeeds and returns a depth-zero master xpriv with a public key distinct from the source's master. The test asserting rejection fails; see `foreign-token.log`. No private fields are constructed or modified, and no target grant is issued. Choosing the wallet ID is permitted by the public vault storage API; a caller can copy the target's public ID into its source vault without knowing the target seed.
+
+This is an inherited weakness in the shared token mechanism, newly relied on by the master-key export. It does not demonstrate unlocking a locked encrypted target without its passphrase: the reproduced target is fully unlocked, and the FFI guard still prevents this direct call from dw-ffi. It nevertheless invalidates the claimed grant binding of this export. Private token fields prove that **a** vault authorized the token, not that **this** vault did.
+
+**Suggested fix:** bind each token to the issuing vault instance, and verify that binding before using either the recipient's DEK or a token-owned DEK. A per-instance capability/nonce or shared-state identity is preferable to the on-disk vault ID alone, so a separately reopened vault cannot revive a token through an epoch reset. Apply the check to the common token consumers, including `token_signer` and `key_for`. Add negative tests for two vaults with equal epochs and wallet IDs, and for an old token against a reopened vault.
+
+### M2 — major: the requested zero post-lock delivery criterion is still unmet
+
+**Locations:** `rust/crates/dw-vault/src/signer.rs:250`, `rust/crates/dw-vault/src/signer.rs:284`, `rust/crates/dw-engine/src/platform/signers.rs:124`; regression-test measurement at `rust/crates/dw-vault/src/lock_race_tests.rs:297` and `:358`.
+
+The operation gate fixes the original private-computation race: derivation and crypto finish under a shared gate; lock takes it exclusively before changing the epoch. Identity data is now hashed before taking that gate. However, the gate is released while the successful result is being returned through the public method/adapter. A thread can be descheduled there, lock can return, and that caller can subsequently observe the successful old-epoch result. The engine identity adapter also converts the signature to `BinaryData` outside the gate and has no cancellation/epoch check before returning it.
+
+**Independent stress:** 32 workers concurrently ran identity signatures, digest signatures, ECDH and contactInfo sealing against 400 locks per vault mode. A shared sequentially consistent counter stamped each call's start, its caller-side completion, and immediately after `lock()` returned. The final runs recorded:
+
+| Vault mode | Successful outputs | Refused `Locked` | Successful outputs observed after lock | Successful calls started after lock |
+|---|---:|---:|---:|---:|
+| Unencrypted | 10,731 | 12,800 | 182 | 0 |
+| Encrypted, unlocked Full | 10,521 | 12,800 | 155 | 0 |
+| Encrypted, locked; signers carry the grant's own DEK | 9,885 | 12,800 | 157 | 0 |
+
+All three assertions of zero caller-observed post-lock outputs fail (`race-fresh-*.log`, linked against the vault library freshly built by the required suite). Earlier runs reproduced the same behavior. The committed test passes with **zero results created after lock**, but measures its `Closing` hook inside `Op::drop`, before the read guard is released. It does not stamp caller-side completion. These are different properties.
+
+**Evidence limit:** caller-side stamps include return unwinding, result disposal and possible scheduling delay after a result was already available. They do **not** prove that cryptography continued after lock, nor identify the exact machine instruction at which the method returned. Thus the old blocker's long private-use race is fixed; the stronger delivery/cancellation acceptance criterion in this round has not been demonstrated and the observed outputs are compatible with the gate's documented, narrower linearization guarantee.
+
+**Failure scenario:** a registration worker resumes with an already-created successful transition signature after the user locks to cancel, then uses it because the consumer has no lock-generation/cancellation fence. Vault serialization alone does not prevent use of an earlier result.
+
+**Suggested resolution:** define and enforce the relevant publication/consumption boundary. For “Lock to cancel,” the flow must reject results from a canceled generation before committing/broadcasting them, with consumption serialized against cancellation; a racy final epoch check is insufficient. Test that boundary with a barrier that pauses the consumer before publication, locks, then resumes it. If E0-03 is intentionally limited to “no private computation/result creation after lock,” obtain an explicit acceptance change and retain the delivery/cancellation requirement as a mandatory E0-04/E0-05 gate. Moving a local guard a few instructions later cannot eliminate arbitrary caller scheduling delay, and I am not recommending that as a purported fix.
+
+### N1 — minor: HMAC dependency internals still contain unguarded intermediates
+
+**Locations:** `rust/crates/dw-vault/src/dip15.rs:72`, `:75`, `:78`, `:81`; resolved `digest-0.10.7/src/core_api/ct_variable.rs:119` and `sha2-0.10.9/src/core_api.rs:19`.
+
+The direct padded-key copies and explicit inner/final MAC arrays are now guarded, which removes the identity-scalar residue identified in round 1. Nevertheless, each `Sha256` object has unzeroized state/block storage, and `CtVariableCoreWrapper::finalize_fixed_core` first writes the digest into a plain `full_res` array before copying it into the vault's guarded output. The wrapper does not wipe that intermediate. Both inner and final HMAC digests therefore still pass through unguarded dependency-owned buffers; guarding `inner`/`out` does not reach them.
+
+The code accurately documents SHA-256 internals and move/spill copies as residual risks. I verified the resolved SHA type has no erasing `Drop`, and separately showed that saved inner/outer keyed SHA states suffice to compute further PRF outputs. That latter check establishes sensitivity, **not** that a particular optimized build retains recoverable keyed midstates after finalization. No post-drop memory-read exploit was attempted. This residual does not establish recovery of the identity scalar or an AES key and is materially narrower than the original major.
+
+**Suggested fix/follow-up:** use a SHA/HMAC implementation with an erasing state and finalization path, or keep the compression state, padding buffer and full digest in guarded storage. Avoid layout-dependent unsafe wiping of opaque hashers. Continue describing the present guarantee as partial intermediate erasure; do not claim that every HMAC intermediate is zeroized.
+
+## Round-1 closure checks
+
+- **GPT B1 / Opus m1:** private computation is serialized with lock, including grant-owned keys; the original large-input attack no longer signs. In an independent test, eight concurrent requests each hashing a 128 MiB public buffer all returned `SignerError::Locked` after a lock during hashing. Four committed barrier/stress tests passed; the stress reported 4,251 successful results, 2,400 `Locked`, 355 operations in flight when lock was called, and zero results **created** after lock. Strict post-lock delivery remains M2 above.
+- **GPT M1 (zeroization):** the production vault no longer calls the upstream ECDH/HMAC/contactInfo helpers. `dip15::ecdh` explicitly erases the original `SharedSecret` after copying it into a guarded destination. Both key pads share a `Zeroizing<[u8; 64]>`; explicit inner and final HMAC arrays are guarded. AES/CBC key/state erasure is enabled in the actual resolved graph (`aes ["zeroize"]`, `cbc ["alloc", "block-padding", "default", "zeroize"]`). Independent compile-time `ZeroizeOnDrop` bounds pass for `Aes256`, CBC encryptor and CBC decryptor; I inspected their erasing destructors. Plaintext uses a preallocated guarded buffer, and vault `ContactInfoOpened` now redacts Debug and erases its plaintext. Direct secret-copy findings are closed; full HMAC intermediate erasure remains the documented N1 limitation. The library's auto-accept `SecretKey` and opened-contactInfo `Vec` outputs still cannot erase themselves; this trait limitation is documented.
+- **GPT M2 / Opus n1 (scope gates): closed.** Independent tests rejected 93 malformed-path/use cases: directly constructed `Normal`/`Hardened` at `2^31` and `u32::MAX`, both 256-bit variants outside DIP-14 slots, invalid BIP44 accounts, receiving/asset-lock leaves and top-up slots, auto-accept expiry aliases, invalid contactInfo indices, wrong coin, malformed fixed steps, identity prefixes/extensions, and cross-scope sign/agreement attempts. Maximum valid 31-bit indices still work in the dynamic slots; high-bit `Normal256` friendship IDs remain accepted. The range predicates reject before reading the seed, and the BIP44 account requires ordinary 31-bit hardening.
+- **Opus M1 / GPT N1 (master export and FFI): partially closed.** `scan_key` no longer has a grant-less overload; the hidden constructor is crate-private, the prompt-free signer factory is private, and the background crypto signer cannot export the master. Wrong-purpose, wrong-wallet and stale-epoch scan attempts fail, as do prompt-free issuance on locked/mixing-only vaults. The docs now describe both private-key exports, prompt-free grant issuance, and the resolved scan key's non-revocable lifetime/E0-05 cancellation dependency. Issuing-vault binding is still M1 above.
+- **Mechanical FFI guard: verified.** Ran the committed source-scan test against the real dw-ffi sources: passed. Compiled an independent misuse probe with the real dw-ffi `CLIPPY_CONF_DIR` and `-D clippy::disallowed_methods`: direct background-signer, scan-key and master-key calls, a background-signer function-pointer alias, and the engine's scan `resolve`/`resolver` methods all fail with the intended six diagnostics. This is a lint/test gate, not Rust visibility isolation; plain Rust compilation remains possible without those checks. No current dw-ffi/Swift export of these APIs was found.
+- **Opus m2:** the contract now explicitly says funding caps are advisory and engine enforcement is not implemented yet; DP1-02 depends on E0-04. The scan token's unrestricted power and the need to separate it from future capped grants are also explicit. No additional issue raised for those documented deferrals.
+
+## Validation and artifacts
+
+- Required command: `umask 022; TMPDIR=/work/scratch/dw-e0-03-r2-gpt/test-tmp cargo test -p dw-vault -p dw-engine`: **passed, exit 0; 246 tests passed, 1 ignored**. This includes all four engine `e0_03_signers` fixture tests and the vault's `platform_scopes`/lock-race suites. Full log: `/work/scratch/dw-e0-03-r2-gpt-suite.log`. The scratch directory and its temporary-file subdirectory were made non-group-writable before the successful run; the first test execution failed on that review-environment permission issue.
+- Four independent positive scratch checks passed (scope attacks, scan grant restrictions, large-input revocation, cipher/SHA state checks); negative security assertions reproduced the foreign-vault-token acceptance and caller-observed post-lock delivery.
+- Independent source and repeatable artifact-selection/compiler script: `adversarial.rs`, `compile.py`. Tests link the branch's built libraries and select their exact dependency artifacts from Cargo fingerprints. Rechecked the positive tests and foreign-token failure against the newly built `libdw_vault-dfbe1a8d27289943.rlib` (`compile-fresh.log`, `fresh-checks.log`). FFI probe: `ffi_probe.rs`, `ffi-probe-fresh.log`. Remaining logs: `passing-checks.log`, `foreign-token.log`, `race-fresh-{unencrypted,encrypted,own}.log`, `committed-races.log`.
+- `git diff --check main...HEAD`: passed. Branch remained clean at the reviewed HEAD.
+
+Verdict: **CHANGES-REQUIRED**
