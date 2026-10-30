@@ -670,6 +670,24 @@ jobs:
         if: ${{ matrix.kind == 'extras' && !cancelled() && hashFiles('dashd-chainstate/tests/crash_planted.rs') != '' }}
         run: /usr/bin/time -f 'planted_s=%e' -a -o "$METRICS" cargo test --locked -p dashd-chainstate --features crash,planted-bugs --test crash_planted
 
+      # DEC-900 ruling 1's evidence (ADAPT-902 §5.1): the SB13 thread bound. `thread_count` requires
+      # `blst-no-threads`, which no workspace member turns on, so no test shard builds it. It runs on
+      # the regtest masternode data from the setup-dashd step. The test returns early, and passes,
+      # when its masternode context can't start, so a "Skipping" line fails the step.
+      # The test lives in dash-spv-ffi until #1251 (rdc step 2 of the upstream sync) and in dash-spv after.
+      - name: thread-count
+        if: ${{ matrix.kind == 'extras' && !cancelled() }}
+        run: |
+          if [ -f dash-spv/tests/thread_count.rs ]; then pkg=dash-spv
+          elif [ -f dash-spv-ffi/tests/thread_count.rs ]; then pkg=dash-spv-ffi
+          else echo "::error::no thread_count test in dash-spv or dash-spv-ffi"; exit 1; fi
+          /usr/bin/time -f 'thread_count_s=%e' -a -o "$METRICS" \
+            cargo test --locked -p "$pkg" --features blst-no-threads --test thread_count -- --nocapture 2>&1 | tee "$RUNNER_TEMP/thread_count.log"
+          rc=${PIPESTATUS[0]}
+          [ "$rc" = 0 ] || exit "$rc"
+          if grep -qE 'Skipping (dashd integration|masternode) test' "$RUNNER_TEMP/thread_count.log"; then echo "::error::thread_count skipped instead of running"; exit 1; fi
+          grep -qE 'threads: baseline [0-9]+, peak [0-9]+ \(bound [0-9]+' "$RUNNER_TEMP/thread_count.log" || { echo "::error::thread_count passed without its completion line"; exit 1; }
+
       - name: private tests skip cleanly
         if: ${{ matrix.kind == 'extras' && !cancelled() }}
         run: |
