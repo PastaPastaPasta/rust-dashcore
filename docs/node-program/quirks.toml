@@ -1,0 +1,471 @@
+# The quirk register (FR-CON-34; A1 §4.1 principle 5; PLAN task O5).
+#
+# Dash Core behaviour the node replicates bug for bug. R4 §1.15 lists 1–34, A1 rev1 §1.4.1 adds
+# 35–38, and later designs registered 39 (DEC-25(4)), 40 (DEC-29 D2), 41 and 42 (DEC-50(4)).
+# Quirks found later are appended with the next free id. The P2P quirks PQ-1…23 (DEC-48 Q4) are
+# a separate block in the P2a design, not numbered here.
+#
+# Each entry:
+#   id      the quirk number
+#   title   one neutral line
+#   core    where the behaviour lives in Dash Core v24.0 (tag v24.0.0-rc.3, DEC-82), file:line
+#   owner   the PLAN §4 task that implements the quirk and un-ignores its test
+#   also    other tasks whose PLAN rows or designs name the quirk (rule sites, consumers); optional
+#   evidence  real-chain or other observations about the quirk (optional; one line per item,
+#           list of strings)
+#
+# Where several PLAN rows list a quirk, the owner is the task that implements the rule itself in
+# a pure crate (e.g. CS2 for 15, which has its test; EV3 for 31, whose rule is MNHF validation);
+# the integrating task (CH7a) and the rule-site tasks are `also`.
+#   status  "tested"            the test runs and asserts Core's behaviour on Core's vectors; for a
+#                               registered deviation (its title says so), the node's behaviour
+#           "scaffold"          the test is `#[ignore = "quirk N: owner TASK"]` until the owner lands it
+#           "dropped (DEC-82)"  the behaviour is v23.1-only; no test
+#   test    `<path>::<fn>` of the quirk's one test, named `quirk_NN_<slug>` (absent when dropped);
+#           `base-sdk:<path>::<fn>` for a test in the base SDK fork, read at the pinned revision
+#           (`contrib/node/base_sdk_pins.py show`)
+#   source  where the quirk was registered
+#
+# contrib/node/check-quirks.py checks that this file and the tests agree and prints the counts
+# STATUS tracks. The owner of a quirk that lands moves its test next to the implementation if it
+# lives elsewhere, removes the `#[ignore]`, and sets status = "tested" here in the same commit.
+
+[[quirk]]
+id = 1
+title = "quirk 1: see PLAN §7 handling"
+core = "quirk 1: see PLAN §7 handling"
+owner = "CS0"
+status = "tested"
+test = "dash-consensus/tests/quirk_01_embargo_1.rs::quirk_01_embargo_1"
+source = "quirk 1: see PLAN §7 handling (the gate runs it through contrib/node/check-private-tests.sh)"
+
+[[quirk]]
+id = 2
+title = "CheckTransaction's empty-vin/vout exemptions and the 1-byte CbTx coinbase scriptSig key on nType without checking the version"
+core = "src/consensus/tx_check.cpp:18-24,60-67"
+owner = "CS3"
+status = "tested"
+test = "dash-consensus/tests/quirk_02_check_transaction_type_keys.rs::quirk_02_check_transaction_type_keys"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): mainnet 0..2,094,670 (partial; see manager): 3 pre-DIP3 coinbases with nVersion 0x20000000 (version 0, type 0x2000) at 842,284 / 844,394 / 866,404; fixtures conformance/tests/fixtures/o6-scan/; BL-469",
+]
+
+[[quirk]]
+id = 3
+title = "The 100,000-byte transaction limit is consensus `>` (from DIP0001) but policy `>=`"
+core = "src/validation.cpp:382; src/policy/policy.cpp:88"
+owner = "CS3"
+status = "tested"
+test = "dash-consensus/tests/quirk_03_tx_size_consensus_limit.rs::quirk_03_tx_size_consensus_limit"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 4
+title = "OP_CHECKDATASIG: DER plus one trailing byte, single SHA-256, lax verify over the whole signature, zero sigops, no signature cache"
+core = "src/script/interpreter.cpp:1048-1090"
+owner = "CS1"
+status = "tested"
+test = "dash-consensus/tests/quirks.rs::quirk_04_checkdatasig"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 5
+title = "OP_NUM2BIN operand rules; exceptions map to UNKNOWN_ERROR; disabled opcodes, OP_VERIF and OP_VERNOTIF fail inside unexecuted branches"
+core = "src/script/interpreter.cpp:1261-1290,1328-1331"
+owner = "CS1"
+status = "tested"
+test = "dash-consensus/tests/quirks.rs::quirk_05_num2bin_exceptions_and_unexecuted_failures"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 6
+title = "SIGHASH_SINGLE out of range hashes ONE; FindAndDelete on BASE scripts, empty signatures included; the special-tx payload is in the sighash"
+core = "src/script/interpreter.cpp:224,328,1354-1410,1512-1530"
+owner = "CS1"
+status = "scaffold"
+test = "dash-consensus/tests/quirks_scaffold.rs::quirk_06_sighash_single_find_and_delete_payload"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 7
+title = "ECDSA consensus layer: lax DER parsing, S normalized before verification, hybrid public keys allowed"
+core = "src/pubkey.cpp:40-180,190,348-354; src/script/interpreter.cpp:63"
+owner = "CS1"
+status = "tested"
+test = "dash-consensus/tests/quirks.rs::quirk_07_ecdsa"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 8
+title = "DGW: 24-block window over 23 intervals, per-step truncation, wrapping 256-bit arithmetic; devnet ×10 minimum-difficulty wrap"
+core = "src/pow.cpp:81-132"
+owner = "CS2"
+status = "tested"
+test = "dash-consensus/tests/quirk_08_dgw_window.rs::quirk_08_dgw_window"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 9
+title = "Mainnet blocks up to height 68589 are rejected only if abs(claimed − computed) > 0.5 × claimed, on difficulties decoded to doubles (half of the claimed difficulty, not ±50% of the computed one)"
+core = "src/validation.cpp:4476-4485"
+owner = "CS2"
+status = "tested"
+test = "dash-consensus/tests/quirk_09_mainnet_68589_tolerance.rs::quirk_09_mainnet_68589_tolerance"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 10
+title = "BIP34 is a byte-prefix compare against `CScript() << height` (OP_1..OP_16 for 1..16), enforced only before DIP3"
+core = "src/validation.cpp:4578-4586"
+owner = "CS3"
+status = "tested"
+test = "dash-consensus/tests/quirk_10_bip34_height_prefix.rs::quirk_10_bip34_height_prefix"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): mainnet 0..2,094,670 (partial; see manager): 3 pre-DIP3 coinbases with nVersion 0x20000000 (version 0, type 0x2000) at 842,284 / 844,394 / 866,404; fixtures conformance/tests/fixtures/o6-scan/; BL-469",
+]
+
+[[quirk]]
+id = 11
+title = "Subsidy from the previous block's nBits and height; mainnet dDiff without exponent shift up to height 4500; truncation before clamping; iterative 1/14 decline; treasury on strict `>`"
+core = "src/validation.cpp:1805-1888"
+owner = "CS2"
+status = "tested"
+test = "dash-consensus/tests/quirk_11_subsidy_prev_bits_and_height.rs::quirk_11_subsidy_prev_bits_and_height"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): oracle and dash_consensus subsidies agree on all 67,535 candidates (both chains; mainnet 0..2,094,670 (partial; see manager))",
+]
+
+[[quirk]]
+id = 12
+title = "Masternode share: separately truncated increments, period 8 skipped, reallocation start rounded to the superblock cycle"
+core = "src/masternode/payments.cpp:62-129"
+owner = "CS2"
+status = "tested"
+test = "dash-consensus/tests/quirk_12_mn_share_schedule.rs::quirk_12_mn_share_schedule"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 13
+title = "Payee tie-break by uint256 order; unconfirmed masternodes are payable; an all-banned list accepts any payee (the credit pool is still credited)"
+core = "src/evo/deterministicmns.cpp:132-180; src/masternode/payments.cpp:150-160,236-240"
+owner = "EV2b"
+also = ["CH7a"]
+status = "tested"
+test = "dash-dml/tests/quirks_ev2b.rs::quirk_13_payee_order_and_all_banned"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 14
+title = "Old-budget windows are unbounded under NoCheck; superblock payees are checked only when synced and not chainlocked"
+core = "src/masternode/payments.cpp:270-300,313-390"
+owner = "EV3"
+also = ["CH7a"]
+status = "tested"
+test = "dash-evo/tests/quirk_14_old_budget_and_superblock_checks.rs::quirk_14_old_budget_and_superblock_checks"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): mainnet 0..2,094,670 (partial; see manager): 222 window overpays (C1, 332,320-614,813) and 89 superblock overpays within their limit; 0 C3",
+    "O6 (docs/node-program/research/O6-scan-a-f.md): testnet: 11,980 superblock overpays within their limit; 0 C3",
+]
+
+[[quirk]]
+id = 15
+title = "GetPaymentsLimit uses nBits = 1 where fPowAllowMinDifficultyBlocks is false (mainnet) and the powLimit compact where it is true"
+core = "src/governance/superblock.cpp:145-162"
+owner = "CS2"
+also = ["CH7a", "EV3"]
+status = "tested"
+test = "dash-consensus/tests/quirk_15_payments_limit_nbits.rs::quirk_15_payments_limit_nbits"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): oracle and dash_consensus subsidies agree on all 67,535 candidates (both chains; mainnet 0..2,094,670 (partial; see manager))",
+]
+
+[[quirk]]
+id = 16
+title = "CbTx version 2 is required from DIP0008 activation height + 1"
+core = "src/evo/cbtx.cpp:35-38"
+owner = "CH7a"
+status = "tested"
+test = "dashd-chainstate/src/evo/ev1_tests.rs::quirk_16_cbtx_v2_from_dip0008_plus_one"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 17
+title = "The SML leaf hash excludes nVersion; the empty list's root is zero; a mutated tree is invalid"
+core = "src/evo/simplifiedmns.h:72-75; src/evo/simplifiedmns.cpp:42-49,126-144"
+owner = "SB7"
+also = ["EV4-serve"]
+status = "tested"
+test = "dash-coreimport/tests/evodb_serve.rs::quirk_17_sml_leaf_hash_and_root"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 18
+title = "merkleRootQuorums iterates every configured LLMQ type, disabled ones included, so stale leaves remain"
+core = "src/evo/cbtx.cpp:65-160"
+owner = "LQ2"
+status = "tested"
+test = "dash-dml/src/blockprocessor/tests.rs::quirk_18_quorum_root_over_configured_types"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 19
+title = "Null commitments of disabled types are accepted at any height subject to height, quorumHash and VerifyNull; signers >= minSize; bitset padding bits are a parse error"
+core = "src/llmq/commitment.cpp:153-160,211-230,240-310; src/llmq/blockprocessor.cpp:369-378; src/serialize.h:452-476,620-634"
+owner = "LQ2"
+status = "tested"
+test = "dash-dml/src/blockprocessor/tests.rs::quirk_19_null_commitments_and_bitset_padding"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 20
+title = "The commitment version follows the quorum base block; commitment-hash public-key bytes use the global BLS scheme"
+core = "src/llmq/commitment.cpp:131,312-325"
+owner = "LQ2"
+status = "tested"
+test = "dash-evo/src/llmq/commitment_tests.rs::quirk_20_commitment_version_and_hash_scheme"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 21
+title = "ProTx BLS signature verification follows the global (height) scheme, not the ProTx version"
+core = "src/evo/specialtxman.cpp:1089-1095,1420,1555"
+owner = "EV1"
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_21_protx_sig_scheme_follows_height"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 22
+title = "Bytes canonical in the opposite BLS scheme decode to an invalid object; legacy keys get no curve or subgroup checks"
+core = "src/bls/bls.h:100-120,180-200"
+owner = "BS11b"
+status = "tested"
+test = "base-sdk:pkgs/pkc/tests/bls_oracle.rs::quirk_22_bls_opposite_scheme_and_legacy_checks"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 23
+title = "The unique-property map is keyed by SerializeHash(value): a platformNodeID can collide with an owner keyID, and legacy and basic operator-key encodings are distinct slots before V24"
+core = "src/evo/deterministicmns.h:440-470"
+owner = "EV2a"
+status = "tested"
+test = "dash-dml/src/list/tests.rs::quirk_23_unique_property_map"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 24
+title = "PoSe penalties are added to already-banned masternodes; max(100, total) is evaluated on the list as rebuilt so far in the block"
+core = "src/evo/deterministicmns.cpp:267-300"
+owner = "EV2b"
+also = ["CH7a"]
+status = "tested"
+test = "dash-dml/tests/quirks_ev2b.rs::quirk_24_pose_penalty"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 25
+title = "DMN update order within a block; a ProRegTx with the same collateral replaces the old masternode"
+core = "src/evo/specialtxman.cpp:300-795"
+owner = "EV2b"
+also = ["CH7a"]
+status = "tested"
+test = "dash-dml/tests/quirks_ev2b.rs::quirk_25_dmn_update_order"
+source = "R4 §1.15"
+
+[[quirk]]
+# The L0 half is tested (dash-dml/src/specialtx/tests.rs::collateral_from_pprev_utxo); "tested" when
+# EV1-3b's L1 same-block case lands (EV1 D40, DEC-682). At rc.4: specialtxman.cpp:380-384,1245-1249;
+# validation.cpp:2669 (ProcessSpecialTxsInBlock on `view`), 2773 (UpdateCoins).
+id = 26
+title = "External collateral must be in the pprev UTXO set; special transactions never see same-block outputs"
+core = "src/evo/specialtxman.cpp:381-385,1185-1189; src/validation.cpp:2663,2767"
+owner = "EV1"
+also = ["CH7a"]
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_26_collateral_from_pprev_utxo"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 27
+title = "MakeSignString is network-dependent (base58 prefixes) and signed with the \"DarkCoin Signed Message\" magic"
+core = "src/evo/providertx.cpp:375-395; src/util/message.cpp:25"
+owner = "EV1"
+also = ["CH7a"]
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_27_make_sign_string"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 28
+title = "Rotation: break on a missing snapshot, swallowed AddMN exceptions, the skip-list first-index-0 encoding, skipRemovedMNs from V19 (or on testnet)"
+core = "src/llmq/utils.cpp:365-460"
+owner = "LQ1b"
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_28_rotation"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 29
+title = "V20 boundary: the first V20 cycle uses the base−8 list with the old modifier; the modifier reads the work block's coinbase ChainLock from disk"
+core = "src/llmq/utils.cpp:87-115"
+owner = "LQ1a"
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_29_v20_boundary_modifier"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 30
+title = "The rotated signer index is (2^n − 1) & (GetUint64(3) >> (64 − n − 1)), n = log2(active quorums): bits 58–62 for 32 quorums, not the top n bits"
+core = "src/llmq/quorumsman.cpp:738-745,810-817"
+owner = "LQ1a"
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_30_rotated_signer_index_bits"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 31
+title = "MNHF: unknown bits are valid; any mined platform-type quorum may sign; the requestId carries the bit as int64; historic bit 10/11/12 signals"
+core = "src/evo/mnhftx.cpp:32-35,95-155"
+owner = "EV3"
+also = ["CS4"]
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_31_mnhf_signals"
+source = "R4 §1.15"
+evidence = [
+    "O6 (docs/node-program/research/O6-scan-a-f.md): testnet 4 MNHF signals (bits 10-13), mainnet 0..2,094,670 (partial; see manager): 0 signals; no flags",
+]
+
+[[quirk]]
+id = 32
+title = "MinBIP9WarningHeight is a consensus floor for deployment states; the dynamic threshold's int32 overflow"
+core = "src/versionbits.cpp:60-70,250-270"
+owner = "CS4"
+status = "tested"
+test = "dash-consensus/tests/quirk_32_bip9_warning_floor_and_threshold.rs::quirk_32_bip9_warning_floor_and_threshold"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 33
+title = "hash_serialized_2 VARINT precedence (the per-tx header is almost always 1); unspendable outputs never enter the UTXO set; coinstatsindex unclaimed_rewards can go negative"
+core = "src/kernel/coinstats.cpp:77; src/index/coinstatsindex.cpp:205-210"
+owner = "CS5b"
+status = "scaffold"
+test = "dash-consensus/tests/quirks_scaffold.rs::quirk_33_hash_serialized_2_varint"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 34
+title = "Hard-coded pins: bad-sb-start (614820), bad-dip3-enf-block (1047200), testnet LLMQ_25_67 enabled from pindexPrev height 847000"
+core = "src/chainparams.cpp:171-172,186-187; src/validation.cpp:2621,6670; src/evo/deterministicmns.cpp:777"
+owner = "BS5"
+also = ["CH3a", "LQ2"]
+status = "scaffold"
+test = "conformance/tests/quirks.rs::quirk_34_hard_coded_pins"
+source = "R4 §1.15"
+
+[[quirk]]
+id = 35
+title = "Eager BLS decode outcomes: valid, invalid (all zero or canonical in the other scheme) or error, per scheme"
+core = "src/bls/bls.h:100-216"
+owner = "BS11a-t"
+also = ["BS11a"]
+status = "tested"
+test = "base-sdk:pkgs/pkc/tests/bls_wrapper.rs::quirk_35_eager_bls_decode_outcomes"
+source = "A1 rev1 §1.4.1"
+
+[[quirk]]
+id = 36
+title = "A final commitment is null iff, among other fields, its three BLS fields are not valid"
+core = "src/llmq/commitment.h:118-131"
+owner = "LQ2"
+status = "tested"
+test = "dash-evo/src/llmq/commitment_tests.rs::quirk_36_null_commitment_iff_invalid"
+source = "A1 rev1 §1.4.1"
+
+[[quirk]]
+id = 37
+title = "Lazy BLS objects re-serialize as zeros after a failed Get(), and as zeros under a scheme other than the buffered one before a successful Get()"
+core = "src/bls/bls.h:444-464,480-511"
+owner = "BS11a-t"
+status = "tested"
+test = "base-sdk:pkgs/pkc/tests/bls_wrapper.rs::quirk_37_lazy_reserialization_after_failed_get"
+source = "A1 rev1 §1.4.1"
+
+[[quirk]]
+id = 38
+title = "CLSIG and qfcommit hashes are over the re-serialization; isdlock and recsig hashes are over the wire bytes"
+core = "src/net_processing.cpp:5798,6653; src/llmq/blockprocessor.cpp:115; src/llmq/signing.h:90-100; src/instantsend/net_instantsend.cpp:258"
+owner = "LQ3"
+status = "tested"
+test = "dash-evo/src/locks/wire_tests.rs::quirk_38_reserialization_vs_wire_hashes"
+source = "A1 rev1 §1.4.1"
+
+[[quirk]]
+id = 39
+title = "SerializeScriptCode writes a length counting the whole script but stops writing at a truncated trailing push"
+core = "src/script/interpreter.cpp:1366-1395"
+owner = "CS1"
+status = "scaffold"
+test = "dash-consensus/tests/quirks_scaffold.rs::quirk_39_script_code_truncated_push"
+source = "DEC-25(4)"
+
+[[quirk]]
+id = 40
+title = "Core's release builds evaluate KGW's horizon with different pow implementations and roundings; the decisions are identical"
+core = "src/pow.cpp:15-80"
+owner = "CS2"
+status = "tested"
+test = "dash-consensus/tests/quirk_40_kgw_fp_platform_invariance.rs::quirk_40_kgw_fp_platform_invariance"
+source = "DEC-29 D2, DEC-33 (a)"
+
+[[quirk]]
+id = 41
+title = "Masternode lists iterate in immer CHAMP order over ReadLE64(proTxHash), collision buckets most-recently-set first"
+core = "src/evo/deterministicmns.h:136-144,301-324"
+owner = "EV2a"
+also = ["EV4-serve", "RP2a", "O14", "AM1", "MP1a"]
+status = "tested"
+test = "dash-coreimport/tests/evodb_serve.rs::quirk_41_mnlist_champ_order"
+source = "DEC-50(4); parity target DEC-54"
+
+[[quirk]]
+id = 42
+title = "Exceptions while building the list in a block become failed-procspectxsinblock, with order-dependent reject strings"
+core = "src/evo/specialtxman.cpp:993-996; src/evo/deterministicmns.cpp:439-604"
+owner = "EV2b"
+also = ["CH7a"]
+status = "tested"
+test = "dash-dml/tests/quirks_ev2b.rs::quirk_42_in_block_list_exceptions"
+source = "DEC-50(4)"
+
+[[quirk]]
+id = 43
+title = "A block-file info record that does not decode: Core keeps a default or partly decoded CBlockFileInfo for files up to the last one and ends its scan past it; the node stops with Corruption (a registered deviation on a corruption path, D-b1-f)"
+core = "src/node/blockstorage.cpp:364-375; src/dbwrapper.h:322-326"
+owner = "CH2b"
+status = "tested"
+test = "dashd-chainstate/tests/quirk_43_block_file_info_decode.rs::quirk_43_block_file_info_decode"
+source = "CH2b b1 D-b1-f (manager ruling, 2026-10-10)"
+
+[[quirk]]
+id = 44
+title = "A head-blocks record that does not decode: Core reads it as an empty vector and replays nothing, a consistent state; the node stops with Corruption (a registered deviation on a corruption path)"
+core = "src/dbwrapper.h:322-326; src/txdb.cpp:105-111; src/validation.cpp:5230"
+owner = "CH2b"
+status = "tested"
+test = "dashd-chainstate/tests/quirk_44_head_blocks_decode.rs::quirk_44_head_blocks_decode"
+source = "CH2b b1, the manager's ruling on c5 item 8 (2026-10-10); registered as D-b1-f was"
+
+[[quirk]]
+id = 45
+title = "Exotic BLS operands: the three direct verify entry points return false under the basic flag with no arithmetic on the Exotic operand and compute with relic's arithmetic under the legacy flag; aggregation and the IES DH key compute with relic under either flag, so aggregate-then-verify paths apply the basic gate to the aggregate only"
+core = "src/dashbls/src/schemes.cpp:135-157, 231-254, 297-324, 658-703; src/bls/bls.cpp:144-177, 208-255, 296-358; src/bls/bls_batchverifier.h:146-228; src/bls/bls_ies.cpp:43-100"
+owner = "BS11a"
+status = "tested"
+test = "base-sdk:pkgs/pkc/tests/bls_oracle.rs::quirk_45_exotic_bls_operands_by_flag"
+source = "BS11a design rev1 §2, D16 (2026-10-14)"
