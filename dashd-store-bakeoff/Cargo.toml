@@ -1,0 +1,43 @@
+[package]
+name = "dashd-store-bakeoff"
+description = "ST1 storage-engine bake-off: replays a Dash UTXO churn trace through RocksDB, LevelDB and MDBX"
+publish = false
+license = "MIT"
+authors = ["The rust-dashcore Developers"]
+edition = "2024"
+repository = "https://github.com/dashpay/rust-dashcore"
+rust-version = "1.89.0"
+version = "0.45.0"
+
+[dependencies]
+# CH2c's DEC-43 proxy: CH2's coins cache and flush (our arm), Core's coin decoding (both arms).
+dash-chain = { path = "../dash-chain" }
+dash-consensus = { path = "../dash-consensus" }
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb"] }
+dash-coreimport = { path = "../dash-coreimport" }
+dash-network = { path = "../dash-network" }
+dashd-store = { path = "../dashd-store" }
+leveldb-sys = "2.0.9"
+libc = "0.2"
+libmdbx = "0.9"
+serde_json = "1"
+
+[[bin]]
+name = "dashd-store-bakeoff"
+path = "src/main.rs"
+
+[patch.crates-io]
+rs-x11-hash = { git = "https://github.com/dashpay/rs-x11-hash", tag = "0.1.9" }
+
+# The workspace's base SDK pin (docs/node-program/BASE-SDK-FORK.md), so the node crates resolve.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "dfee0b82ecf61408e4581b2a062b386586218448" }
+
+[profile.release]
+debug = 1
