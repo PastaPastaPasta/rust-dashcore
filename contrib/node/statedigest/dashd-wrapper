@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# dashd with both StateDigest flags, for Core's functional tests (O8 spec §13.1). The
+# files land in each node's network datadir (digest.jsonl, decisions.jsonl).
+#   DASHD=<this script> STATEDIGEST_DASHD=<patched dashd> test/functional/<test>.py ...
+exec "${STATEDIGEST_DASHD:?set STATEDIGEST_DASHD to the patched dashd}" \
+    -statedigestlog=digest.jsonl -recordstatedecisions=decisions.jsonl "$@"
