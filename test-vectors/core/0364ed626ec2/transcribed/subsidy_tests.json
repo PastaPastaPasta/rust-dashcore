@@ -1,0 +1,17 @@
+{
+"source": "src/test/subsidy_tests.cpp",
+"records": [
+{"prev_bits":474630084,"prev_height":4249,"v20_active":false,"subsidy":50000000000},
+{"prev_bits":474630084,"prev_height":4249,"v20_active":true,"subsidy":500000000},
+{"prev_bits":474630084,"prev_height":4501,"v20_active":false,"subsidy":5600000000},
+{"prev_bits":472509440,"prev_height":5464,"v20_active":false,"subsidy":2100000000},
+{"prev_bits":472509440,"prev_height":5465,"v20_active":false,"subsidy":12200000000},
+{"prev_bits":470334004,"prev_height":17588,"v20_active":false,"subsidy":6100000000},
+{"prev_bits":454086466,"prev_height":99999,"v20_active":false,"subsidy":500000000},
+{"prev_bits":454120590,"prev_height":210239,"v20_active":false,"subsidy":500000000},
+{"prev_bits":454087947,"prev_height":210240,"v20_active":false,"subsidy":464285715},
+{"prev_bits":454087947,"prev_height":210240,"v20_active":true,"subsidy":464285715},
+{"prev_bits":454087947,"prev_height":420480,"v20_active":false,"subsidy":388010205},
+{"prev_bits":454087947,"prev_height":420480,"v20_active":true,"subsidy":344897960}
+]
+}
