@@ -1,0 +1,33 @@
+[package]
+name = "dash-filters"
+description = "BIP158 compact block filters as Dash Core v24 defines them: the Golomb-coded-set codec, the Dash element set (outputs, spent scripts and the special-transaction payload fields), and the filter-header chain check. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# The GCS codec descends from rust-bitcoin's murmel (CC0, re-licensed by its author); the element
+# set and the header chain port Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT AND CC0-1.0"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_filters"
+path = "src/lib.rs"
+
+[dependencies]
+dash-num = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# SHA256d for the filter hash and the filter-header chain (Core's `Hash`).
+dash-sha256 = { path = "../dash-sha256" }
+dash-types = { workspace = true, features = ["codec", "std"] }
+
+[dev-dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-core-vectors = { path = "../test-vectors" }
+criterion = "0.5"
+serde_json = "1.0"
+
+[[bench]]
+name = "siphash"
+harness = false
