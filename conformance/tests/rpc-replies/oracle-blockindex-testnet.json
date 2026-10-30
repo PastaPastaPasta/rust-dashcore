@@ -1,0 +1,136 @@
+{
+ "provenance": "Raw JSON-RPC replies of the shared testnet reference dashd (/Dash Core:24.0.0/, /work/chains/testnet) on 2026-10-08, captured with urllib (cookie auth): getblockheader of an active block (height 1000), of genesis, of the headers-only best-header tip during IBD and of an unknown hash; getblockhash 1000 and above the tip. Read-only calls.",
+ "replies": [
+  {
+   "method": "getblockheader",
+   "params": [
+    "000004e906762c8c70583418d46915b4271fa83c29d5b88544d05e09e3f3621d",
+    true
+   ],
+   "status": 200,
+   "reply": {
+    "result": {
+     "hash": "000004e906762c8c70583418d46915b4271fa83c29d5b88544d05e09e3f3621d",
+     "confirmations": 1492258,
+     "height": 1000,
+     "version": 2,
+     "versionHex": "00000002",
+     "merkleroot": "fa0ea152db7455dd076491304201755d560ef4afb91882570fed084bb2f9bb4c",
+     "time": 1423413657,
+     "mediantime": 1423413626,
+     "nonce": 264135,
+     "bits": "1e0fffff",
+     "difficulty": 0.0002441371325370145,
+     "chainwork": "000000000000000000000000000000000000000000000000000000003e902540",
+     "nTx": 1,
+     "previousblockhash": "00000c5c42cf9269d1e2789f9fe124bef93a76bb674bf94830e7c8718f5f92bf",
+     "nextblockhash": "00000e9462f39067c6853208e3f279a8c8cdb2df1f66e9edeb947d7195842364",
+     "chainlock": false
+    },
+    "error": null,
+    "id": 0
+   }
+  },
+  {
+   "method": "getblockheader",
+   "params": [
+    "00000bafbc94add76cb75e2ec92894837288a481e5c005f6563d91623bf8bc2c",
+    true
+   ],
+   "status": 200,
+   "reply": {
+    "result": {
+     "hash": "00000bafbc94add76cb75e2ec92894837288a481e5c005f6563d91623bf8bc2c",
+     "confirmations": 1493258,
+     "height": 0,
+     "version": 1,
+     "versionHex": "00000001",
+     "merkleroot": "e0028eb9648db56b1ac77cf090b99048a8007e2bb64b68f092c03c7f56a662c7",
+     "time": 1390666206,
+     "mediantime": 1390666206,
+     "nonce": 3861367235,
+     "bits": "1e0ffff0",
+     "difficulty": 0.000244140625,
+     "chainwork": "0000000000000000000000000000000000000000000000000000000000100010",
+     "nTx": 1,
+     "nextblockhash": "0000047d24635e347be3aaaeb66c26be94901a2f962feccd4f95090191f208c1",
+     "chainlock": false
+    },
+    "error": null,
+    "id": 0
+   }
+  },
+  {
+   "method": "getblockheader",
+   "params": [
+    "00000082a69f072676d4cee9a7c83368ddf7856a1ca0ec1e46bb8700df8d3b68",
+    true
+   ],
+   "status": 200,
+   "reply": {
+    "result": {
+     "hash": "00000082a69f072676d4cee9a7c83368ddf7856a1ca0ec1e46bb8700df8d3b68",
+     "confirmations": -1,
+     "height": 1568644,
+     "version": 536870912,
+     "versionHex": "20000000",
+     "merkleroot": "778d8cf178cb66d9ccd6b38dbc69e85d279df2982c9e703efdf03f042f8c87d9",
+     "time": 1791475056,
+     "mediantime": 1791474328,
+     "nonce": 314844,
+     "bits": "1e009f44",
+     "difficulty": 0.006278722990042186,
+     "chainwork": "00000000000000000000000000000000000000000000000003ed57baf41186e6",
+     "nTx": 0,
+     "previousblockhash": "00000077f7f122df71c27afb631cc7b48c7dd0ad5377adac9dc9c54c6fd9ae65",
+     "chainlock": false
+    },
+    "error": null,
+    "id": 0
+   }
+  },
+  {
+   "method": "getblockheader",
+   "params": [
+    "00000000000000000000000000000000000000000000000000000000000000aa",
+    true
+   ],
+   "status": 500,
+   "reply": {
+    "result": null,
+    "error": {
+     "code": -5,
+     "message": "Block not found"
+    },
+    "id": 0
+   }
+  },
+  {
+   "method": "getblockhash",
+   "params": [
+    1000
+   ],
+   "status": 200,
+   "reply": {
+    "result": "000004e906762c8c70583418d46915b4271fa83c29d5b88544d05e09e3f3621d",
+    "error": null,
+    "id": 0
+   }
+  },
+  {
+   "method": "getblockhash",
+   "params": [
+    99999999
+   ],
+   "status": 500,
+   "reply": {
+    "result": null,
+    "error": {
+     "code": -8,
+     "message": "Block height out of range"
+    },
+    "id": 0
+   }
+  }
+ ]
+}
