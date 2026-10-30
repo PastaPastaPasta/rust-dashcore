@@ -1,0 +1,91 @@
+[package]
+name = "dash-chain"
+description = "The header chain shared by the Rust Dash node and SPV (SB0 §4): block index arena, Core's header acceptance, best header, ChainLock floor and enforcement, tip publication, readers, the index record codec, and anchors."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_chain"
+path = "src/lib.rs"
+
+[dependencies]
+arc-swap = "1.7"
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# `HashTable` only; entries hash through the arena (SB4 §3.5), so no default hasher.
+hashbrown = { version = "0.17", default-features = false }
+# `arc_lock`: the node's `enforce_block` holds the tip mutex as an owned guard (SB4 §9.1).
+parking_lot = { version = "0.12", features = ["arc_lock"] }
+# Only for the host's injected `&ThreadPool` in `load` (SB4 §2, L5): this crate builds no pool.
+rayon = { workspace = true }
+# `OnceBox`: the status journals' index, one pointer in the reader state (CH1-node D68).
+once_cell = { version = "1.21", default-features = false, features = ["alloc", "race"] }
+# `StatusReader::next_events`' two inline events (SB5 §3.6).
+smallvec = "1"
+thiserror = "2"
+tracing = "0.1"
+
+# The seqlock's loom model (SB4 §13.2): `RUSTFLAGS="--cfg loom"`, run by contrib/node/check-loom.sh
+# (the `loom` job in .github/workflows/rust.yml, and the node gate's `loom` step). A cfg, not a
+# feature, so `--all-features` builds keep std's atomics.
+[target.'cfg(loom)'.dependencies]
+loom = "0.7"
+
+[features]
+# Test hooks for other crates' tests and this crate's integration tests (SB5 §10.1): slot pause
+# points, the slot-section probe for counting allocators, `test_util`'s harnesses and
+# `MemHeaderStore`.
+test-util = []
+
+[dev-dependencies]
+criterion = "0.5"
+dash-x11 = { path = "../dash-x11" }
+# The core-scenario vectors are gzipped JSON (contrib/node/sb4-core-scenarios/regen.py).
+flate2 = "1"
+proptest = "1"
+serde_json = "1.0"
+
+# tokio has its own `cfg(loom)` paths, which the global `--cfg loom` would select.
+[target.'cfg(not(loom))'.dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
+
+# SB4 C9b's nightly gates (A-4, A-31): windowed chains need the test-util store.
+[[test]]
+name = "full_chain"
+required-features = ["test-util"]
+
+[[test]]
+name = "spv_memory"
+required-features = ["test-util"]
+
+[[test]]
+name = "step_budget"
+required-features = ["test-util"]
+
+# SB5 §10.1: the slot pause points and the slot-section probe.
+[[test]]
+name = "feed_alloc"
+required-features = ["test-util"]
+
+# PF0 (SB4 §16): the `chain-*` workloads of contrib/node/perfgate/workloads.toml.
+[[bench]]
+name = "chain"
+harness = false
+
+# PF0 (SB5 §11): the `feed-*` and `chain-cold-*` workloads.
+[[bench]]
+name = "feeds"
+harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
