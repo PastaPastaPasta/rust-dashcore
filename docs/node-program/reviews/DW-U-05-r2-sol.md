@@ -1,0 +1,27 @@
+# U-05 narrow review r2 — c6138f9f..d98a02ee
+
+Assumption: this verdict applies to the requested commit range ending at `d98a02ee`, not the later `dw/u-05-tools` tip. I reviewed in a detached scratch worktree and made no changes to the branch.
+
+## Findings
+
+1. **Minor — The M2 engine contract omits the new analysis field.** `docs/contracts/m2-engine.md:245` still lists `PsbtAnalysis` without `unsigned_txid`, while `rust/crates/dw-engine/src/send/psbt.rs:150`, `rust/crates/dw-app/src/api/send/draft.rs:389`, and the generated TypeScript binding expose it. A reader implementing or checking the documented M2 API will build against an incomplete record, and the Swift contract test will not catch this omission. Add the field and its stable-unsigned-transaction meaning to the contract row. This was fixed later in `e83c03bb`, which is outside the requested diff.
+
+2. **Minor — An unanalysable Create Unsigned PSBT gets the wrong recovery message.** `apps/desktop/src/screens/pay/ConfirmSheet.tsx:175-182` catches `analyzePsbt` failure with `createUnsigned` failure and shows generic `failureText`. If the engine returns a PSBT but analysis fails, no PSBT escapes, which is safe, but D37 promises “The payment changed. Review it again.” The E2E case at `apps/desktop/e2e/tools.spec.ts:451-466` checks only that an error appears, so it misses the mismatch. Handle analysis failure separately with the review-again message and assert that exact text in the test.
+
+3. **Nit — The generated binding adds trailing whitespace.** `apps/desktop/src/api/generated/PsbtAnalysis.ts:22` makes `git diff --check c6138f9f d98a02ee` fail. Regenerate from a corrected generator format, or address this in the binding generation workflow; avoid hand editing generated output.
+
+## Resolution of round-1 findings
+
+- **D37, payment identity:** `unsignedKeepsPromise` checks the exact recipient address and amount, the entire remaining output set and change policy, the fee, and input count before clipboard or navigation. A different recipient address cannot pass. A different set of automatic coins with the same count and aggregate value *can* pass; with verified input values, fixed outputs, and fixed fee, it cannot change the payment or wallet debit. Manual coin selection uses exact outpoints in the engine. Listing outpoints in the analysis remains a useful follow-up for coin identity and privacy, not a release blocker here. The changed-plan E2E case and unit tests cover rejection.
+- **D38, stale Sign/Verify:** all editable fields and picker selection clear the associated result. Counters discard old verify replies and signatures for edited inputs; the passphrase-window guard revokes an unused grant before signing. The UI may show the explicit “changed while signing” result after an edit, but no abandoned signature is exposed.
+- **D40, broadcast guard:** Rust derives `unsigned_txid` from `psbt.unsigned_tx.txid()` and tests stability under signatures and an extra PSBT field. The app exposes it as `unsignedTxid`; the shared log is keyed by it and marks pending before invoking `broadcastPsbt`. A remounted tab and differently encoded PSBT therefore cannot make a second request in the same webview session. A full webview reload loses the log and can issue a duplicate request while the first is in flight. It cannot pay twice with the same inputs and outputs: the network accepts at most one spend, though the second response may be a misleading rejection. This is an acceptable residual for this release.
+- **D39, wildcard:** the matcher no longer builds a backtracking regex; the old regex restored in scratch caused the D39 regression test to exceed 12 seconds. The new suite passes and includes case-folding checks.
+- **D41, Windows files:** chooser-saved PSBTs and address-book CSVs inherit the selected folder ACL on Windows. A PSBT can disclose transaction details, derivation paths, public keys and signatures, but contains no private key; a CSV can disclose labels and addresses. Given the explicit user-selected destination, owner-only ACL work can follow. Separately, Settings' `exportForCore` writes a `dumpwallet`/descriptor file containing private keys under the app's backup directory (`rust/crates/dw-engine/src/compat.rs:877-901`); that existing export path also relies on inherited Windows ACLs and needs its own Windows privacy review, especially for a custom data directory.
+
+## Verification and limits
+
+At `d98a02ee`, `pnpm exec vitest run` for the four touched unit suites passed 62/62, and `pnpm typecheck` passed. In the scratch worktree, mutations bypassing the D37 check, D38 passphrase/engine-call/verify ordering guards, and D40 pending/identity guards each failed their focused regression test; restoring the old D39 regex timed out the D39 test. The scratch worktree was restored clean. I inspected the Rust derivation and test but did not rebuild Rust or rerun the supplied T1 run on this loaded host.
+
+The Swift `ServiceErrorCodeTests.m2EngineCodesMatchTheContractTable` test parses only the error-code section (§4) of `m2-engine.md`; no Swift test parses the `PsbtAnalysis` row in §2.5. If the M2 contract is changed, run `swift test --filter ServiceErrorCodeTests.m2EngineCodesMatchTheContractTable` on a supported Swift build host; it will not detect a missing `unsigned_txid` field. The Swift FFI `PsbtAnalysis` is a separate record and was not changed by this desktop binding addition.
+
+VERDICT: APPROVE-WITH-NITS
