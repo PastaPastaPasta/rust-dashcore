@@ -1,0 +1,69 @@
+REWORK
+
+Final closure check, round 4, of `designs/ST3a-power-loss.md` rev3 at `b5322f02d615795c89a03955dd5c6c243587e83e`, byte-identical to the reviewed working file. Read “Changes in rev3” first, REVIEW-COMMON, both round-3 reviews, DEC-64/66/69, retained GPT round-3 evidence, and the relevant A1/ST1/ST2 and pinned Core storage/index code. The branch advanced during the review, but the design's latest commit and contents did not change. No design/source edits, commits, pushes, or posts were made.
+
+Evidence is under `/work/scratch/st3a-r4-gpt/`: `closure_checks.py`, `closure-checks.log`, `automatic_prune_probe.rs`, `automatic-prune-probe.log`, `r3-prune-rerun.log`, and `n7-size-domain.log`. The Python checks are small abstract protocol/counterexample checks. The Rust probe links the existing ST2 library and calls its public selectors on metadata fixtures for both releases; it does not simulate a complete validated blockchain. These are design checks, not implemented-harness timing or physical power-cut results. Runs used `TMPDIR=/dev/shm/st3a-r4-gpt-tmp`, mode 700, with no daemon or heavy build.
+
+1. **Major — The forced flush at `D_max` can deadlock a correctly classified synced subscriber.** `designs/ST3a-power-loss.md:744–747,802,806,834`.
+
+   Take a synced subscriber with durable locator 0, `D_max = 96`, and the explicitly supported backlog 2. V is at 98 when the subscriber reaches progress 96. Reaching the limit makes a full flush due. Freeze `new = 98`; B1 returns and acknowledges 98. Step 6 waits for this subscriber to drain through `Connected(98)` before its locator commit.
+
+   The subscriber cannot process 97: that would exceed `h(L) + D_max = 96`. Its locator cannot advance: synced mode commits only at step 6, after draining through 98. Asking for another flush does not release the current W wait. B1's completed barrier changes `T_ack`, but does not itself advance the subscriber's barrier-covered locator. The same cycle occurs with backlog 1; backlog 0 is a passing control. `closure_checks.py` reproduces all three cases.
+
+   Thus the new rule does not establish the claim that “neither W's wait at step 6 nor a syncing subscriber can stall.” Existing S11q/S14 stop below the limit and cannot expose it. This is a forward liveness failure without any crash, classification bug, failed commit, or unbounded queue.
+
+   **Fix:** specify how W's frozen tip stays within every synced subscriber's remaining processing allowance, including queue lag and V-ahead, or allow an intermediate barrier-covered, capped locator checkpoint at the limit after B1 and before completing the drain. Such a checkpoint must actually advance the locator used by backpressure; marking another flush due is insufficient. Add a correct-toy scenario with `L=0, p=96, V=new=98`, a finite progress assertion, and nested-crash checks around whichever intermediate checkpoint is chosen. Keep the blind rewind bound valid rather than temporarily exceeding it.
+
+2. **Major — `min(predicted, actual)` height locks do not establish the claimed subset for automatic pruning.** `designs/ST3a-power-loss.md:753–754,825–835,948,1245`.
+
+   For a fixed set of files, manual selection of **all** eligible files is monotone in the height bound. Automatic selection is different: ST2's `find_files_to_prune` (`dashd-store/src/flatfile/blocks.rs:610–647`), matching both Core pins, stops once usage falls below the target. Lowering the height bound can make the scan skip an earlier file and select a later file that the dry run never reached. File-number order does not imply monotone `height_last`: later files can contain lower-height side-branch blocks.
+
+   The ST2-linked fixture has two closed files of equal size, with last heights 62 and 40, and a current file. Set the usage target so deleting one closed file suffices. The predicted lock selects `{0}`. An actual fork lock 47 selects `{1}`, despite using `min(predicted, actual)`. `{1}` is not a subset of `{0}`. The manual-selector control on the same fixture gives `{0,1}` and `{1}`, which **does** satisfy subset. Both releases reproduce these results.
+
+   There is also a simpler counterexample with monotonically increasing file heights and no reorg or commit failure. Put the target 516 bytes above the usage remaining after file 0 is removed. The dry run selects `{0}`. One 1,032-byte V-ahead append between the decision and final selection increases usage; the automatic selector with the **same** lock now selects `{0,1}`. Both releases reproduce this too. Therefore FA2's subset assertion can fail on a correct implementation, and its claimed equality exceptions omit an allowed concurrent mutation. The normal flush already admits V-ahead appends in step 10.
+
+   **Fix:** retain the predicted file set and restrict final pruning to that set, rechecking actual height/locator eligibility, or define another explicit snapshot/selection protocol that proves subset under automatic target stopping and concurrent file changes. Freezing only `new` and taking the smaller height lock is insufficient. Specify how another prune check remains due when concurrent growth leaves the target unmet. Add an automatic-target test; S14's empty automatic checks followed by a manual prune cannot verify this property.
+
+3. **Minor — FA1 and E20 must test the prune cause, not forbid a full flush caused by `D_max` or another trigger.** `designs/ST3a-power-loss.md:747,806,828,947,1245`.
+
+   Step 0 already says “with no other trigger due,” but FA1 says that at every due prune check “the flush happens iff the dry run is non-empty,” and E20 repeats that unqualified rule. A due prune check can have an empty dry run while the new `D_max` trigger requires a full flush. A correct run would then fail literal FA1. Core's predicate is `fFlushForPrune = !selected.empty()`; `fDoFullFlush` additionally includes the other causes at both pins.
+
+   **Fix:** assert `flush_for_prune iff dry_run_nonempty`, and define a full flush as that cause **or** the other full-flush triggers, explicitly including `D_max`. Apply the same qualification to E20 and the summary wording. Include an empty prune decision concurrent with a forced subscriber flush in the new limit scenario.
+
+4. **Minor — Carry DEC-69's reorg exception through the duplicated flush and liveness wording.** `designs/ST3a-power-loss.md:953,1232–1234`.
+
+   The normative subscriber contract and E19 correctly commit at `LCA(p,new)`. E12 still says that synced subscribers commit “at `new`.” Likewise, the liveness paragraph says every synced lock reaches `new − BUFFER − 1` at every flush, and E14 says every-synced bounds are never lower than Core's. These claims need the exception already present in steps 6–7: V may reorg below the frozen `new` during the flush. For example, frozen A80 and processed B80 with fork 50 yield a synced locator 50 and lock 47, not 77; Core's current in-memory B80 lock can be 77.
+
+   **Fix:** use `LCA(p,new)` in E12 and qualify the height/comparison and one-flush liveness claims with the stable-chain/no-reorg-below-`new` condition. The six FT assertions and their log emulation do not require changing.
+
+5. **Minor — N7's two-record window is bounded, but `rev sizes ≤ 3` is not justified without an undo-size/alignment constraint.** `designs/ST3a-power-loss.md:935,1105`.
+
+   With advisory allocation failing from the start, use the 200-byte undo payload of the retained round-3 probe: each undo record is 240 bytes including its header and checksum. A durable used length of 4,800 followed by two single-write undo records admits sizes `{4800, 5040, 5120, 5280}` under §2.2's extending-write domain. ST2 writes each undo record in one call (`blocks.rs:455–466`); 5,120 is the permitted intermediate sector-aligned size. The two 1 KiB block records have the stated nine sizes. With one effect bit the stated product is therefore 72, not 54. `n7-size-domain.log` records the calculation.
+
+   **Fix:** declare an undo size/alignment that proves the three-value bound, or use the actual size-domain product (72 for this fixture) and recalibrate N7's row. This stays far below 1,024 and does not threaten the 60 CPU-s budget; the unsupported bound is the remaining issue.
+
+6. **GPT round-3 closure — every finding dispositioned.**
+
+   **1 — Closed.** The real ST2 file boundaries and S3p/S5/S5b/S5c/S11/S11r/S13 selections still reproduce under both releases; `r3-prune-rerun.log` records the rerun. The PR/nightly arithmetic is updated and checks out. **2 — Closed.** T18 still removes both the barrier and Durable Bk; N8 is now expressly restricted to S4, while T34 covers the previously unsafe two-flush extension. **3 — Closed.** R5 still uses E's WAL-ordered surviving overlay, including legitimate retained clears. **4 — Closed.** D1(f) remains unconditional and scoped. **5 — Closed.** Returned-before-started coverage and cross-store completed barriers remain normative; open promotion additionally handles a previous epoch's retained finalizer.
+
+   **6 — Closed.** Only the durable locator carries subscriber block/undo requirements. The path `L → LCA(L,G) → G` is empty when `L=G`; processed data does not pin pruned history. G reads the marker's `new` during the split flush and `meta.tip` afterward. The S3p/N9 correct-pruning contradiction is gone. A stale A70 locator against B80 requires A51–70 and B51–80, all above the fork lock 47. **7 — Closed.** W1 explicitly retains T17's R3/R4 failure: the legal empty prefix loses acknowledged Buffered B1.
+
+7. **Opus round-3 closure — every finding dispositioned.**
+
+   **1 — Partial.** The missing trigger is specified, S14/T32 are added, and an empty due check alone does not force an IBD flush. The automatic selection's subset proof still fails (finding 2), and cause wording needs finding 3. **2 — Partial.** `m_synced` classification, queue drain, bounded syncing cadence, LCA cap, S11s/S11q, T33/T35 and FA3/FA4 are all applied. Capped commits 20/40/40 in S11s are sound. The newly added limit/forced-flush mechanism still leaves the synced liveness cycle in finding 1. **3 — Closed.** Bk, Bp and recovery's final batch are Durable; B1 includes the previous finalizer; N8 is pinned to S4 and T34 to S4b. The two-flush missing-last-coin witness reproduces for T34 and is excluded by the correct barrier order.
+
+   **4 — Closed.** All six FT assertions are listed and moveback is emulated log-only. The pinned `DisconnectTip` loops support the specified lowering/logging behavior. **5 — Closed.** G is expressly marker-new-or-meta-tip in R11a, D1 and the contract. **6 — Partial, minor only.** The successful-preallocation qualification and product over files are added, and N7 now has a two-record window. Its exact claimed rev-size factor still needs finding 5. **7 — Closed.** Replay and rewind are explicitly blind, in the toy and CH2 contract; DEC-69/Q16 assigns range deletion to ST1/BL-38.
+
+   **8a — Closed.** R6(e) takes E's index, so T31 cannot lower its own reference tip by erasing entries. **8b — Closed.** N8/N9 have explicit exhaustive budget rows. **8c — Closed.** S11r names the common file-0 blocks. **8d — Partial, minor only.** The stable-chain comparison was corrected to “never lower,” with the lag threshold; the new concurrent-reorg exception still needs carrying into E14 (finding 4). No round-3 finding remains wholly open.
+
+8. **The new crash mechanisms otherwise pass the checked small cases.** `designs/ST3a-power-loss.md:302–320,711–724,744–748,807`.
+
+   A returned Durable Bk preserves F1's last coin before F2 overwrites the marker. Recovery's final batch has the same pre-final barrier and Durable rule. After ProcessKill, open `sync_wal` covers the retained previous finalizer before any new recovery/continuation write; a crash before that barrier has introduced no new finalizer. ST1 leaves `avoid_flush_during_recovery=false`; RocksDB 11.8.1's recovery path flushes remaining memtables through `WriteLevel0TableForRecovery` and `BuildTable` syncs the output, supporting the default-open promotion claim. The explicit model barrier remains the important protocol requirement.
+
+   Durable fork rewind is atomic in both deletion and locator update. For A70 → fork50 → B80, the checked images either retain A70 with no subsequent B data or retain locator50 and safely delete/replay data above 50. T36's subset image instead loses the Buffered fork rewind and retains B51–80; blind `(70,166]` deletion leaves wrong B51–70 at recovered A70, so R11c(i) fires. This witness is reachable between the next data Append and its pre-locator `sync_wal`; under W1, retained later data requires retaining the earlier rewind. Blind `(L,L+D_max]` deletion covers an overrun exactly equal to the bound. These checks did not reveal an additional crash hole in those mechanisms.
+
+9. **Budget arithmetic — verified as forecasts.** `designs/ST3a-power-loss.md:1085–1121,1145–1159`.
+
+   The listed clean PR rows sum to **23.58 CPU-s** (rounded to 23.6); the complete PR table sums to **37.08 CPU-s** (rounded to 37.1). The nightly rounded rows sum to **2,219 CPU-s**, and evaluating the displayed formulas gives approximately **2,219.00 CPU-s = 0.61639 CPU-h**, matching 2,220 / 0.62. Twice that is approximately 1.233 CPU-h, within the approved 1.5 CPU-h. N7's corrected domain and any new closure scenarios require Phase B recalibration; these arithmetic checks are not measurements of an implemented harness.
+
+Summary: Rev3 closes the permanent-record D1 contradiction, W1/T17, Buffered-Bk hole, and the main classification/cadence omissions. The locator-path, finalizer, open-promotion and durable-rewind checks pass. Approval still requires a progress rule that breaks the synced `D_max` wait cycle and a final-selection protocol that actually guarantees the asserted subset for automatic pruning. Three minor specification corrections are listed separately. **Final verdict: REWORK.**

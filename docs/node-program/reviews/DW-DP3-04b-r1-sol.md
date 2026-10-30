@@ -1,0 +1,34 @@
+# DP3-04b security and correctness review (Sol, round 1)
+
+**Verdict: CHANGES REQUIRED** before the desktop pin is released. Reviewed platform `f2f15b55ca` against `ebe37f8a67` and dashwallet-desktop `8e0bbf1a` against `c1a7ebf1` in detached worktrees. The rotation and payment checks behave as intended in the reviewed code; the migration-history collision below is a release blocker.
+
+## Finding
+
+### High: V019 has competing meanings and can make an upgraded wallet impossible to open
+
+`packages/rs-platform-wallet-storage/migrations/V019__dashpay_external_rotation.rs:26-54` assigns V019 to the retired-pool table and contact stamp. Three other open platform branches also claim V019 (per the review brief). The storage crate embeds migrations by version (`src/sqlite/migrations.rs:16-20`) and runs Refinery with its default `abort_divergent = true` and `abort_missing = true` (`src/sqlite/migrations.rs:27-55`; Refinery 0.9.2 `runner.rs:240-241`). `SqlitePersister::open_inner` surfaces the failed run as a wallet-open error (`src/sqlite/persister.rs:374-397`).
+
+**Failure scenario:** a user opens the desktop build pinned to this fork, so their database records this V019 name and checksum. A later desktop build pins a platform revision where another branch's V019 won. Refinery sees the same version with a different name/checksum and aborts with `DivergentVersion`; the wallet cannot open. If this migration is simply renumbered and its old V019 disappears, that user's database instead fails with `MissingVersion`. This is a compatibility failure after a normal upgrade, not a crash-atomicity flaw in the SQL.
+
+**Required resolution:** agree on the canonical migration order before shipping the pin. Include a tested upgrade path for databases already opened with this fork's V019 and for any database opened with a competing V019. Preserve each applied history or reconcile it explicitly and transactionally to a common schema/history; renumbering this file alone is insufficient. Test opening both histories with the eventual platform revision.
+
+## Checks without findings
+
+- **Migration and rotation:** V019's DDL runs in the grouped migration transaction (`migrations.rs:27-55`), so an interrupted run cannot leave half a schema. The flush applies registration rotation, pool writes and contact writes in one transaction (`persister.rs:2149-2203`). Rotation copies live rows and monotonic `used` flags to the retired table, deletes the live generation, then restores and removes a previously retired target generation (`schema/core_pool.rs:105-137,174-200`). Reapplying the same registration does not rotate (`schema/accounts.rs:203-225`). Late snapshots are classified against the current and known earlier xpubs; unknown ones still raise `TypedPoolKeyConflict` (`schema/core_pool.rs:224-296,417-443`). Pool rehydration and the pool used-address reader query only live rows (`schema/core_pool.rs:509-535,677-720`); retired rows have a separate history reader (`:781-817`).
+- **Money destination:** the paying-account stamp is stored and loaded (`schema/contacts.rs:211-246,431-436`). The gate treats a missing or mismatched stamp as stale in every rule-5 setting, with the queued `RegisterExternal` exemption only before reservation (`desktop/rust/crates/dw-engine/src/platform/money_gate.rs:338-350,393-416`). The strict re-check tests both the stamp and reserved-address membership in the current paying account under one wallet-manager read (`:356-375,459-469`); `Probe` and `Off` take the destination-only path too (`:542-566`). The D14 unchecked kept-address replacement remains under `Enforce`, and the SQLite relaunch test covers old kept addresses in all three settings (`desktop/rust/crates/dw-engine/src/send/contact_tests.rs:2181-2255`).
+- **D30:** a refusal kicks a DashPay pass only when none is active (`money_gate.rs:519-530`). A refusal during a pass waits for the existing periodic loop, configured at 15 seconds with the window visible and 60 seconds hidden (`desktop/rust/crates/dw-engine/src/platform/runtime.rs:22-23`). This can delay a retry by one interval but does not disable retry. A permanently wedged pass remains an existing sync failure mode.
+- **Pin hygiene:** the eight platform dependencies in `desktop/rust/Cargo.toml` point to `f2f15b55ca`; all 31 changed `Cargo.lock` lines are platform `source` replacements. The rust-dashcore revision remains `8fe0a381`, and the rust-dashcore-dashpay `[patch]` is unchanged.
+
+## Scope limit
+
+D22 expressly treats the last re-check as a point in time. A transaction prepared just before rotation can still be broadcast afterward to its formerly valid destination; broadcast does not re-gate (`desktop/docs/design/DP3-04-trust-gate.md:171`). This is the stated contract, not a newly introduced regression.
+
+## Validation
+
+- `CARGO_TARGET_DIR=/work/scratch/dw-dp304b-r1-sol/target-platform CARGO_BUILD_JOBS=12 cargo test -p platform-wallet-storage --locked` — passed (exit 0), including the rotation, rollback, late-snapshot, rotate-back, unknown-xpub and pre-V019 migration tests.
+- `CARGO_TARGET_DIR=/work/scratch/dw-dp304b-r1-sol/target-desktop CARGO_BUILD_JOBS=12 cargo test -p dw-engine --locked contact` — passed (99 unit tests and one integration test; five public-testnet fixtures ignored). This includes `a_rotation_the_store_kept_is_what_a_relaunch_pays` on the new pin, the accepted-this-session case, stale/unstamped checks under all three rule-5 settings, and the address-binding checks.
+- A temporary, detached-worktree-only `review_stamp_write_lost_after_new_account_is_stored` test was included in that contact run and passed: after the rotated account was stored without its separate stamp write, a relaunch refused `prepare` with `platform.context_unavailable` and reserved no address under `Enforce`, `Probe` and `Off`. The probe was removed afterward.
+- `CARGO_TARGET_DIR=/work/scratch/dw-dp304b-r1-sol/target-desktop CARGO_BUILD_JOBS=12 cargo test -p dw-engine --locked trust` — passed (32 unit tests and one integration test).
+- On the old pin (`c1a7ebf1` / platform `ebe37f8a67`), the same `a_rotation_the_store_kept_is_what_a_relaunch_pays` test failed as expected: `Backend { kind: Fatal, source: TypedPoolKeyConflict { account_type: "dashpay_external", address_index: 0 } }` at the rotated account's `store` (exit 101). The new pin passed this same case in the contact run. The test source was copied only into a detached old-pin checkout for this comparison.
+
+Only planted test data was used; nothing was broadcast. I did not edit, commit or push either reviewed branch, and removed the detached worktrees and targets after testing. The desktop branch ref advanced independently to `8cffca37` (a documentation commit) during this review; this verdict applies to the requested `8e0bbf1a` snapshot.
