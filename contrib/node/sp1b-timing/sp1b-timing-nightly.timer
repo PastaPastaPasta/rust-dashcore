@@ -1,0 +1,9 @@
+[Unit]
+Description=SP1b masternode-sync timer KS, nightly at 00:41 UTC (DEC-562)
+
+[Timer]
+OnCalendar=*-*-* 00:41:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target
