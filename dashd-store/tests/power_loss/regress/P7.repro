@@ -1,0 +1,10 @@
+# MicroLog planted bug P7 (ST3a §6.1), minimised in 20 replays.
+harness st3a/1
+sut microlog
+config bug=P7 max=1024
+workload a300:1;a300:2;c
+crash 4 process-kill
+adversary realistic
+granularity write
+expect R3
+minimality verified

@@ -1,0 +1,12 @@
+[package]
+name = "git-state"
+description = "Compile-time git repository state as procedural macros"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+proc-macro = true
