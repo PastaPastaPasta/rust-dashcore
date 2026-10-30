@@ -1,0 +1,6 @@
+# A ChainLock whose block arrives after CL_RECORD: headers first, then the data.
+extend main 2 hold
+cl unsent#1
+deliver b1
+cl_enforce
+extend main 1

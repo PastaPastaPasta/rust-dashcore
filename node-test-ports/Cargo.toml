@@ -1,0 +1,18 @@
+[package]
+name = "node-test-ports"
+description = "Test infrastructure for the node program: free TCP ports for the nodes a test starts (BL-221). Never a runtime dependency."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "node_test_ports"
+path = "src/lib.rs"
+
+[dependencies]
+# A bound-only probe with SO_REUSEADDR (std's TcpListener always listens).
+socket2 = "0.6"
