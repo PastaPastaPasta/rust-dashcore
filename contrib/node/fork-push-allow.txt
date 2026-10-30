@@ -1,0 +1,123 @@
+# check-fork-push.sh, checks 5 and 6: reviewed exceptions. "<path or glob> <check> <reason>[:<arg>] [key=value ...]"
+# Reasons (closed list, no free text; see CI-FORK.md):
+#   5 local-tool        a script or tool run by hand; no CI file names it (glob allowed)
+#   5 nested-workspace  a workspace outside the root one, which CI never builds (glob allowed)
+#   5 inert-literal     names a local path as a string that is compared or quoted, never opened
+#   5 absent-skip       a test that returns when the local path is absent
+#   5 env-gated:<VAR> / feature-gated:<feature>  reached only with that variable or feature
+#   6 public-data / synthetic-data  a fixture of public chain or network data, or of synthetic
+#                       regtest data (blob=<git blob id>: a changed file fails)
+# Entries that are not globs (all but local-tool and nested-workspace) record the count of local
+# path names per class (chains, bench, cache, private); a changed count fails until re-reviewed.
+
+conformance/scripts/oracle-pass.sh 5 local-tool
+conformance/scripts/regtest-v24.sh 5 local-tool
+conformance/scripts/suffix-check.sh 5 local-tool
+conformance/src/digest/dump.rs 5 inert-literal chains=1
+conformance/src/main.rs 5 local-tool
+conformance/tests/digest_compare.rs 5 inert-literal chains=1
+conformance/tests/rpc-replies/oracle-blockindex-testnet.json 5 inert-literal chains=1
+conformance/tests/scan_crosscheck.rs 5 absent-skip chains=1
+contrib/node/bs5-chainparams/build.sh 5 local-tool
+contrib/node/build-oracle.sh 5 local-tool
+contrib/node/check-fork-push.sh 5 local-tool
+contrib/node/check-oracle-repro.sh 5 local-tool
+contrib/node/check_fork_push.py 5 local-tool
+contrib/node/cj0-vectors/regen.sh 5 local-tool
+contrib/node/cs2-diff/dump_headers.py 5 local-tool
+contrib/node/cs4-versionbits-chain.py 5 local-tool
+contrib/node/dde-probe/bs7_oracle_headers2.py 5 local-tool
+contrib/node/dde-probe/bs8-judge/build.sh 5 local-tool
+contrib/node/dde-probe/nodes.py 5 local-tool
+contrib/node/fingerprint/capture.py 5 local-tool
+contrib/node/p2a-transcripts/capture.py 5 local-tool
+contrib/node/p2b-transcripts/capture.py 5 local-tool
+contrib/node/p3-ibd/run.sh 5 local-tool
+contrib/node/p3-transcripts/capture.py 5 local-tool
+contrib/node/p4a-transcripts/capture.py 5 local-tool
+contrib/node/p4b-cpu/run.py 5 local-tool
+contrib/node/p4b-transcripts/capture.py 5 local-tool
+contrib/node/p5a-live/live.py 5 local-tool
+contrib/node/p5a-transcripts/capture.py 5 local-tool
+contrib/node/sb12a-captures.py 5 local-tool
+contrib/node/sb4-core-scenarios/build.sh 5 local-tool
+contrib/node/sigvec/extract.py 5 local-tool
+contrib/node/sp0-transcripts/capture.py 5 local-tool
+contrib/node/sp1-transcripts/capture.py 5 local-tool
+contrib/node/statedigest/build.sh 5 local-tool
+contrib/oracle-cli 5 local-tool
+dash-chain/tests/data/headers/fetch_tips.py 5 local-tool
+dash-chain/tests/data/headers/tips-mainnet.json 5 inert-literal chains=1
+dash-chain/tests/data/headers/tips-testnet.json 5 inert-literal chains=1
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-mainnet/dash.conf 5 inert-literal chains=1
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-testnet/dash.conf 5 inert-literal chains=1
+dash-oracle-sys/build.rs 5 feature-gated:oracle cache=2
+dash-oracle-sys/scripts/collect-llmq-rotation.py 5 local-tool
+dash-oracle-sys/scripts/dml-listdiff-check.py 5 local-tool
+dash-oracle-sys/scripts/gen-difficulty-samples.py 5 local-tool
+dash-oracle-sys/scripts/gen-llmq-samples.py 5 local-tool
+dash-oracle-sys/scripts/gen-samples.py 5 local-tool
+dash-oracle-sys/scripts/payments-check.py 5 local-tool
+dash-x11/contrib/core-harness/build.sh 5 local-tool
+dashd-store-bakeoff/run.py 5 local-tool
+hashes/contrib/dump-oracle-headers.py 5 local-tool
+node-bench/nodebench/paths.py 5 local-tool
+node-bench/scripts/baseline.sh 5 local-tool
+node-bench/scripts/build-dashd-bench.sh 5 local-tool
+node-fuzz/fuzzctl.py 5 local-tool
+node-fuzz/seeds/coreimport_dash_conf/oracle-mainnet-dash.conf 5 inert-literal chains=1
+node-fuzz/seeds/coreimport_dash_conf/oracle-testnet-dash.conf 5 inert-literal chains=1
+test-vectors/statedigest/testnet-v24/MANIFEST.json 5 inert-literal cache=1
+
+node-fuzz/Cargo.toml 5 nested-workspace
+node-fuzz/Cargo.lock 5 nested-workspace
+contrib/node/cs2-diff/Cargo.toml 5 nested-workspace
+contrib/node/cs2-diff/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/bs7/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/bs7/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/bs8/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/bs8/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/bs9/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/bs9/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/bench/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/bench/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/oracle/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/oracle/Cargo.lock 5 nested-workspace
+contrib/node/dde-probe/bs7-bench/Cargo.toml 5 nested-workspace
+contrib/node/dde-probe/bs7-bench/Cargo.lock 5 nested-workspace
+contrib/node/spv-feature-off/Cargo.toml 5 nested-workspace
+dashd-store-bakeoff/Cargo.toml 5 nested-workspace
+dashd-store-bakeoff/Cargo.lock 5 nested-workspace
+
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/empty/governance.dat 6 synthetic-data blob=3d47af59405ba952f68d68b8bb14c18f7e6e0c51
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/empty/mncache.dat 6 synthetic-data blob=b31eccd7c5c014d9454f68e0699a00be5090b77d
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/empty/netfulfilled.dat 6 synthetic-data blob=8b04d53e06798c6db564f2f211aea16c3340b275
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/empty/sporks.dat 6 synthetic-data blob=53d88d09e11c631cae4cedc478091dc2eb3905b8
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-mainnet/governance.dat 6 public-data blob=0815d559f16f0a19f43ad81ed1f584c09987634e
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-mainnet/mncache.dat 6 public-data blob=87ccac6ed31a3287de3ba06a02940ddaa39f968d
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-mainnet/netfulfilled.dat 6 public-data blob=b215f1d0447d16f0d057513adc72556dcf5ffb8a
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-mainnet/sporks.dat 6 public-data blob=f33d6e8dd219188cf2983e4546bc030f02d30b85
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-testnet/governance.dat 6 public-data blob=e9d1c7df9764b767e80dc795c6632525f85398f0
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-testnet/mncache.dat 6 public-data blob=cd57195406c8acd2877fcc82800c99c2dac8abf4
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-testnet/netfulfilled.dat 6 public-data blob=44c1cae554e611ff063d9dae6e21433a81b624b1
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/oracle-testnet/sporks.dat 6 public-data blob=8dcc1af7af557ec5ff2d61d1a277270822ab36ea
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/populated/governance.dat 6 synthetic-data blob=bb3c124721b5a0d6affc63fa1fc97fa94a527099
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/populated/mncache.dat 6 synthetic-data blob=04f77b5e99f9e0ef5540ae864d6ce6ead7bd5061
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/populated/netfulfilled.dat 6 synthetic-data blob=cd04723649e2b2712349086f1e203cbad9dcb52a
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.3/populated/sporks.dat 6 synthetic-data blob=7903d8a49783733d1e1d557eb38a9aa5b6515fef
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/empty/governance.dat 6 synthetic-data blob=f648d13f4d8d720b9bab9ee630e538e920f2e804
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/empty/mncache.dat 6 synthetic-data blob=b31eccd7c5c014d9454f68e0699a00be5090b77d
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/empty/netfulfilled.dat 6 synthetic-data blob=8b04d53e06798c6db564f2f211aea16c3340b275
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/empty/sporks.dat 6 synthetic-data blob=53d88d09e11c631cae4cedc478091dc2eb3905b8
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/populated/governance.dat 6 synthetic-data blob=ae540ac255f984b04fcf5e9d6376fad9a5a05865
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/populated/mncache.dat 6 synthetic-data blob=3ee7d055fecdbb7026d90eb01ff97226d005b4a4
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/populated/netfulfilled.dat 6 synthetic-data blob=514a047fbe10a1382ebd9f4063ee56ca12789ee2
+dash-coreimport/tests/data/flatfiles/v24.0.0-rc.4/populated/sporks.dat 6 synthetic-data blob=314749e3c0185dee2ece330e67c7c1b2ef547e45
+dash-coreimport/tests/data/mainnet-0-1300/blk00000.dat 6 public-data blob=4a51eed04770cc76d3b04ab4dc73db310102cedb
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/empty/fee_estimates.dat 6 synthetic-data blob=da895de716fbdd71e2684c03c9d1e8ad563bea7c
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/empty/mempool.dat 6 synthetic-data blob=845d76b6c927fe7477428bb27fc5454773675a35
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/empty/peers.dat 6 synthetic-data blob=cb0c22d81d23c5b11633e1bb192ea1d0a1e7ba97
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/nan-decay/fee_estimates.dat 6 synthetic-data blob=34d65daf2db98a3c499fd47d1c394b0bce0d175d
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/populated/fee_estimates.dat 6 synthetic-data blob=3e080334f4c220d6a2258c7ea468de6ddbf6c522
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/populated/mempool.dat 6 synthetic-data blob=62baf5d03c7568011954a18ef2ac361d51d34763
+dash-coreimport/tests/data/netstate/v24.0.0-rc.3/populated/peers.dat 6 synthetic-data blob=4b20845537ed83bb7c81b9fcf1149a4d55b8e791

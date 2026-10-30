@@ -1,0 +1,63 @@
+CHANGES-REQUIRED
+
+Independent review of base-sdk `0286d1a` + `ae304a1` on `481f8c3`, and rust-dashcore `5fad804d`. Reviewed detached worktrees in `/work/scratch/bs5-gpt/`; neither implementation branch was edited. References are Dash Core **v23.1.8** and **v24.0.0-rc.3**, read with `git show`. Read REVIEW-COMMON, PLAN BS5, A1 §1.7 and the override contract, O17 release profile, DEC-37/41, BL-31, CS2 §2.5, and `dash-oracle-shim-o1`.
+
+1. **Major — an overwritten negative versionbits height permanently poisons the builder.** Base-sdk `pkgs/params/src/builder.rs:417`, `:494`, `:499`, and `:324`.
+
+   Concrete regtest input, at either release:
+
+   ```text
+   -vbparams=v24:0:9:-1 -vbparams=v24:0:9:0
+   ```
+
+   Both pinned dump binaries finish with `min_activation_height = 0`. Both official release dashds start and answer `getblockchaininfo`. The builder instead returns `NegativeHeight(VbParams, -1)`: `Negative` records the first negative value without tracking which deployment it belongs to, and never clears it when the later override replaces that value. Replacing the second argument with `-vbparams=v24:0:9` also reproduces this, since Core resets an omitted minimum height to zero. This final chain is representable by the unsigned model; rejecting it is an additional deviation from repeated-option semantics, rather than the necessary BL-31 refusal of a negative final height.
+
+   **Core citations:** v23.1.8 `src/chainparams.cpp:932–936`, `:1051–1093`; v24.0.0-rc.3 `src/chainparams.cpp:972–976`, `:1091–1133`. Each occurrence assigns the deployment's minimum height, including zero for the three-field form.
+
+   **Fix:** retain signed temporary minimum heights per deployment while replaying all arguments, or maintain replaceable negative markers per field. Reject only negative heights still present in the final parameters, after Core's thrown parsing errors. Add both overwrite cases to the corpus at both pins and retain a case where another deployment remains negative. Reconcile the public deviation documentation with CS2 §2.5: the library explicitly refuses negative DIP3 and versionbits heights too, while that program exclusion table currently names budget/superblock starts.
+
+2. **Major — the corpus generator can silently incorporate unpinned Core headers and falsely label the result as pinned.** Rust-dashcore `contrib/node/bs5-chainparams/build.sh:8`, `:20`; `run.py:422`, `:473`, `:478–486`, `:498`.
+
+   `build.sh` accepts any directory containing suitable headers and archives; it verifies neither the expected Git commit nor source cleanliness/build provenance. `run.py` checks only `params` against the pinned oracle, copies `ext` unchecked, and writes hard-coded commit identifiers into its output header. That leaves assumeutxo, the complete available LLMQ table and derived values, seeds, credit-pool periods, and other extension fields outside the claimed pin guarantee.
+
+   **Concrete reproduction:** created an unversioned private mirror of the v24 build tree, retaining its original archives but changing only the private `src/llmq/params.h` inline `max_store_depth()` to add one. `build.sh` compiled it successfully. Running the complete generator with that binary and the freshly executed, pinned oracle example exited **0** and printed `all oracle cases equal the pinned oracle_chainparams_json`. The generated mainnet LLMQ_50_60 depth changed **1152 → 1153**; every `params` object stayed identical, and the corpus still claimed commit `23769258c239e69282569e9f9e219ce9e2c4ee2e`. Evidence: `/work/scratch/bs5-gpt/drift-summary.log` and `drifted/`.
+
+   **Core citations:** v23.1.8 `src/llmq/params.h:123`; v24.0.0-rc.3 `src/llmq/params.h:128`, both returning `max_cycles(keepOldKeys) * dkgInterval`. Other affected consensus inputs include v23 `src/chainparams.cpp:869`, `:877` and v24 `:906`, `:914` for credit-pool periods and regtest assumeutxo.
+
+   **Fix:** read the expected commits from `dash-oracle-sys/pins.txt`; require the requested pin, clean consensus source/header files, and verified provenance for the linked build artifacts, preferably a controlled clean build or a hashed build manifest. Carry verified provenance into the dump and validate it before accepting **either** JSON section. Add this drift experiment as a generator regression. Publish corpus files only after all comparisons succeed; currently mismatched output is written before the final nonzero exit too.
+
+3. **Major — the required spork override is absent from the completed BS5 interface.** Base-sdk `pkgs/params/src/builder.rs:23`, `:66`; `pkgs/params/src/types.rs:383–391`.
+
+   A1 explicitly includes `-sporkaddr` among the overrides that must go through the builder (`designs/A1-architecture.md:392–394`); BS5 requires completion of that interface. `ChainOption::from_name("-sporkaddr")` returns `None`, and `SporkParams.addresses` can contain only static strings. There is no setter or owned override representation. The corpus tests defaults only and therefore cannot reveal this omission.
+
+   **Concrete input:** regtest `-sporkaddr=yjPtiKh2uwk3bDutTEA2q9mCtXyiZRWn55` starts successfully at both pins, replacing the default regtest signer. `-sporkaddr=invalid` gives `Invalid spork address specified with -sporkaddr` at both pins. Neither request can be represented by this builder. Repetition also differs by release: v23 accepts the regtest and testnet signer addresses together with `-minsporkkeys=2`; v24 uses the last address and warns about multiple addresses, and rejects the removed `-minsporkkeys` option during argument parsing. Evidence: `spork-summary.log` and `spork-daemon.json` in reviewer scratch.
+
+   **Core citations:** v23.1.8 `src/init.cpp:1699–1713`; v24.0.0-rc.3 `src/init.cpp:1746–1751`. Core applies these settings in startup, **not inside `CChainParams`**, which explains why identity of the default parameter dumps does not prove the requested override interface is complete.
+
+   **Fix:** provide an owned representation and the required override-resolution interface, preserving the v23 multi-signer/threshold and v24 last-address behaviour, validation errors, and startup phase ordering. If this belongs to ND1/SP0 instead, obtain an explicit scope/interface transfer and update A1/BS5's completion gate; silently omitting the specified override is insufficient.
+
+4. **Minor — the exported BRR consensus table has no effective regression guard.** Base-sdk `pkgs/params/src/types.rs:558–559`; `pkgs/params/tests/core_corpus.rs:103`.
+
+   The current 19 entries match both references. However, changing the first entry **513 → 514** passed both `core_corpus` and the **entire** `cargo test -p dash-params --all-features` suite. The table is exported but absent from the dump comparison and all crate assertions. For a consumer using it at mainnet height **1,379,128**, the first BRR period, a block value of 1,000 satoshis would yield 514 rather than Core's 513. Thus the requested single-field mutation guarantee does not cover all consensus data supplied by this crate.
+
+   **Core citations:** v23.1.8 `src/validation.cpp:1606–1633`; v24.0.0-rc.3 `src/masternode/payments.cpp:103–130`, the 19-entry `vecPeriods` and its selection/multiplication.
+
+   **Fix:** validate all 19 entries against independently obtained Core payment outputs or a pinned source-derived fixture, including the first/final periods and transition boundaries. Ensure the above mutation fails. Evidence: `mutation-brr_table-core_corpus.log`, `mutation-brr_table-ALL.log`, and `mutations.json` in reviewer scratch.
+
+5. **Minor — the corpus's command-line adapter misinterprets nonnumeric double negations.** Base-sdk `pkgs/params/tests/core_corpus.rs:354–357`.
+
+   **Concrete input:** regtest `-nofastprune=garbage`. Core's integer conversion reads `garbage` as zero, so this is a double negative that enables fast pruning: the pinned dump and both dashds accept it; the dump reports prune height **100**. The adapter recognizes double negation only when Rust parses the complete value as an integer zero. It instead calls `negate`, leaving prune height **1000**. Adding the genuine Core-derived case to the scratch corpus makes the existing test fail with precisely `1000 != 100`. Likewise `-novbparams=garbage` produces Core's malformed-versionbits error, whereas this adapter clears the option. This is a **test adapter defect**; the builder's normalized `arg`/`negate` interface can express Core's settings.
+
+   **Core citations:** v23.1.8 `src/util/system.cpp:183–188`, `:247–249`; v24.0.0-rc.3 `src/util/system.cpp:103–108`, `:167–169`, `InterpretBool` and `InterpretValue`.
+
+   **Fix:** normalize raw negated values using Core's `InterpretBool`/`LocaleIndependentAtoi<int>` semantics, including nonnumeric and prefix-parsed values. Add `garbage`, `0x1`, and `0abc` witnesses. Evidence: `/work/scratch/bs5-gpt/adapter-probe.log`.
+
+Validation: the original crate suite passed **85 tests** (40 unit, 35 builder, two corpus, eight genesis); targeted library Clippy with `-D warnings` passed. Built fresh dump binaries from both verified oracle-shim commits, confirmed the reviewed Core parameter/header files are unchanged from their release tags, ran the pinned oracle example, and regenerated both corpora **byte-identically**. The actual generator has **145 cases per pin, 138 oracle-cross-checked and seven tool-only**, not 139 cross-checked as reported. All 58 `Consensus::Params` data members are emitted; the remaining protected `CChainParams` data members are covered by the base/extension dump. No incorrect current default value was found in the four network tables.
+
+Checked the v24 bit **12/13** split, v24-only `evo_shares` bit **14**, testnet starts **NEVER_ACTIVE / 1790208000**, every field of all 14 available LLMQs, enabled sets and all four roles, MN increase schedules and all BRR entries, 39 mainnet checkpoints and the other networks' checkpoints, assumevalid/minimum work, base ports/data directories, spork defaults, fixed/DNS seeds, policy/CoinJoin fields, credit-pool periods **576/100**, and absent-v23/zero-v24 regtest snapshot `evo_hash`. The quirk-34 heights/hashes match both references. Seven separate mutations to deployment bit, testnet start, LLMQ threshold, Platform role, checkpoint hash, credit-pool period and snapshot evo hash each failed the corpus on the intended field. Mutating the 847000 hard-coded pin passed the corpus but was caught by the dedicated builder tests; the BRR exception is finding 4.
+
+Adversarial evidence: **67 additional constructor cases per pin** yielded 128 non-aborting comparisons; 120 matched, four reproduced finding 1, and four were the deliberately refused final negative heights. This covers repeated/scalar options, negation resets, correctly normalized double negations, wrong-network arguments, cross-option parsing order, LLMQ rotation rules, the v24-only 400-member cap and threshold-error-before-cap ordering, and devnet names through PUSHDATA1/PUSHDATA2/PUSHDATA4 boundaries. The genesis blocks matched Core even for names of 65,529 and 65,530 bytes. Ran private official-release dashds at both pins with disposable `/dev/shm` datadirs and independently allocated ports; saved successful `getblockchaininfo` responses and startup errors in `daemon-adversarial.json`, `names-daemon.json`, and `spork-daemon.json`. The corrected named-devnet runs start for the PUSHDATA1 name; PUSHDATA2-length names reach unrelated filesystem/startup limits. Repeated `-devnet` is rejected by dashd's separate startup guard (v23 `init.cpp:1220`, v24 `:1272`), although the explicitly selected constructor/dump reads the last name.
+
+BL-31's negative-budget refusal is explicit in crate-level documentation, `ParamsError::NegativeHeight`, builder tests, BACKLOG and CS2 §2.5; it never returns clamped successful parameters. Deferral preserved every thrown constructor parsing error in the tested mixed-invalid combinations. Core's V20/DIP3 and MN_RR/V20 assertions were reproduced in isolated subprocesses at both pins; ordinary builder equivalents return the reported error variants. A combined negative-height/assertion input returns `NegativeHeight` ahead of the translated assertion errors, an excluded aborting input rather than a valid-chain equality witness. Evidence and scripts remain in `/work/scratch/bs5-gpt/`; all private daemons were stopped and the RAM scratch directory removed.
+
+Summary: the current default tables and genesis derivation match both Core pins, and most corpus coverage is strong. Fix the overwritten-height refusal, enforce dump provenance, and complete or explicitly transfer the spork override interface before merge; close the two regression-test gaps as well. **CHANGES-REQUIRED.**
