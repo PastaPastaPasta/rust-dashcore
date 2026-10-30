@@ -1,0 +1,11 @@
+# P2b inbound P2P — Sol r1 review
+
+**Verdict: ACCEPT WITH NITS.** No code defect found in the reviewed range.
+
+1. **Low — Core differential evidence stops short of the 8000-header serving edge** (`dashd-p2p/tests/dashd_inbound_transcripts.rs:88`, `dashd-p2p/tests/sim_serve.rs:126`). The inbound Core transcript has 2100 blocks and O1c has 16; the 8001-block case is checked only in `sim`, whose expected `headers2` bytes use the same base-sdk encoder as the serving path. Core's limit and reply branch are clear (`src/net_processing.cpp:1210-1216, 4819-4855` at v24.0.0-rc.3), and the local test asserts a literal 8000 count, so this is an evidence gap rather than a suspected implementation mismatch. **Fix:** add a Core-generated inbound transcript or O1c session with 8001 valid blocks when exact byte-for-byte evidence at the boundary is required.
+
+The reviewed serving path matches Core's locator, stop, null-locator, minimum-work, download-permission and `pindexBestHeaderSent` branches (`src/net_processing.cpp:4760-4855`), including the off-chain `BlockRequestAllowed` clauses (`src/net_processing.cpp:2048-2055`). The snapshot-based active-chain walk and live `valid_scripts` read do not expose a block that Core could never serve: the status is raised when a block is connected, at which point Core can serve it. Eviction protection order, comparators, tie handling and input fields match `src/node/eviction.cpp:76-239` and `src/net.cpp:1775-1846`; the low-connection-count formula difference in D3 leads to the same refusal. The version and pre-verack paths match `src/net_processing.cpp:3935-4386` for the tested edge cases.
+
+D10's `-v2transport=0` gate fixture is appropriate: with V2 enabled, a non-V1 first message is handled by transport before the pre-version gates. The other inbound fixtures exercise V1 fallback with V2 enabled. The transcripts compare messages and close events through `NetCore::accept`; O1c compares serving byte for byte, but attaches its inbound peers directly, so the transcripts carry the accept-path evidence.
+
+Validation: `cargo test -p dashd-p2p --features sim --test sim_serve --test dashd_inbound_transcripts` (18 passed); `cargo test -p node-l1 --features oracle --test p2p_node inbound_getheaders_served_as_core_does` (1 passed). Checkout remained clean; no commit or push.
