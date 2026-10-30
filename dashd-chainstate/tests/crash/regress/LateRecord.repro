@@ -1,0 +1,10 @@
+# CRASH planted subscriber bug LateRecord (CH2 §7.2 b3), minimised in 300 replays.
+harness st3a/1
+sut chainsut
+config sub=50000 invalid=- effects=- presumed=- crash=- replay=- prune=0 index=syncing:1000:1024 planted=LateRecord
+workload c10;f;c400;s5;Dp410
+crash 1309 process-kill
+adversary realistic
+granularity sector
+expect R11b
+minimality best-effort
