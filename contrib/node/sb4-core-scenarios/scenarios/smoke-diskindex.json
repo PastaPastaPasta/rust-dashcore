@@ -1,0 +1,38 @@
+{
+ "name": "smoke-diskindex",
+ "description": "CDiskBlockIndex bytes for entries with and without block data",
+ "rows": [
+  "codec",
+  "smoke"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 5,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A3",
+   "count": 2,
+   "submit": "headers"
+  },
+  {
+   "op": "diskindex",
+   "blocks": [
+    "G",
+    "A1..A5",
+    "B4..B5"
+   ]
+  }
+ ]
+}
