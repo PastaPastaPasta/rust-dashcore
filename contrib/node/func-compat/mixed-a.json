@@ -1,0 +1,169 @@
+{
+ "mask": "non-mn",
+ "pin": "v24.0",
+ "tests": {
+  "feature_asset_locks.py": {
+   "class": "unimplemented-option",
+   "detail": "-acceptnonstdtxn",
+   "status": "fail"
+  },
+  "feature_dip4_coinbasemerkleroots.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_evo_shares_activation.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_governance.py --descriptors": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_governance_cl.py --descriptors": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_governance_objects.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_chainlocks.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_chainlocks_automatic.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_connections.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_data_recovery.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_dkg_intake.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_dkgerrors.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_evo.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_is_cl_conflicts.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_is_retroactive.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_rotation.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_signing.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_signing.py --spork21": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_simplepose.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_simplepose.py --disable-spork23": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_llmq_singlenode.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_masternode_payout_shares.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_masternode_shares.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "feature_mnehf.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "feature_notifications.py": {
+   "class": "unimplemented-option",
+   "detail": "-instantsendnotify",
+   "status": "fail"
+  },
+  "feature_protx_version.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "interface_zmq_dash.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  },
+  "p2p_instantsend.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "p2p_platform_ban.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "p2p_quorum_data.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "rpc_masternode.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "rpc_mnauth.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "rpc_net.py --v1transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_net.py --v2transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_quorum.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "rpc_verifychainlock.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_verifyislock.py": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "wallet_dash_rpcs.py --descriptors": {
+   "detail": "no rdashd node",
+   "status": "skip"
+  },
+  "wallet_dash_rpcs.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  }
+ }
+}
