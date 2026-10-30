@@ -1,0 +1,101 @@
+[package]
+name = "dashd-node"
+description = "The Rust Dash node's process shell: init and shutdown order, Core-format logging, the scheduler and the host services shared crates take"
+publish = false
+# Ports Dash Core code (MIT): init.cpp, shutdown.cpp, logging.cpp, scheduler.cpp.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# Process-test seams only: `rdashd`'s fault injection and a log line when shutdown flushes. A
+# release build with it on fails to compile (the canary in `lib.rs`).
+test-hooks = []
+# `sut::NodeSut`, the chainstate under O2b's comparator on the production startup and shutdown
+# path (ND1-D10). Never in a product build: O2b §6.4's check reads `cargo tree -p rdashd -e
+# features`, and a release build with it on fails to compile (the canary in `lib.rs`).
+test-support = ["dashd-chainstate/test-support"]
+# xcheck's positive controls: `CoinsSetup::planted` and `NodeSut::planted` arm a
+# `dashd_chainstate::Planted` bug on the connector. Tests only, as `test-support`.
+planted-bugs = ["test-support", "dashd-chainstate/planted-bugs"]
+
+[dependencies]
+dash-args = { path = "../dash-args" }
+# The block index recovery checks the chainstate against (`chainstate::NoIndex`).
+dash-chain = { path = "../dash-chain" }
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+# `BlockingIo`, which `host::BlockingPool` implements for the shared crates (SB10).
+dash-kv = { path = "../dash-kv" }
+# The chain parameters `SelectParams` builds (`init::params`).
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# The RocksDB chainstate init opens and recovers (DEC-201 Q7), and the `AbortSink` it aborts
+# through (`NodeAbort`).
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb"] }
+# SP0: the spork manager (`sporkman`), the chain's `SporkView` and its P2P handler (`net`), which
+# the processor's registry holds (P5a D15, closing SP0 D20).
+dashd-masternode = { path = "../dashd-masternode", default-features = false, features = ["net"] }
+dashd-store = { path = "../dashd-store" }
+# Every crate logs through `tracing`; `logging::CoreSubscriber` renders it in Core's format (DEC-200).
+# The RPC server `-server` starts (PLAN RP0).
+dashd-rpc = { path = "../dashd-rpc" }
+# The `generate*` commands' block assembler and nonce search (MN0). Never with `test-support`
+# here: the dev-dependency below enables it for tests only.
+dashd-mining = { path = "../dashd-mining" }
+# The validation caches' salts (`init::caches::init_validation_caches`), as Core's `GetRandHash`.
+getrandom = { version = "0.3.4", default-features = false }
+# The pool a stored block index loads on (`chain::open_parts`, 2b-D22).
+rayon = { workspace = true }
+tracing = "0.1"
+# P3 S6a: SB6's network core, P2a-net's connection manager and P2a-core's processor with P3's
+# block download (`p2p`); the runtime the socket tasks run on.
+dash-p2p = { path = "../dash-p2p" }
+dashd-net = { path = "../dashd-net" }
+# IM1b's codec for Tor control's onion_v3_private_key (P8b): only the `keys` readers, so
+# dash-dml stays out of rdashd (DEC-546).
+dash-coreimport = { path = "../dash-coreimport", default-features = false, features = ["keys"] }
+dashd-p2p = { path = "../dashd-p2p" }
+# getmerkleblocks (RP1a-2c-3): the filter `filterload` carries, and the `merkleblock` codec.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-types = { workspace = true }
+# BL-327: `SplitHostPort`'s validity and `IsBadPort` for step 6's port checks and step 12's binds.
+dash-netaddr = { path = "../dash-netaddr" }
+tokio = { version = "1.53", default-features = false, features = ["net", "rt", "rt-multi-thread", "time"] }
+# P3 S6b: the wake of V's condition wait on P3's queue (`p2p::listener`), V's own channel type.
+crossbeam-channel = "0.5"
+
+[target.'cfg(unix)'.dependencies]
+# `getaddrinfo` with Core's hints (`host::get_addr_info`).
+libc = "0.2"
+
+[dev-dependencies]
+# The spork ids `sut`'s tests set.
+dash-evo = { path = "../dash-evo" }
+# Regtest blocks mined in `chain`'s tests.
+dash-num = { workspace = true, features = ["std"] }
+tempfile = "3"
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+# MN0-1's differential (`tests/mn0_template_dashd.rs`): the template source on `sut`'s chain
+# against a dashd v24 regtest node, on free ports, over JSON-RPC.
+dashd-mining = { path = "../dashd-mining", features = ["test-support"] }
+node-test-ports = { path = "../node-test-ports" }
+serde_json = "1.0"
+
+[[test]]
+name = "mn0_template_dashd"
+required-features = ["test-support"]
+
+[[test]]
+name = "mn0_rebuild"
+required-features = ["test-support"]
+
+# The gate's feature step runs `sut`'s tests (`cargo test -p dashd-node --features planted-bugs
+# -- sut::`, which implies `test-support`, so xcheck's positive control runs too); the main step
+# runs the rest.
+[package.metadata.gate]
+test-features = ["planted-bugs"]
+test-filter = ["sut::"]

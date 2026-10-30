@@ -1,0 +1,70 @@
+**SB1 Sol round 8 — R7-1 only**
+
+Reviewed `node/sb1-layer-gates` at **b94d73c880b82cd8525b23758a3be21b133fc36b**, the three commits after r7's `60c1f723fb54ae2118f0146a4fc73dce21facd23`: `b5879eb55`, `a868fce6e`, `b94d73c88`. The detached review worktree is `/work/scratch/sb1-r8-sol/wt`. Scope is the R7-1 unmanaged-Rust-crate ownership false pass and the requested input-boundary questions, under **DEC-188(5)**. I have not reopened the closed R6 findings.
+
+**Result: CHANGES-REQUIRED.** Both original R7 plants are now rejected, with their package named, before either canary. **The native exemption does not load an rlib as a Rust crate** on the pinned compiler, directly or transitively. One alternate route still falsely certifies the existing registered benchmark's real release build: a config-supplied **joined `--extern=alias=path` argument** is omitted from the dependency inventory. This meets the ruling's blocking exception. No violation in the unplanted production sources is asserted.
+
+**Original R7-1 reproductions: closed**
+
+- **Minimal bare extern:** replayed the counting-allocator fixture from r7 using the exact r8 gate. `check-products.py` exits **1**, naming `selftest-tool v0.0.0 (path+file://…)` and its build script's `-L all=…/out`. The ordinary release executable still builds and reports **hidden_alloc_calls=2**; adding the product's allocator fails with the hidden_alloc conflict. The saved unit and build-script records exist, while **neither `canary.rs` nor `dependencies.rs` exists**, proving the rejection precedes both canaries.
+- **Existing registered real benchmark:** exported the requested head, retained the exact `layers.toml`, gate, lockfile and toolchain, and applied the same r7 heap-profile plant. The gate's full registry validation succeeds. Its exact `canary()` for the unchanged `dash-spv-bench` heap-profile row returns a rejection naming **dash-spv-bench v0.45.0 (path+file://…)** and its `-L all=…/out`; both canary source files are absent. `cargo build --locked --release -p dash-spv-bench --features heap-profile` exits **0**, and `SB1_ALLOC_CHECK=1` reports **hidden_alloc_calls=480**. Restoring the benchmark's allocator makes that same normal build exit **101**, with the hidden_alloc conflict. The registered-row harness exits 0 because it asserts the expected rejection; that is a successful regression test, not an accepted gate row.
+
+Evidence: `replay-minimal.py`, `replay-real-row.py`, `run-original-row.py`; `logs/bare-extern-*`, `logs/minimal-before-canaries.json`, `logs/real-bare-extern-row.log`, `logs/real-bare-extern-{product,execute,conflict}.log`, `logs/real-bare-before-canaries.json`, `logs/real-bare-extern-fixture.patch`, and the corresponding saved `unit.json` / `build-scripts.json` records, all under `/work/scratch/sb1-r8-sol/`.
+
+**R8-1 — major — BLOCKING: joined config externs bypass Cargo package ownership on a registered product's real build**
+
+Locations: `contrib/node/check-products.py:318`, `:339`, `:342`, `:344`; the path exemption is at `:235`–`:242`. The affected unchanged product row is `contrib/node/layers.toml:208`.
+
+The extern parser recognizes only two argv elements, `--extern` followed by `alias=path`. Rustc and Cargo also accept a **single** argument, `--extern=alias=path`. Cargo preserves it in the captured product `unit.json`, but the parser skips it. Consequently the unreported-file check never inspects that file, and the dependency canary never loads it. The permitted `-L dependency=<product out-dir>` still resolves it when the primary canary loads the compiled product's **transitive** dependencies. A successful incomplete dependency canary is again mistaken for package ownership.
+
+I first reproduced this with the minimal registered tool on **Rust 1.98.1**. The separate-argument config control is rejected with **"cargo reported no package"**; changing only the spelling to the joined form makes the gate exit **0**, saying **"its own package's allocator only"**. Its normal release executable reports **hidden_alloc_calls=2**. A pathless `--extern hidden_alloc` control does not build through a dependency-only search path.
+
+For the DEC-188 threshold, I then used the **existing `dash-spv-bench` heap-profile product** in the exported r8 tree, without changing any registry, gate, exception, lockfile or toolchain. The plant disables the product allocator, retains the r7 bare `extern crate hidden_alloc` and bounded observation path, and replaces the previous search-path build script with `fn main() {}`. A separate stable-rustc invocation builds the same foreign allocator rlib into the fixture's own `target/release/deps/`. Its ordinary workspace Cargo configuration is:
+
+```toml
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["--extern=hidden_alloc=/work/scratch/sb1-r8-sol/fixtures/real-bare-extern/target/release/deps/libhidden_alloc.rlib"]
+```
+
+The exact registry validates, and the exact gate's `canary()` returns **None** for the unchanged registered heap-profile row. The saved unit contains the joined hidden_alloc argument. Its build-script paths are **all `native=`**, and there is no forbidden crate/all/foreign-dependency search path. The generated dependency canary contains **no hidden_alloc extern**. Independently linking the saved product rlib with the primary canary fails specifically with **"conflicts with global allocator in: hidden_alloc"**, while the gate's dependency canary links. The normal command `cargo build --locked --release -p dash-spv-bench --features heap-profile` exits **0**, and execution with `SB1_ALLOC_CHECK=1` reports **hidden_alloc_calls=477**. Restoring the product allocator makes the same normal release command fail with that conflict.
+
+This is an allocator ownership false pass on a planted **real build of an already registered product**, with its exact row and gate unchanged. It uses the workspace's own ordinary Cargo config, rather than the externally added instrumentation flags excluded by the gate's docstring. It must therefore be **BLOCKING**, not a BACKLOG-only residual, under DEC-188(5).
+
+**Suggested fix:** normalize supported rustc argument forms before collecting externs; apply the Cargo artifact/package-id check to both `--extern alias=path` and `--extern=alias=path`, and fail closed on unsupported extern forms. Keep the identity-based package check, rather than substituting a crate-name comparison. Add the joined-form counterpart of the existing unreported-extern regression, with an unmanaged rlib in Cargo's allowed deps directory so that both canaries actually reach the ownership decision.
+
+Evidence: `config-probes.py`, `config-tests/logs/extern-{separate,joined}*`, `real-config.py`, `run-real-config-row.py`; `logs/real-config-{row,product,execute,primary,conflict}.log`, `logs/real-config-unit.json`, `logs/real-config-build-scripts.json`, `logs/real-config-canary.rs`, `logs/real-config-dependencies.rs`, and `logs/real-config-fixture.patch`. The scoped real test selects the exact registered heap-profile row after full registry validation; **I do not claim a complete three-row CLI or 30-product rerun**.
+
+**Boundary questions**
+
+- **Environment and config rustflags:** independently tested `RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, `build.rustflags`, `target.<host>.rustflags`, and `target.'cfg(unix)'.rustflags`. Bare and joined `-L` spellings are found in the unit and rejected. `crate=` into Cargo's own `deps/` is rejected, as required by the stricter policy, and `dependency=` into a foreign directory is rejected. These plants stop before both canaries. Native-only config and build-script controls pass. The boundary is nevertheless **incomplete because of BLOCKING R8-1**, regardless of the flag's source.
+- **`links` override:** a `[target.<host>.sb1_override]` fixture replaces a dependency's build script, which would panic if executed. Its `rustc-link-search=["all=…"]` is rejected through the **product's captured `-L` arguments**. Cargo did not attribute the substituted path through a `build-script-executed` record in this fixture; the unit-argument fallback closes it.
+- **`cargo:rustc-link-arg=-L…`:** its unit argument is `-C link-arg=-L…`, a native-linker option. A product with its own allocator passes the control. Planting hidden_alloc in that directory and importing it as a Rust crate makes the ordinary build fail with **E0463**, "can't find crate". It does not bypass the Rust crate search-path check. Native object/library injection has the residual scope described below.
+- **`native=` / `framework=`:** tested the same allocator-bearing rlib both as a direct bare extern and as the missing transitive dependency of an explicitly named bridge rlib. Both kinds fail with **E0463** in **both** cases. Positive controls: `crate=` loads the direct crate; `dependency=` loads the transitive crate; `all=` and bare paths load both. Thus a native directory may hold an rlib, but rustc **does not resolve its Rust crate metadata through that path kind**. This specifically refutes the proposed native-rlib hole on the pinned compiler. The native-only build-script control passes with the product's allocator; switching that product to import the hidden Rust crate fails its ordinary Cargo build.
+
+Evidence: `route-probes.py`, `routes/logs/*`, `native-test/logs/*`, `compiler-probes.py`, `logs/compiler-1.98.1.json`. These are host compiler/build experiments; no Android or Apple repetition is claimed.
+
+**RESIDUAL — minor — sysroot crates remain a compiler trust boundary**
+
+Locations: `contrib/node/check-products.py:71`, `:315`, `:329`; `--sysroot` is not replayed in the canary link flags.
+
+The allowed deps directories are not the complete universe of unreported Rust crates: rustc also loads sysroot crates without Cargo externs. I made an isolated scratch sysroot from symlinks to the pinned toolchain's libraries and added hidden_alloc there. A direct ordinary rustc build loads that bare extern and reports positive allocation calls. However, the exact product gate on an isolated minimal fixture **fails closed**: its first canary cannot find hidden_alloc using the default sysroot. Its ordinary Cargo product builds and runs, so this is a conservative gate rejection, **not a demonstrated registered-product false pass**. The real joined-extern plant uses the normal pinned sysroot. Treat broader compiler/sysroot trust and custom-sysroot support as a BACKLOG residual; I have not modified the installed toolchain. Evidence: `sysroot-test/logs/custom-sysroot-*` and `logs/compiler-1.98.1.json`.
+
+**RESIDUAL — minor for this review — the native exemptions are broader than the native package reviews**
+
+Locations: `contrib/node/link-probe.py:89`, `:151`, `:161`, `:174`, `:239`; `contrib/node/check-pure.sh:53`, `contrib/node/check-shared.sh:61`; `contrib/node/layers.toml:241`.
+
+The exemptions are correct for **Rust crate lookup**. They still permit native libraries/frameworks and linker inputs, which do not carry Rust's global-allocator metadata. The separate `[[native]]` rule covers the required Cargo-identified package categories in **S/pure normal closures**: a `links` key, cc/cmake/bindgen build dependencies, or sampled build-script linked libraries/search paths. An override package's `links` key still identifies it even when Cargo omits a substituted build-script event. The records review **blst 0.3.17** and **secp256k1-sys 0.14.1**; other product-only native packages are deliberately outside that policy.
+
+That is **the specified DEC-188(3) coverage, not a universal guarantee for everything a native/framework path permits**. It does not bind a name/version record to source identity, review arbitrary libraries introduced solely by config/link-args or assembly/object inclusion, or cover all V/W/A/T product-only native code. Those are the r7 native-review residuals carried forward for BACKLOG; the relevant implementation was not changed in r8. No additional registered-product allocator false pass through native/framework lookup or native interposition was demonstrated here. I have not repeated r7's archive-symbol audit or asserted that all permitted native inputs are reviewed.
+
+**Validation, provenance and cleanup**
+
+The review worktree is clean and detached at the exact requested head. All source plants are in separate minimal/exported fixtures; the gate, registry, lockfile and toolchain in the real fixture match the reviewed tree by saved SHA-256 comparisons (`logs/provenance.json`). The real joined-extern row's sampled native path packages are blake3, blst, secp256k1-sys, tikv-jemalloc-sys; its saved build-script records contain only `native=` search paths. This independently checks that row, not the implementer's reported 30-row trace collection.
+
+All final compiler and Cargo probes use **Rust 1.98.1**, **nice -n 10**, **CARGO_BUILD_JOBS=8**, empty `RUSTC_WRAPPER`, and disk **TMPDIR=/work/scratch/sb1-r8-sol/tmp** (0700). Preliminary small probes inherited the machine's 1.99.0 default and were repeated on 1.98.1 before drawing conclusions. A wider three-row benchmark replay was explicitly stopped through its verified owned PIDs, then replaced by the exact-row service `sb1-r8-sol-real`; its interrupted outcome is not an implementation failure or a claimed completed CLI result. `logs/stopped-wide-replay.json` records that scope change. No process-pattern kills occurred.
+
+Python syntax parsing and the changed shell selftest's syntax check pass. I did not run the full selftest, which creates commits, the full workspace build/test/clippy gate, Android/Apple builds, or GitHub actions. All fixture targets and standalone compiler-probe build artifacts have been deleted after their processes finished; `logs/deleted-targets.json` records cleanup. Source fixtures, scripts, generated-canary evidence, logs and the clean detached worktree remain. There were no `~/private` reads, branch edits, commits, pushes or GitHub activity. This report is uncommitted. Folding the named residuals into BACKLOG remains the manager's task.
+
+**Verdict:** CHANGES-REQUIRED
+
+Sol gate satisfied: no
