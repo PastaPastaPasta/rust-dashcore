@@ -1,0 +1,905 @@
+{
+  "provenance": "Dash Core's verdicts on the CS3 boundary rows (dash-consensus/tests/support/checks.rs, rows()), computed by the oracle (dash-oracle-sys) at pin v24.0.0-rc.3-127-g7a828f43bad8; regenerate with node-l1's l1_check_rows test.",
+  "rows": [
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v3 type 6 without inputs or outputs",
+      "input_sha256": "f316f913b7a0ccf497a88f3d9f18501441c22eb2061c0405b34c212d9e16c932",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v1 type 6 without inputs or outputs",
+      "input_sha256": "e6f906a778b2e3486536ece3603eaa8b7f7aa1f1ce4d11bfa0b1fef825b3776f",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v3 type 7 without inputs or outputs",
+      "input_sha256": "2dbebda3856df8e3f1577acc63aca65555e87bbf1e0f4aac45991268aa648f2b",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v2 type 7 without inputs or outputs",
+      "input_sha256": "ee7cbe5b8e3deef2527658ccf13343b1dfd6a6967a16a12d3692fd4f11d0919e",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v3 type 9 without inputs",
+      "input_sha256": "fd3d4584dc4ad1bf18b4a6471b59b3a2ba862fabd20ebcd89c4b8d4ae4f9cf3d",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v1 type 9 without inputs",
+      "input_sha256": "a7f19ff614e2c44442c32dc60c5fdcbefc81ef55b2ee75d6a511a427d8694fc8",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "type 9 without outputs",
+      "input_sha256": "c53fd28a8e7b5445cd12654ac3f92e2fbaf8c32fd9a87e71b824934bedb029d5",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-vout-empty",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "type 8 without inputs",
+      "input_sha256": "a3e002c0f27177c6de165f60ae9f1b98f9b7d1aa40f005447c6029ca3dfa070b",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-vin-empty",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v3 type 5 coinbase, 1-byte scriptSig",
+      "input_sha256": "a9a799779e808383364c6d66d4b0de413148fb20efac4776ec7ec3ad40f1f243",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v1 type 5 coinbase, 1-byte scriptSig",
+      "input_sha256": "b4b01225687c13244e1d525f08b70073779d77dee1c40e55e962915dfb4751fb",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "quirk 2: v3 type 0 coinbase, 1-byte scriptSig",
+      "input_sha256": "de870b6cea8e85851e8d545e81141d041afffdced7f98761c6346e182fcd13c8",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-length",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "coinbase, 2-byte scriptSig",
+      "input_sha256": "6bb3beba25cc2d9f557b3077f49473b901d43c4ec2d5a6032ce2bc1c3184cb85",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "coinbase, 100-byte scriptSig",
+      "input_sha256": "a4b31898d9509bf31c6d885535e7323da1e7144db866b1dfc9c4b7e488f49899",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "coinbase, 101-byte scriptSig",
+      "input_sha256": "1bfee80782fe6279898888032954eea4a3dcbd7eb81a6311c48a22ce7029fe7c",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-length",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "an output of MAX_MONEY",
+      "input_sha256": "3f9f4070425003f93d5af133e59fbbf6a5d2926bd83cdf3852d24a59f83699c0",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "an output of MAX_MONEY + 1",
+      "input_sha256": "f89a800f2c71398421f1f1db511f20bb6c0a9b377beed2e0570dd9ea2d338845",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-vout-toolarge",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "an output of -1",
+      "input_sha256": "7f73a95ec712c5f5c30955e9a15dc18922e3de63410d7c6b1522334a1c66fad5",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-vout-negative",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "outputs totalling MAX_MONEY",
+      "input_sha256": "1d39831455db91c0431122b25e9c5358ac4fcfbd76ee5678687dc47d811cc8c0",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "outputs totalling MAX_MONEY + 1",
+      "input_sha256": "bc82c913879cdcc40cfdf9f34899436c18700357dca9a0284e199d6a3ce7295d",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-txouttotal-toolarge",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "a duplicate input",
+      "input_sha256": "e2477b8eaa26810b7fc6d622b274b56000e0783fca1466268e8ba4b3d1e8a9a5",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-inputs-duplicate",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "a null prevout after the first input",
+      "input_sha256": "29f94874166f4787a2dff8fca57e9228b7ca6bf51ff38d33fae1bc0cbec85701",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-prevout-null",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "1000000 bytes",
+      "input_sha256": "b8f69623434220f06ba3709aaa4966ddbe6d7a0f20aeeac8fd08a4dcd5bc26a1",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "1000001 bytes",
+      "input_sha256": "d606fa322793671548d4a82180f2c2b8c7bb46ea1e290fe5c9e263bae479ea07",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-oversize",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "a 10000-byte payload",
+      "input_sha256": "d5c1f839f335755ef454ab087726d019cf7979f1804e8b84f0877c27cb85fdbe",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_transaction",
+      "name": "a 10001-byte payload",
+      "input_sha256": "87d0993b9d5ffabfe2c7b592e0e316e75deca6e86af1aa3c915450e38d468319",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-payload-oversize",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 12 before DIP0003",
+      "input_sha256": "bafa0795956564b522dbfdfb58983acb321bed74a9e88da244f58bcd171e0aa2",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 13 before DIP0003",
+      "input_sha256": "17c9d3e1eb38df958a6b902f45ca336bb2c3b47c7e7449919d252b295a91c04c",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v2 type 1 before DIP0003",
+      "input_sha256": "ad0c09126d2f5c6a4da8571d66dcf9bbb42f5fe7bc8018a81c1045c172d0a945",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v1 type 0 before DIP0003",
+      "input_sha256": "1a9555e2bc23486812cd657d5cde25b211b1443e4474c18e756e81465c0b1d23",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 0 coinbase before DIP0003",
+      "input_sha256": "4363cc1fc86ef5f7e5da69980e6d7ec1256029c793a5f67e93863de6a28db81b",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 12 at DIP0003",
+      "input_sha256": "b10599fece6643210a85dc14a59887c92ac63b0bdc9cc8c3c352ed81fb23e781",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 13 at DIP0003",
+      "input_sha256": "dbbf2660f4529339c1a4e4b806a64c7e52fddea829b7bb58d45d7aec63e974d9",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-type",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v2 type 1 at DIP0003",
+      "input_sha256": "04ccdb4c678e77030a6b6fa37e80d6f50a5170ae1af4d246ddee89745dd85890",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-type",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v1 type 0 at DIP0003",
+      "input_sha256": "982991e772a9b6e5d38fb8a611d9b0b0e0e09a23c39d03204beaa38aff4b7d37",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "v3 type 0 coinbase at DIP0003",
+      "input_sha256": "8cf17f429635fa0e29a8edc4c6ac370f4bcf43e7e741e210fe0951036f66a52c",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-cb-type",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "quirk 3: 100000 bytes before DIP0001",
+      "input_sha256": "118c4d8ee7ec3bb61e56aab28deab831eaf7e7dbbe229bcccc4c063911786679",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "quirk 3: 100001 bytes before DIP0001",
+      "input_sha256": "4f22f0b6d473626839f4bf51a9055c73ec62dcf9a6447dd8cc43fc91461b7fac",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "quirk 3: 100000 bytes at DIP0001",
+      "input_sha256": "c409a4cd0f0f7c529e5f3253735e8ce447296311eeed60e5a88707722878664f",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_tx",
+      "name": "quirk 3: 100001 bytes at DIP0001",
+      "input_sha256": "f813ca1abe7f6e199d658a30dbd42f1743afa17d18ad5c635ad231e37ea89253",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-oversize",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_check_block",
+      "name": "40000 sigops",
+      "input_sha256": "01eb19516924d2eefad0edd7b8f8ed877b9b35cd8d0f198091307ac422ec035d",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_block",
+      "name": "40001 sigops",
+      "input_sha256": "0886efe4c91f20b29bc6783cd2362a8beac6f54dfd295c5779f6c491a703c433",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-blk-sigops",
+        "debug_message": "out-of-bounds SigOpCount"
+      }
+    },
+    {
+      "target": "diff_check_block",
+      "name": "a 2000000-byte block",
+      "input_sha256": "ef8da392eb96bc243bf40acb5ba745b918c28acdb67eb4bcecbea8911a282e93",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_block",
+      "name": "a 2000001-byte block",
+      "input_sha256": "5528111dc11a19e0b0fd70851538400edf2b522c5bae888a3ff96c335d426670",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-blk-length",
+        "debug_message": "size limits failed"
+      }
+    },
+    {
+      "target": "diff_check_block",
+      "name": "CbTx v4 with the root of no asset unlocks",
+      "input_sha256": "83b44c8372b18bf2740f3d3867c6d45aab8a4666854643df2db6bdc45dc7bc29",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_block",
+      "name": "CbTx v4 with another asset-unlock root",
+      "input_sha256": "5a6ebe518ce0ba4fb4b6c335d640810891d15fb678adff5e790976427de21ae2",
+      "rejection": {
+        "result": 5,
+        "reason": "bad-cbtx-assetunlockmerkleroot",
+        "debug_message": "asset unlock instance merkle root mismatch"
+      }
+    },
+    {
+      "target": "diff_check_block",
+      "name": "CbTx v4 with its asset unlocks' instance-hash root",
+      "input_sha256": "76a6eccf2af42027a73d35a613823a29d4247ec8e79bdcf789829d4a85846a40",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_block",
+      "name": "CbTx v4 with its asset unlocks' txid root",
+      "input_sha256": "52272ead3c748c136abb16a53aaf50bb931985cac0d4752aa21189c713b3725e",
+      "rejection": {
+        "result": 5,
+        "reason": "bad-cbtx-assetunlockmerkleroot",
+        "debug_message": "asset unlock instance merkle root mismatch"
+      }
+    },
+    {
+      "target": "diff_check_block",
+      "name": "CbTx v4 with the root of none beside a version-1 asset unlock",
+      "input_sha256": "c591b6ae5304683cdac2e6a800e6eeab446c10b9a1cde897de5dfd4053ab81db",
+      "rejection": null
+    },
+    {
+      "target": "diff_check_block",
+      "name": "a devnet block on the genesis block",
+      "input_sha256": "ffac0cf34e67fd9b23da0211ee4030e954b83991690b9af0ec5f1b3a57651472",
+      "rejection": {
+        "result": 1,
+        "reason": "devnet-genesis",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 1, CScript() << height",
+      "input_sha256": "cb223b4e9024fa8436468b55c0d0a2d53fdd7843782dd95b642f1b20b8635e1f",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 1, a one-byte push",
+      "input_sha256": "4d866c96d5431e504b53e5bac3f40167c2dd1475e8add4279bc8e76c0d87186c",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-height",
+        "debug_message": "block height mismatch in coinbase"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 5, CScript() << height",
+      "input_sha256": "80a7f1f5eb8781026293252e7cf13807e8f350d9c64d1d8cde3813076f01304d",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 5, a one-byte push",
+      "input_sha256": "31ac57e406c0c1bfb0c1285d83cd5277adf91d58f469951ba44954af09dfe939",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-height",
+        "debug_message": "block height mismatch in coinbase"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 16, CScript() << height",
+      "input_sha256": "180333ee648d54f80a3166245fd9e0c791e6d23fdb739ea30a35b10c2b4eb1d2",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 16, a one-byte push",
+      "input_sha256": "77d5e4d730eece853f6088055634a74839cbbeaa81fc8fee5f473a2495c6b2e4",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-height",
+        "debug_message": "block height mismatch in coinbase"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 17, CScript() << height",
+      "input_sha256": "70b0594722d0578282b4ee101b49d6a7ebad13cc9166aae9731c3754b13695e8",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "quirk 10: regtest height 17, a one-byte push",
+      "input_sha256": "70b0594722d0578282b4ee101b49d6a7ebad13cc9166aae9731c3754b13695e8",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "regtest DIP0003 coinbase without a height, a CbTx",
+      "input_sha256": "d35446dd29df8b2d593139b1156f2b79079b41bea1ed18d4d4618b5a24ef4756",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "regtest DIP0003 coinbase without a height, not a CbTx",
+      "input_sha256": "391e1c9ae7270966ae34c2d3fb43b149503fcf8ec4273964bbb38cc92f092fb5",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-cb-type",
+        "debug_message": "coinbase is not a CbTx"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "20000 sigops before DIP0001",
+      "input_sha256": "9297570e29e382a76ae576b8d2080a98e14b1de23530a4f9ecda2c284768d60d",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "20001 sigops before DIP0001",
+      "input_sha256": "bc528e53497213c12b8f39f8c61b1e1990fcbff2ce08631746fe1e2e8015fc89",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-blk-sigops",
+        "debug_message": "out-of-bounds SigOpCount"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a 1000000-byte block before DIP0001",
+      "input_sha256": "82027b54feb14dd15b8d3e0820d6da72c3b36a9ab44ddb4fdf944b6a5df785c0",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a 1000001-byte block before DIP0001",
+      "input_sha256": "69ce4e9b6c9522389c497087edda726841f3f34338e2dc19a83e3e64b3fc0ee5",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-blk-length",
+        "debug_message": "size limits failed"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "20000 sigops at DIP0001",
+      "input_sha256": "37de850aa0c4b950f9b65a9b91c052f7923f0bf7894ea067926f0e8156c28634",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "20001 sigops at DIP0001",
+      "input_sha256": "929cf8ab1f81c7b059e1abeb74eb1d03da7197d7977ac467fe9a2681f3cff959",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a 1000000-byte block at DIP0001",
+      "input_sha256": "b08293c99dece20f17f904ecbd19f8bea5bec8ac03fcc0787fb5949bc2c9f298",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a 1000001-byte block at DIP0001",
+      "input_sha256": "df821b3986e88605b00f386605260ec650cc1bf9048919d50ee26103a8cec315",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height - 1 before CSV",
+      "input_sha256": "7a77dfef1e478dfea698f43c4730b4d1963356666f5c5791f4df118a07253bcd",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height before CSV",
+      "input_sha256": "311aef3ba658f5b4c5f5bffae6ddb9f55b763080ff0b40c8fd2392d8b8716b89",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-nonfinal",
+        "debug_message": "non-final transaction"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height, final sequences before CSV",
+      "input_sha256": "2e49f5a9b6e520531a559072683fc2c2a70d5eaa8c67a9ff9d340088bd4b0473",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a time lock at the cutoff - 1 before CSV",
+      "input_sha256": "4f85b894dc3305345864fc9401cc0f3e7c69a4e50a4eb74fe9d5a8721458f513",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a time lock at the cutoff before CSV",
+      "input_sha256": "10ab3de363f3bd056ebac3fe0f5ea3fd7fdd9bf45e7bd58f249b5e74f0b6ea1f",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-nonfinal",
+        "debug_message": "non-final transaction"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height - 1 at CSV",
+      "input_sha256": "c1a602e11f2405f838a264b702b926708e677152ad248b92a154eda4c1c65f30",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height at CSV",
+      "input_sha256": "b029919bf2774ba8efb5c8538bf1fa09ff9655ab42deb81364501c01a4162103",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-nonfinal",
+        "debug_message": "non-final transaction"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a height lock at the height, final sequences at CSV",
+      "input_sha256": "13590c1282f1a9ee42fcddf3c3b654330979c101e80f9a93439b7c907e140106",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a time lock at the cutoff - 1 at CSV",
+      "input_sha256": "880e347b5767dd1e776b0d6bfe1c87b49993df13f7de6890adcc7b02364ad630",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a time lock at the cutoff at CSV",
+      "input_sha256": "29ece057d1a55cd37fe38a9d1e50dd6de63c0c5f10dcf6d1a2096cc37f377433",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-nonfinal",
+        "debug_message": "non-final transaction"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a lock of 499999999 (a height) at CSV",
+      "input_sha256": "6e9ad47fb1a39e7e460d1e4de509f1eb52d6093f22436a8978f2239dc7761fdb",
+      "rejection": {
+        "result": 1,
+        "reason": "bad-txns-nonfinal",
+        "debug_message": "non-final transaction"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block",
+      "name": "a lock of 500000000 (a time) at CSV",
+      "input_sha256": "23b05a30e0a57a759513d7834b89724180a05778c80d4004017f37e058b53bcb",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68589, bits exact the target",
+      "input_sha256": "594a2d25200479dc84b5e6aae897e7d6f3ec36112c3028a18150281acc4b7a52",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68589, bits 1.4x the target",
+      "input_sha256": "774e33ba45d37cb3531549460a28a657e319ec38b46302ebb609bdd15fa05d36",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68589, bits 1.6x the target",
+      "input_sha256": "38f0dda32187655c42237783be19728b1d882fbfdea9117313fe32b08820dfb9",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-diffbits",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68590, bits exact the target",
+      "input_sha256": "5b102b8e9d1ec2c85b2fb1ce9cf79edbe40cb7fda0ea568d2317d55000f19c89",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68590, bits 1.4x the target",
+      "input_sha256": "ab55e54c46ae615ba25c6624447342ce886ac8e0d30aafa3605282bc5f36222e",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-diffbits",
+        "debug_message": "incorrect proof of work at 68590"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "quirk 9: height 68590, bits 1.6x the target",
+      "input_sha256": "b959a6d56b20388d3278bec7e177b78957bcb48cab6b6487c497f01a6bee04df",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-diffbits",
+        "debug_message": "incorrect proof of work at 68590"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "time at the median time past",
+      "input_sha256": "2b29af7160e44658122b1585a89365ec6dcd53be482e82d927cd9d52decfd948",
+      "rejection": {
+        "result": 4,
+        "reason": "time-too-old",
+        "debug_message": "block's timestamp is too early 1611003045 1611003045"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "time one past the median time past",
+      "input_sha256": "51c96dad3f378633f582da7664ad0f03aa1f9600d2fbc6f051d995c62016a878",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "time at the future limit",
+      "input_sha256": "a5bf2c28856fa01d1c4f915b7c58ac04b8851004b85c4b5e274d33276dfde4d8",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "time one past the future limit",
+      "input_sha256": "12d3f2cdc00069b572acf937a9a11ad5e1be7d485c2fb0ec9df0f139b5bfadac",
+      "rejection": {
+        "result": 8,
+        "reason": "time-too-new",
+        "debug_message": "block timestamp too far in the future 1611004254 1611004253"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x00000000 at height 100000",
+      "input_sha256": "c874a3a4e0d23811107f0870be71527582d1e713b621a0f5fb11e62f4959f03a",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0x00000000)",
+        "debug_message": "rejected nVersion=0x00000000 block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0xffffffff at height 100000",
+      "input_sha256": "2e31a717fc96afdc290ad94226337d744d07ecb8a66e1f0076940925a99328af",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0xffffffff)",
+        "debug_message": "rejected nVersion=0xffffffff block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x80000000 at height 100000",
+      "input_sha256": "ff883018f4c79016914a248deed31c0e1dd263f3300111690a0178888e41c94c",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0x80000000)",
+        "debug_message": "rejected nVersion=0x80000000 block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x00000003 at height 100000",
+      "input_sha256": "2ced026c28a5a871a6f5c484e566f6899ba66209ec69cffdc03384caaff3df45",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x00000004 at height 100000",
+      "input_sha256": "e442ba7cfd6e2144e8b652a179c3e6284aee322f37e396ba1aa53056f9d8b106",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x7fffffff at height 100000",
+      "input_sha256": "1271184646b60b09044a85c9e205a7938162c356d2217e23262b9fb63ae59994",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 0x20000000 at height 100000",
+      "input_sha256": "806c01c7ebcbebe6c370415a3e8c371a7c192e63dbc9b953a8b16fb63a12883c",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 1 at height 950 (HeightInCoinbase from 951)",
+      "input_sha256": "1b3ff752d4255353ae75660d0368808ea3fd7fdb39a8d1e7cb9a114d71322097",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 1 at height 951 (HeightInCoinbase from 951)",
+      "input_sha256": "159f1c85922d22894ace1a19de1dc232d0f690baf8140f16d308e72bb8e8399f",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0x00000001)",
+        "debug_message": "rejected nVersion=0x00000001 block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 2 at height 245816 (DerSig from 245817)",
+      "input_sha256": "7c65ecbf4fa453489e96911b97793d09a69ba3c662bf79b68457d0b905f1f4e2",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 2 at height 245817 (DerSig from 245817)",
+      "input_sha256": "d7f2d3e984885f0042125f3094617809ff7f51b0b01323b9c3145453dd9b67c2",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0x00000002)",
+        "debug_message": "rejected nVersion=0x00000002 block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 3 at height 619381 (Cltv from 619382)",
+      "input_sha256": "bc990048b4a06ce2d9cac67f529f89d043659848d2eca57c946a25b22bd8c6b8",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "version 3 at height 619382 (Cltv from 619382)",
+      "input_sha256": "782e4b50c710e74e6a134b2183e1a9c0b430c4d860e244b4caa5da8e338712e7",
+      "rejection": {
+        "result": 4,
+        "reason": "bad-version(0x00000003)",
+        "debug_message": "rejected nVersion=0x00000003 block"
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 207991, checkpoint 207992, best header 207997",
+      "input_sha256": "f6c806c053e0f8c6cfca441fbaec9b200d104633e36d94952e605be36f4bf432",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 207992, checkpoint 207992, best header 207997",
+      "input_sha256": "3866d75c60a8c43179a28a1d16285bd95febb7547d02f6ff7c0fd48c8a33a528",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 207993, checkpoint 207992, best header 207997",
+      "input_sha256": "6ca94a1271f45372ce9c63ca00e87576495f471ece63a08ea5869583989c8347",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 207991, checkpoint 207992, best header 207992",
+      "input_sha256": "559af12fe6f1fd235dcf4c43d6fb74be099127f422b32f1899b4e4fcec89bd08",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 207991, checkpoint 207992, best header 207991",
+      "input_sha256": "e3f73c8e8501c2e7212c06d78a32daa282c2cb6cd65cd901ad37d44baa694dc7",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 312644, checkpoint 312645, best header 312650",
+      "input_sha256": "2fe396397e5cd73d747b7c128932234a101ed2282032529bd714704e668d2576",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 312645, checkpoint 312645, best header 312650",
+      "input_sha256": "bc58182013c90d5e32ffd7d155de1d741adf150291f286fa6a151c7e0582b557",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 312646, checkpoint 312645, best header 312650",
+      "input_sha256": "939bd257d8c41fb7454ee93fcd26e36d1a47c6df1c46a89a443a3d79dd635221",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 312644, checkpoint 312645, best header 312645",
+      "input_sha256": "187592357f89959e5517ff9aedf12b82665aa666622795906062e7dde8956c18",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 312644, checkpoint 312645, best header 312644",
+      "input_sha256": "a6dd883eb8480ac5caecad566ef11c4439d514b8a7c12dedf036087f9ee4ff48",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 407451, checkpoint 407452, best header 407457",
+      "input_sha256": "8456c0e9f2e78f6f7e66256d14bf3bb189e80ce703010f5d0c6ad50ede583249",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 407452, checkpoint 407452, best header 407457",
+      "input_sha256": "390a308b218f9d0915f3d6c9658e4ce3231db6373976092349212100435365ee",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 407453, checkpoint 407452, best header 407457",
+      "input_sha256": "775afaae42bc979302d435c7b797deecb52cd2f1ae2a776d40d6319224aebb0c",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 407451, checkpoint 407452, best header 407452",
+      "input_sha256": "b0e324d138822b3c087c2b9436a48e10ca11480d53946c65225891f8d96fa272",
+      "rejection": {
+        "result": 9,
+        "reason": "bad-fork-prior-to-checkpoint",
+        "debug_message": ""
+      }
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "height 407451, checkpoint 407452, best header 407451",
+      "input_sha256": "83f68f0c4d22445cc32dae913155e8c36923a1f0ac706bff010f741849b273f0",
+      "rejection": null
+    },
+    {
+      "target": "diff_contextual_check_block_header",
+      "name": "a 4040-header window keeps its last 577 headers",
+      "input_sha256": "d7313eb3ad588faab3fb564c3624085a970b0cbf315411b427b883be4b4d976d",
+      "rejection": null
+    }
+  ]
+}

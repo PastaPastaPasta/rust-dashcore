@@ -1,0 +1,119 @@
+{
+ "name": "a28-pnbh-index-state",
+ "description": "known FAILED / CONFLICT / both duplicates, a parent both FAILED and CONFLICT, unknown, height-mismatched and late locks",
+ "rows": [
+  "A-28"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 20,
+   "submit": "connect"
+  },
+  {
+   "op": "invalidate",
+   "block": "A15"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "A15"
+   ]
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "A16"
+   ]
+  },
+  {
+   "op": "reconsider",
+   "block": "A15"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A20"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B11"
+   ]
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "B11",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "invalidate",
+   "block": "B11"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B11"
+   ]
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B12"
+   ]
+  },
+  {
+   "op": "cl",
+   "unknown": "X",
+   "height": 30
+  },
+  {
+   "op": "cl",
+   "block": "A19",
+   "height": 31
+  },
+  {
+   "op": "build",
+   "branch": "E",
+   "parent": "A20",
+   "count": 15,
+   "submit": "none"
+  },
+  {
+   "op": "cl",
+   "block": "E35"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "E21..E35"
+   ]
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}

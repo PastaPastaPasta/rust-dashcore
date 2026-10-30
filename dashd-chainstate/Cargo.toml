@@ -1,0 +1,178 @@
+[package]
+name = "dashd-chainstate"
+description = "Chainstate of the Rust Dash node: the coins cache, its layers and its budget (CH2), the validation actor V over the header chain (CH1-node), and the signature cache, script-execution cache and check queue (CS6)"
+publish = false
+# Ports Dash Core code (MIT): `CCoinsViewCache` and the coins database; the signature and
+# script-execution caches and the check queue.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# The tagging global allocator (CH2 §6.7): bench and test builds only, never a runtime binary.
+alloc-tag = []
+# Planted bugs (CH2 §6.4): test builds only, never a runtime binary.
+planted-bugs = []
+# The coins model: the `RefCoinsCache` twin, the op drivers of `coins_cache_model` and
+# `coins_overlay_diff`, and `ProbeEngine` (tests and node-fuzz only).
+model = []
+# `RocksTuning`: the chainstate on RocksDB (CH2 §2.5.1).
+rocksdb = ["dashd-store/rocksdb"]
+# The CRASH model's systems under test (CH2 §6.4): `ChainSut` and `CoinsSut` on ST3a's harness
+# (tests and node-fuzz only; ST3a §3.1's `cargo tree` guard covers it). Its blocks meet regtest's
+# proof of work from `dash-params`, which V depends on anyway (CH1-node).
+crash = ["dashd-store/faulty", "model"]
+# Process-test seams for dependent crates' tests (CH1-node D70): `ChainHandle::set_between_stores`.
+# A release build with it on fails to compile (the canary in `lib.rs`).
+test-support = []
+# `DigestTap`: the StateDigest log of V's connector calls (O8 spec, task O9a-2).
+statedigest = ["dep:dash-statedigest"]
+
+[dependencies]
+# The shard tables' page allocator (CH2c D29, DEC-388), the trait hashbrown's tables take.
+allocator-api2 = { version = "0.2.21", default-features = false, features = ["alloc"] }
+# V's published `ChainView` (CH1-node §6).
+arc-swap = "1.7"
+# Why a flush runs (`FlushCauses`, CH2 §2.7).
+bitflags = "2.6"
+# `ConnectBlock`'s spent-script copies, which the queued script checks borrow until `Wait`: an
+# arena kept across blocks (CH3 §2.9, D51).
+bumpalo = "3.20.3"
+# V's command channel: bounded, with `len()` for the release points (CH1-node §2.4).
+crossbeam-channel = "0.5"
+# `BlockRef`, `IndexAccess`, `IndexWrite`: the block index CH2 writes and reads (SB4; E-b1.1); V's
+# header chain (CH1-node).
+dash-chain = { path = "../dash-chain" }
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+# The evo store's rows and their codecs (`EvoDelta`, the DML records, the credit pool and MNHF
+# signals) and its reader traits (`EvoStore`, `DmlReader`): CH7a's evo layer (CH7 §2.1).
+dash-dml = { path = "../dash-dml" }
+# The effect log of an attempt (`Effect`, `EffectSink`): the connector's evo seam (CH3 §3.2).
+dash-evo = { path = "../dash-evo" }
+# The fail-stop latch and the abort sink (SB10, BL-109).
+dash-kv = { path = "../dash-kv" }
+# `CompactTarget`: recovery checks each block header's proof of work, as `ReadBlockFromDisk`, and
+# V's `GetBlockProof` (fork warnings); the V tests mine regtest blocks with it.
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# The salted hashes of the signature and script-execution caches (CS6): Core's SHA-256, whose
+# midstate the caches clone after the salt.
+dash-sha256 = { path = "../dash-sha256" }
+dash-statedigest = { path = "../dash-statedigest", optional = true }
+# `Numeric` (a txid from its bytes).
+dash-types = { workspace = true, features = ["codec"] }
+dashd-store = { path = "../dashd-store", default-features = false }
+# The caches' per-process salt (Core's `GetRandHash`), from the OS.
+getrandom = { version = "0.3.4", default-features = false }
+# `allocator-api2`: the shard tables' page allocator (CH2c D29, DEC-388).
+hashbrown = { version = "0.17.1", default-features = false, features = ["allocator-api2", "inline-more"] }
+# The evo layer's merged indexes (CH7 D22): O(1) clones for a freeze and a pinned read view.
+# dash-dml's exact pin (EV2 §2.1, DEC-50(6)).
+imbl = "=7.0.2"
+# The check queue's script-check threads (CS6; A1 §2.4 lists `rayon` for this crate) and the pool
+# SB4's staged index load decodes on (`LoadedIndex::Stored`, D54).
+rayon = { workspace = true }
+thiserror = "2"
+# Core's log lines on V (`UpdateTip:`, `AcceptBlock FAILED`, …).
+tracing = "0.1"
+
+# The shard tables' pages (`mmap`, `munmap`, CH2c D29).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# The signals queue's loom model (CH1-node §9.6, DEC-152): `RUSTFLAGS="--cfg loom"`, run by
+# contrib/node/check-loom.sh. A cfg, not a feature, as in dash-chain.
+[target.'cfg(loom)'.dependencies]
+loom = "0.7"
+
+[dev-dependencies]
+# Core's script_tests.json and tx_valid/tx_invalid.json, run with the caches on and off (CS6).
+dash-core-vectors = { path = "../test-vectors" }
+# The evo store's tests build lists and deltas with dash-dml's testkit and compare against
+# `MemEvoStore` (CH7 §7.2).
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# Recovery's tests use up the process's file descriptors, so that a block file's open fails.
+libc = "0.2"
+# The evo row codecs' round trips (CH7 §7.2).
+proptest = "1.7"
+# The CS6 tests sign with harness keys.
+secp256k1 = { workspace = true }
+# `CoreUndoBytes::from_raw`: recovery's tests write the undo data they replay (ST2's placeholder
+# type until it takes CS5a's).
+dashd-store = { path = "../dashd-store", default-features = false, features = ["raw-bytes"] }
+
+# Kept out of Miri's builds (CH2 §7.1 a2: `StableBytes` under Miri): `coins_micro`'s criterion,
+# whose zerocopy the pinned nightly cannot compile, and RocksDB, whose C++ Miri cannot run. Every
+# other test build runs the store tests on RocksDB too. Loom's build (`--cfg loom`) runs one model
+# and skips them too, so it never rebuilds RocksDB.
+[target.'cfg(not(any(miri, loom)))'.dev-dependencies]
+criterion = "0.8.1"
+dashd-chainstate = { path = ".", features = ["rocksdb"] }
+
+# Loom's build compiles the tests it skips, and CH2b's use tempfile.
+[target.'cfg(not(miri))'.dev-dependencies]
+tempfile = "3"
+
+# Test features never come from a self dev-dependency, which would turn them on in the benches too
+# (PROCESS.md: benches measure production only). The gate runs the CRASH suite, the lib's
+# allocation-accounting tests, its planted bugs and the `DigestTap` tests with these features
+# (`cargo test -p dashd-chainstate --features alloc-tag,crash,planted-bugs,statedigest`).
+[package.metadata.gate]
+test-features = ["alloc-tag", "crash", "planted-bugs", "statedigest", "test-support"]
+
+[[test]]
+name = "crash"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_subscriber"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_planted"
+required-features = ["crash", "planted-bugs"]
+
+[[bench]]
+name = "coins_micro"
+harness = false
+
+[[bench]]
+name = "coins_flush"
+harness = false
+
+[[bench]]
+name = "script_checks"
+harness = false
+
+[[bench]]
+name = "connect_block_micro"
+harness = false
+
+[[bench]]
+name = "disconnect_block_micro"
+harness = false
+
+[[bench]]
+name = "reorg"
+harness = false
+
+[[bench]]
+name = "coins_layer_density"
+harness = false
+required-features = ["alloc-tag"]
+
+[[bench]]
+name = "evo_index_depth"
+harness = false
+
+[[bench]]
+name = "connect_chain"
+harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
