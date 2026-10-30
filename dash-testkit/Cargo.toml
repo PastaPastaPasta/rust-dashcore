@@ -1,0 +1,54 @@
+[package]
+name = "dash-testkit"
+description = "Regtest harness for rdashd and dashd: RustNode, MixedNetwork and mock time over dash-spv's test-utils"
+publish = false
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# A test-only crate (layer T): other crates may use it only as a dev-dependency.
+
+[features]
+# The device-level power-loss harness (ST3b, Linux): `dm-log-writes` replay and its checks.
+crash = [
+    "tokio/rt",
+    "dep:dash-chain",
+    "dep:dash-consensus",
+    "dep:dash-params",
+    "dep:dashd-chainstate",
+    "dep:dashd-store",
+]
+
+[dependencies]
+# C0's offline inspector (`crash::inspect`) opens a chainstate as rdashd's recovery does.
+dash-chain = { path = "../dash-chain", optional = true }
+dash-consensus = { path = "../dash-consensus", optional = true }
+dash-params = { workspace = true, features = ["std"], optional = true }
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb"], optional = true }
+dashd-store = { path = "../dashd-store", optional = true }
+dash-spv = { path = "../dash-spv", features = ["test-utils"] }
+dashcore = { path = "../dash" }
+dashcore-rpc = { path = "../rpc-client" }
+serde_json = "1.0"
+tempfile = "3.0"
+tokio = { version = "1.0", features = ["time"] }
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+# SIGTERM for a clean stop.
+libc = "0.2"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "st3b-crash"
+path = "src/bin/st3b-crash.rs"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_logwrites"
+required-features = ["crash"]
