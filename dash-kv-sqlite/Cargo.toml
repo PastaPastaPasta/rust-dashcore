@@ -1,0 +1,28 @@
+[package]
+name = "dash-kv-sqlite"
+description = "The SPV store's storage engine: dash-kv's KvEngine contract on SQLite"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+dash-kv = { path = "../dash-kv" }
+# Exact pins, moving only with Platform's (SB0 §9.3 (f)). libsqlite3-sys is named only for its pin.
+libsqlite3-sys = { version = "=0.36.0", default-features = false }
+
+# SQLite is built from source everywhere except iOS, which links the system library (SB0 §9.3 (f)).
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+rusqlite = { version = "=0.38.0", features = ["bundled"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+rusqlite = { version = "=0.38.0" }
+
+[dev-dependencies]
+# The engine contract suite (`dash_kv::contract`), and the SPV store's workload and checks
+# (`dash_kv::faulty::spv`, run under recorded images); they add modules, and no hook to engine code.
+dash-kv = { path = "../dash-kv", features = ["model", "faulty"] }
+tempfile = "3"
