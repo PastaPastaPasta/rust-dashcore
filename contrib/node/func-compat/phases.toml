@@ -1,0 +1,102 @@
+# Dash Core functional tests by adoption phase (A1 §4.8 "Phased passlist", Appendix D).
+# Transcribed from A1-architecture.md Appendix D; names are script stems, and `*` globs
+# (fnmatch) cover a family. A name matches every runner variant of its script
+# (`rpc_bind` covers `rpc_bind.py --ipv4`, `--ipv6` and `--nonloopback`).
+#
+# `rust_nodes` is the RDASHD_NODES mask the phase runs with. A phase without one is
+# not runnable with `run` (mode A is `mixed-a`, O12a; mode B needs its role mask, M7).
+# `wallet` says whether the tree's config.ini enables the wallet.
+#
+# `run --phase P` runs P's tests and every earlier phase's, so the passlist of an
+# earlier phase keeps being proven. The order of the tables is the phase order.
+
+[M2]
+rust_nodes = "all"
+wallet = false
+tests = [
+    "feature_filelock", "feature_shutdown", "feature_logging", "feature_config_args",
+    "feature_includeconf", "feature_settings", "interface_rpc", "interface_http", "rpc_users",
+    "rpc_whitelist", "rpc_named_arguments", "rpc_help", "rpc_uptime", "rpc_bind",
+]
+
+[M3]
+rust_nodes = "all"
+wallet = false
+tests = [
+    "feature_block", "feature_cltv", "feature_dersig", "feature_csv_activation",
+    "feature_nulldummy", "feature_bip68_sequence", "feature_assumevalid", "feature_minchainwork",
+    "feature_maxtipage", "feature_reindex", "feature_loadblock", "feature_blocksdir",
+    "feature_abortnode", "feature_dbcrash", "p2p_invalid_block", "p2p_unrequested_blocks",
+    "p2p_mutated_blocks", "p2p_dos_header_tree", "p2p_sendheaders", "p2p_sendheaders_compressed",
+    "p2p_block_sync", "p2p_initial_headers_sync", "rpc_invalidateblock", "rpc_preciousblock",
+    "rpc_getchaintips", "rpc_blockchain", "rpc_generate", "mining_basic",
+]
+
+[M4]
+rust_nodes = "all"
+wallet = false
+tests = [
+    "feature_new_quorum_type_activation", "feature_utxo_set_hash", "feature_coinstatsindex",
+    "rpc_getblockstats", "rpc_dumptxoutset", "feature_versionbits_warning",
+]
+
+[M5]
+rust_nodes = "all"
+wallet = false
+tests = [
+    "mempool_*", "mining_*", "rpc_rawtransaction", "rpc_decodescript", "rpc_createmultisig",
+    "rpc_deriveaddresses", "rpc_getdescriptorinfo", "rpc_signmessagewithprivkey",
+    "rpc_signrawtransactionwithkey", "rpc_txoutproof", "rpc_misc", "rpc_deprecated",
+    "rpc_packages", "rpc_mempool_info", "rpc_estimatefee", "rpc_scanblocks", "rpc_scantxoutset",
+    "rpc_getblockfilter", "rpc_getblockfrompeer", "rpc_getmerkleblocks",
+    "rpc_invalid_address_message", "interface_bitcoin_cli", "interface_zmq", "interface_zmq_dash",
+    "interface_rest", "feature_txindex", "feature_addressindex", "feature_spentindex",
+    "feature_timestampindex", "feature_fee_estimation", "feature_notifications",
+    "feature_startupnotify", "feature_pruning", "feature_index_prune", "feature_fastprune",
+    "p2p_filter", "p2p_blockfilters", "p2p_compactblocks*", "p2p_blocksonly", "p2p_tx_download",
+    "p2p_tx_privacy", "p2p_leak_tx", "p2p_getdata", "p2p_nobloomfilter_messages",
+    "p2p_ibd_txrelay", "p2p_ibd_stalling", "p2p_node_network_limited", "p2p_invalid_messages",
+    "p2p_invalid_locator", "p2p_invalid_tx", "p2p_leak", "p2p_fingerprint", "p2p_ping",
+    "p2p_timeouts", "p2p_disconnect_ban", "p2p_eviction", "p2p_add_connections",
+    "p2p_addr_relay", "p2p_addrv2_relay", "p2p_addrfetch", "p2p_dns_seeds", "p2p_getaddr_caching",
+    "p2p_permissions", "p2p_v2_transport", "p2p_v2_encrypted", "p2p_v2_misbehaving",
+    "p2p_message_capture", "p2p_connect_to_devnet", "feature_anchors", "feature_addrman",
+    "feature_asmap", "rpc_net", "rpc_setban", "rpc_getpeerinfo_deprecation", "feature_sporks",
+    "feature_governance_objects", "p2p_govsync_bloom", "p2p_dstx", "feature_proxy",
+]
+
+# Every DTF test with dashd node 0 and masternodes, rdashd non-MN nodes (A1 §4.8). Mode A itself
+# is `func-compat.py mixed-a` (O12a): it runs every DashTestFramework test of the tree with the
+# role mask "non-mn" and keeps its own passlist, mixed-a.json. This entry only keeps Appendix D's
+# placement for `run --phase` of the later phases.
+[mixed-a]
+wallet = true
+tests = ["feature_dip4_coinbasemerkleroots"]
+
+[M6]
+rust_nodes = "all"
+wallet = true
+tests = [
+    "wallet_*", "rpc_coinjoin", "rpc_wipewallettxes", "rpc_psbt", "tool_wallet",
+]
+
+[M7]
+wallet = true
+tests = [
+    "feature_dip3_deterministicmns", "feature_dip3_v19", "feature_dip4_coinbasemerkleroots",
+    "feature_llmq_*", "feature_mnehf", "feature_asset_locks", "feature_governance",
+    "feature_governance_cl", "feature_governance_txindex_devnet", "feature_masternode_*",
+    "feature_protx_version", "p2p_instantsend", "p2p_quorum_data", "p2p_platform_ban",
+    "rpc_quorum", "rpc_verifychainlock", "rpc_verifyislock", "rpc_masternode", "rpc_mnauth",
+    "rpc_netinfo", "rpc_external_queue", "feature_quorum_proof_chain", "feature_stats",
+    "feature_maxuploadtarget",
+]
+
+[M8]
+rust_nodes = "all"
+wallet = true
+tests = [
+    "feature_remove_pruned_files_on_startup", "feature_unsupported_utxo_db",
+    "feature_dirsymlinks", "feature_posix_fs_permissions", "feature_bind_*", "feature_discover",
+    "feature_help", "p2p_i2p_*",
+]

@@ -1,0 +1,18 @@
+[package]
+name = "dash-rpc-spec"
+description = "Dash Core v24's RPC interface as data: commands, arguments, verbatim help text, PRD classes and the dash-cli conversion table, generated from Core"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+# Free RPC ports for the dashd the help comparison starts (BL-221).
+node-test-ports = { path = "../node-test-ports" }
+serde_json = "1.0"
+tempfile = "3"
