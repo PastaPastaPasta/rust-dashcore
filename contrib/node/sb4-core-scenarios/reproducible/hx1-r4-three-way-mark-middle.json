@@ -1,0 +1,41 @@
+{
+ "name": "hx1-r4-three-way-mark-middle",
+ "description": "Sol HX1 r4 R4-3: A1..A3 connected, B1..B3 and C1..C3 headers off G, reload: three equal-work loaded tips with sequence id 0, so the reload's m_best_header pick is an address tie; up and down pick the extremes, a seeded heap may pick B3, the middle, and mark-conflicting B3 then moves m_best_header to B2. Each seed must give one vector in every process.",
+ "rows": [],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 3,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "G",
+   "count": 3,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "G",
+   "count": 3,
+   "submit": "headers"
+  },
+  {
+   "op": "reload"
+  },
+  {
+   "op": "mark-conflicting",
+   "block": "B3"
+  }
+ ]
+}
