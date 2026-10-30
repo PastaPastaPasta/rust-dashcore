@@ -1,0 +1,11 @@
+# CRASH planted bug Unmarked (CH2 §6.4), minimised in 77 replays; its recovery read is 1, past the load's blk-file open (BL-127).
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=- planted=Unmarked
+workload c20;f
+recovery-fault nth fs read 1 io not-applied
+crash 74 process-kill
+adversary realistic
+granularity write
+expect R8
+minimality verified
