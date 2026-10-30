@@ -1,0 +1,12 @@
+# Interposed definitions (HX1 X0, designs/CH1-node.md §11): symbols whose every
+# caller sits in the defining object, where -Wl,--wrap cannot reach (it rewrites
+# undefined references only). build.sh copies the defining member, makes <sym>
+# weak there and adds __real_<sym> at the same address (objcopy), links the copy
+# in place of the archive member, and points <sym> at the harness's __wrap_<sym>
+# (-Wl,--defsym). check-seam.sh proves the copy differs only in those two symbol
+# table entries and that every listed caller reaches the wrapper.
+# Columns (tab-separated): mangled symbol, defining object (libbitcoin_node.a),
+# its callers (demangled-name prefixes, ';'-separated, one relocation each), the
+# demangled name.
+_ZN10Chainstate12ConnectBlockERK6CBlockR20BlockValidationStateP11CBlockIndexR15CCoinsViewCacheb	libbitcoin_node_a-validation.o	Chainstate::ConnectTip(;TestBlockValidity(;CVerifyDB::VerifyDB(	Chainstate::ConnectBlock(CBlock const&, BlockValidationState&, CBlockIndex*, CCoinsViewCache&, bool)
+_ZN10Chainstate15DisconnectBlockERK6CBlockPK11CBlockIndexR15CCoinsViewCache	libbitcoin_node_a-validation.o	Chainstate::DisconnectTip(;CVerifyDB::VerifyDB(;Chainstate::ReplayBlocks(	Chainstate::DisconnectBlock(CBlock const&, CBlockIndex const*, CCoinsViewCache&)

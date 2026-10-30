@@ -1,0 +1,59 @@
+[package]
+name = "rdashd"
+description = "The Rust Dash node daemon: Dash Core's dashd main over dashd-node"
+publish = false
+# Ports Dash Core code (MIT): bitcoind.cpp, util/tokenpipe.cpp.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "rdashd"
+path = "src/main.rs"
+
+[features]
+# The fault injection `tests/hooks.rs` drives (`src/test_hooks.rs`); tests only.
+test-hooks = ["dashd-node/test-hooks"]
+
+[[test]]
+name = "hooks"
+required-features = ["test-hooks"]
+
+[dependencies]
+dash-args = { path = "../dash-args" }
+dashd-node = { path = "../dashd-node" }
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+# fork, pipes and signal handlers (`daemon`, `signals`).
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# The console control handler (`signals`).
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
+[dev-dependencies]
+# The mock Tor control port's SAFECOOKIE hashes (`tests/tor_diff.rs`, P8b).
+bitcoin_hashes = { workspace = true, features = ["std"] }
+# Free ports for the nodes the tests start, re-exported by tests/common (BL-221).
+node-test-ports = { path = "../node-test-ports" }
+socket2 = "0.6"
+tempfile = "3"
+# DIFF-RPC getblockstats replays Core's own `rpc_getblockstats.json` chain (RP1a-2c-2).
+dash-core-vectors = { path = "../test-vectors" }
+# P3's proofs of silence (`tests/p2p_silence.rs`, DEC-280): the scripted peer's transport and
+# messages, and the regtest blocks it serves; and DIFF-RPC's `submitblock` blocks (X11).
+dash-consensus = { path = "../dash-consensus" }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true }
+# DIFF-RPC's stored-but-unconnected getblock block reads dashd-rpc's txtouniv fixtures (RP1a-2c).
+flate2 = "1"
+# DIFF-RPC's getmerkleblocks filters (RP1a-2c-3): P4b's `CBloomFilter`.
+dashd-p2p = { path = "../dashd-p2p" }
