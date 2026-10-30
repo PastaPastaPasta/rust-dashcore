@@ -1,0 +1,46 @@
+{
+ "name": "a21b-ancestor-floor-repeat",
+ "description": "lock A100, then the active chain grows to A130: the floor is an ancestor 30 below the tip; enforce and the timer find it on the active chain and change nothing",
+ "rows": [
+  "A-21b"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A100",
+   "count": 30,
+   "submit": "connect"
+  },
+  {
+   "op": "enforce"
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}

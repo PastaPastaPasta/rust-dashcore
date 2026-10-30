@@ -1,0 +1,1351 @@
+{
+ "addpeeraddress": [
+  {
+   "address": "21.1.1.1",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "22.2.2.2",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "23.3.3.3",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "24.4.4.4",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "25.5.5.5",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "26.6.6.6",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "27.7.7.7",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "28.8.8.8",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "29.9.9.9",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "30.10.10.10",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "31.11.11.11",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "32.12.12.12",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "33.13.13.13",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "34.14.14.14",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "35.15.15.15",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "36.16.16.16",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "37.17.17.17",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "38.18.18.18",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "39.19.19.19",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "40.20.20.20",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "41.21.21.21",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "42.22.22.22",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "43.23.23.23",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "44.24.24.24",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "45.25.25.25",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "46.26.26.26",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "47.27.27.27",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "48.28.28.28",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "49.29.29.29",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "50.30.30.30",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "51.31.31.31",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "52.32.32.32",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "53.33.33.33",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "54.34.34.34",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "55.35.35.35",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "56.36.36.36",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "57.37.37.37",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "58.38.38.38",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "59.39.39.39",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "21.1.1.1",
+   "port": 19999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "2001:db8:85a3::8a2e:370:7334",
+   "port": 9999,
+   "success": false,
+   "tried": false
+  },
+  {
+   "address": "2a01:4f8:1c0c:8212::1",
+   "port": 9999,
+   "success": true,
+   "tried": true
+  },
+  {
+   "address": "2a01:4f8:1c0c:8212::2",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion",
+   "port": 9999,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "ukeu3k5oycgaauneqgtnvselmt4yemvoilkln7jpvamvfx7dnkdq.b32.i2p",
+   "port": 0,
+   "success": true,
+   "tried": false
+  },
+  {
+   "address": "ukeu3k5oycgaauneqgtnvselmt4yemvoilkln7jpvamvfx7dnkdq.b32.i2p",
+   "port": 0,
+   "success": false,
+   "tried": true
+  }
+ ],
+ "blockcount": 180,
+ "estimaterawfee": {
+  "100": {
+   "long": {
+    "decay": "0.99931",
+    "errors": [
+     "Insufficient data or no feerate found which meets threshold"
+    ],
+    "fail": {
+     "endrange": "1E+99",
+     "inmempool": 1,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "118.8",
+     "withintarget": "118.8"
+    },
+    "scale": 24
+   }
+  },
+  "2": {
+   "long": {
+    "decay": "0.99931",
+    "errors": [
+     "Insufficient data or no feerate found which meets threshold"
+    ],
+    "fail": {
+     "endrange": "1E+99",
+     "inmempool": 1,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "118.8",
+     "withintarget": "118.8"
+    },
+    "scale": 24
+   },
+   "medium": {
+    "decay": "0.9952",
+    "feerate": "0.00001000",
+    "pass": {
+     "endrange": 1980,
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "52.24",
+     "withintarget": "52.24"
+    },
+    "scale": 2
+   },
+   "short": {
+    "decay": "0.962",
+    "feerate": "0.00001000",
+    "pass": {
+     "endrange": "1E+99",
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "34.5",
+     "withintarget": "34.5"
+    },
+    "scale": 1
+   }
+  },
+  "25": {
+   "long": {
+    "decay": "0.99931",
+    "errors": [
+     "Insufficient data or no feerate found which meets threshold"
+    ],
+    "fail": {
+     "endrange": "1E+99",
+     "inmempool": 1,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "118.8",
+     "withintarget": "118.8"
+    },
+    "scale": 24
+   },
+   "medium": {
+    "decay": "0.9952",
+    "feerate": "0.00001000",
+    "pass": {
+     "endrange": 1980,
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "52.24",
+     "withintarget": "52.24"
+    },
+    "scale": 2
+   }
+  },
+  "500": {
+   "long": {
+    "decay": "0.99931",
+    "errors": [
+     "Insufficient data or no feerate found which meets threshold"
+    ],
+    "fail": {
+     "endrange": "1E+99",
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "118.8",
+     "withintarget": "118.8"
+    },
+    "scale": 24
+   }
+  },
+  "6": {
+   "long": {
+    "decay": "0.99931",
+    "errors": [
+     "Insufficient data or no feerate found which meets threshold"
+    ],
+    "fail": {
+     "endrange": "1E+99",
+     "inmempool": 1,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "118.8",
+     "withintarget": "118.8"
+    },
+    "scale": 24
+   },
+   "medium": {
+    "decay": "0.9952",
+    "feerate": "0.00001000",
+    "pass": {
+     "endrange": 1980,
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "52.24",
+     "withintarget": "52.24"
+    },
+    "scale": 2
+   },
+   "short": {
+    "decay": "0.962",
+    "feerate": "0.00001000",
+    "pass": {
+     "endrange": "1E+99",
+     "inmempool": 0,
+     "leftmempool": 0,
+     "startrange": 0,
+     "totalconfirmed": "34.5",
+     "withintarget": "34.5"
+    },
+    "scale": 1
+   }
+  }
+ },
+ "listbanned": [
+  {
+   "address": "1.2.0.0/16",
+   "ban_created": 1417713337,
+   "ban_duration": 86400,
+   "banned_until": 1417799737,
+   "time_remaining": 86400
+  },
+  {
+   "address": "10.0.0.0/8",
+   "ban_created": 1417713337,
+   "ban_duration": 475742663,
+   "banned_until": 1893456000,
+   "time_remaining": 475742663
+  },
+  {
+   "address": "192.168.0.6/32",
+   "ban_created": 1417713337,
+   "ban_duration": 86400,
+   "banned_until": 1417799737,
+   "time_remaining": 86400
+  },
+  {
+   "address": "2a01:4f8:1c0c:8212::/64",
+   "ban_created": 1417713337,
+   "ban_duration": 86400,
+   "banned_until": 1417799737,
+   "time_remaining": 86400
+  },
+  {
+   "address": "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion",
+   "ban_created": 1417713337,
+   "ban_duration": 86400,
+   "banned_until": 1417799737,
+   "time_remaining": 86400
+  }
+ ],
+ "mempool_entries": {
+  "5e757d596256f7fe673b908d16433e35477250d59750c7c9a090e1a71718537e": {
+   "ancestorcount": 1,
+   "ancestorsize": 85,
+   "depends": [],
+   "descendantcount": 4,
+   "descendantsize": 340,
+   "fees": {
+    "ancestor": "0.00012600",
+    "base": "0.00000255",
+    "descendant": "0.00013875",
+    "modified": "0.00012600"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e": {
+   "ancestorcount": 2,
+   "ancestorsize": 170,
+   "depends": [
+    "5e757d596256f7fe673b908d16433e35477250d59750c7c9a090e1a71718537e"
+   ],
+   "descendantcount": 3,
+   "descendantsize": 255,
+   "fees": {
+    "ancestor": "0.00012940",
+    "base": "0.00000340",
+    "descendant": "0.00001275",
+    "modified": "0.00000340"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f": {
+   "ancestorcount": 3,
+   "ancestorsize": 255,
+   "depends": [
+    "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e"
+   ],
+   "descendantcount": 2,
+   "descendantsize": 170,
+   "fees": {
+    "ancestor": "0.00013365",
+    "base": "0.00000425",
+    "descendant": "0.00000935",
+    "modified": "0.00000425"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "e0933e97bb6f3f13267371951b6347852d415014ade7b8ffba667a64a47d8335"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "e0933e97bb6f3f13267371951b6347852d415014ade7b8ffba667a64a47d8335": {
+   "ancestorcount": 4,
+   "ancestorsize": 340,
+   "depends": [
+    "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f"
+   ],
+   "descendantcount": 1,
+   "descendantsize": 85,
+   "fees": {
+    "ancestor": "0.00013875",
+    "base": "0.00000510",
+    "descendant": "0.00000510",
+    "modified": "0.00000510"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  }
+ },
+ "nodeaddresses": [
+  {
+   "address": "54.34.34.34",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "57.37.37.37",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "56.36.36.36",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "31.11.11.11",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "21.1.1.1",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "30.10.10.10",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "49.29.29.29",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "24.4.4.4",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "38.18.18.18",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "22.2.2.2",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "41.21.21.21",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "33.13.13.13",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "53.33.33.33",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "ukeu3k5oycgaauneqgtnvselmt4yemvoilkln7jpvamvfx7dnkdq.b32.i2p",
+   "network": "i2p",
+   "port": 0,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "50.30.30.30",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "42.22.22.22",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "47.27.27.27",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "59.39.39.39",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "39.19.19.19",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "40.20.20.20",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "37.17.17.17",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "46.26.26.26",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "48.28.28.28",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "21.1.1.1",
+   "network": "ipv4",
+   "port": 19999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "43.23.23.23",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "35.15.15.15",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "58.38.38.38",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "44.24.24.24",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "25.5.5.5",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "28.8.8.8",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "36.16.16.16",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "32.12.12.12",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "23.3.3.3",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "55.35.35.35",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "29.9.9.9",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "45.25.25.25",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "52.32.32.32",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "26.6.6.6",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "51.31.31.31",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "27.7.7.7",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  },
+  {
+   "address": "34.14.14.14",
+   "network": "ipv4",
+   "port": 9999,
+   "services": 1,
+   "time": 1417713337
+  }
+ ],
+ "peerinfo": [
+  {
+   "addr": "127.0.0.1:13415",
+   "connection_type": "block-relay-only"
+  },
+  {
+   "addr": "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion:8333",
+   "connection_type": "block-relay-only"
+  }
+ ],
+ "rawaddrman": {
+  "new": {
+   "1002/18": {
+    "address": "54.34.34.34",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "54.34.34.34",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "1005/13": {
+    "address": "58.38.38.38",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "58.38.38.38",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "1023/42": {
+    "address": "42.22.22.22",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "42.22.22.22",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "14/36": {
+    "address": "31.11.11.11",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "31.11.11.11",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "149/9": {
+    "address": "25.5.5.5",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "25.5.5.5",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "161/53": {
+    "address": "50.30.30.30",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "50.30.30.30",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "315/39": {
+    "address": "49.29.29.29",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "49.29.29.29",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "317/3": {
+    "address": "ukeu3k5oycgaauneqgtnvselmt4yemvoilkln7jpvamvfx7dnkdq.b32.i2p",
+    "network": "i2p",
+    "port": 0,
+    "services": 1,
+    "source": "ukeu3k5oycgaauneqgtnvselmt4yemvoilkln7jpvamvfx7dnkdq.b32.i2p",
+    "source_network": "i2p",
+    "time": 1417713337
+   },
+   "328/19": {
+    "address": "39.19.19.19",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "39.19.19.19",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "328/44": {
+    "address": "23.3.3.3",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "23.3.3.3",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "345/54": {
+    "address": "33.13.13.13",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "33.13.13.13",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "368/2": {
+    "address": "21.1.1.1",
+    "network": "ipv4",
+    "port": 19999,
+    "services": 1,
+    "source": "21.1.1.1",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "368/54": {
+    "address": "21.1.1.1",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "21.1.1.1",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "375/63": {
+    "address": "55.35.35.35",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "55.35.35.35",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "386/60": {
+    "address": "29.9.9.9",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "29.9.9.9",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "408/36": {
+    "address": "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion",
+    "network": "onion",
+    "port": 9999,
+    "services": 1,
+    "source": "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion",
+    "source_network": "onion",
+    "time": 1417713337
+   },
+   "41/32": {
+    "address": "30.10.10.10",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "30.10.10.10",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "44/16": {
+    "address": "45.25.25.25",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "45.25.25.25",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "498/20": {
+    "address": "27.7.7.7",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "27.7.7.7",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "500/56": {
+    "address": "22.2.2.2",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "22.2.2.2",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "578/49": {
+    "address": "43.23.23.23",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "43.23.23.23",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "724/15": {
+    "address": "41.21.21.21",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "41.21.21.21",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "728/30": {
+    "address": "53.33.33.33",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "53.33.33.33",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "756/59": {
+    "address": "26.6.6.6",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "26.6.6.6",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "801/13": {
+    "address": "57.37.37.37",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "57.37.37.37",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "809/22": {
+    "address": "34.14.14.14",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "34.14.14.14",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "826/11": {
+    "address": "35.15.15.15",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "35.15.15.15",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "83/20": {
+    "address": "47.27.27.27",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "47.27.27.27",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "869/5": {
+    "address": "46.26.26.26",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "46.26.26.26",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "916/48": {
+    "address": "38.18.18.18",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "38.18.18.18",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "959/19": {
+    "address": "2a01:4f8:1c0c:8212::2",
+    "network": "ipv6",
+    "port": 9999,
+    "services": 1,
+    "source": "2a01:4f8:1c0c:8212::2",
+    "source_network": "ipv6",
+    "time": 1417713337
+   },
+   "98/20": {
+    "address": "37.17.17.17",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "37.17.17.17",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "989/10": {
+    "address": "59.39.39.39",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "59.39.39.39",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "994/62": {
+    "address": "51.31.31.31",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "51.31.31.31",
+    "source_network": "ipv4",
+    "time": 1417713337
+   }
+  },
+  "tried": {
+   "11/0": {
+    "address": "24.4.4.4",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "24.4.4.4",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "132/14": {
+    "address": "52.32.32.32",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "52.32.32.32",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "135/22": {
+    "address": "40.20.20.20",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "40.20.20.20",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "153/40": {
+    "address": "2a01:4f8:1c0c:8212::1",
+    "network": "ipv6",
+    "port": 9999,
+    "services": 1,
+    "source": "2a01:4f8:1c0c:8212::1",
+    "source_network": "ipv6",
+    "time": 1417713337
+   },
+   "160/44": {
+    "address": "36.16.16.16",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "36.16.16.16",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "206/2": {
+    "address": "48.28.28.28",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "48.28.28.28",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "232/18": {
+    "address": "28.8.8.8",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "28.8.8.8",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "31/4": {
+    "address": "56.36.36.36",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "56.36.36.36",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "69/16": {
+    "address": "32.12.12.12",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "32.12.12.12",
+    "source_network": "ipv4",
+    "time": 1417713337
+   },
+   "85/24": {
+    "address": "44.24.24.24",
+    "network": "ipv4",
+    "port": 9999,
+    "services": 1,
+    "source": "44.24.24.24",
+    "source_network": "ipv4",
+    "time": 1417713337
+   }
+  }
+ },
+ "rawmempool": {
+  "5e757d596256f7fe673b908d16433e35477250d59750c7c9a090e1a71718537e": {
+   "ancestorcount": 1,
+   "ancestorsize": 85,
+   "depends": [],
+   "descendantcount": 4,
+   "descendantsize": 340,
+   "fees": {
+    "ancestor": "0.00012600",
+    "base": "0.00000255",
+    "descendant": "0.00013875",
+    "modified": "0.00012600"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e": {
+   "ancestorcount": 2,
+   "ancestorsize": 170,
+   "depends": [
+    "5e757d596256f7fe673b908d16433e35477250d59750c7c9a090e1a71718537e"
+   ],
+   "descendantcount": 3,
+   "descendantsize": 255,
+   "fees": {
+    "ancestor": "0.00012940",
+    "base": "0.00000340",
+    "descendant": "0.00001275",
+    "modified": "0.00000340"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f": {
+   "ancestorcount": 3,
+   "ancestorsize": 255,
+   "depends": [
+    "b2891d2b085d3a0b94e2112bb5065f3bf9c6342786ecbac1e742c05d0f44e03e"
+   ],
+   "descendantcount": 2,
+   "descendantsize": 170,
+   "fees": {
+    "ancestor": "0.00013365",
+    "base": "0.00000425",
+    "descendant": "0.00000935",
+    "modified": "0.00000425"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [
+    "e0933e97bb6f3f13267371951b6347852d415014ade7b8ffba667a64a47d8335"
+   ],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  },
+  "e0933e97bb6f3f13267371951b6347852d415014ade7b8ffba667a64a47d8335": {
+   "ancestorcount": 4,
+   "ancestorsize": 340,
+   "depends": [
+    "d8d552034bb304a585ca239fae314b234ba184be5e0df0ebcf8120859c13636f"
+   ],
+   "descendantcount": 1,
+   "descendantsize": 85,
+   "fees": {
+    "ancestor": "0.00013875",
+    "base": "0.00000510",
+    "descendant": "0.00000510",
+    "modified": "0.00000510"
+   },
+   "height": 180,
+   "instantlock": "false",
+   "spentby": [],
+   "time": 1417713337,
+   "unbroadcast": true,
+   "vsize": 85
+  }
+ }
+}

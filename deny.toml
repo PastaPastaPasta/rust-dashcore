@@ -1,0 +1,59 @@
+# cargo-deny configuration
+# https://embarkstudios.github.io/cargo-deny/
+
+[graph]
+# The bench is an internal tool, and its optional profilers pull in crates the
+# shipped crates never use. The layer rules (contrib/node/check-layers.py)
+# still follow its edges.
+exclude = ["dash-spv-bench"]
+# Optional dependencies count too, so the bans see edges behind features.
+all-features = true
+
+[advisories]
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = [
+    # serde_cbor is unmaintained but only used in fuzz targets
+    "RUSTSEC-2021-0127",
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unlicense",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "MITNFA",
+    "BSL-1.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+deny = [
+    # Hex goes through `hex-conservative` 1.x.
+    { crate = "hex", reason = "use `hex-conservative` 1.x instead" },
+    { crate = "hex_lit", reason = "use `hex!` from `hex-conservative` 1.x instead" },
+    { crate = "hex-literal", reason = "use `hex!` from `hex-conservative` 1.x instead" },
+]
+skip = [
+    # Older releases still come in through upstream crates (`bitcoin_hashes` 0.14 via `bip39`),
+    { crate = "hex-conservative:<1.0.0", reason = "depended on by rust-bitcoin crates" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# The node program's local base SDK fork (docs/node-program/BASE-SDK-FORK.md).
+allow-git = ["file:///work/home/agent/workspace/base-sdk"]
