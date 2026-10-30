@@ -1,0 +1,12 @@
+#!/bin/bash
+# BL-371: the fuzz flavor's compiler. Objects of relic and dashbls (built in src/dashbls, or named
+# dashbls/...) keep their sancov edge counters but lose trace-cmp: the comparison callbacks in the
+# field arithmetic cost more than a third of the instructions of a BLS-heavy oracle call, and
+# libFuzzer gains nothing from them.
+# Installed as nocmp-clang and nocmp-clang++ (a symlink); runs clang or clang++ accordingly.
+real=clang; case "$0" in *++) real=clang++ ;; esac
+case "$PWD" in */dashbls|*/dashbls/*) exec "${real}" "$@" -fno-sanitize-coverage=trace-cmp ;; esac
+for a in "$@"; do
+    case "$a" in *dashbls/*.c|*dashbls/*.cpp|*dashbls/*.cc) exec "${real}" "$@" -fno-sanitize-coverage=trace-cmp ;; esac
+done
+exec "${real}" "$@"

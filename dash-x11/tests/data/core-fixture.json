@@ -1,0 +1,22 @@
+{
+  "seed": 1479618865,
+  "cases": 2000,
+  "x11": {
+    "random": "6acd9d1cb3dda50e5d7bd3df15b5001ffa7e94324a1d3d1c7a22cb2239ceebcf",
+    "long": "86ad8e73258c5a34c4bbb49185c36d8598b0561e6e90796ae37d2c192410f701",
+    "header": "1037305c2a5c30799c52ff45f30c2cfda3593bb300a3089f08c9a28b5c0a92b1"
+  },
+  "stages": {
+    "blake": "e1cbc2921a1b498fbed6c622191e0ba3d6bd052a209c49c521e6aac9be8d1854",
+    "bmw": "5aeab9859481cf5f40fca68affff039c2c4e369a1f3f1b288f0859b88a7fd0f2",
+    "groestl": "def1440d1f001a662a244f54a5cc93c72dd5f1d242102af7f4e116fa832a686c",
+    "skein": "e5029b5c4519ff226ddbe60bc3e8901abe23c0df9106dd5f7484c145cbfbab09",
+    "jh": "c35e198b4b8e50aa4765b6528dc2d63eb52fc6e4da2dee3cdd11ea19c0d94f2d",
+    "keccak": "981d9f2dd59f34d5edb78e9c1076b55634528c7c6b914f60ecb8f15edfaf9c46",
+    "luffa": "9eb5675ebedfa2d68bf46965693bfe6095c86cf6598ecbc182e3747d822a69ab",
+    "cubehash": "788343e3b77caa13ed3e3bcc0af48b36b9e24d7a1123bea32bf2c5b1808d4598",
+    "shavite": "758922c16b720fedf361403843452cbe52d6552fe190221be0776ccb5a0e73b5",
+    "simd": "d473d2c2971fef2bf2f50da71bcabdabd3f8b90fcae7f456e93219981cb315b8",
+    "echo": "e6be345f0b01f63022cec182477f1a313525cb64313ec96a2bc07779c75d92a9"
+  }
+}
