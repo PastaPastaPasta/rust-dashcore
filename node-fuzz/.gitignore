@@ -1,0 +1,9 @@
+target/
+artifacts/
+corpus/
+coverage/
+crash-*
+leak-*
+timeout-*
+oom-*
+fuzz-*.log
