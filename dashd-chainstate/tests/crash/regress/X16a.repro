@@ -1,0 +1,10 @@
+# CRASH planted bug X16a (CH2 §6.4), minimised in 7 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=- presumed=- crash=- replay=- planted=X16a
+workload c10;f;c2
+fault nth db:chainstate read 18 io not-applied
+adversary realistic
+granularity write
+expect R8
+minimality verified

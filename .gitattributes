@@ -1,0 +1,5 @@
+# Enforce LF line endings for all text files
+* text=auto eol=lf
+
+# Fuzz seeds are target inputs: never convert line endings or diff them as text
+node-fuzz/public-seeds/*/** binary

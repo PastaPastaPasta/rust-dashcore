@@ -1,0 +1,10 @@
+# ToyChain planted bug T16 (ST3a §6.2), minimised in 429 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=0 invalid=- effects=- presumed=-:- prune=8:2:- sub=syncing:80:96 bug=T16
+workload c10;f;c110;s11;s60;q120;f
+crash 406 process-kill
+adversary realistic
+granularity write
+expect R11b
+minimality verified
