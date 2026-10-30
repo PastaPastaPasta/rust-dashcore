@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+# st3b-priv: the ST3b power-loss harness's only privileged entry point (run as `sudo -n st3b-priv
+# <verb> ...`). Every verb refuses anything outside the harness's root: loop devices only on files
+# under $ROOT/run, device-mapper devices only named st3b-* and built only on those, mounts only
+# under $ROOT/mnt. It never runs `dmsetup remove_all`, `losetup -D` or `umount -l`.
+#
+# A guard against harness bugs, not a privilege boundary: the grant it runs under is the box's
+# blanket NOPASSWD sudo, the script and $ROOT are writable by the user it serves, and its path
+# checks race with that user's renames (ST3b-D5's L5). A sudoers rule naming only this script
+# would need a root-owned copy and root-owned mount directories first (ST3b r1 m-1).
+#
+#   losetup-attach <file>             attach a loop device, print /dev/loopN
+#   losetup-detach </dev/loopN>       detach one of ours
+#   dm-create <name> <table>          create st3b-* (targets: log-writes, linear)
+#   dm-remove <name>                  retries for up to 2 min while busy
+#   dm-message <name> mark <word>     a log-writes mark
+#   mkfs <dev> ext4|xfs               without discard, inode tables written up front
+#   mount <dev> <mnt> ext4|xfs [ro]   nodev,nosuid,noexec; xfs gets nouuid (reflinked copies share
+#                                     the UUID)
+#   umount <mnt>
+#   chown-mnt <mnt>                   give the mounted root to the invoking user
+#   sweep <run>                       unmount, remove and detach everything of run <run>; exit 3,
+#                                     touching nothing, if the run's lock is held (it is alive);
+#                                     exit 4, touching nothing, if its directory is gone while it
+#                                     still has devices or mounts (an orphan: a live run pruned
+#                                     under itself looks the same, so a person decides)
+#   leaks [<run>]                     list our devices and mounts (all runs, or one)
+set -euo pipefail
+umask 077
+
+ROOT=/work/scratch/st3b
+MNT=$ROOT/mnt
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+die() {
+	echo "st3b-priv: $*" >&2
+	exit 2
+}
+
+[ "$(id -u)" = 0 ] || die "run me with sudo -n"
+
+# A path's resolved form must lie strictly under $1.
+under() {
+	local base=$1 path
+	path=$(realpath -e -- "$2" 2>/dev/null) || return 1
+	case $path in "$base"/?*) printf '%s\n' "$path" ;; *) return 1 ;; esac
+}
+
+dm_name() {
+	[[ $1 =~ ^st3b-[A-Za-z0-9._-]{1,100}$ ]] || die "not an st3b-* device name: $1"
+}
+
+# `<utc seconds>-<pid>`, as the harness makes them.
+run_id() {
+	[[ $1 =~ ^[0-9]{1,20}-[0-9]{1,10}$ ]] || die "bad run id: $1"
+}
+
+# A loop device whose backing file is under $ROOT/run, where `losetup-attach` makes them and
+# `leaks` looks. The file may be gone (a point image the harness removed after a failed detach):
+# then its recorded path, canonical when attached, counts.
+our_loop() {
+	local back
+	[[ $1 =~ ^/dev/loop[0-9]+$ ]] || return 1
+	back=$(losetup -nO BACK-FILE "$1" 2>/dev/null) || return 1
+	back=${back%% (deleted)}
+	case $back in */../* | */./* | */..) return 1 ;; "$ROOT"/run/?*) ;; *) return 1 ;; esac
+	[ ! -e "$back" ] || under "$ROOT/run" "$back" >/dev/null
+}
+
+# A block device the harness may build on, format or mount: one of our loops or st3b-* dm devices.
+our_dev() {
+	case $1 in
+	/dev/mapper/st3b-*) dm_name "${1#/dev/mapper/}" && [ -b "$1" ] ;;
+	/dev/loop*) our_loop "$1" ;;
+	*) return 1 ;;
+	esac
+}
+
+# A table: exactly one line `0 <len> <target> <args>` of plain words (the kernel unescapes `\`,
+# splits on any whitespace and resolves relative paths, so nothing else may get through), with
+# each target's arguments checked by position: a device must be ours, everything else a number.
+check_table() {
+	local -a t a
+	[[ $1 =~ ^0\ [1-9][0-9]*\ (linear|log-writes)(\ [A-Za-z0-9/._-]+)+$ ]] ||
+		die "table not allowed: $1"
+	read -r -a t <<<"$1"
+	a=("${t[@]:3}")
+	dev_arg() { our_dev "$1" || die "device not ours: $1"; }
+	num_arg() { [[ $1 =~ ^[0-9]+$ ]] || die "not a number: $1"; }
+	case ${t[2]} in
+	linear)
+		[ ${#a[@]} = 2 ] || die "linear <dev> <offset>"
+		dev_arg "${a[0]}"
+		num_arg "${a[1]}"
+		;;
+	log-writes)
+		[ ${#a[@]} = 2 ] || die "log-writes <data dev> <log dev>"
+		dev_arg "${a[0]}"
+		dev_arg "${a[1]}"
+		;;
+	esac
+}
+
+mnt_path() {
+	under "$MNT" "$1" || die "mountpoint not under $MNT: $1"
+}
+
+is_mounted() {
+	findmnt -rn --mountpoint "$1" >/dev/null
+}
+
+# Our mounts (under $MNT), deepest first; with a run, only that run's.
+our_mounts() {
+	local prefix=$MNT/${1:+$1/}
+	findmnt -rn -o TARGET | while read -r m; do
+		case $m in "$prefix"*) printf '%s\n' "$m" ;; esac
+	done | sort -r
+}
+
+# Our device-mapper devices (matched literally); with a run, only that run's.
+our_dms() {
+	local prefix=st3b-${1:+$1-} n
+	dmsetup ls 2>/dev/null | while read -r n _; do
+		case $n in "$prefix"?*) printf '%s\n' "$n" ;; esac
+	done
+}
+
+our_loops() {
+	local dev back
+	losetup -nO NAME,BACK-FILE | while read -r dev back; do
+		back=${back%% (deleted)}
+		case $back in "$ROOT/run/${1:+$1/}"*) printf '%s %s\n' "$dev" "$back" ;; esac
+	done
+}
+
+# Removes one of ours, retrying for up to two minutes while it is busy: a mount namespace with
+# private propagation copied while it was mounted (`unshare --mount`, BL-510) holds it until that
+# namespace goes.
+dm_remove() {
+	local deadline=$((SECONDS + 120))
+	until dmsetup remove --retry "$1"; do
+		[ -b "/dev/mapper/$1" ] || return 1
+		[ $SECONDS -lt $deadline ] || return 1
+		sleep 2
+	done
+}
+
+leaks() {
+	our_mounts "${1:-}" | sed 's/^/mount /'
+	our_dms "${1:-}" | sed 's/^/dm /'
+	our_loops "${1:-}" | sed 's/^/loop /'
+}
+
+verb=${1:-}
+[ $# -gt 0 ] && shift
+case $verb in
+losetup-attach)
+	[ $# = 1 ] || die "losetup-attach <file>"
+	f=$(under "$ROOT/run" "$1") || die "not a file under $ROOT/run: $1"
+	[ -f "$f" ] || die "not a regular file: $f"
+	losetup --find --show -- "$f"
+	;;
+losetup-detach)
+	[ $# = 1 ] || die "losetup-detach /dev/loopN"
+	our_loop "$1" || die "not one of our loop devices: $1"
+	losetup -d "$1"
+	;;
+dm-create)
+	[ $# = 2 ] || die "dm-create <name> <table>"
+	dm_name "$1"
+	check_table "$2"
+	dmsetup create "$1" --table "$2"
+	;;
+dm-remove)
+	[ $# = 1 ] || die "dm-remove <name>"
+	dm_name "$1"
+	dm_remove "$1"
+	;;
+dm-message)
+	[ $# = 3 ] && [ "$2" = mark ] || die "dm-message <name> mark <word>"
+	dm_name "$1"
+	[[ $3 =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || die "bad mark: $3"
+	dmsetup message "$1" 0 mark "$3"
+	;;
+mkfs)
+	[ $# = 2 ] || die "mkfs <dev> ext4|xfs"
+	our_dev "$1" || die "device not ours: $1"
+	case $2 in
+	ext4) mkfs.ext4 -q -F -E nodiscard,lazy_itable_init=0,lazy_journal_init=0 -- "$1" ;;
+	xfs) mkfs.xfs -q -f -K -- "$1" ;;
+	*) die "fs not allowed: $2" ;;
+	esac
+	;;
+mount)
+	[ $# = 3 ] || [ $# = 4 ] || die "mount <dev> <mnt> ext4|xfs [ro]"
+	our_dev "$1" || die "device not ours: $1"
+	m=$(mnt_path "$2")
+	is_mounted "$m" && die "already mounted: $m"
+	opts=nodiscard,nodev,nosuid,noexec
+	case $3 in ext4) ;; xfs) opts=$opts,nouuid ;; *) die "fs not allowed: $3" ;; esac
+	case ${4:-rw} in ro | rw) opts=$opts,${4:-rw} ;; *) die "option not allowed: $4" ;; esac
+	mount -t "$3" -o "$opts" -- "$1" "$m"
+	;;
+umount)
+	[ $# = 1 ] || die "umount <mnt>"
+	m=$(mnt_path "$1")
+	is_mounted "$m" || die "not mounted: $m"
+	umount -- "$m"
+	;;
+chown-mnt)
+	[ $# = 1 ] || die "chown-mnt <mnt>"
+	m=$(mnt_path "$1")
+	is_mounted "$m" || die "not mounted: $m"
+	[[ ${SUDO_UID:-} =~ ^[0-9]+$ && ${SUDO_GID:-} =~ ^[0-9]+$ ]] || die "no SUDO_UID/SUDO_GID"
+	chown "$SUDO_UID:$SUDO_GID" -- "$m"
+	chmod 0700 -- "$m"
+	;;
+sweep)
+	[ $# = 1 ] || die "sweep <run>"
+	run_id "$1"
+	# Held for the whole sweep: a live run, or another sweep of the same run, keeps its hands off.
+	lock=$ROOT/run/$1/lock
+	if [ -e "$lock" ]; then
+		exec 9<"$lock"
+		flock -n 9 || {
+			echo "st3b-priv: run $1 is live (its lock is held)" >&2
+			exit 3
+		}
+	elif [ ! -d "$ROOT/run/$1" ] && [ -n "$(leaks "$1")" ]; then
+		# No lock to test: a live run whose directory was pruned under it looks just like this.
+		echo "st3b-priv: run $1 has devices or mounts but no run directory; not sweeping it" >&2
+		exit 4
+	fi
+	while read -r m; do
+		[ -n "$m" ] || continue
+		umount -- "$m" || true
+	done < <(our_mounts "$1")
+	# A device still opened by another of ours fails until that one goes, and one held by a mount
+	# namespace until the namespace goes: pass over them until none is left, for up to two minutes
+	# (dm_remove's bound).
+	deadline=$((SECONDS + 120))
+	while left=$(our_dms "$1") && [ -n "$left" ]; do
+		for d in $left; do dmsetup remove --retry "$d" 2>/dev/null || true; done
+		[ -n "$(our_dms "$1")" ] && [ $SECONDS -lt $deadline ] || break
+		sleep 2
+	done
+	while read -r dev _; do
+		[ -n "$dev" ] || continue
+		losetup -d "$dev" || true
+	done < <(our_loops "$1")
+	# Only what is still there counts as a failure.
+	left=$(leaks "$1")
+	if [ -n "$left" ]; then
+		echo "st3b-priv: run $1 still has:" >&2
+		echo "$left" >&2
+		exit 1
+	fi
+	echo "swept $1 ($([ -e "$lock" ] && echo "lock free" || echo "no lock file"))"
+	;;
+leaks)
+	[ $# -le 1 ] || die "leaks [<run>]"
+	[ $# = 0 ] || run_id "$1"
+	leaks "${1:-}"
+	;;
+*)
+	die "unknown verb: ${verb:-<none>} (see the header)"
+	;;
+esac
