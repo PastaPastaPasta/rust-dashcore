@@ -1,0 +1,426 @@
+[package]
+name = "node-l1"
+description = "L1 differential comparisons of the node's consensus code against Dash Core's in-process oracle (A1 §4.4): one comparison per target, shared by the libFuzzer targets, their proptest twins, the boundary rows and the private-seed replay. Test-only; never a runtime dependency."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "node_l1"
+path = "src/lib.rs"
+
+[features]
+# Link Dash Core's oracle (dash-oracle-sys). Without it the crate is empty and its tests are
+# skipped, as for dash-oracle-sys. It also turns on dashd-chainstate's `model` (its
+# `RefCoinsCache` twin of Core's views, CH2c) and dashd-masternode's `core-layout` (Core's flat-file
+# magic messages, BL-451), so a workspace build does not (CH2 §6.7's guard; SP1 D3).
+oracle = ["dash-oracle-sys/oracle", "dashd-chainstate/model", "dashd-masternode/core-layout"]
+# `diff_chain`'s rdashd side (O2b-3b): dashd-node's `NodeSut`, behind its `test-support` (never
+# in a product build: O2b §6.4). Optional, so a workspace build does not turn it on.
+sut = [
+    "oracle",
+    "dep:dash-args",
+    "dep:dash-chain",
+    "dep:dashd-node",
+    "dashd-node/test-support",
+]
+
+[dependencies]
+bitcoin_hashes = { version = "1.2.0", default-features = false, features = ["std"] }
+# `diff_bls_decode` builds its point classes with blst (dash-pkc's release).
+blst = { version = "0.3.17", default-features = false }
+# O2a-CJ1's CoinJoin rules (`diff_coinjoin`).
+dash-coinjoin = { path = "../dash-coinjoin" }
+dash-args = { path = "../dash-args", optional = true }
+# V's header batches and index reads for `diff_chain`'s rdashd side (`sut`).
+dash-chain = { path = "../dash-chain", optional = true }
+dash-consensus = { path = "../dash-consensus" }
+# GV1a's governance rules (`diff_gov`, `diff_gov_vote`), over O2a-GOV's regtest fixture: node 0's
+# `governance.dat` read by dash-coreimport, the harness's voting keys signed with secp256k1.
+dash-coreimport = { path = "../dash-coreimport" }
+dash-governance = { path = "../dash-governance" }
+dash-network = { path = "../dash-network" }
+secp256k1 = { workspace = true, features = ["recovery"] }
+# EV2a's masternode list (`dml`), with its test builders and EV2b's block replay, which runs the
+# reference twin (`xcheck`) beside every build.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# EV2b's member source and effect sink (`dml_apply`); LQ1a's member selection, with the
+# models of Core's LLMQ caches it is compared through.
+dash-evo = { path = "../dash-evo", features = ["reference"] }
+# The CS3 input formats (`check_inputs`, shared with dash-consensus's tests) build chain
+# parameters and headers.
+dash-num = { workspace = true, features = ["std"] }
+dash-oracle-sys = { path = "../dash-oracle-sys" }
+dash-params = { workspace = true, features = ["std"] }
+# BS8's overlay messages (O2c), with the node's BLS rules (`dash-pkc`'s eager BLS).
+dash-p2p-core = { workspace = true, features = ["std"] }
+# `diff_p2p_multi_*`'s node leg (P2a-core): the processor in its `sim` harness.
+dash-p2p = { path = "../dash-p2p" }
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+# The address relay the session node leg installs (P2a-net D24).
+dashd-net = { path = "../dashd-net" }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+tracing = "0.1"
+dash-pkc = { workspace = true, features = ["std", "bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# `diff_chain` (O2b-3): the steps' StateDigest records and the comparator's planes.
+dash-statedigest = { path = "../dash-statedigest" }
+serde_json = "1.0"
+dash-types = { workspace = true, features = ["codec", "std"] }
+# CH2's coins cache and block overlay, compared against Core's coins views (O2a-CO), over the
+# in-memory engine (and, under `oracle`, its `model` twin of Core's views).
+dashd-chainstate = { path = "../dashd-chainstate" }
+dashd-node = { path = "../dashd-node", optional = true }
+# SP1's masternode sync, fulfilled requests and meta cache (`mnsync`, BL-451), with the mock clock
+# their times come from and the netfulfilled key.
+dashd-masternode = { path = "../dashd-masternode", default-features = false }
+dash-clock = { path = "../dash-clock" }
+dash-netaddr = { path = "../dash-netaddr" }
+# `mnsync`'s netfulfilled reload goes through the manager's own file.
+tempfile = "3"
+dashd-store = { path = "../dashd-store", default-features = false }
+# `diff_dml_apply` reads O2a-EV's crafted fixture (with serde_json above).
+serde = { workspace = true, features = ["derive", "std"] }
+# `diff_block_value_payee` reads O2a-GV's gzipped payments fixture.
+flate2 = "1"
+
+[dev-dependencies]
+dash-core-vectors = { path = "../test-vectors" }
+# Core's blk files for `quorum_root_history` (LQ2 D15).
+dash-coreimport = { path = "../dash-coreimport" }
+# CS6's caches and check queue (`l1_sigcache`), and the harness keys its spends are signed with.
+dashd-chainstate = { path = "../dashd-chainstate" }
+dash-pkc = { workspace = true, features = ["bls"] }
+node-sink = { path = "../node-sink" }
+proptest = "1.7"
+secp256k1 = { workspace = true }
+tempfile = "3"
+serde = { workspace = true, features = ["derive", "std"] }
+
+[[test]]
+name = "recorded_fixtures"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_mnsync"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_dml"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_sml_serve"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_dml_apply"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_dml_block"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_specialtx_sig"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_specialtx_trivial"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_specialtx_d17"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_specialtx"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_payee_queue"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_llmq"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_llmq_history"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_lq2"
+required-features = ["oracle"]
+
+[[test]]
+name = "p2p"
+required-features = ["oracle"]
+
+[[test]]
+name = "p2p_node"
+required-features = ["oracle"]
+
+[[test]]
+name = "p2p_addr"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_twins"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_versionbits"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_payments"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_credit_pool"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_mnhf"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_boundaries"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_coin_boundaries"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_coin_records"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_payload"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_checks"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_check_rows"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_header_windows"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_inputs"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls_arith"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls_aggregate"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls_threshold"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls_ies"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_bls_verify"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_coins_ops"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_coins_usage"
+required-features = ["oracle"]
+
+[[example]]
+name = "coins_ops_seeds"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_overlay"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_overlay_alloc"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_sigcache"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_coinjoin"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_gov"
+required-features = ["oracle"]
+
+[[example]]
+name = "overlay_seeds"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_chain"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_chain_params"
+required-features = ["sut"]
+
+[[test]]
+name = "l1_platform_ban"
+required-features = ["sut"]
+
+[[test]]
+name = "l1_chain_diff"
+required-features = ["sut"]
+
+[[test]]
+name = "l1_chain_reorg"
+required-features = ["sut"]
+
+[[test]]
+name = "l1_chain_locks"
+required-features = ["sut"]
+
+[[test]]
+name = "load_reset_core"
+required-features = ["oracle"]
+
+[[example]]
+name = "chain_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "chain_sample"
+required-features = ["oracle"]
+
+[[test]]
+name = "l1_block_proof"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_shared_case"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_quirk_vectors"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_explain"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_window"
+required-features = ["oracle"]
+
+[[example]]
+name = "llmq_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "versionbits_record"
+required-features = ["oracle"]
+
+[[example]]
+name = "versionbits_chain"
+required-features = ["oracle"]
+
+[[example]]
+name = "bls_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "bls_arith_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "bls_wrapper_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "coinjoin_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "specialtx_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "specialtx_census"
+required-features = ["oracle"]
+
+[[example]]
+name = "specialtx_sign_strings"
+required-features = ["oracle"]
+
+[[example]]
+name = "gov_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "mnsync_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "payments_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "credit_pool_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "mnhf_seeds"
+required-features = ["oracle"]
+
+[[example]]
+name = "payments_quirk_vectors"
+required-features = ["oracle"]
+
+# LQ2 D14: reads an O8 golden only, so it needs no oracle.
+[[example]]
+name = "lq2_listextended"
+
+# Always compiled: without `oracle` it fails when DASH_EMBARGO_DIR is set, instead of vanishing.
+[[test]]
+name = "private_seed_replay"
+
+[[test]]
+name = "l1_bsdk_decode"
+required-features = ["oracle"]
+
+# Always compiled and run: it replays the recorded verdicts without the oracle.
+[[test]]
+name = "bsdk_recorded"
+
+[lints.rust]
+# run.sh builds node-fuzz with `--cfg fuzzing` (P2a-core D55).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fuzzing)"] }
