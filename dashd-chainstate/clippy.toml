@@ -1,0 +1,48 @@
+# Clippy reads the nearest clippy.toml and does not merge it with the root one,
+# so this repeats the root's contents (msrv and the Block::merkle ban) and adds
+# LO-9's bans (CH1-node §8.3).
+msrv = "1.89"
+
+# LO-9 (DEC-156 (1)): a task V may wait on never waits on V. Every wait on an
+# actor goes through a type that reads the no-wait marker first: ActorReply,
+# NodeJoinHandle, ValidationSignals::sync. A raw receiver or join handle would
+# skip that check, so each remaining use is an `expect` with its reason.
+# disallowed-types sees only spelled-out types, so the waits themselves are
+# banned below too (an inferred `let (tx, rx) = bounded(..)` or a
+# `spawn(..).join()` names no type).
+disallowed-types = [
+    { path = "std::sync::mpsc::Receiver", reason = "LO-9: wait through ActorReply, which refuses a marked task (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Receiver", reason = "LO-9: wait through ActorReply, which refuses a marked task (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Select", reason = "LO-9: wait through ActorReply (CH1-node §8.3); V's own select is heap-free (BL-453)" },
+    { path = "std::thread::JoinHandle", reason = "LO-9: spawn with chain::spawn_thread, whose join refuses a marked task (CH1-node §8.3)" },
+]
+
+# LO-9's wait methods (above), then the sole consensus encoder (node program,
+# A1 §1.3): consensus hashes come from dash-consensus's wrappers, never from
+# base-sdk's encoders.
+disallowed-methods = [
+    { path = "std::thread::spawn", reason = "LO-9: chain::spawn_thread passes the marker on and its join checks it (CH1-node §8.3)" },
+    { path = "std::thread::Builder::spawn", reason = "LO-9: chain::spawn_thread passes the marker on and its join checks it (CH1-node §8.3)" },
+    { path = "std::thread::JoinHandle::join", reason = "LO-9: NodeJoinHandle::join refuses a marked joiner (CH1-node §8.3)" },
+    { path = "std::sync::mpsc::Receiver::recv", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "std::sync::mpsc::Receiver::recv_timeout", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "std::sync::mpsc::Receiver::iter", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Receiver::recv", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Receiver::recv_timeout", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Receiver::recv_deadline", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Receiver::iter", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Select::select", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::Select::ready", reason = "LO-9: wait through ActorReply (CH1-node §8.3)" },
+    # crossbeam's select!/select_biased! macros, through the functions they
+    # expand to (BL-453): clippy 0.1.98 reports a disallowed-macros use outside
+    # its item, where only a crate-wide allow would reach it.
+    { path = "crossbeam_channel::internal::select", reason = "LO-9: select!/select_biased! wait here; wait through ActorReply (CH1-node §8.3)" },
+    { path = "crossbeam_channel::internal::select_timeout", reason = "LO-9: select! with a timeout waits here; wait through ActorReply (CH1-node §8.3)" },
+    { path = "dash_primitives::Block::merkle", reason = "consensus hashes come from dash-consensus (Block::merkle(rules)), not base-sdk's encoder (A1 §1.3)" },
+    # dash-params' static tables (BS5-R §2g; contrib/node/node-params-bans.toml).
+    { path = "dash_params::ConsensusParams::llmq", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::LlmqType::params", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::chain", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::consensus", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::addr", reason = "reads #83's static address parameters, whose `bech32_hrp` is wrong at V23_1; use `ChainSetup`'s `addr_params` and `platform_hrp`" },
+]

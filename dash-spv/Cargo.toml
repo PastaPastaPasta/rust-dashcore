@@ -1,0 +1,125 @@
+[package]
+name = "dash-spv"
+description = "Dash SPV (Simplified Payment Verification) client library"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# Core Dash libraries
+dashcore = { path = "../dash", features = [
+    "serde",
+    "message_verification",
+    "bls",
+    "quorum_validation",
+    "tokio",
+] }
+dashcore_hashes = { path = "../hashes" }
+dash-x11 = { path = "../dash-x11" }
+# `bridge`: dashcore <-> base-sdk and dash-consensus conversions (SB0 §5.5, SB12a)
+# X11 by `dash-x11`, which dashcore links already: one X11 in dash-spv (SB12a D23).
+dash-consensus = { path = "../dash-consensus", features = ["dash-x11"] }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+dash-network-seeds = { path = "../dash-network-seeds" }
+key-wallet = { path = "../key-wallet" }
+key-wallet-manager = { path = "../key-wallet-manager" }
+git-state = { path = "../git-state" }
+# The SPV store (SB0 §9.5, SB13): dash-chain's header-store seam and row codec, on dash-kv-sqlite.
+# dash-consensus, dash-num, dash-primitives and dash-types are listed with the bridge above.
+dash-chain = { path = "../dash-chain" }
+dash-kv = { path = "../dash-kv" }
+dash-kv-sqlite = { path = "../dash-kv-sqlite" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-util = "0.7"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait = "0.1"
+futures = { workspace = true }
+
+# Error handling
+thiserror = "1.0"
+
+# Serialization
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3.20"
+tracing-appender = { version = "0.2", optional = true }
+chrono = { version = "0.4.20", optional = true }
+
+# Utilities
+rand = "0.9"
+hex-conservative = { workspace = true }
+
+# Parallelization
+
+# Masternode engine snapshots
+bincode = { workspace = true }
+
+# Test utilities (optional)
+tempfile = { version = "3.0", optional = true }
+dashcore-rpc = { path = "../rpc-client", optional = true }
+# The test port picker's probe binds without listening (BL-437); std's TcpListener always listens.
+socket2 = { version = "0.6.5", default-features = false, optional = true }
+
+[build-dependencies]
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+# ST3a's power-loss model: the SPV store's crash sweep runs it on FaultyEngine (SB13). It adds
+# modules to dash-kv and no hook to engine code, as in dash-kv-sqlite.
+dash-kv = { path = "../dash-kv", features = ["faulty"] }
+dash-spv = { path = ".", features = ["test-utils"] }
+dashcore = { path = "../dash", features = ["test-utils"] }
+key-wallet = { path = "../key-wallet", features = ["test-utils"] }
+key-wallet-manager = { path = "../key-wallet-manager", features = [
+    "test-utils",
+] }
+tokio = { version = "1.0", features = ["full"] }
+criterion = { version = "0.8.1", features = ["async_tokio"] }
+tempfile = "3.0"
+tokio-test = "0.4"
+test-case = "3.3"
+
+[[bench]]
+name = "storage"
+harness = false
+
+[[bench]]
+name = "headers"
+harness = false
+
+# The bridge's hash-once tests count X11 calls; PF0 measures dash-spv without the counter, so
+# they run only with the (internal) feature, which the gate's feature-tests step turns on, and
+# only in debug builds (a release test run compiles them out). That step runs only the tests
+# whose names match `test-filter` (the bridge's, hash counts included): the main test step
+# already runs every other test, the dashd suites among them (SB12a D14).
+[package.metadata.gate]
+test-features = ["__x11-count"]
+test-filter = ["bridge::"]
+
+[lib]
+name = "dash_spv"
+path = "src/lib.rs"
+
+[features]
+# File logging with rotation (tracing-appender). Off by default: log files are a host choice.
+log-file = ["dep:tracing-appender", "dep:chrono"]
+# Read the log filter from RUST_LOG when no level is given.
+env-filter = ["tracing-subscriber/env-filter"]
+# Internal, test-only (the leading `__`): per-thread X11 counts in dashcore_hashes and
+# dash-consensus, for the bridge's hash-once tests (`src/bridge/hash_once_tests.rs`, SB12a).
+# They compile only with debug assertions: a release build emits no counter, all features on.
+__x11-count = ["dash-consensus/__x11-count", "dashcore_hashes/__x11-count"]
+test-utils = ["dashcore/test-utils", "key-wallet-manager/test-utils", "dep:tempfile", "dep:dashcore-rpc", "dep:socket2", "log-file", "tokio/process"]

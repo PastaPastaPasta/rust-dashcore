@@ -1,0 +1,20 @@
+[Unit]
+Description=ST3b device-level power-loss nightly: dm-log-writes replay, C0-C6 (PLAN-ST3b §10)
+
+# Install with contrib/node/crash/install-units.sh. The run builds release rdashd and st3b-crash
+# in its own checkout and target (Q9), so set up /work/scratch/st3b/nightly/checkout first: a
+# worktree of the primary repository, which `ExecStartPre` detaches at the node/integration tip
+# (a local branch) each night.
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+Environment=CARGO_BUILD_JOBS=8
+Environment=ST3B_LEDGER=/work/scratch/st3b/nightly/ledger.tsv
+WorkingDirectory=/work/scratch/st3b/nightly
+ExecStartPre=/usr/bin/git -C checkout checkout --quiet --detach node/integration
+# One output directory per night.
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/crash/nightly-device.sh "out/$(date -u +%%Y%%m%%d)"'
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=32G
+TimeoutStartSec=6h
