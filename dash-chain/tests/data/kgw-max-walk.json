@@ -1,0 +1,10 @@
+{
+  "provenance": "next_bits is Dash Core's GetNextWorkRequired through dash_oracle_sys::Oracle::next_work_required (pin v24.0, commit 9c6dd45e0b10d245c7afe452426d8ff965416547, libdash_oracle_v24_0.a SHA-256 84cedba0588fae0db0900db191af837421254f2f9ee4ceef3b0a4053a052c8d5, Chain::main()) over the headers first_height..=parent_height (time time_base + spacing * h, bits bits) for a next header at time time_base + spacing * (parent_height + 1); dash-oracle-sys/tests/sb4_kgw_max_walk.rs re-checks it with the oracle (SB4 A-8)",
+  "network": "main",
+  "first_height": 15967,
+  "parent_height": 19999,
+  "time_base": 1000000,
+  "spacing": 150,
+  "bits": 503382016,
+  "next_bits": 503381999
+}
