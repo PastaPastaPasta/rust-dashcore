@@ -1,0 +1,1097 @@
+# The D19 pair table of EV1 (designs/EV1-specialtx.md §6.2, D19, D52), at Dash Core v24.0.0-rc.4.
+#
+# [[table]]: one per §3 check table, with Core's steps in execution order, each "<step> <reasons>"
+# (one step can end in either of two reasons), and `loops`, the steps that name a list element
+# (D19's per-element loops, and the duplicate checks over a list). Steps are labelled `<table>:<step>` with §3's step
+# numbers; `ns:` steps are `CheckNetInfo` statuses, `cv:` the covenant's checks.
+#
+# Steps that `diff_check_special_tx` does not drive are listed with the Core reason why:
+#   [[unreachable]]  no input reaches the step;
+#   [[elsewhere]]    the target's world (regtest, DIP3 enforced, CheckSpecialTx only) does not
+#                    reach it; `tests` names the tests that do (`file::fn`).
+#
+# Pairs of driven steps: every unordered pair of one table whose reasons differ must be reached by
+# `node-l1/tests/l1_specialtx.rs::pairs_first_reject_d19` (Core's first reject, ours equal), except
+#   [[infeasible]]   pairs whose conditions cannot hold together, with the Core reason why (the
+#                    L1 test fails if one is reached, so a stale entry is noticed);
+#   [[equal-string]] pairs with the same reasons, which a verdict cannot tell apart. The script
+#                    computes them all; the ones the design names are listed to check that.
+#
+#   [[world]]        pairs Core allows that the target's world (D48) does not hold, with what it
+#                    lacks (counted and checked like infeasible ones).
+#
+# A table with a `driver` (`file::fn`) is driven by that test instead, which reads its steps and
+# exclusions from this file and checks the same coverage; `diff_check_special_tx` skips it.
+#
+# `contrib/node/ev1-census.py --pairs` validates this file against the census. Restricted shape
+# (D29): `key = "string"` or `key = [` with one string per line, so the L1 test reads it with a
+# line parser.
+
+[[table]]
+key = "1p"
+section = "3.2"
+function = "GetValidatedPayload<CProRegTx>"
+steps = [
+  "1p:type bad-protx-type",
+  "1p:payload bad-protx-payload",
+  "1p:version bad-protx-version",
+]
+
+[[table]]
+key = "1t"
+section = "3.3"
+function = "CProRegTx::IsTriviallyValid"
+steps = [
+  "1t:1 bad-protx-version",
+  "1t:2 bad-protx-evo-version",
+  "1t:3 bad-protx-type",
+  "1t:4 bad-protx-mode",
+  "1t:5a bad-protx-shares-external",
+  "1t:5b bad-protx-shares-owner-key",
+  "1t:5c bad-protx-shares-payouts",
+  "1t:5d bad-protx-shares-empty-fields",
+  "1t:5e bad-protx-key-null",
+  "1t:6 bad-protx-key-null",
+  "1t:7 bad-protx-operator-pubkey",
+  "1t:9 bad-protx-netinfo-version",
+  "1t:12 bad-protx-operator-reward",
+]
+
+[[table]]
+key = "1c"
+section = "3.3"
+function = "CheckProRegTx"
+steps = [
+  "1c:2 bad-protx-version-disallowed",
+  "1c:3a bad-protx-shares-evo",
+  "1c:3b bad-protx-payouts-evo",
+  "1c:6e1 bad-protx-collateral",
+  "1c:6e2 bad-protx-collateral-dest",
+  "1c:6e3 bad-protx-collateral-pkh",
+  "1c:6i1 bad-protx-collateral-index",
+  "1c:6i2 bad-protx-collateral",
+  "1c:6i3 bad-protx-shares-collateral-script",
+  "1c:6i4 bad-protx-collateral-dest",
+  "1c:7 bad-protx-collateral-reuse bad-protx-payee-reuse",
+  "1c:8a bad-protx-dup-netinfo-entry",
+  "1c:8b bad-protx-netinfo-entry",
+  "1c:9a bad-protx-dup-key",
+  "1c:9b bad-protx-dup-key",
+  "1c:9c bad-protx-dup-key",
+  "1c:10 bad-protx-dup-key",
+  "1c:11 bad-protx-dup-platformnodeid",
+  "1c:12 bad-protx-key-not-same",
+  "1c:13 bad-protx-inputs-hash",
+  "1c:14e bad-protx-sig",
+  "1c:14i bad-protx-sig",
+  "1c:14s bad-protx-shares-sig",
+]
+loops = [
+  "1c:9a",
+]
+
+[[table]]
+key = "2p"
+section = "3.2"
+function = "GetValidatedPayload<CProUpServTx>"
+steps = [
+  "2p:type bad-protx-type",
+  "2p:payload bad-protx-payload",
+  "2p:version bad-protx-version",
+]
+
+[[table]]
+key = "2t"
+section = "3.4"
+function = "CProUpServTx::IsTriviallyValid"
+steps = [
+  "2t:1 bad-protx-version",
+  "2t:2 bad-protx-evo-version",
+  "2t:3 bad-protx-type",
+  "2t:4 bad-protx-netinfo-version",
+  "2t:5 bad-protx-netinfo-empty",
+]
+
+[[table]]
+key = "2c"
+section = "3.4"
+function = "CheckProUpServTx"
+steps = [
+  "2c:3 bad-protx-hash",
+  "2c:4 bad-protx-type-mismatch",
+  "2c:5 bad-protx-version-downgrade",
+  "2c:6 bad-protx-version-disallowed",
+  "2c:7 bad-protx-netinfo-version",
+  "2c:8 bad-protx-dup-key",
+  "2c:9a bad-protx-dup-netinfo-entry",
+  "2c:9b bad-protx-netinfo-entry",
+  "2c:10 bad-protx-dup-platformnodeid",
+  "2c:11a bad-protx-operator-payee",
+  "2c:11b bad-protx-operator-payee",
+  "2c:12 bad-protx-inputs-hash",
+  "2c:13 bad-protx-sig",
+]
+
+[[table]]
+key = "3p"
+section = "3.2"
+function = "GetValidatedPayload<CProUpRegTx>"
+steps = [
+  "3p:type bad-protx-type",
+  "3p:payload bad-protx-payload",
+  "3p:version bad-protx-version",
+]
+
+[[table]]
+key = "3t"
+section = "3.5"
+function = "CProUpRegTx::IsTriviallyValid"
+steps = [
+  "3t:1 bad-protx-version",
+  "3t:2 bad-protx-mode",
+  "3t:3 bad-protx-key-null",
+  "3t:4 bad-protx-operator-pubkey",
+]
+
+[[table]]
+key = "3c"
+section = "3.5"
+function = "CheckProUpRegTx"
+steps = [
+  "3c:2 bad-protx-hash",
+  "3c:3 bad-protx-shared-mn",
+  "3c:4 bad-protx-version-downgrade",
+  "3c:5a bad-protx-dup-key",
+  "3c:5b bad-protx-netinfo-version",
+  "3c:6 bad-protx-payee-reuse",
+  "3c:7 bad-protx-payouts-evo",
+  "3c:8 bad-protx-collateral",
+  "3c:9 bad-protx-collateral-dest",
+  "3c:10 bad-protx-collateral-reuse bad-protx-payee-reuse",
+  "3c:11 bad-protx-dup-key",
+  "3c:12 bad-protx-key-not-same",
+  "3c:13 bad-protx-inputs-hash",
+  "3c:14 bad-protx-sig",
+]
+loops = [
+  "3c:6",
+]
+
+[[table]]
+key = "4p"
+section = "3.2"
+function = "GetValidatedPayload<CProUpRevTx>"
+steps = [
+  "4p:type bad-protx-type",
+  "4p:payload bad-protx-payload",
+  "4p:version bad-protx-version",
+]
+
+[[table]]
+key = "4t"
+section = "3.6"
+function = "CProUpRevTx::IsTriviallyValid"
+steps = [
+  "4t:1 bad-protx-version",
+  "4t:2 bad-protx-reason",
+]
+
+[[table]]
+key = "4c"
+section = "3.6"
+function = "CheckProUpRevTx"
+steps = [
+  "4c:2 bad-protx-hash",
+  "4c:3 bad-protx-version-downgrade",
+  "4c:4 bad-protx-inputs-hash",
+  "4c:5 bad-protx-sig",
+]
+
+[[table]]
+key = "5c"
+section = "3.10"
+function = "CheckSpecialTxInner's type-5 arm (3.8, 3.9), CheckCbTx"
+steps = [
+  "5c:coinbase bad-cbtx-invalid",
+  "5c:payload bad-cbtx-payload",
+  "5c:1 bad-cbtx-version",
+  "5c:2 bad-cbtx-height",
+  "5c:3 bad-cbtx-version",
+  "5c:4 bad-cbtx-version",
+  "5c:5 bad-cbtx-version",
+]
+
+[[table]]
+key = "6c"
+section = "3.11"
+function = "CheckLLMQCommitment"
+driver = "node-l1/tests/l1_lq2.rs::qctx_pairs_first_reject_d19"
+steps = [
+  "6c:1 bad-qc-payload",
+  "6c:2 bad-qc-commitment-type",
+  "6c:3 bad-qc-version",
+  "6c:4 bad-qc-height",
+  "6c:5a bad-qc-quorum-hash",
+  "6c:5b bad-qc-quorum-hash",
+  "6c:6 bad-qc-invalid-null",
+  "6c:7 bad-qc-invalid",
+]
+
+[[table]]
+key = "8c"
+section = "3.12"
+function = "CheckAssetLockTx"
+steps = [
+  "8c:1 bad-assetlocktx-type",
+  "8c:2a bad-assetlocktx-non-empty-return",
+  "8c:2b bad-assetlocktx-opreturn-outofrange",
+  "8c:2c bad-assetlocktx-multiple-return",
+  "8c:3 bad-assetlocktx-no-return",
+  "8c:4 bad-assetlocktx-payload",
+  "8c:5 bad-assetlocktx-version",
+  "8c:6 bad-assetlocktx-version-2",
+  "8c:7 bad-assetlocktx-emptycreditoutputs",
+  "8c:8a.value bad-assetlocktx-credit-outofrange",
+  "8c:8a.sum bad-assetlocktx-credit-outofrange",
+  "8c:8b bad-assetlocktx-script-pubkey",
+  "8c:8c bad-assetlocktx-pubKeyHash",
+  "8c:9 bad-assetlocktx-creditamount",
+]
+loops = [
+  "8c:2a",
+  "8c:2b",
+  "8c:2c",
+  "8c:8a.value",
+  "8c:8a.sum",
+  "8c:8b",
+  "8c:8c",
+]
+
+[[table]]
+key = "7t"
+section = "3.12"
+function = "MNHFTxPayload::IsTriviallyValid"
+steps = [
+  "7t:1 bad-mnhf-version",
+  "7t:2 bad-mnhf-nbit-out-of-bounds",
+]
+
+[[table]]
+key = "7c"
+section = "3.12"
+function = "CheckMNHFTx"
+steps = [
+  "7c:1 bad-mnhf-type",
+  "7c:2 bad-mnhf-payload",
+  "7c:4 bad-mnhf-non-ehf",
+  "7c:5a bad-mnhf-quorum-hash",
+  "7c:5b bad-mnhf-quorum-hash",
+  "7c:7 bad-mnhf-missing-quorum",
+  "7c:8 bad-mnhf-invalid",
+]
+
+[[table]]
+key = "9c"
+section = "3.12"
+function = "CheckAssetUnlockTx"
+steps = [
+  "9c:1 bad-assetunlocktx-type",
+  "9c:2 bad-assetunlocktx-have-input",
+  "9c:3 bad-assetunlocktx-too-many-outs",
+  "9c:4 bad-assetunlocktx-payload",
+  "9c:5 bad-assetunlocktx-version",
+  "9c:6 bad-assetunlocktx-version-2",
+  "9c:7 bad-assetunlock-duplicated-index",
+  "9c:8 bad-assetunlock-quorum-hash",
+  "9c:11 bad-assetunlock-too-old-quorum",
+  "9c:12 bad-assetunlock-too-late",
+  "9c:13 bad-assetunlock-quorum-internal-error",
+  "9c:14 bad-assetunlock-not-verified",
+]
+
+[[table]]
+key = "10t"
+section = "3.7"
+function = "CProDisTx::IsTriviallyValid"
+steps = [
+  "10t:1 bad-prodis-version bad-protx-payload",
+  "10t:2 bad-prodis-sig-count",
+]
+
+[[table]]
+key = "10c"
+section = "3.7"
+function = "CheckProDisTx"
+steps = [
+  "10c:2 bad-prodis-too-early",
+  "10c:3 bad-prodis-hash",
+]
+
+[[table]]
+key = "10l"
+section = "3.7"
+function = "CheckProDisTxForList"
+steps = [
+  "10l:1 bad-prodis-hash",
+  "10l:2 bad-prodis-not-shared",
+  "10l:3 bad-prodis-input",
+  "10l:4 bad-prodis-actor",
+  "10l:5 bad-prodis-sig-count",
+  "10l:7 bad-prodis-payee-count",
+  "10l:8a bad-prodis-payee",
+  "10l:8b bad-prodis-penalty-floor",
+  "10l:9a bad-prodis-payee",
+  "10l:9b bad-prodis-actor-output-zero",
+  "10l:10 bad-prodis-penalty-sum",
+  "10l:11 bad-prodis-fee",
+  "10l:12 bad-prodis-bonus",
+  "10l:13 bad-prodis-sig",
+]
+loops = [
+  "10l:8a",
+  "10l:8b",
+]
+
+[[table]]
+key = "11t"
+section = "3.8"
+function = "CProUpShareTx::IsTriviallyValid"
+steps = [
+  "11t:1 bad-proupshare-version bad-protx-payload",
+  "11t:2 bad-proupshare-sig-size",
+  "11t:3 bad-proupshare-payee",
+]
+
+[[table]]
+key = "11c"
+section = "3.8"
+function = "CheckProUpShareTx"
+steps = [
+  "11c:2 bad-proupshare-too-early",
+  "11c:3 bad-proupshare-hash",
+  "11c:4 bad-proupshare-not-shared",
+  "11c:5 bad-proupshare-index",
+  "11c:6 bad-proupshare-payee-dest",
+  "11c:7a bad-proupshare-payee-reuse",
+  "11c:7b bad-proupshare-payee-reuse",
+  "11c:8 bad-protx-inputs-hash",
+  "11c:9 bad-proupshare-sig",
+]
+loops = [
+  "11c:7b",
+]
+
+[[table]]
+key = "12t"
+section = "3.9"
+function = "CProUpSharedRegTx::IsTriviallyValid"
+steps = [
+  "12t:1 bad-proupsharedreg-version bad-protx-payload",
+  "12t:2 bad-protx-key-null",
+  "12t:3 bad-protx-operator-pubkey",
+  "12t:4 bad-proupsharedreg-sig-count",
+]
+
+[[table]]
+key = "12c"
+section = "3.9"
+function = "CheckProUpSharedRegTx"
+steps = [
+  "12c:2 bad-proupsharedreg-too-early",
+  "12c:3 bad-proupsharedreg-hash",
+  "12c:4 bad-proupsharedreg-not-shared",
+  "12c:5 bad-proupsharedreg-sig-count",
+  "12c:6 bad-protx-dup-key",
+  "12c:7 bad-proupsharedreg-payee-reuse",
+  "12c:8 bad-protx-inputs-hash",
+  "12c:9 bad-proupsharedreg-sig",
+]
+loops = [
+  "12c:7",
+]
+
+[[table]]
+key = "pl"
+section = "3.14"
+function = "IsPayoutListTriviallyValid"
+steps = [
+  "pl:1 bad-protx-payouts-count",
+  "pl:2a bad-protx-payout-reward",
+  "pl:2b bad-protx-payee",
+  "pl:2c bad-protx-payee-dup",
+  "pl:2d bad-protx-payee-dest",
+  "pl:2e bad-protx-payee-reuse",
+  "pl:3 bad-protx-payout-reward-sum",
+]
+loops = [
+  "pl:2a",
+  "pl:2b",
+  "pl:2c",
+  "pl:2e",
+]
+
+[[table]]
+key = "sl"
+section = "3.14"
+function = "IsShareListTriviallyValid"
+steps = [
+  "sl:1 bad-protx-shares-count",
+  "sl:2 bad-protx-shares-early-period",
+  "sl:3a bad-protx-shares-amount",
+  "sl:3b bad-protx-shares-key-null",
+  "sl:3c bad-protx-shares-dup-key",
+  "sl:3d bad-protx-shares-dup-refund",
+  "sl:3e.i bad-protx-shares-payee",
+  "sl:3e.ii bad-protx-shares-payee-dest",
+  "sl:3e.iii bad-protx-shares-payee-reuse",
+  "sl:3e.iv bad-protx-shares-payee-reuse",
+  "sl:4 bad-protx-shares-amount-sum",
+  "sl:5 bad-protx-shares-penalty",
+  "sl:6 bad-protx-shares-penalty",
+]
+loops = [
+  "sl:3a",
+  "sl:3b",
+  "sl:3c",
+  "sl:3d",
+  "sl:3e.i",
+  "sl:3e.iii",
+  "sl:3e.iv",
+]
+
+[[table]]
+key = "nt"
+section = "3.15"
+function = "IsNetInfoTriviallyValid"
+steps = [
+  "nt:1 bad-protx-netinfo-empty",
+  "nt:2 bad-protx-netinfo-bad",
+  "nt:3 bad-protx-netinfo-empty",
+]
+
+[[table]]
+key = "ns"
+section = "3.15"
+function = "CheckNetInfo"
+steps = [
+  "ns:addr bad-protx-netinfo-addr",
+  "ns:port bad-protx-netinfo-port",
+  "ns:type bad-protx-netinfo-addr-type",
+  "ns:unroutable bad-protx-netinfo-addr-unroutable",
+  "ns:malformed bad-protx-netinfo-bad",
+  "ns:input bad-protx-netinfo-entry",
+  "ns:dup bad-protx-dup-netinfo-entry",
+  "ns:maxlimit bad-protx-netinfo-maxlimit",
+]
+loops = [
+  "ns:malformed",
+  "ns:input",
+  "ns:dup",
+  "ns:maxlimit",
+]
+
+[[table]]
+key = "nf"
+section = "3.15"
+function = "CheckProviderNetworkFields"
+steps = [
+  "nf:1 bad-protx-netinfo-version",
+  "nf:2a bad-protx-netinfo-empty",
+  "nf:4 bad-protx-platform-nodeid",
+  "nf:5a bad-protx-platform-p2p-port",
+  "nf:5b bad-protx-platform-http-port",
+  "nf:6a bad-protx-platform-p2p-port bad-protx-platform-http-port",
+  "nf:6b bad-protx-platform-p2p-port bad-protx-platform-http-port",
+  "nf:6c bad-protx-platform-dup-ports",
+]
+
+[[table]]
+key = "cv"
+section = "3.17"
+function = "CheckSharedCollateralSpends, CheckSharedCollateralTemplateOutputs"
+steps = [
+  "cv:spend bad-shared-collateral-spend",
+  "cv:create-type bad-shared-collateral-create",
+  "cv:create-payload bad-shared-collateral-create",
+]
+
+[[unreachable]]
+steps = [
+  "1t:7",
+]
+why = "the ProRegTx reader sets the key's scheme from nVersion (providertx.h rc.4:180), so IsLegacy() == (nVersion == LegacyBLS) for every decoded payload"
+
+[[unreachable]]
+steps = [
+  "1t:9",
+  "nf:1",
+]
+why = "the ProRegTx reader picks the NetInfo kind from nVersion >= ExtAddr (providertx.h rc.4:177-178) and always builds one, so CanStorePlatform() == (nVersion >= ExtAddr) for every decoded payload"
+
+[[unreachable]]
+steps = [
+  "7c:1",
+  "9c:1",
+]
+why = "CheckSpecialTxInner dispatches on nType (specialtxman.cpp rc.4:232, 259-266) past HasExtraPayloadField (rc.4:224), so CheckMNHFTx only runs for a special-version type 7 and CheckAssetUnlockTx only for type 9"
+
+[[unreachable]]
+steps = [
+  "9c:13",
+]
+why = "ScanQuorums gets each quorum it returns through GetQuorum on its base block, with the same chain overload (quorumsman.cpp rc.4:255-263), so the GetQuorum of a quorum hash the scan returned (assetlocktx.cpp rc.4:138-142) finds it: only a manager whose two answers disagree reaches it (dash-dml asset::unlock_tests)"
+
+[[unreachable]]
+steps = [
+  "1p:type",
+  "2p:type",
+  "3p:type",
+  "4p:type",
+]
+why = "CheckSpecialTx dispatches on nType (specialtxman.cpp rc.4:232), so GetValidatedPayload<T> only runs for T's own type and its type check (rc.4:1162-1163) never fails there"
+
+[[unreachable]]
+steps = [
+  "2t:2",
+]
+why = "the ProUpServTx reader reads nType only from BasicBLS (providertx.h rc.4:279-282), so a version-1 payload is Regular"
+
+[[unreachable]]
+steps = [
+  "2t:4",
+]
+why = "the ProUpServTx reader picks the NetInfo kind from nVersion >= ExtAddr (providertx.h rc.4:285-286) and always builds one, so CanStorePlatform() == (nVersion >= ExtAddr) for every decoded payload"
+
+[[unreachable]]
+steps = [
+  "2c:9b",
+]
+why = "CheckProviderNetworkFields (2c:2, specialtxman.cpp rc.4:1393-1396) has already refused an ExtNetInfo entry that is neither AddrPort nor DomainPort (ns:malformed), and a legacy entry holding an invalid service reads as empty, which IsTriviallyValid refuses (2t:5, providertx.cpp rc.4:421-423)"
+
+[[unreachable]]
+steps = [
+  "1c:8b",
+]
+why = "CheckProviderNetworkFields (1c:4) has already refused an ExtNetInfo entry that is neither AddrPort nor DomainPort: Validate()'s default status for it is Malformed (netinfo.cpp rc.4:607), bad-protx-netinfo-bad (ns:malformed); a legacy entry holding an invalid service reads as empty, so the loop has no entry (specialtxman.cpp rc.4:1296-1307)"
+
+[[unreachable]]
+steps = [
+  "3t:4",
+]
+why = "the ProUpRegTx reader sets the key's scheme from nVersion (providertx.h rc.4:346), so IsLegacy() == (nVersion == LegacyBLS) for every decoded payload"
+
+[[unreachable]]
+steps = [
+  "10l:1",
+]
+why = "CheckProDisTx refuses a masternode missing from the same list with bad-prodis-hash (10c:3, specialtxman.cpp rc.4:1870) before it calls CheckProDisTxForList; the second check (rc.4:1741) serves the mempool path's list"
+
+[[unreachable]]
+steps = [
+  "11c:6",
+]
+why = "IsTriviallyValid admits only a P2PKH or P2SH scriptReward (11t:3), and ExtractDestination decodes both (specialtxman.cpp rc.4:1652)"
+
+[[unreachable]]
+steps = [
+  "12t:3",
+]
+why = "the ProUpSharedRegTx reader reads the key under the basic scheme (providertx.h rc.4:534), so IsLegacy() is false for every decoded payload"
+
+[[unreachable]]
+steps = [
+  "pl:2d",
+  "sl:3e.ii",
+]
+why = "IsValidPayoutScript (providertx.cpp rc.4:20-23) admits only P2PKH and P2SH, which ExtractDestination always decodes"
+
+[[unreachable]]
+steps = [
+  "ns:addr",
+]
+why = "Validate() never returns BadAddress: MnNetInfo checks IsTriviallyValid first, which needs a valid CService; ExtNetInfo validates only what GetAddrPort returns, and an entry holds a CService only when it is valid (census row providertx.cpp:191)"
+
+[[unreachable]]
+steps = [
+  "nf:2a",
+]
+why = "CheckProRegTx passes allow_empty = true (specialtxman.cpp rc.4:1234); CheckProUpServTx passes false (rc.4:1393-1394), after IsTriviallyValid has refused an empty NetInfo (2t:5, providertx.cpp rc.4:421-423)"
+
+[[unreachable]]
+steps = [
+  "nf:5a",
+  "nf:5b",
+]
+why = "the ProRegTx and ProUpServTx readers read platform ports only below ExtAddr (providertx.h rc.4:217-221, 293-296), so both are 0 at version 3"
+
+[[unreachable]]
+steps = [
+  "8c:1",
+]
+why = "CheckSpecialTxInner dispatches on nType (specialtxman.cpp rc.4:232, 262-263), so CheckAssetLockTx only runs for type 8 and its type check (assetlocktx.cpp rc.4:31-33) never fails there; dash-dml's direct vector is asset/tests.rs::another_type_is_refused_first"
+
+[[elsewhere]]
+steps = [
+  "1c:12",
+  "3c:12",
+]
+tests = [
+  "dash-dml/src/specialtx/tests.rs::key_not_same_reads_enforcement_at_pindex_prev",
+  "dash-dml/src/specialtx/tests.rs::reg_key_not_same",
+  "dash-dml/src/specialtx/tests.rs::up_reg_key_not_same",
+]
+why = "the world enforces DIP3 from height 2, so pindexPrev is always past DIP0003EnforcementHeight"
+
+[[elsewhere]]
+steps = [
+  "2c:10",
+]
+tests = [
+  "dash-dml/src/specialtx/tests/updates.rs::serv_dup_platform_node_id",
+  "node-l1/tests/l1_specialtx.rs::service_update_platform_node_id_held_by_another",
+]
+why = "the world holds one Evo masternode (D48), and a masternode holds its platformNodeID as a unique property only when it is not null (deterministicmns.cpp rc.4:502-503), which only an Evo one has, so no other masternode holds the id an Evo ProUpServTx names"
+
+[[elsewhere]]
+steps = [
+  "ns:port",
+  "ns:type",
+  "ns:unroutable",
+]
+tests = [
+  "dash-dml/src/specialtx/network/tests.rs::check_net_info_maps_every_status",
+  "dash-dml/src/specialtx/network/tests.rs::provider_network_fields_main",
+]
+why = "regtest's address rules admit a zero port, a Tor core address and an unroutable address (design D49); EV1-1's NetInfo vectors and targets read mainnet's"
+
+[[elsewhere]]
+steps = [
+  "nf:6a",
+]
+tests = [
+  "dash-dml/src/specialtx/network/tests.rs::provider_network_fields_main",
+  "dash-dml/src/specialtx/network/tests.rs::empty_net_info_platform_ports",
+]
+why = "the step runs only when IsNodeOnMainnet() (providertx.cpp rc.4:243-249)"
+
+[[elsewhere]]
+steps = [
+  "cv:spend",
+  "cv:create-type",
+  "cv:create-payload",
+]
+tests = [
+  "dash-dml/src/specialtx/tests.rs::covenant_spends",
+  "dash-dml/src/specialtx/tests.rs::covenant_template_outputs",
+  "node-l1/tests/l1_specialtx.rs::template_outputs_in_a_block",
+  "node-l1/tests/l1_specialtx.rs::dissolutions_in_a_block",
+]
+why = "the covenant runs in ProcessSpecialTxsInBlock and the mempool and ConnectBlock paths, not in CheckSpecialTx (§3.17); its spends wait for A-2 (DEC-688)"
+
+[[infeasible]]
+pairs = [
+  "10l:7 10l:9a",
+  "10l:7 10l:9b",
+]
+why = "Core reads an actor output only when there is one output per share (specialtxman.cpp rc.4:1798); 10l:7 makes the count neither that nor one fewer (rc.4:1772-1774), so there is no actor output for 9a or 9b to set"
+
+[[infeasible]]
+pairs = [
+  "3c:3 3c:6",
+]
+why = "a shared masternode's state has no owner key (specialtxman.cpp rc.4:1504-1505), and IsPayoutListTriviallyValid compares a payout with the owner key only when it is not null (providertx.cpp rc.4:51)"
+
+[[infeasible]]
+pairs = [
+  "10l:4 10l:8a",
+  "10l:4 10l:8b",
+  "10l:4 10l:9a",
+  "10l:4 10l:9b",
+  "10l:4 10l:10",
+  "10l:4 10l:12",
+]
+why = "10l:4's actor index is past the shares (specialtxman.cpp rc.4:1754-1755), so there is no actor, and these steps are defined around it: the non-actor outputs in share order (8a, 8b), the actor's output (9a, 9b) and the bonuses over the non-actor shares (10, 12) (rc.4:1777-1810, 1825-1826)"
+
+[[infeasible]]
+pairs = [
+  "10l:2 10l:4",
+  "10l:2 10l:5",
+  "10l:2 10l:7",
+  "10l:2 10l:8a",
+  "10l:2 10l:8b",
+  "10l:2 10l:9a",
+  "10l:2 10l:9b",
+  "10l:2 10l:10",
+  "10l:2 10l:11",
+  "10l:2 10l:12",
+  "11c:3 11c:5",
+  "11c:3 11c:7a",
+  "11c:3 11c:7b",
+  "11c:4 11c:5",
+  "11c:4 11c:7b",
+  "12c:3 12c:5",
+  "12c:3 12c:7",
+  "12c:4 12c:5",
+  "12c:4 12c:7",
+]
+why = "one proTxHash: 10l:2, 11c:4 and 12c:4 name a masternode that is not shared, 11c:3 and 12c:3 none (specialtxman.cpp rc.4:1741-1745, 1636-1643, 1693-1700); the other step reads the named masternode's shares or keys (the actor, signatures, outputs, floors, bonuses, fee, share index or a share's keys)"
+
+[[infeasible]]
+pairs = [
+  "10l:10 10l:12",
+]
+why = "one bonus total: 10l:10 needs it below the required penalty, 10l:12 above nEarlyPenalty, and the required penalty is nEarlyPenalty or 0 (specialtxman.cpp rc.4:1768, 1809-1810, 1825-1826)"
+
+[[infeasible]]
+pairs = [
+  "1t:2 1t:3",
+]
+why = "one nType: 1t:2 needs Evo (providertx.cpp rc.4:270-271), 1t:3 a type that is neither Regular nor Evo (rc.4:273-274)"
+
+[[infeasible]]
+pairs = [
+  "1c:6e2 1c:7",
+  "1c:6i4 1c:7",
+]
+why = "1c:7 needs the collateral to have a destination for a payload key or payout to equal (IsPayoutListKeySafe, specialtxman.cpp rc.4:1283-1289); 6e2 and 6i4 give its script none (or the shared template) (rc.4:1250-1252, 1276-1277)"
+
+[[infeasible]]
+pairs = [
+  "1c:6i1 1c:6i2",
+  "1c:6i1 1c:6i3",
+  "1c:6i1 1c:6i4",
+  "1c:6i1 1c:7",
+]
+why = "one collateral index: 6i1 points it past the outputs (specialtxman.cpp rc.4:1264-1265), so there is no collateral output whose value 6i2, or script 6i3 or 6i4, could set, or whose key 1c:7 could reuse"
+
+[[infeasible]]
+pairs = [
+  "3c:2 3c:4",
+  "3c:2 3c:5b",
+  "3c:2 3c:6",
+  "3c:2 3c:7",
+  "3c:2 3c:8",
+  "3c:2 3c:9",
+  "3c:2 3c:10",
+  "2c:3 2c:4",
+  "2c:3 2c:5",
+  "2c:3 2c:7",
+  "2c:3 2c:8",
+  "2c:3 2c:11a",
+  "2c:3 2c:11b",
+  "4c:2 4c:3",
+]
+why = "one proTxHash: 2c:3's, 3c:2's and 4c:2's names no masternode (specialtxman.cpp rc.4:1399-1402, 1499-1501, 1601-1603), and the other step reads that masternode's state (its version, type, address, owner key, operator key or reward, or collateral coin)"
+
+[[infeasible]]
+pairs = [
+  "3c:3 3c:5b",
+]
+why = "3c:5b needs a state below ExtAddr whose address ExtAddr refuses (specialtxman.cpp rc.4:1529-1536); a shared masternode's state is ExtAddr, since a ProRegTx carries shares only from that version (providertx.h rc.4:184)"
+
+[[infeasible]]
+pairs = [
+  "3c:3 3c:7",
+]
+why = "3c:7 needs EVO_SHARES inactive and an Evo target; a shared Evo masternode was registered with EVO_SHARES active (bad-protx-shares-evo, specialtxman.cpp rc.4:1222-1225), and a deployment stays active"
+
+[[infeasible]]
+pairs = [
+  "3c:3 3c:10",
+  "3c:8 3c:10",
+  "3c:9 3c:10",
+]
+why = "3c:10 reuses the key the target's collateral pays: a shared collateral is the template script, which pays none (specialtxman.cpp rc.4:1283-1285), 3c:8's coin is missing or spent and 3c:9's script has no destination (rc.4:1548-1556)"
+
+[[infeasible]]
+pairs = [
+  "3c:4 3c:5b",
+]
+why = "one nVersion: 3c:4 needs 1 against a state of 2 or more (specialtxman.cpp rc.4:1201-1202), 3c:5b ExtAddr or more, to migrate a state below it (rc.4:1529-1536)"
+
+[[world]]
+pairs = [
+  "3c:5a 3c:5b",
+  "3c:11 3c:5b",
+]
+why = "3c:5b needs the state's own key, unchanged (key_changed, specialtxman.cpp rc.4:1521, 1531), 3c:5a and 3c:11 a key another masternode holds: Core allows that across the schemes (a pre-existing cross-scheme pair, deterministicmns.h rc.4:455-467, specialtxman.cpp rc.4:1517-1521), and the world holds no such pair (D48)"
+
+[[infeasible]]
+pairs = [
+  "1t:1 1t:2",
+  "1t:1 1t:3",
+  "1t:1 1t:4",
+  "1t:1 1t:5a",
+  "1t:1 1t:5b",
+  "1t:1 1t:5c",
+  "1t:1 1t:5d",
+  "1t:1 1t:12",
+  "3t:1 3t:2",
+  "2t:1 2t:3",
+  "2t:1 2t:5",
+  "4t:1 4t:2",
+]
+why = "a payload reaches IsTriviallyValid's version check (1t:1, 2t:1, 3t:1, 4t:1) only as its version 0 alone: the reader stops there (providertx.h rc.4:167-171, 274-278, 338-339, 407-411) and any further byte fails the decode (specialtx.h rc.4:24). Its other fields keep their defaults (rc.4:141-150, 258-261, 398): null keys, which 1t:5e, 1t:6 and 3t:3 need, so those pairs are reached; the type, mode, shares, reward, network info and reason these steps set are not there"
+
+[[infeasible]]
+pairs = [
+  "1t:2 1t:5a",
+  "1t:2 1t:5b",
+  "1t:2 1t:5c",
+  "1t:2 1t:5d",
+]
+why = "1t:2 needs version 1; shares and the early-period fields are read only at nVersion >= ExtAddr (providertx.h rc.4:184-208), so 5a-5d need version 3"
+
+[[infeasible]]
+pairs = [
+  "1t:5a 1t:5d",
+  "1t:5a 1t:5e",
+  "1t:5b 1t:5d",
+  "1t:5b 1t:5e",
+  "1t:5c 1t:5d",
+  "1t:5c 1t:5e",
+]
+why = "5a-5c run for a shared registration and 5d-5e for one that is not (providertx.cpp rc.4:280-299)"
+
+[[infeasible]]
+pairs = [
+  "1c:2 1c:3a",
+  "1c:2 1c:3b",
+  "1c:2 1c:6i3",
+  "1c:2 1c:9a",
+  "1c:2 1c:9b",
+  "1c:2 1c:11",
+  "1c:2 1c:14s",
+]
+why = "1c:2 needs version 1, and a version-1 ProRegTx is regular (1t:2 refuses an Evo one) with no shares and a single payout script (providertx.h rc.4:184-210)"
+
+[[infeasible]]
+pairs = [
+  "1c:3a 1c:3b",
+  "1c:3a 1c:6i4",
+  "1c:3a 1c:7",
+  "1c:3a 1c:9c",
+  "1c:3b 1c:6i3",
+  "1c:3b 1c:9a",
+  "1c:3b 1c:9b",
+  "1c:6i3 1c:6i4",
+  "1c:6i3 1c:7",
+  "1c:6i3 1c:9c",
+  "1c:6i4 1c:9a",
+  "1c:6i4 1c:9b",
+  "1c:7 1c:9a",
+  "1c:7 1c:9b",
+  "1c:3b 1c:14s",
+  "1c:6i4 1c:14s",
+  "1c:7 1c:14s",
+  "1c:9c 1c:14s",
+]
+why = "3a, 6i3, 9a, 9b and 14s run for a shared registration, 3b, 6i4, 7 and 9c for one that is not (specialtxman.cpp rc.4:1224-1228, 1271-1286, 1366-1377); a shared one has no payouts (1t:5c), so 3b needs it unshared"
+
+[[infeasible]]
+pairs = [
+  "1c:3a 1c:6e1",
+  "1c:3a 1c:6e2",
+  "1c:3a 1c:6e3",
+  "1c:6e1 1c:6i1",
+  "1c:6e1 1c:6i3",
+  "1c:6e1 1c:6i4",
+  "1c:6e1 1c:9a",
+  "1c:6e1 1c:9b",
+  "1c:6e1 1c:14i",
+  "1c:6e2 1c:6i1",
+  "1c:6e2 1c:6i2",
+  "1c:6e2 1c:6i3",
+  "1c:6e2 1c:9a",
+  "1c:6e2 1c:9b",
+  "1c:6e2 1c:14i",
+  "1c:6e3 1c:6i1",
+  "1c:6e3 1c:6i2",
+  "1c:6e3 1c:6i3",
+  "1c:6e3 1c:6i4",
+  "1c:6e3 1c:9a",
+  "1c:6e3 1c:9b",
+  "1c:6e3 1c:14i",
+  "1c:3a 1c:14e",
+  "1c:6i1 1c:14e",
+  "1c:6i2 1c:14e",
+  "1c:6i3 1c:14e",
+  "1c:6i4 1c:14e",
+  "1c:9a 1c:14e",
+  "1c:9b 1c:14e",
+  "1c:6e1 1c:14s",
+  "1c:6e2 1c:14s",
+  "1c:6e3 1c:14s",
+  "1c:14e 1c:14s",
+]
+why = "6e1-6e3 and 14e run for an external collateral, 6i1-6i4, 14i and 14s for an internal one (specialtxman.cpp rc.4:1245-1281, 1355-1377), and a shared registration's collateral is internal (1t:5a), as 3a, 9a and 9b need"
+
+[[infeasible]]
+pairs = [
+  "nt:2 nt:3",
+]
+why = "nt:2 runs for a regular masternode, nt:3 for an Evo one (providertx.cpp rc.4:172-181)"
+
+[[infeasible]]
+pairs = [
+  "3c:7 3c:11",
+]
+why = "3c:7 needs more than one payout, which only version 3 carries, and version 3 needs V24 (version_max); under V24 a new key that another masternode holds is refused at 3c:5a with the same reason as 3c:11, before 3c:7"
+
+[[infeasible]]
+pairs = [
+  "1c:6e2 1c:6e3",
+]
+why = "the external collateral is one coin with one script: 6e2 needs one with no destination, 6e3 one whose destination is not a key hash (specialtxman.cpp rc.4:1250-1259)"
+
+[[infeasible]]
+pairs = [
+  "3c:2 3c:3",
+  "11c:3 11c:4",
+  "12c:3 12c:4",
+]
+why = "the payload names one proTxHash: the first step needs one no masternode has (specialtxman.cpp rc.4:1501, 1639, 1696), the second one a masternode has, shared for 3c:3 (rc.4:1507) and not shared for 11c:4 and 12c:4 (rc.4:1643, 1700)"
+
+[[infeasible]]
+pairs = [
+  "3c:4 3c:7",
+]
+why = "IsVersionChangeValid refuses only a version-1 update of a state at version 2 or more (specialtxman.cpp rc.4:1201-1202), and 3c:7 needs more than one payout, which only version 3 carries"
+
+[[infeasible]]
+pairs = [
+  "3c:8 3c:9",
+]
+why = "both read the one collateral coin: 3c:8 needs it missing or spent, 3c:9 present with a script that has no destination (specialtxman.cpp rc.4:1548-1556)"
+
+[[infeasible]]
+pairs = [
+  "sl:2 sl:6",
+]
+why = "both read nEarlyPeriodBlocks: sl:2 needs it above 420480, sl:6 needs it 0 (providertx.cpp rc.4:69-70, 126-127)"
+
+[[equal-string]]
+pairs = [
+  "sl:3e.iii sl:3e.iv",
+  "sl:5 sl:6",
+  "10l:8a 10l:9a",
+]
+why = "named in §6.2: the same reject string, so a verdict cannot tell which step fired"
+
+[[infeasible]]
+pairs = [
+  "1c:6e2 1c:14e",
+  "1c:6e3 1c:14e",
+]
+why = "14e checks the signature against the key hash the external collateral pays (specialtxman.cpp rc.4:1255-1259, 1355-1357); 6e2 gives that collateral no destination and 6e3 one that is not a key hash, so there is no key"
+
+[[infeasible]]
+pairs = [
+  "2c:5 2c:6",
+]
+why = "one nVersion: 2c:5 needs 1 (specialtxman.cpp rc.4:1200-1202), and the reader reads nType only from BasicBLS (providertx.h rc.4:279-282), so a version-1 payload is regular where 2c:6 needs an Evo one (specialtxman.cpp rc.4:1419-1421)"
+
+[[infeasible]]
+pairs = [
+  "2c:5 2c:8",
+  "2c:7 2c:8",
+]
+why = "one state version: 2c:8 needs a legacy one, which the update raises to the basic scheme (IsSchemeMigration, specialtxman.cpp rc.4:46-49, 1434-1437); 2c:5 needs one at BasicBLS or more (rc.4:1200-1202), 2c:7 one at ExtAddr, to raise the payload's legacy address to it (rc.4:1423-1428, 54)"
+
+[[world]]
+pairs = [
+  "2c:6 2c:7",
+  "2c:6 2c:8",
+  "2c:11b 2c:6",
+  "2c:11b 2c:7",
+  "2c:11b 2c:8",
+]
+why = "each step needs a target the world (D48) gives one masternode: 2c:11b an operator reward (specialtxman.cpp rc.4:1464-1471), REG's; 2c:6 an Evo type, or 2c:4 refuses the payload's first (rc.4:1408-1410, 1419-1421), EVO's; 2c:7 a state at ExtAddr, SHARED's; 2c:8 a legacy state, OLD's. Core allows each pair on one masternode: an Evo state is at ExtAddr once a service update at version 3 applied, and below V24 a version-1 ProUpRegTx that changes the operator key sets an Evo state's version to 1 (rc.4:538-539)"
+
+[[infeasible]]
+pairs = [
+  "2c:3 2c:13",
+  "3c:2 3c:14",
+  "4c:2 4c:5",
+  "11c:3 11c:9",
+  "12c:3 12c:9",
+  "10l:2 10l:13",
+  "11c:4 11c:9",
+  "12c:4 12c:9",
+  "3c:3 3c:14",
+  "11c:5 11c:9",
+]
+why = "the signature step has no key to check the signature against, so every signature already fails it and its mutation changes nothing: Core refuses at the other step either way. 2c:3, 3c:2, 4c:2, 11c:3 and 12c:3 name no masternode (specialtxman.cpp rc.4:1399-1402, 1499-1501, 1601-1603, 1636-1639, 1693-1696); 10l:2, 11c:4 and 12c:4 one with no shares, whose owner keys sign (rc.4:1741-1745, 1640-1643, 1697-1700; 1828-1842, 1667-1672, 1723-1728); 3c:3 a shared one, whose owner key is null (rc.4:1504-1507, 1582); 11c:5 a share index past the shares (rc.4:1645-1646, 1667-1672)"
+
+[[elsewhere]]
+steps = [
+  "5c:5",
+]
+tests = [
+  "dash-dml/src/specialtx/cbtx/tests.rs::v24_with_v20_needs_version_four",
+  "dash-dml/src/specialtx/cbtx/tests.rs::v24_without_v20_does_not_require_version_four",
+]
+why = "the world's V20 is not active after pindexPrev (regtest's V20Height is DIP0003Height's default 432, chainparams.cpp rc.4:828, which -dip3params does not move), so requires_unlock_root is false and step 4 (cbtx.cpp rc.4:40-43) refuses a version of 3 or more before step 5 (rc.4:47-51) reads it"
+
+[[infeasible]]
+pairs = [
+  "8c:2a 8c:3",
+  "8c:2b 8c:3",
+  "8c:2c 8c:3",
+]
+why = "8c:3 needs no output whose script starts with OP_RETURN (assetlocktx.cpp rc.4:38, 49), and 2a-2c each need such an output (rc.4:40-45)"
+
+[[infeasible]]
+pairs = [
+  "9c:5 9c:6",
+]
+why = "one nVersion: 9c:5 needs 0 or more than CURRENT_VERSION (2), 9c:6 needs 2 (assetlocktx.cpp rc.4:207-212)"
+
+[[infeasible]]
+pairs = [
+  "9c:8 9c:11",
+]
+why = "one quorumHash: 9c:8 needs it to name no known block, 9c:11 a known one the platform scan does not return (assetlocktx.cpp rc.4:218-219, 128-129)"
+
+[[infeasible]]
+pairs = [
+  "8c:5 8c:6",
+]
+why = "one nVersion: 8c:5 needs 0 or more than CURRENT_VERSION (2), 8c:6 needs 2 (assetlocktx.cpp rc.4:56-61)"
+
+[[infeasible]]
+pairs = [
+  "8c:6 8c:8c",
+  "8c:8b 8c:8c",
+]
+why = "one nVersion picks the credit script rule: 8c:8c is the rule below version 2, 8c:8b and 8c:6 need version 2 or more (assetlocktx.cpp rc.4:59-61, 74-81)"
+
+[[infeasible]]
+pairs = [
+  "8c:7 8c:8a.value",
+  "8c:7 8c:8a.sum",
+  "8c:7 8c:8b",
+  "8c:7 8c:8c",
+]
+why = "8c:7 needs no credit output (assetlocktx.cpp rc.4:63-65), and the per-output steps 8a-8c read one (rc.4:67-82)"
+
+[[elsewhere]]
+steps = [
+  "6c:5b",
+]
+tests = [
+  "dash-dml/src/blockprocessor/tests.rs::check_llmq_commitment_steps_in_order",
+]
+why = "each l1_lq2 context holds one chain whose last header is pindexPrev, so a known quorumHash is always on its chain (commitment.cpp rc.4:286-290); the dash-dml fixture holds a fork"
+
+[[infeasible]]
+pairs = [
+  "6c:6 6c:7",
+]
+why = "a commitment is null or not: a null one ends at VerifyNull (commitment.cpp rc.4:292-298), any other at Verify (rc.4:300-305)"
+
+[[world]]
+pairs = [
+  "6c:5a 6c:7",
+]
+why = "6c:7 needs a non-null commitment, and the non-null ones are mainnet and testnet captures whose contexts start above genesis, where the shim refuses an unknown quorumHash (QuorumBaseInContext) before CheckLLMQCommitment; only the regtest nulls' contexts start at genesis"
