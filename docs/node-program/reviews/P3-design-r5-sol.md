@@ -1,0 +1,26 @@
+# P3 block-download design, Sol round 5
+
+Target: `node/p3-design` at `8761b708e` (rev6), against Dash Core `v24.0.0-rc.3`. I read the common reviewer contract, the round-4 review, the rev6 delta, and the relevant Core and CH1-node source/design. This is a source-level design review; P3's stamped queue is not implemented yet, so there is no P3 test to run. D12 is outside scope.
+
+## Findings
+
+### F1 — Major — unrelated class M publications make the relay-entry bound unbounded
+
+Design: `P3-block-download.md:632-674,1532-1539,1815-1825,2132`; CH1-node: `CH1-node.md:156-159,664,800,955-957,977-978`; current V: `dashd-chainstate/src/chain/actor.rs:1270-1287`; Core RPC: `rpc/mining.cpp:1102-1131`. The `2Q + 1` stamp-change term counts only `ProcessBlock` accepts. CH1-node's release-point waits also serve **class M** commands such as `ProcessHeaders`, and every such scope publishes a view and returns its reply. `view_seq` bumps on every view store. One sender can therefore issue another class M command after each reply while V remains in the same wait. Q bounds simultaneous `ProcessBlock` senders, not the number of these publications.
+
+Concrete schedule: an `EnforceBlock` marks 10,000 competing siblings and stages their `UpdatedBlockTip(tip, nullptr)` callbacks, as this design's many-marks case already allows. At the next release point, `limit_queue` sees more than ten pending callbacks and waits for the signals thread while servicing class M commands. Stall the net actor; let one RPC submit a succession of `ProcessHeaders` commands, each completing its class M scope, between successive `UpdatedBlockTip` callbacks. Every callback reads a different published `view_seq`. The callbacks have the same recipients and no intervening V signal, but the same-stamp merge rule opens a new `HeadersRelay` entry each time. The P3 queue can grow by 10,000 entries before V gets to its next `wait_for_space` check, with Q and C fixed. The same sequence can continue inside a P3 space wait. Thus `(4Q + C + P + 4)` is not a hard entry or byte maximum; the S1 many-marks and churn tests omit the interleaved class M publication that defeats it.
+
+Fix: bound callback stamps by an independently enforced publication budget, or use a lossless bounded representation that permits different stamps without retaining one entry per stamp. Re-derive both the peak and parked-residue bounds under an unbounded sequence of class M scope completions, and add that schedule to S1. A-1b (6) cannot simply ask CH1-node to confirm `Q + 1`: its documented `ServiceWait` and `scope_end` behavior already permits more.
+
+### F2 — Minor — the byte estimate assumes vector capacity equals recipient count
+
+Design: `P3-block-download.md:618-622,668-674`, `P3-notes.md:47`. The cost correctly counts `HeadersRelay.peers` by **capacity**, but the 1.3 KB per-entry estimate uses `P × 8` bytes, which bounds length only. A growing Rust `Vec` can have capacity greater than P, and the design does not require exact allocation or shrinking after `retire`. This understates the claimed byte maximum even after F1 is fixed. Build the sorted vector with an enforced capacity of at most P, or budget the allocation capacity that the chosen construction actually permits. Have S1 assert measured capacity-based cost.
+
+## Dispositions on the narrow questions
+
+- **Round-4 F1's wire schedule:** D39's same-stamp, same-recipient merge and eligible-entry drain close the reported Q/P schedule. Core's `UpdatedBlockTip` appends under each peer's `m_block_inv_mutex` without `cs_main` (`net_processing.cpp:2273-2307`); section 7 is the relay-list reader (`:6399-6547`). An eligible `HeadersRelay` behind an unpublished V entry can therefore be placed during that V scope. The S4-x case 5 now exercises the callback before `VERACK`, between `VERACK` and S, and after S, with both peers' frames. Same-stamp merges do not cross the eligibility or recipient boundary.
+- **Drain-time N recipients:** With I0 at the start of every ordinary message, an actor action completed before N's applying drain can be placed before Core's `NewPoWValidBlock` scope; selecting then includes a newly verified peer as Core's `ForEachNode` would (`net_processing.cpp:2228-2267`). A peer finalized before application has no live socket/state to receive the deferred append. This is consistent with `retire` dropping that peer from queued relay entries. The cited `getdata` per-item snapshot is a serving path under P4; it does not by itself give a live P3 announcement reader a newer snapshot, though Q9 should not be used as a general exemption for future P4 behavior.
+- **Round-4 F2's per-entry churn:** Equal recipient lists and `retire` prevent the old map of historical peer IDs. Removing a finalized ID cannot lose an append to a live peer. The S1 churn case measures queued entry count and capacity-based bytes, but it does not test F1's repeated publication schedule. The per-entry length bound is P; the total-entry bound still fails as above.
+- **Notes:** D37/D38 are visibly marked as superseded by D39/D40, but their old normative wording still describes prefix-only drains, push-time N recipients, and newest-stamp merges. Replacing those descriptions when fixing F1 would make the implementation rule unambiguous.
+
+VERDICT: CHANGES-REQUIRED

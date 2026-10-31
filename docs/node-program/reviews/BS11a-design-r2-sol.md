@@ -1,0 +1,39 @@
+# BS11a design review, round 2 (Sol)
+
+Target: `node/bs11a-design` at `ed6891e26`; rev2 delta from `f15002d5c`. Reference: Dash Core `v24.0.0-rc.3`. The local Dash checkout has no differences from that tag under `src/bls` or `src/dashbls`. The scratch probes link the existing v23.1.8 Core build; the probed relic files and `dashbls/src/elements.cpp` are byte-identical to v24.0.0-rc.3. This review covers the rev2 response to the five round-1 findings.
+
+## Findings
+
+### Major 1 — Lemma T is false for G1 equality after the Group → relic boundary
+
+The new lemma in BS11a §3.1 (lines 115–120) says every observable normalizes first and that mapping an all-Usable result to affine `BASIC` or canonical infinity preserves every result. Core's wrapper equality delegates to the element (`src/bls/bls.h:77–80`), and `G1Element::operator==` calls `g1_cmp` directly (`src/dashbls/src/elements.cpp:200–203`); relic's `ep_cmp` cross-multiplies coordinates without normalizing (`src/dashbls/depends/relic/src/ep/relic_ep_cmp.c:38–92`). Thus its result can depend on the coordinates of a zero-z infinity when the other operand is an off-curve finite point.
+
+I reproduced a counterexample against the Core-linked relic/dashbls build. `g1_add(G, -G)` for the subgroup generator leaves `coord=PROJC, x=0, y≠0, z=0` (`relic_ep_add.c:126–265, 742–754`), whereas Lemma T maps blst's identity to `ep_set_infty`, which writes `(0,0,0)` in `BASIC` (`relic_ep_util.c:39–47`). The design's P2 multiplication of the legacy-canonical order-3 point `(0,2)` gives the finite `BASIC` point `(0,0,1)` (`relic_pc_exp.c:38–60`; the existing P2 probe, reproduced here). With `RLC_EQ=0` and `RLC_NE=2`, `g1_cmp(G+(-G), P2_result)` returned **2**, but `g1_cmp(ep_set_infty(), P2_result)` returned **0**. The new transition scripts (§7 lines 244–246) check `SER`/`ISVALID`/`VERIFY`, not equality, so they cannot catch this.
+
+Keep Core's G1 relic coordinates for all-Usable results that can later be compared with Exotic engine results, or state and enforce a narrower representation invariant that reproduces `g1_cmp`; add `EQ` to the ABI-15 transition scripts, including this fixed vector. D27's coordinate-preserving fallback is needed for this observable, rather than being contingent on an unspecified later divergence.
+
+### Major 2 — RAW_VERIFY is not yet an exact mirror of the direct verify calls
+
+Rev2 §3.3/§7 (lines 156, 234–236) specifies `RAW_VERIFY` as `NativeVerify`'s `pc_map_sim` chunks, `fp12_mul`, and `gt_cmp` on “the same native points.” That covers the final pairing stage, but the direct `VerifySecureAggregated` path first serializes and sorts keys, computes weights, **re-decodes** each key, then calls `g1_mul` and in-place `g1_add` before `AggregateVerify`/`NativeVerify` (`src/dashbls/src/schemes.cpp:231–253, 297–324, 326–350`; `src/dashbls/src/elements.cpp:212–215, 227–231`). Those calls may occur before a later key throws under the basic flag. Similarly, `AggregateInsecure` starts from infinity and repeatedly calls in-place `g1_add`/`g2_add` (`schemes.cpp:176–191`; `elements.cpp:212–215, 450–453`), while DH's `g1_mul` has the result and input aliased (`src/dashbls/src/privatekey.cpp:184–190`). A pairing-only mirror, or a single out-of-place RAW_ADD/MUL on post-wrapper points, does not observe the complete call sequence or the same native inputs. Consequently, the stated `diff_bls_verify`/`diff_bls_arith` assertion cannot certify D8 for those composed wrapper operations as specified.
+
+Specify per-wrapper raw traces using a snapshot of each **pre-call** native operand, the same per-op flag, order, accumulator state, and alias pattern. Include the secure re-decode/weight/mul/add stage, aggregate loop, and DH's in-place multiply. Read the code immediately after each relic call in that trace; keep the wrapper output as the parity oracle and the post-wrapper read as the state-leak check. This preserves the good rev2 decision to avoid patching dashbls.
+
+### Minor 1 — Tighten Lemma T's formula description
+
+Its claim that “each mixed variant is the general formula at z₂ = 1” is too literal for G2. The mixed G2 path uses `H`, `R = S₂−Y₁`, `J = H³`, and `z₃ = z₁H` (`src/dashbls/depends/relic/src/epx/relic_ep2_add.c:147–207`); the general path doubles `R`, uses `I = (2H)²`, `J = HI`, and `z₃ = 2z₁z₂H` (`:259–330`). At `z₂=1`, the outputs are projectively equivalent after a factor of 2, not coordinate-identical. The G2 H/R branches and doubling path are correctly separated in R1b (`:174–183, 293–301`; `relic_ep2_dbl.c:119–157`). State projective equivalence and include the rescaling factor in the proof. A Core-linked probe with an off-curve G2 operand found mixed and general results equal after normalization; this is a wording/proof correction, distinct from Major 1.
+
+### Minor 2 — “No arithmetic” is too broad for basic secure verification
+
+Rev2's quirk 45 and A1 §1.4.1 say the three direct entries return false on Exotic input “with no arithmetic.” `CoreMPL::VerifySecure` sorts all keys but then re-decodes and multiplies/adds them **one at a time** (`src/dashbls/src/schemes.cpp:231–253`). If an Exotic key sorts after a Usable key, Core can do arithmetic on the earlier Usable key before the Exotic re-decode throws; the wrapper catches it (`src/bls/bls.cpp:341–357`). The correct invariant is that basic direct verification does no arithmetic **on the Exotic operand**. Use that wording in the quirk/A1 text. This does not undo the aggregate-before-gate fix.
+
+## Checks that matched
+
+- **Round-1 M1, aggregate order and F7 inventory:** `AggregateInsecure` adds input elements with no subgroup gate (`src/bls/bls.cpp:144–175, 222–254`; `src/dashbls/src/schemes.cpp:176–191`), and the wrapper's `IsValid` is its `fValid` flag (`src/bls/bls.h:90–93`). The direct basic verify gate examines the resulting dashbls element (`schemes.cpp:135–153, 297–323`). The runtime `VerifyInsecureAggregated` call sites are the two `bls_batchverifier.h` paths (`:146–178, 195–228`), `llmq/net_dkg.cpp:283`, and `bls/bls_worker.cpp:863`; F7/S6 cover them. §7's `AGG_* → VERIFY*` scripts and §8's cancelling-torsion seeds address the round-1 missing composition.
+- **Round-1 M2, clearing and allocation qualifier:** `CheckRelicErrors` clears the code before throwing (`src/dashbls/src/bls.cpp:81–91`), and `NativeVerify` clears it when its final check fails (`src/dashbls/src/schemes.cpp:326–349`). The post-wrapper field is correctly relabelled as a state-leak check. D8 now excludes allocation failures, matching `ERR_NO_MEMORY` in `relic_ep_norm.c:112–119` and `relic_pp_map_k12.c:51–68, 523–534`. The raw mirrors need Major 2 to become an adequate certificate.
+- **Round-1 m1, arithmetic portion of Lemma T:** G1 uses homogeneous complete addition/doubling formulas with the relevant coordinate-tag paths (`src/dashbls/depends/relic/src/ep/relic_ep_add.c:126–265, 288–432`; `relic_ep_dbl.c:131–255`). G2 uses Jacobian formulas with H/R branches and doubling (`src/dashbls/depends/relic/src/epx/relic_ep2_add.c:147–210, 259–333`; `relic_ep2_dbl.c:119–157`). In a Core-linked probe, mixed versus general addition with a sampled off-curve operand compared equal for both groups. `ep_norm`/`ep2_norm` canonicalize infinity (`relic_ep_norm.c:96–109`; `relic_ep2_norm.c:88–101`). Equality is the exception in Major 1.
+- **Round-1 m2, G2 formula:** R1a/R1b and the engine table now distinguish G1 complete homogeneous formulas from G2 Jacobian formulas and carry G2's H/R branches (`relic_ep2_add.c:174–183, 293–301, 390–407`).
+- **Round-1 m3, docs and sites:** COVERAGE B3 now points to BS12's ABI-14/15 script, A1's BS11b row assigns `HashPubKeys`/three verifies to BS11a, and S7/S9/S10 include `llmq/dkgsession.cpp:603–609` and `llmq/quorumproofs.cpp:305–319`. Core's call sites match those descriptions.
+
+## Verdict
+
+CHANGES-REQUIRED

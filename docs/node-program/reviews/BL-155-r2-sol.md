@@ -1,0 +1,19 @@
+# BL-155 independent narrow review, round 2
+
+Reviewed `ce7263c31..cf37bc1fe` on `node/bl155-selftest-shard` and the proposed `/work/scratch/bl155/gate.sh.new`. I assume DEC-219 still permits concurrent gates and that the gate's EXIT trap removes its `$TMPDIR` when the selftest step returns. I did not edit the branch or `/work/scratch/gate.sh`.
+
+## Findings
+
+1. **Major — a green shard may leave check work alive.** `contrib/node/selftest-checks.sh:125-131,340-343`. When a shard exits 0 with another live member of its process group, `finish()` writes status 0, reaps the leader, reports the member, and returns without failing. The shard's own EXIT trap has already removed its worktree. A check that starts background work and returns can therefore overlap later cases, have its worktree removed while still running, and leave work behind after a green gate. In my detached scratch copy, the supplied daemon stub returned `323 ok, 0 FAIL` and exit 0 while its background process was alive; no worktree of that run remained registered. Keeping `tmp/` does not protect the removed worktree. **Fix:** make a residual live group member fail the step; keep worktree cleanup with a supervisor until the group's work is finished. Ensure the shared sccache server is established outside shard groups before spawning them, and handle failed pre-start rather than silently treating an in-group server as success.
+
+2. **Major — the driver can miss a shard spawned just before supervisor death.** `contrib/node/selftest-checks.sh:158-166,190-200`. `posix_spawnp()` starts a shard before its PID file is written. If the supervisor is killed in that window, or writing the PID file fails (for example on ENOSPC), the driver skips the missing/empty file and returns after the supervisor dies. The shard receives TERM but may still be finishing a long foreground check; the gate can then remove `$TMPDIR` and its worktree underneath that check. I injected a supervisor SIGKILL after spawn but before the PID write in a scratch copy. The driver returned exit 1 while `ps` still showed the shard leader alive and its worktree registered. The injected delay widened the window; the ordering is the same in the proposed code. **Fix:** have the driver discover and wait for every shard it started even when its PID file is absent or incomplete, and defer gate temp cleanup until their process groups are quiescent.
+
+3. **Major — the disk cap is not a concurrent reservation.** `/work/scratch/bl155/gate.sh.new:76-88`. The arithmetic and invalid-input fallback now reach a selftest step, but two already-admitted gates can read the same free-space value before either shard set grows. At 212 GiB free, each chooses four shards, budgeting 112 GiB apiece; together they can require 224 GiB, exceeding the available space and defeating the stated 100 GiB margin. DEC-219 allows several gates concurrently and does not reserve disk per selftest. **Fix:** coordinate shard allocations across active gates, or serialize the sharded selftest step, so the sum of their admitted peak allocations fits the available space and reserve.
+
+## Closed items and checks
+
+- The normal driver-SIGKILL path now kills each shard group before cleanup; the saved 150-second foreground-check proof shows no live group member when its worktree is removed. Completion-order reaping is in place. Supervisor SIGKILL with already-written PID files fails closed after the shards finish their current checks, although the wait can last as long as that check.
+- The EOF whitespace nit is closed: `git diff --check ce7263c31 cf37bc1fe` passes. The gate's bad `GATE_SELFTEST_SHARDS` and failed-`df` inputs fall back to a step rather than skipping it.
+- I ran only the supplied stub in a detached scratch worktree, plus the scratch-only PID-window fault injection. I removed that worktree afterward. I did not run the multi-hour real selftest.
+
+VERDICT: CHANGES-REQUESTED

@@ -1,0 +1,24 @@
+# PF0-N plan review — round 4 narrow (Sol)
+
+Scope: read-only review of `/work/scratch/pf0-n/plan-rev3.md`, the `node/pf0-n` worktree, and the perfgate sources. I did not start any gate or PF0 unit and did not modify the branch or perfgate. I reran P16's combined-flag probe in a throwaway delegated user scope under `/work/scratch/pf0-n-r4-sol`'s review session; its placement, dumpability, pidfd, kill and cgroup-removal results agree with the recorded P16 result.
+
+## N1, N4, N5 and P11 disposition
+
+| finding | status | plan/line evidence | review |
+|---|---|---|---|
+| **N1: outer node-bench trust boundary** | **CLOSED** | §0b D24–D27, lines 58–61; §3 lines 187–197; §11 lines 511–528; §14 lines 689–694 | The rev3 design now makes the broker and every `launch` personality set and verify `PR_SET_DUMPABLE=0` before protected fd delivery, with a hello handshake and SCM_RIGHTS transfer (D24–D25). The control and negative tests exercise both launch and broker from the correct namespaces (D26). The settled D27 residual is implemented as a required census: only `outer_init`, broker, launch, perf and bwrap may exist in the outer PID namespace, and no node-bench or PR process may run there. My P16 rerun confirms the kernel behavior used by the negative test: non-dumpable helper/child `root`, `exe`, `mem`, fd access and ptrace fail, while post-exec bwrap is reachable and therefore must rely on the census/PID boundary. |
+| **N4: node `inputs` coverage** | **CLOSED** | §0b D28–D30, lines 62–64; §8 lines 390–431; §11 lines 569–578 | The source list is now an AST-derived import/exec closure rooted at `node.py` and node-path entry points, with whole-file hashing, package initializers, C/tool entrypoints, a reviewed snapshot, static unlisted-import/target rejection, runtime tracing, and generated mutation tests. The current branch graph matches the stated pre-commit-2 closure (`node`, `paths`, `sandbox`, `measure`, `build`, `run` and the CLI closure); the post-commit-2 broker/holder entrypoints are explicitly covered by the same rule. This closes the omitted parser, mount, safe-read and wrapper sources from r3. |
+| **N5: NEW-FROM-PENDING declaration-change waiver** | **CLOSED** | §0b D31–D33, lines 65–67; §2 lines 127–131; §7 lines 328–371; §11 lines 579–597 | PF0 mode now fixes all invocation-visible argv paths and ports under `/pf0`, including node/seed datadirs and the seed address; each invocation netns makes the fixed ports safe. `free_port()`/`mkdtemp` are forbidden for daemon argv construction. The exact NUL-joined full argv is hashed with an empty volatile list, and the cross-preflight/base/head/anchor and token-change tests are required. Together with the existing key, anchored `pending_on` option/owner, first-attempt and ledger predicates, this resolves the r3 instability without dropping declaration or owner tokens. |
+| **P11 combined placement flags (minor)** | **CLOSED** | §0b D34, line 68; §5 lines 250–272; §11 lines 529–548; §15 P16, line 705 | P16 uses the production `CLONE_INTO_CGROUP|CLONE_PIDFD` combination and records the stopped child in `spawn-p16`, helper in `harness`, pidfd-readable kill, `waitid(P_PIDFD)` `CLD_KILLED`/9, empty cgroup and successful `rmdir`. The implementation kill matrix is explicitly required to use those same flags. My rerun reproduced these results. |
+
+## New findings in rev3
+
+### Minor — D25's “nothing protected crosses an `execve`” sentence is overbroad
+
+D25 (§0b line 59 and §3 lines 194–195) says nothing protected crosses an `execve`, but the same design deliberately keeps the sealed spec memfd across `launch --exec` into bwrap (`§3 lines 176–179`, `§4 lines 216–220`) so bwrap can consume `--args <spec>`. This is safe under the approved D27 model because bwrap is trusted and PID-hidden from node-bench, but the sentence should say that protected material is not inherited by `launch` across its initial exec; the spec intentionally crosses the launch-to-bwrap exec. Otherwise it contradicts the required fd topology.
+
+### Minor — D29 must specify how the audit guard reaches child interpreters
+
+The static closure/target guard is clear, but §0b D29 and §11 lines 575–578 describe installing `sys.addaudithook` in “the harness” while the node path executes node-bench, `run`, broker, holder and other Python entrypoints as separate processes. Python audit hooks are process-local, and `-X importtime` reports imports but does not record child `open`, `Popen` or `exec` events. Require the test hook to be injected into every relevant child (or state an equivalent in-process/tracing mechanism); otherwise the claimed runtime subset check can silently miss a dynamically opened or exec'd unlisted source. This does not reopen N4's static closure and mutation-test closure, but it should be made an explicit implementation requirement.
+
+APPROVE-WITH-NITS

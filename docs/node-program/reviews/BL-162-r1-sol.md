@@ -1,0 +1,21 @@
+# BL-162 review (96c1be92 against 913893dd)
+
+## Findings
+
+1. **P1 — The leak sweep can delete files outside the probe's scratch space.** `apps/desktop/e2e-tauri/profile-write.ts:42-44,101-105`: `DW_E2E_SCAN_EXTRA` is an arbitrary caller-supplied directory, and `sweep()` recursively scans it and calls `rmSync()` on every matching file. For example, pointing it at the fixture directory deletes `<wallet>.mnemonic`, because that file necessarily contains the phrase. `leaks()` in `e2e-tauri/driver.ts:162-177` follows directory symlinks as well. Make the extra scan read-only; if the probe removes a leaked artifact, restrict deletion to its own newly created scratch directory.
+
+2. **P2 — `never` bypasses the result and secret scan.** `apps/desktop/e2e-tauri/profile-write.ts:173-176,212-223`: the `return` inside the nested `try` runs the `finally` blocks, then exits `main()` before `result.json`, `sweep()`, and the PASS/failure checks. D9 promises a read-only version of the same probe, but this path gives exit status 0 without the result artifact and without checking `tauri-driver.log` for a phrase or passphrase. Move the read-only branch past the common finalization path.
+
+3. **P2 — The probe does not confine writes to scratch.** `apps/desktop/scripts/e2e-tauri-profile-write.sh:15-18`, `apps/desktop/e2e-tauri/profile-write.ts:40,112-119`: the default `DW_E2E_OUT` is `apps/desktop/test-results/tauri-profile-write` in the checkout, and an arbitrary `DW_E2E_OUT` is accepted. The data root and passphrase file are created under `tmpdir()`, independently of that output directory. The delegated build in `scripts/e2e-tauri.sh:32-40` also writes build output in the checkout by default. This fails the brief's scratch-only write boundary; create a single dedicated scratch root, place all probe runtime files beneath it, and check/canonicalize caller paths before writing.
+
+4. **P2 — The write-up states an unproven cause as settled.** `docs/design/BL-162-write-after-sync.md:8-11,44-66,106,111`: the two failed sends have no engine log, and the document itself gives two different 120-second SDK paths that fit the observed 123 seconds. Later successful writes and an earlier sync phase clear the specific claim that writes fail *after* sync, but do not locate the original failure outside the desktop or establish that Platform accepted a transition. The statement that the UI text comes only from DAPI transport also exceeds the error mapping: `rust/crates/dw-engine/src/platform/errors.rs:611-627` maps `IdentityDiscoveryIncomplete` to `Unavailable` on an unmapped cause, `SeedBindingUnanswered`/`FinalityTimeout` to `Timeout`, and `ContactSyncUnreachable` to `Unavailable`. Record the cause as unresolved and distinguish the UI error family from a confirmed transport trace.
+
+## Checks
+
+- `DW_LOG` is absent by default; the subscriber is initialized only when the variable is present. Its writer is stderr and ANSI is gated on `IsTerminal` (`dw-app/src/lib.rs:149-157`). The release Windows binary has no console (`dw-app/src/main.rs:1-2`), so this configuration has no file sink there.
+- Reviewed the named F2 `dw_engine`, `dash_sdk::platform::transition`, and `rs_dapi_client` log sites, including the DAPI debug retry/error and trace request paths. I found no plaintext phrase, passphrase, seed, or private-key logging in those paths. DAPI trace can contain signed wire requests and public document data, so developer logs still need normal handling.
+- `with_lookup_timeout` is under `#[cfg(test)]` (`trust.rs:242-246`). The new tests exercise the bounded lookup and enforcing deadline; the immediate degraded-mode test uses an immediately answering fake SPV, so its timing assertion does not prove an immediate return when the real lookup hangs. In production degraded mode may spend up to the 5-second SPV lookup bound before falling back; it does not enter the 120-second enforcing wait.
+- Both `dwcli` and the app are invoked with literal `--network testnet` (`profile-write.ts:49,64-65,137`). I found no mainnet path in this probe.
+- `cargo test -p dw-engine --lib trust_tests --locked` was attempted in the detached worktree. Its cold dependency build was stopped after about 9 minutes without reaching the test binary; the tests were not executed. The findings above are based on source inspection.
+
+VERDICT: CHANGES-REQUESTED

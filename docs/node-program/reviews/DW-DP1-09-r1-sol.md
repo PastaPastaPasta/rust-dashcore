@@ -1,0 +1,14 @@
+# Independent review: DW DP1-09 at cf3d2f5d
+
+## Findings
+
+1. **P1 — Repair cannot resolve an orphan registration funding step** — `apps/desktop/src/tools/repair.ts:99,263`. The engine reports an orphan with `draft = "registration/<n>/funding"` and `waiting = fundingUnknown` (`rust/crates/dw-engine/src/platform/registration.rs:782-799`). `RepairModel.refresh` includes that entry, but `fundingStep` wraps its already complete ID into `registration/registration/<n>/funding/funding`. `resolve_stuck_funding` rejects it because a funding step must have exactly two slashes (`rust/crates/dw-engine/src/platform/flows.rs:329-335`). The offered **Resolve stuck funding** action therefore fails for this funds-committed case. This helper predates the branch, but DP1-09 directs users with registration funding trouble to Repair and the case is within the promised recovery path. Accept a complete step ID as-is, then cover the orphan returned by `registrations` in a Repair test.
+
+2. **P2 — The new fixture erases the wait of failed rows that still own an outstanding funding step** — `apps/desktop/src/fixture/registration.ts:113`. `reported` forces every idle `failed` row to `waiting: null`. The engine explicitly retains `fundingUnknown`, `network`, or `chainLock` when such a row is `Awaiting`, even if it has a failure (`rust/crates/dw-engine/src/platform/registration.rs:738-745`). Consequently fixture UI tests cannot exercise the real failed-and-awaiting recovery and wedge screens: they show the generic stopped/retry view, and Repair's `isStuck` misses the row. Preserve the relevant wait in the fixture and add a failed `Awaiting` scenario; the current `tools-stuck-funding` scenario is still running and has no failure.
+
+## Checks and scope
+
+- Reviewed `git diff 6a33c381...cf3d2f5d`, the DP1-09 design and m4 contract, engine quote/status/funding paths, Tauri and TS bindings, wizard, fixture, Repair, and e2e code. The `available_duffs` and `running` fields and Contract-Version 27 are wired through the reviewed layers. The quote uses the funding permit's fee function; its grant adds one uncharged duff. I found no second-lock path in start/resume or a phrase/passphrase write outside the documented mnemonic and state files.
+- `pnpm exec vitest run src/dashpay/registration.test.ts src/dashpay/wizard.test.ts src/fixture/registration.test.ts src/tools/repair.test.ts`: 4 files, 63 tests passed. `git diff --check 6a33c381...cf3d2f5d`: passed. The Rust engine test and public-testnet e2e were inspected but not rerun; a cold Rust build is substantial on this host. Another worker merged main into the worktree during this review (`2ac55376`); the reviewed source and targeted test files are identical to `cf3d2f5d` across that merge, and I made no branch changes.
+
+VERDICT: CHANGES-REQUESTED

@@ -1,0 +1,24 @@
+# BS9a and BS9b fix round f1 — independent narrow review
+
+Reviewed the named base-sdk and rust-dashcore deltas against the pinned Dash Core v24.0 source. This review addresses the r1 findings and the f1 changes only. I did not edit either repository or rerun the supplied differential/build gates. `git diff --check` passed for all four specified ranges.
+
+## BS9a — overlay wire types II
+
+**R1 disposition: closed.** Opus M1 is addressed by the 1 MiB check in each DKG `MsgDecode` before `decode_whole` (`pkgs/p2p_core/src/msg/dkg.rs:157-176`). Core's `MaxDKGMessageSize` clamps every DKG command to 1 MiB (`src/llmq/net_dkg.cpp:43-75`) and applies its parameter-specific cap after peer/quorum gates but before the framing walk, inventory hash, retention, and worker read (`net_dkg.cpp:590-619`). The new parameter-free guard therefore refuses no payload Core could read and prevents the generic dispatcher from making the reported multi-megabyte vector allocation. The node still needs the earlier parameter-specific check, as the trait documents.
+
+Opus M2 and Sol's gate-order finding are addressed in `DkgMessage`'s six-step contract (`dkg.rs:32-72`) and the dispatch variant docs (`msg/mod.rs:163-176`). It explicitly places the raw inventory hash and the unsolicited GETDATA gate after the cap/framing walk, and the eager read on the worker. Sol's inventory-hash finding is addressed by `dkg_inventory_hash(payload)` (`dkg.rs:133-138`): Core's `CHashWriter` writes the received `CDataStream` bytes before the typed read (`net_dkg.cpp:616-619`), and the helper hashes those same bytes, not an eagerly reserialized object.
+
+Opus M3 is addressed by `DkgMessage::eager` in base-sdk (`dkg.rs:117-155,296-313,389-395,470-485,561-567`) and its use in the rust-dashcore predictor. Field order matches Core's `dkgmessages.h` reads: vector public keys, IES ephemeral public key, and signature for `qcontrib`; signature for `qcomplaint`; every revealed secret key and signature for `qjustify`; public key and both signatures for `qpcommit`. Core's `CBLSWrapper::Unserialize` reads under `bls_legacy_scheme`, keeps canonical bytes, resets an opposite-scheme object to zero, and throws for bytes canonical in neither scheme (`src/bls/bls.h:183-209`). `BlsEager*::decode` with `BlsSchemeSource::Global(bls)` and `to_bytes(bls.scheme())` implements those outcomes, including invalid points; IES ciphertexts and IV stay byte-for-byte. The `sk r` basic/legacy cases remain in the selected corpus.
+
+Opus M4 is addressed by the corpus test's unconditional write-back and sign-hash assertions, including `reenc` cases (`tests/core_overlay_ii.rs:213-226`); it also maps malleable BLS fields to a worker read refusal. The judge-mirror comment, corpus wording, and portable-build README guidance close Opus's relevant nits. The supplied 1,440/1,440 differential, byte-for-byte corpus reproduction, and `qcomplaint_481` mutation are consistent with these code paths. I found no new issue in the f1 delta. I agree with D32's decision not to repeat the full rust-dashcore gate: its changed code is confined to the standalone bs9 tool, with a judge comment and README, and the gate's relevant nested-workspace pin check passed locally.
+
+**Findings:** none.
+
+## BS9b — overlay wire types III
+
+`git range-diff ac61b6c..2a2ae76 7bc1f02..a68e090` shows the six r0 BS9b patches unchanged except for the expected BS9a export context. The new `DsAccept::for_version` (`pkgs/p2p_core/src/msg/coinjoin.rs:84-91`) emits `None` below 70241 and `Some(flags.unwrap_or(0))` at or above it. That is Core's `CCoinJoinAccept` stream-version branch (`src/coinjoin/coinjoin.h:160-165`) and the same threshold as `COINJOIN_REBALANCE_VERSION` (`src/version.h:73`). The added test covers 70240, 70241 and an unset flag at 70242. The later commit changes only the corpus's judge-source hash after the comment edit. The rust-dashcore predictor now calls base-sdk's eager implementation and hashes received DKG bytes; the supplied 1,686/1,686 differential and byte-for-byte corpus reproduction cover the integrated head. I agree with the D32 gate decision for this slice for the same reason as BS9a.
+
+**Nit — `pkgs/p2p_core/src/msg/coinjoin.rs:73-90`: outbound version normalization is optional.** A caller can construct `DsAccept { flags: None, .. }` and encode it directly for a negotiated version of 70241 or later; Core writes a zero flags byte there, while the direct base-sdk encode omits it and the peer's Core read fails. Conversely, a direct `Some` encode for an older peer adds a byte Core would omit. The new helper and documentation give the node a correct path and close Sol's r1 request for one, so this is not a wire-parser defect. For the CoinJoin port, make its outbound send path call `for_version` for every `dsa`, or expose a version-taking encoder that enforces the layout.
+
+BS9a VERDICT: ACCEPT
+BS9b VERDICT: APPROVE-WITH-NITS

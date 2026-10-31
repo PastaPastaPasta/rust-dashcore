@@ -1,0 +1,47 @@
+# LQ3a independent review, round 1
+
+**Range:** `a5d2a9c59..e539aff06` on `node/lq3a-locks`  
+**Core reference:** Dash Core `v24.0.0-rc.3` (`0364ed626e`)  
+**Verdict: CHANGES REQUIRED**
+
+## Findings
+
+### Major 1 — A V19 crossing can accept a `qsigrec` that Core bans
+
+`dash-evo/src/locks/recsig.rs:142-151,163-179` uses one `BlsCtx` both to read the lazy signature and to verify it. Core's lazy wrapper captures the scheme when the message is deserialized (`src/bls/bls.h:408-411,466-480,492-511`), but its separate signing worker verifies under the process-wide scheme at worker time (`src/llmq/net_signing.cpp:220-257,283-297`; `src/bls/bls_batchverifier.h:135-178`; `src/bls/bls.cpp:314-335`). Connecting the V19 activation block switches that scheme to basic (`src/evo/specialtxman.cpp:983-986`).
+
+**Failing schedule:** at tip `V19Height - 2`, with a legacy-signed recovered signature naming a quorum that remains active, Core receives and queues the `qsigrec` while the legacy flag is set. The block at `V19Height - 1` connects, switching the flag to basic for the next block, before the worker drains the queue. `sig.Get()` still reads the saved legacy bytes, while `VerifyInsecureAggregated` checks the basic scheme and bans the peer. Calling `verify_qsigrec` with the required read-time `BlsCtx::LEGACY` returns `Accept`; passing `BlsCtx::BASIC` instead loses the read-time semantics. A temporary test signed a real legacy signature for a verified quorum and confirmed `verify_qsigrec(..., LEGACY) == Accept` while verification of that same decoded signature under basic is `Invalid`. The test was removed after the run.
+
+Give the read and verify stages separate schemes, or retain the read scheme in the decoded message and pass the worker's current scheme to verification. Add a V19 crossing regression case. This is a one-message scheme-timing issue; it does not rely on comparing individual verification with Core's batch behavior.
+
+### Major 2 — A V19 crossing can produce a `clsig` inventory hash the helper cannot represent
+
+`dash-evo/src/locks/wire.rs:75-82` re-reads and re-serializes the signature under the same `BlsCtx`. Core eagerly deserializes the signature, then calls `SerializeHash(clsig)` separately (`src/net_processing.cpp:5794-5798`). Its eager writer reads the global scheme again (`src/bls/bls.h:170-180,183-201`). The V19 scheme switch above can interleave with these operations: the message handler does not hold `cs_main` across both steps; it takes that lock only after computing the hash (`src/net_processing.cpp:5807`).
+
+**Failing schedule:** Core reads a legacy-encoded, valid `clsig` just before V19 activation, then the block at `V19Height - 1` flips the flag to basic for the next block before `SerializeHash`. Core hashes the preserved point re-serialized in basic encoding. With those legacy wire bytes, `clsig_hash(..., LEGACY)` hashes the legacy encoding and `clsig_hash(..., BASIC)` treats the field as invalid and hashes zeros. A temporary test of the same point's legacy and basic encodings confirmed that neither result equals Core's mixed-time hash; the test was removed after the run.
+
+Represent the eager object after its read, or accept distinct read and serialization contexts. Add an interleaving regression test. The ordinary same-scheme path and the quirk-38 behavior are correct.
+
+## Other parity checks
+
+- **Verdict order:** The unknown-type ban precedes reads; an inactive named quorum is ignored before signature decoding; once Core's `GetQuorum` is non-null, malformed signature bytes ban before the local verified-status check. `dash-evo/src/locks/recsig.rs:153-185` matches `src/llmq/net_signing.cpp:49-61,243-268` and `src/llmq/signing.cpp:427-445,546-563`. An active hash with a missing quorum in one view snapshot yields no verdict, consistent with Core's no-score `GetQuorum`-null drop (`src/llmq/signing.cpp:439-445`); Core's scan returns empty if it cannot build a listed quorum (`src/llmq/quorumsman.cpp:248-268`).
+- **D7 and `scan_at_tip`:** `is_quorum_active` requests exactly `keepOldConnections`, including `usize::MAX` for a negative value, and compares hashes independently of local verification status (`dash-evo/src/locks/recsig.rs:102-123`; Core `src/llmq/signing.cpp:701-712`). The trait contract at `dash-evo/src/locks/mod.rs:218-227` specifies the tip, count, newest-first order, cycle-adjusted store block, disabled-type empty result, and all-or-empty build behavior (`src/llmq/quorumsman.cpp:149-268`). It is sufficiently precise for SB11 and node views. The current `node-l1` implementation is a ChainLock-only test view and leaves this method unreachable.
+- **D15, known nonblocking divergence:** Before V19, an active quorum plus a canonical legacy G2 point outside the subgroup (for example the base SDK's `G2_OFF_SUBGROUP_CHIA` test vector) can reach `BlsUnsupported`, hence no Rust verdict, where Core's legacy pairing path rejects and bans. On real v24 networks after the V19 switch, a correctly supplied basic context cannot reach `BlsUnsupported`: basic decoding rejects unusable points and basic verification maps an unusable point to `Invalid` (`base-sdk/pkgs/pkc/src/bls/core.rs:164-179`). Thus this stated gap causes neither a false accept nor a ban Core would not make after the switch. It can forgo a Core ban before the switch or on delayed-V19 regtest. The V19 crossing in Major 1 is separate and **does** cause a false accept.
+- **D8 → LK1:** Database duplicate skips, pending queues and their caps, and post-verification storage decisions can preempt or discard a message in Core (`src/llmq/signing.cpp:433-475,581-610`). The public `Accept` is explicitly conditional on reaching signature verification (`dash-evo/src/locks/recsig.rs:1-17,32-41`), so these deferred node-state items do not change this slice's stated conditional verdict. `serves_recovered_sig` covers only the active check after a successful DB lookup, as documented.
+
+## Wire hashes and evidence
+
+`RecoveredSig::hash` hashes the 193 parsed bytes at read time, as Core caches `SerializeHash` during deserialization (`dash-evo/src/locks/wire.rs:120-152`; Core `src/llmq/signing.h:90-105`). `isdlock_hash` re-serializes a parsed object before lazy signature use, retaining the raw 96 bytes (`dash-evo/src/locks/wire.rs:85-102`; Core `src/instantsend/net_instantsend.cpp:245-258`, `src/bls/bls.h:445-474`). `clsig_hash` correctly uses eager re-serialization when the read and write schemes agree (Major 2 is the crossing case).
+
+Non-minimal CompactSize input is rejected during `IsdLock` parsing by both Core's `ReadCompactSize` (`src/serialize.h:295-321`) and the pinned base SDK's `CompactSize::decode` (`pkgs/types/src/compact.rs:51-82`), so there is no Core hash for it. Trailing payload bytes remain after the object read and are excluded from its serialized hash; the recovered-signature test explicitly checks this. A lazy signature point that is not canonical under its captured scheme still contributes its raw bytes to the intake inventory hash, then reads as invalid when used. An eager `clsig` field canonical only in the other scheme writes back as zeros; bytes canonical in neither scheme prevent a `clsig` from being read. The quirk-38 test at `dash-evo/src/locks/wire_tests.rs:119-164` is substantive: the raw-`clsig`-hash mutant below fails it.
+
+The fixture contains 12 `qsigrec`, three `clsig`, and three `isdlock` messages. Their announced hashes all match independently computed double SHA256 of the captured payloads (18/18); the Rust capture tests also check each inventory hash and accept all captured recovered signatures against the listed tip quorums. The capture harness uses one outstanding GETDATA at a time after a quiet period, though it associates a reply by command rather than by a payload-provided hash (`contrib/node/lq3a-captures/capture_lq3a.py:89-120`). That limits the harness's proof in a hypothetical unsolicited same-command race, but the fixture's independent hash matches and cross-observer checks support these captures. The capture and synthetic tests do not cover either V19 interleaving above.
+
+## Checks and mutants
+
+- `cargo test -p dash-evo`: passed (128 unit tests; 7 `cbtx`; 31 `cbtx_root_history` plus one expected ignored history case; 2 `sml_core_vectors`).
+- `cargo test -p node-l1 --features oracle --test l1_llmq`: passed, 21/21, against the pinned v24.0 archive in `/work/cache/oracle`. The run took 1175.67 seconds under heavy host load and had no wall-clock failure.
+- `cargo clippy -p dash-evo -p node-l1 --all-targets -- -D warnings`: passed. For these runs, sccache was disabled after it stalled; the target directory was private to this review.
+- **Mutant 1:** moved the `QuorumStatus::Verified` check ahead of `read_lazy_sig` in `recsig.rs`. `locks::recsig_tests::an_unreadable_signature_bans_whatever_the_quorums_status` failed: mutant returned `Err(QuorumUnavailable)` instead of `Ban(MalformedSignature)`.
+- **Mutant 2:** changed `clsig_hash` to write the received signature bytes instead of the eager re-serialization. `locks::wire_tests::quirk_38_reserialization_vs_wire_hashes` failed at line 135: the mutant's hash equaled the raw-wire hash where the test requires a difference.
+- The two temporary V19 reproducers described in the findings passed. All temporary source edits and both mutants were restored; the detached source worktree was clean before cleanup.
