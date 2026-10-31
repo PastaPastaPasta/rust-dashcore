@@ -1,0 +1,10 @@
+# The clock moved back past the tip's time + 2 h: the load is refused and the session is down;
+# moving it forward and restarting brings it back.
+extend main 2
+warp 100
+restart clean
+extend main 1
+invalidate main@-0
+time 200
+restart clean
+extend main 1

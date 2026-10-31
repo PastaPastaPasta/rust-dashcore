@@ -1,0 +1,12 @@
+{
+ "nodes": [
+  "node0"
+ ],
+ "recorded": [
+  "node0"
+ ],
+ "source": "backfill: frozen/ and unstarted_nodes",
+ "test": "feature_new_quorum_type_activation.py",
+ "test_args": [],
+ "unstarted": []
+}
