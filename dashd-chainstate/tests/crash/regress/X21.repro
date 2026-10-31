@@ -1,0 +1,9 @@
+# CRASH planted bug X21 (CH2 §6.4), minimised in 7 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=- presumed=- crash=- replay=- planted=X21
+workload c10;f;K;c1
+adversary realistic
+granularity write
+expect R8
+minimality verified
