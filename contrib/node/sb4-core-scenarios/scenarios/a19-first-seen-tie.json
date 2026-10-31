@@ -1,0 +1,46 @@
+{
+ "name": "a19-first-seen-tie",
+ "description": "equal-work headers: the first seen stays best; after reload either tie is allowed (D9)",
+ "rows": [
+  "A-19"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A99",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A100",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "A100",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "reload"
+  }
+ ]
+}

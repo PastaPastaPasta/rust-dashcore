@@ -1,0 +1,815 @@
+# node-gate: local tier 1 (gate-fast) as GitHub jobs on the personal fork (DEC-650 Stage 2, DEC-700).
+#
+# Runs on the parentless `ci/<short sha>` snapshot commits CI-S0's export pushes (DEC-670 option c),
+# whose message names the node/integration commit they snapshot. Fork-only: the export drops the
+# inherited upstream workflows, and this file never fires outside `ci/**`.
+#
+# Jobs:
+#   deps     builds the shard matrix from .github/ci-groups.yml and owns the ONE dependency-closure
+#            cache (DEC-699): third-party artifacts only, keyed on CACHE_GEN + toolchain + Cargo.lock +
+#            manifests (features) + ci-groups.yml. On a miss in a default-branch run it builds every
+#            selection cold, strips the workspace crates' units and saves; no other run or job saves.
+#   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
+#            protocol-tables (no build, no cache).
+#   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`),
+#            clippy, or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
+#   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
+# Every job prints its metrics to the log too (step summaries are not readable through the API).
+#
+# Known differences from local tier 1 (the step-inventory diff tracks them):
+# - a shard's `cargo test -p <its crates>` gets its crates' workspace-resolved features passed in
+#   (`--features crate/feature`), but the members it builds only as dependencies, and third-party
+#   crates, still unify per shard (cargo cannot name a member that is not a direct dependency); the
+#   plan step prints each shard's member differences;
+# - no BL-20 rerun and no per-binary time limit (test-run.py); the job timeout bounds a hang;
+# - pure and planted always run (no merge base to trigger on); oracle-diff stays local;
+# - the export points the base SDK pin at the public fork; static and extras point it back at a
+#   clone of that fork (`file://`), so check-base-sdk-pins.sh and the pure lane's audit stamp see
+#   the layout they check.
+#
+# Cache scope (DEC-713): GitHub lets a run restore caches saved on its own branch or the default branch,
+# never another branch's. So only runs on the default branch (master) build and save the closure; the
+# gating push runs on `ci/<sha>` only restore it. When a push run's key is not in master's scope, the
+# shards restore the newest closure with the same toolchain and build their changed dependencies
+# themselves. A save (`deps_only` dispatch on master) is only worth its 3.4 GB of the free 10 GB
+# (DEC-699) for the integration tip, and only when its shards rebuilt third-party units: Summary
+# prints the dispatch then, and the cache metric (exact hits, MB restored) on every run.
+name: node-gate
+run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source)) || github.sha }}
+
+on:
+  push:
+    branches: ["ci/**"]
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "ci/<12-hex> snapshot branch to check out (default: the dispatched ref)"
+        required: false
+        type: string
+      source:
+        description: "Full SHA the snapshot was made from; names the run like a push run (deps checks it)"
+        required: false
+        type: string
+      source_ref:
+        description: "Branch the snapshot was made from, as in its message; required with source"
+        required: false
+        type: string
+      deps_only:
+        description: "Only build and save the dependency closure (run on the default branch to share it)"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: node-gate-${{ github.ref }}-${{ inputs.snapshot }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  # Test executables are ~280 MB each with full debuginfo; line tables keep panic locations and
+  # backtraces and fit the runner's disk. Tests do not read their own debuginfo.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_NET_RETRY: "10"
+  RUST_BACKTRACE: "1"
+  # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
+  # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
+  CACHE_GEN: v2
+  # `<CACHE_GEN>-<hash of the deps job's build list>`, which the deps job checks (BL-520): a change
+  # to that list fails every run until CACHE_GEN is bumped and this re-pinned to the hash it prints.
+  # v2 was saved by v8's list; the pin is v10's, so only later changes need a bump.
+  CACHE_GEN_BUILDS: v2-dc0b48b9422f4d3f
+  # Third-party units the closure in use lacks, which Summary's save rule leaves out (BL-520): the
+  # rdashd shard's cbindgen (its --bin/--test selection leaves clap build-only, so cbindgen links
+  # debuginfo-0 clap units and gets its own hash), which v8's deps job, the one that saved the v2
+  # closure, never built. Empty this once a v9+ deps job has saved the closure for a new key.
+  ALWAYS_REBUILT: cbindgen
+
+jobs:
+  deps:
+    name: Deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      prefix: ${{ steps.key.outputs.prefix }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      hit: ${{ steps.lookup.outputs.cache-hit }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.snapshot || github.sha }}
+          persist-credentials: false
+
+      # A dispatch runs the default branch's copy of this file on the snapshot's tree, a push run the
+      # snapshot's own copy. CACHE_GEN and the build list come from the copy that runs, so a deps_only
+      # save made with another copy can miss the key, or the closure, the snapshot's push run uses.
+      - name: Same workflow as the snapshot
+        if: ${{ inputs.snapshot != '' }}
+        env:
+          DEPS_ONLY: ${{ inputs.deps_only }}
+        run: |
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          if git diff --quiet FETCH_HEAD HEAD -- .github/workflows/node-gate.yml; then
+            echo "the snapshot carries this run's node-gate.yml ($GITHUB_SHA)"
+          elif [ "$DEPS_ONLY" = true ]; then
+            echo "::error::the snapshot's node-gate.yml differs from $GITHUB_SHA's; its push run would not use this closure. Re-export it with the default branch's workflow."
+            exit 1
+          else
+            echo "::warning::the snapshot's node-gate.yml differs from $GITHUB_SHA's; this run gates with $GITHUB_SHA's"
+          fi
+
+      - name: Toolchain
+        env:
+          SNAPSHOT: ${{ inputs.snapshot }}
+          SOURCE: ${{ inputs.source }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          echo "job_t0=$(date +%s)" >> "$GITHUB_ENV"
+          [ -z "$SNAPSHOT" ] || [[ "$SNAPSHOT" =~ ^ci/[0-9a-f]{12}$ ]] || { echo "::error::snapshot '$SNAPSHOT' is not ci/<12-hex>"; exit 1; }
+          # A dispatched run named after a source commit must be running that commit's snapshot.
+          if [ -n "$SOURCE" ]; then
+            if ! [[ "$SOURCE" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$SOURCE_REF" =~ ^[A-Za-z0-9._/-]+$ ]] \
+              || [ "ci/${SOURCE:0:12}" != "$SNAPSHOT" ] \
+              || [ "$(git log -1 --format=%B)" != "ci snapshot of $SOURCE_REF $SOURCE" ]; then
+              # Fixed text: the inputs failed their checks and may hold anything.
+              echo "::error::source and source_ref do not name what the snapshot snapshots (both are needed)"; exit 1
+            fi
+          fi
+          git log -1 --format='%H %s'
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          rustc -Vv
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+
+      # BL-520: the key does not cover this file, so a closure saved under one build list keeps
+      # hitting after the list changes (v9's rdashd shard ran on v8's closure). The build list is how
+      # this job plans, builds, strips and saves, read from the copy of this file that runs, without
+      # comments or blank lines.
+      - name: CACHE_GEN covers the build list
+        shell: python3 {0}
+        run: |
+          import hashlib, os, subprocess, sys, yaml
+          sha = os.environ["GITHUB_SHA"]
+          subprocess.run(["git", "fetch", "-q", "--depth=1", "origin", sha], check=True)
+          text = subprocess.run(["git", "show", "FETCH_HEAD:.github/workflows/node-gate.yml"],
+                                check=True, capture_output=True, text=True).stdout
+          steps = {s.get("name"): s for s in yaml.safe_load(text)["jobs"]["deps"]["steps"]}
+          parts = ["\n".join(line.rstrip() for line in steps[name]["run"].splitlines()
+                             if line.strip() and not line.strip().startswith("#"))
+                   for name in ("Shard plan", "Strip script", "Build every selection")]
+          parts.append(steps["Save the dependency closure"]["with"]["path"])
+          build_hash = hashlib.sha256("\0".join(parts).encode()).hexdigest()[:16]
+          gen, pin = os.environ["CACHE_GEN"], os.environ["CACHE_GEN_BUILDS"]
+          want = f"{gen}-{build_hash}"
+          if pin == want:
+              print(f"CACHE_GEN {gen} covers this build list ({build_hash}, {sha})")
+              sys.exit(0)
+          if pin.startswith(f"{gen}-"):
+              print(f"::error::the deps job's build list changed ({build_hash}) under CACHE_GEN {gen}: "
+                    f"bump CACHE_GEN and set CACHE_GEN_BUILDS to <new CACHE_GEN>-{build_hash}")
+          else:
+              print(f"::error::CACHE_GEN_BUILDS {pin} is not CACHE_GEN {gen}'s pin: set it to {want}")
+          sys.exit(1)
+
+      - name: Shard plan
+        id: plan
+        shell: python3 {0}
+        run: |
+          import json, os, subprocess, yaml
+          # Test shards by ci-groups.yml group; every workspace member lands in exactly one (the
+          # groups' crates, plus the excluded and unassigned members in the last shard), so the
+          # shards together run what local tier 1's `cargo test --workspace` runs. rdashd's
+          # differential suites against dashd v24 take ~10 of node-runtime's ~16 test minutes, so
+          # they get a shard of their own: it builds node-runtime's whole selection and features
+          # (the dashd-* crates rdashd links are only transitive dependencies, which `--features`
+          # cannot name) and runs only rdashd's targets ("targets_of"); "skip" leaves rdashd out
+          # of runtime. rdashd's tests start the binary cargo builds for them; only dash-testkit
+          # needs RDASHD_PATH.
+          SHARDS = [("conformance", ["node-conformance"], {}),
+                    ("rdashd", ["node-runtime"], {"targets_of": "rdashd"}),
+                    ("runtime", ["node-runtime"], {"rdashd": True, "skip": ["rdashd"]}),
+                    ("app-pure-shared", ["node-app", "node-pure", "node-shared"], {}),
+                    ("core-spv-wallet-ffi-rpc", ["core", "spv", "wallet", "ffi", "rpc"], {"rest": True})]
+          groups = yaml.safe_load(open(".github/ci-groups.yml"))["groups"]
+          named = [g for _, gs, _ in SHARDS for g in gs]
+          if set(named) != set(groups):
+              raise SystemExit(f"shard groups {sorted(set(named))} != ci-groups.yml groups {sorted(groups)}")
+          meta = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                                           check=True, capture_output=True, text=True).stdout)
+          members = {p["name"] for p in meta["packages"] if p["id"] in meta["workspace_members"]}
+          grouped = {c for gs in groups.values() for c in gs}
+          # `cargo test -p <crates>` unifies features across those crates only; local tier 1's
+          # `cargo test --workspace` unifies them across the workspace (dash-p2p's eviction test needs
+          # `inbound`, which only another crate's dev-dependency turns on). Each shard therefore asks for
+          # the features the workspace-wide resolve gives its own crates.
+          def member_features(args):
+              out = subprocess.run(["cargo", "tree", "--locked", *args, "-e", "normal,dev", "-f", "{p}|{f}",
+                                    "--prefix", "depth"], check=True, capture_output=True, text=True).stdout
+              got = {}
+              for line in out.splitlines():
+                  pkg, _, feats = line.lstrip("0123456789").removesuffix(" (*)").partition("|")
+                  name = pkg.split(" ")[0]
+                  if name in members and " (/" in pkg:
+                      got.setdefault(name, set()).update(f for f in feats.split(",") if f)
+              return got
+          workspace_wide = member_features(["--workspace"])
+          resolved = {c: fs - {"default"} for c, fs in workspace_wide.items()}
+          include = []
+          for name, gs, opt in SHARDS:
+              crates = [c for g in gs for c in groups[g] if c not in opt.get("skip", [])]
+              if opt.get("rest"):
+                  crates += sorted(members - grouped)
+              if len(set(crates)) != len(crates):
+                  raise SystemExit(f"shard {name}: a crate is listed twice: {crates}")
+              missing = [c for c in crates if c not in members]
+              if missing:
+                  raise SystemExit(f"shard {name}: not workspace members: {missing}")
+              feats = ",".join(f"{c}/{f}" for c in crates for f in sorted(resolved.get(c, ())))
+              targets, runs = "", crates
+              if opt.get("targets_of"):
+                  own = opt["targets_of"]
+                  if own not in crates:
+                      raise SystemExit(f"shard {name}: {own} is not in {gs}")
+                  pkg = next(p for p in meta["packages"] if p["name"] == own)
+                  # What a plain `cargo test` runs of it: the bins and tests it tests (`test = true`)
+                  # whose required features the workspace resolve enables; naming any other target
+                  # is an error. Any other kind (a lib's doc tests, examples, benches) would be
+                  # skipped, so it fails closed.
+                  odd = [t["name"] for t in pkg["targets"] if t["kind"][0] not in ("bin", "test", "custom-build")]
+                  if odd:
+                      raise SystemExit(f"shard {name}: {own} has targets targets_of would skip: {odd}")
+                  picked, left = [], []
+                  for t in pkg["targets"]:
+                      if t["kind"][0] not in ("bin", "test"):
+                          continue
+                      need = set(t.get("required-features") or ())
+                      if any("/" in f for f in need):
+                          raise SystemExit(f"shard {name}: {own} {t['name']} requires {sorted(need)}")
+                      if t.get("test", True) and need <= workspace_wide.get(own, set()):
+                          picked.append(f"--{t['kind'][0]} {t['name']}")
+                      else:
+                          left.append(t["name"])
+                  print(f"shard {name}: {own} targets not run, as in `cargo test --workspace`: {left}")
+                  names = {(t["kind"][0], t["name"]) for c in crates if c != own for t in
+                           next(p for p in meta["packages"] if p["name"] == c)["targets"]}
+                  clash = [t for t in picked if tuple(t[2:].split(" ")) in names]
+                  if clash:
+                      raise SystemExit(f"shard {name}: {clash} would also run another crate's target")
+                  targets, runs = " ".join(picked), [own]
+              include.append({"shard": name, "kind": "test", "packages": " ".join(f"-p {c}" for c in crates),
+                              "features": f"--features {feats}" if feats else "", "targets": targets,
+                              "runs": runs, "rdashd": bool(opt.get("rdashd"))})
+              # Members this shard only builds as dependencies can still resolve fewer features than in
+              # `cargo test --workspace`; the step inventory tracks these.
+              args = include[-1]["packages"].split() + include[-1]["features"].split()
+              # (Plain lines: GitHub shows at most 10 annotations per step.)
+              differ = 0
+              for c, fs in sorted(member_features(args).items()):
+                  if fs != workspace_wide.get(c, set()):
+                      differ += 1
+                      print(f"feature diff, shard {name}: {c} builds with [{','.join(sorted(fs))}], "
+                            f"workspace-wide [{','.join(sorted(workspace_wide.get(c, ())))}]")
+              if differ:
+                  print(f"::notice::shard {name}: {differ} dependency-only members resolve other features "
+                        "than in `cargo test --workspace` (feature diff lines in this step's log)")
+          covered = [c for e in include for c in e["runs"]]
+          if len(set(covered)) != len(covered):
+              raise SystemExit("a crate is in two shards")
+          if set(covered) != members:
+              raise SystemExit(f"members in no shard: {sorted(members - set(covered))}")
+          include += [{"shard": k, "kind": k, "packages": "", "features": "", "targets": "", "runs": [], "rdashd": False}
+                      for k in ("clippy", "extras")]
+          for e in include:
+              print(f"{e['shard']}: {e['packages'] or e['kind']} {e['features']} {e['targets']}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"matrix={json.dumps({'include': include})}\n")
+
+      - name: Cache key
+        id: key
+        run: |
+          rustc_hash=$(rustc -Vv | sha256sum | cut -c1-16)
+          prefix=node-deps-$CACHE_GEN-${{ runner.os }}-$rustc_hash-
+          echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+          echo "key=${prefix}${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '**/Cargo.toml', '.github/ci-groups.yml') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Look up the dependency closure
+        id: lookup
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.key.outputs.key }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          lookup-only: true
+
+      - name: Free disk space
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+
+      # A unit's fingerprint dir is .fingerprint/<package>-<16 hex>; the same hash names its files in
+      # deps/ and its build/ dir. strip.py drops every unit of a workspace member (lib, test and bin
+      # targets, build scripts) and the final binaries, so the cache holds third-party units only.
+      - name: Strip script
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        run: |
+          cat > "$RUNNER_TEMP/strip.py" <<'PY'
+          import glob, json, os, re, shutil, subprocess
+          meta = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                                           check=True, capture_output=True, text=True).stdout)
+          members = {p["name"] for p in meta["packages"] if p["id"] in meta["workspace_members"]}
+          gone = 0
+          for prof in glob.glob("target/debug") + glob.glob("target/release"):
+              for fp in os.listdir(f"{prof}/.fingerprint"):
+                  m = re.fullmatch(r"(.+)-([0-9a-f]{16})", fp)
+                  if not m or m.group(1) not in members:
+                      continue
+                  h = m.group(2)
+                  for p in glob.glob(f"{prof}/deps/*-{h}*") + glob.glob(f"{prof}/build/{m.group(1)}-{h}"):
+                      shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+                  shutil.rmtree(f"{prof}/.fingerprint/{fp}")
+                  gone += 1
+              for p in os.listdir(prof):
+                  q = f"{prof}/{p}"
+                  if os.path.isfile(q) or p in ("examples", "incremental"):
+                      shutil.rmtree(q) if os.path.isdir(q) else os.remove(q)
+          print(f"strip: dropped {gone} workspace units")
+          PY
+
+      # Cold on purpose: building over an older closure would carry its stale units into the new one.
+      # Workspace units are stripped after each selection, so the disk holds one shard's at a time.
+      - name: Build every selection
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        env:
+          MATRIX: ${{ steps.plan.outputs.matrix }}
+        run: |
+          t0=$SECONDS
+          build() {
+            echo "::group::$*"
+            local s=$SECONDS
+            "$@" || exit 1
+            python3 -I "$RUNNER_TEMP/strip.py"
+            echo "$(( SECONDS - s )) s; target $(du -sh target | cut -f1); $(df -h --output=avail / | tail -1) free"
+            echo "::endgroup::"
+          }
+          while read -r selection; do
+            # shellcheck disable=SC2086
+            build cargo test --locked --no-run $selection
+          done < <(jq -r '.include[] | select(.kind == "test") | "\(.packages) \(.features) \(.targets)"' <<<"$MATRIX")
+          build cargo build --locked -p rdashd
+          build cargo test --locked --no-run -p dashd-chainstate --features crash,planted-bugs --test crash_planted
+          build cargo build --locked --release -p dash-consensus --lib
+          build cargo clippy --locked --workspace --all-features --all-targets
+          echo "deps build: $((SECONDS - t0)) s"
+          du -sh target ~/.cargo/registry ~/.cargo/git
+
+      - name: Save the dependency closure
+        id: save
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.key.outputs.key }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: Key not in master's scope
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name != github.event.repository.default_branch
+        run: |
+          msg="this key's dependency closure is not in master's scope: the shards restore the newest one and build what changed; Summary says whether a save is worth it"
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Metrics
+        if: always()
+        run: |
+          line="deps key=${{ steps.key.outputs.key }} lookup=${{ steps.lookup.outputs.cache-hit == 'true' && 'hit' || 'miss' }} saved=${{ steps.save.outcome == 'success' && 'yes' || 'no' }} job_s=$(( $(date +%s) - ${job_t0:-0} ))"
+          echo "NODE-GATE-METRIC $line"
+          echo "NODE-GATE-METRIC $line" >> "$GITHUB_STEP_SUMMARY"
+
+  static:
+    name: Static
+    if: ${{ !inputs.deps_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.snapshot || github.sha }}
+          persist-credentials: false
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: PyYAML
+        run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+
+      # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
+      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
+      - name: Base SDK pin to a local clone
+        run: |
+          public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir"
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
+            echo "base SDK pin: $public -> $local"
+            git diff --stat
+          else
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
+          fi
+
+      # The same steps, in the same order, as gate-fast's static lane. r2 runs when its script exists.
+      - name: fmt
+        run: cargo fmt --check
+      - name: pins
+        if: ${{ !cancelled() }}
+        run: contrib/node/check-base-sdk-pins.sh
+      - name: deny
+        if: ${{ !cancelled() }}
+        run: cargo deny check
+      - name: r2
+        if: ${{ !cancelled() && hashFiles('contrib/node/check-r2.sh') != '' }}
+        run: contrib/node/check-r2.sh
+      - name: layers
+        if: ${{ !cancelled() }}
+        run: python3 contrib/node/check-layers.py
+      # verify-groups ends by comparing build-and-test.yml's group matrix with ci-groups.yml; the
+      # export drops that upstream workflow, so a stand-in carrying ci-groups.yml's groups takes its
+      # place (the crate assignment and layer checks run unchanged).
+      - name: groups
+        if: ${{ !cancelled() }}
+        run: |
+          f=.github/workflows/build-and-test.yml
+          if [ ! -e "$f" ]; then
+            groups=$(python3 -c 'import yaml; print(", ".join(yaml.safe_load(open(".github/ci-groups.yml"))["groups"]))')
+            printf 'jobs:\n  test:\n    strategy:\n      matrix:\n        group: [%s]\n' "$groups" > "$f"
+            echo "::notice::$f is not in the snapshot; its matrix check compares ci-groups.yml with itself"
+          fi
+          python3 .github/scripts/ci_config.py verify-groups
+      # gate-fast runs its own copy of this check; the tree's copy lands with node/ci-stage0.
+      - name: self-devdep
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -e contrib/node/check-self-devdep.py ]; then python3 -I contrib/node/check-self-devdep.py
+          else echo "::warning::self-devdep NOT RUN: no contrib/node/check-self-devdep.py in this tree"; fi
+      - name: sb12a-captures
+        if: ${{ !cancelled() }}
+        run: python3 -I -B contrib/node/test-sb12a-captures.py
+      - name: release-refs
+        if: ${{ !cancelled() }}
+        run: contrib/node/pin-delta/check-release-refs.sh --selftest && contrib/node/pin-delta/check-release-refs.sh
+      # The extraction reads Core's sources at the script's pinned tag; a shallow fetch of that one
+      # tag from the public repository is enough (the script checks it peels to EXPECTED_COMMIT).
+      - name: protocol-tables
+        if: ${{ !cancelled() }}
+        run: |
+          tag=$(sed -n 's/^TAG = "\(.*\)"$/\1/p' contrib/node/core-protocol-tables.py)
+          [ -n "$tag" ] || { echo "::error::no TAG in core-protocol-tables.py"; exit 1; }
+          git init -q "$RUNNER_TEMP/dash"
+          git -C "$RUNNER_TEMP/dash" fetch -q --depth 1 https://github.com/dashpay/dash "refs/tags/$tag:refs/tags/$tag"
+          python3 -I contrib/node/core-protocol-tables.py --core "$RUNNER_TEMP/dash" --check
+
+  shard:
+    name: ${{ matrix.shard }}
+    needs: deps
+    # A failed deps build (a workspace compile error, say) still gives every lane its own verdict.
+    if: ${{ !cancelled() && !inputs.deps_only && needs.deps.outputs.matrix != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read  # the cache's stored size, for the metrics
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.deps.outputs.matrix) }}
+    env:
+      METRICS: ${{ github.workspace }}/../metrics-${{ matrix.shard }}.txt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.snapshot || github.sha }}
+          persist-credentials: false
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+          android: ${{ matrix.kind != 'extras' }}  # the pure lane lints for aarch64-linux-android
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "restore_t0=$(date +%s.%N)" >> "$GITHUB_ENV"
+
+      - name: Restore the dependency closure
+        id: restore
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.key }}
+          restore-keys: ${{ needs.deps.outputs.prefix }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: Restore metrics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ steps.restore.outputs.cache-matched-key || needs.deps.outputs.key }}
+          HIT: ${{ steps.restore.outputs.cache-hit == 'true' && 'hit' || (steps.restore.outputs.cache-matched-key != '' && 'partial' || 'miss') }}
+        run: |
+          secs=$(awk -v a="$(date +%s.%N)" -v b="$restore_t0" 'BEGIN { print a - b }')
+          stored=$(gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=$KEY" \
+            --jq "[.actions_caches[] | select(.key == \"$KEY\")] | max_by(.last_accessed_at) | .size_in_bytes // 0" 2>/dev/null || echo "?")
+          unpacked=$(du -sb target ~/.cargo/registry ~/.cargo/git 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          printf 'cache=%s restore_s=%.1f stored_bytes=%s unpacked_bytes=%s\n' "$HIT" "$secs" "$stored" "$unpacked" | tee -a "$METRICS"
+          df -h / | tail -1
+
+      - name: dashd 23.1.0 and the regtest data
+        if: matrix.kind == 'test' || matrix.kind == 'extras'
+        run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
+
+      # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
+      - name: dashd 24.0.0-rc.5
+        if: matrix.kind == 'test'
+        env:
+          DASHVERSION: 24.0.0-rc.5
+        run: |
+          set -o pipefail
+          v=$(python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
+          [ -x "$v" ] || { echo "::error::no dashd 24.0.0-rc.5 (gate_env's ST2_DASHD)"; exit 1; }
+          echo "ST2_DASHD=$v" >> "$GITHUB_ENV"
+
+      # dash-testkit starts the rdashd at RDASHD_PATH: built without features (no test hooks), copied
+      # out before the shard's test build overwrites target/debug/rdashd (gate-fast build_rdashd).
+      - name: rdashd-build
+        if: matrix.rdashd
+        run: |
+          /usr/bin/time -f 'rdashd_build_s=%e rdashd_build_cpu_s=%U+%S' -a -o "$METRICS" cargo build --locked -p rdashd
+          mkdir -p "$RUNNER_TEMP/rdashd-under-test"
+          cp target/debug/rdashd "$RUNNER_TEMP/rdashd-under-test/rdashd"
+          echo "RDASHD_PATH=$RUNNER_TEMP/rdashd-under-test/rdashd" >> "$GITHUB_ENV"
+
+      - name: test-build
+        if: matrix.kind == 'test'
+        run: |
+          rc=0
+          /usr/bin/time -f 'build_s=%e build_cpu_s=%U+%S build_peak_kb=%M' -a -o "$METRICS" \
+            cargo test --locked --no-run --message-format=json-render-diagnostics ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} > "$RUNNER_TEMP/build.json" || rc=$?
+          # Third-party units the restored closure should have held (0 on a good hit), by name.
+          jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/build.json" | tee -a "$METRICS"
+          exit "$rc"
+
+      - name: test
+        if: matrix.kind == 'test'
+        env:
+          DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
+        run: |
+          /usr/bin/time -f 'test_s=%e test_cpu_s=%U+%S test_peak_kb=%M' -a -o "$METRICS" \
+            cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} 2>&1 | tee "$RUNNER_TEMP/test.log"
+          rc=${PIPESTATUS[0]}
+          grep -E "^test result" "$RUNNER_TEMP/test.log" | awk '{p+=$4; f+=$6; i+=$8} END {printf "tests_passed=%d tests_failed=%d tests_ignored=%d\n", p, f, i}' | tee -a "$METRICS"
+          echo "skipped_lines=$(grep -ciE 'skipped|skipping' "$RUNNER_TEMP/test.log")" | tee -a "$METRICS"
+          exit "$rc"
+
+      - name: clippy
+        if: matrix.kind == 'clippy'
+        run: |
+          rc=0
+          /usr/bin/time -f 'clippy_s=%e clippy_cpu_s=%U+%S clippy_peak_kb=%M' -a -o "$METRICS" \
+            cargo clippy --locked --workspace --all-features --all-targets --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy.json" || rc=$?
+          # Third-party units the restored closure should have held (0 on a good hit), by name.
+          jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/clippy.json" | tee -a "$METRICS"
+          exit "$rc"
+
+      - name: Extras setup
+        if: matrix.kind == 'extras'
+        run: |
+          rustup target add aarch64-linux-android
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+
+      # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
+      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
+      - name: Base SDK pin to a local clone
+        if: matrix.kind == 'extras'
+        run: |
+          public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir"
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
+            echo "base SDK pin: $public -> $local"
+            git diff --stat
+          else
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
+          fi
+
+      - name: Install cargo-deny
+        if: matrix.kind == 'extras'
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: no-libm
+        if: matrix.kind == 'extras'
+        run: /usr/bin/time -f 'no_libm_s=%e' -a -o "$METRICS" contrib/node/check-no-libm.sh
+
+      # Local tier 1 runs pure and planted only when their trigger finds a change since the merge
+      # base with node/integration; a snapshot has no history, so they always run here.
+      - name: pure
+        if: ${{ matrix.kind == 'extras' && !cancelled() }}
+        run: /usr/bin/time -f 'pure_s=%e' -a -o "$METRICS" contrib/node/check-pure.sh
+
+      - name: planted
+        if: ${{ matrix.kind == 'extras' && !cancelled() && hashFiles('dashd-chainstate/tests/crash_planted.rs') != '' }}
+        run: /usr/bin/time -f 'planted_s=%e' -a -o "$METRICS" cargo test --locked -p dashd-chainstate --features crash,planted-bugs --test crash_planted
+
+      # DEC-900 ruling 1's evidence (ADAPT-902 §5.1): the SB13 thread bound. `thread_count` requires
+      # `blst-no-threads`, which no workspace member turns on, so no test shard builds it. It runs on
+      # the regtest masternode data from the setup-dashd step. The test returns early, and passes,
+      # when its masternode context can't start, so a "Skipping" line fails the step.
+      # The test lives in dash-spv-ffi until #1251 (rdc step 2 of the upstream sync) and in dash-spv after.
+      - name: thread-count
+        if: ${{ matrix.kind == 'extras' && !cancelled() }}
+        run: |
+          if [ -f dash-spv/tests/thread_count.rs ]; then pkg=dash-spv
+          elif [ -f dash-spv-ffi/tests/thread_count.rs ]; then pkg=dash-spv-ffi
+          else echo "::error::no thread_count test in dash-spv or dash-spv-ffi"; exit 1; fi
+          /usr/bin/time -f 'thread_count_s=%e' -a -o "$METRICS" \
+            cargo test --locked -p "$pkg" --features blst-no-threads --test thread_count -- --nocapture 2>&1 | tee "$RUNNER_TEMP/thread_count.log"
+          rc=${PIPESTATUS[0]}
+          [ "$rc" = 0 ] || exit "$rc"
+          if grep -qE 'Skipping (dashd integration|masternode) test' "$RUNNER_TEMP/thread_count.log"; then echo "::error::thread_count skipped instead of running"; exit 1; fi
+          grep -qE 'threads: baseline [0-9]+, peak [0-9]+ \(bound [0-9]+' "$RUNNER_TEMP/thread_count.log" || { echo "::error::thread_count passed without its completion line"; exit 1; }
+
+      - name: private tests skip cleanly
+        if: ${{ matrix.kind == 'extras' && !cancelled() }}
+        run: |
+          if grep -q -- '--expect-skipped' contrib/node/check-private-tests.sh; then
+            /usr/bin/time -f 'private_s=%e' -a -o "$METRICS" contrib/node/check-private-tests.sh --expect-skipped
+          else
+            echo "::warning::private tests skip check NOT RUN: this tree's check-private-tests.sh has no --expect-skipped"
+          fi
+
+      - name: public-api
+        if: ${{ matrix.kind == 'extras' && !cancelled() }}
+        run: |
+          t0=$SECONDS
+          toolchain=$(sed -n 's/^toolchain=//p' contrib/node/check-public-api.sh)
+          version=$(sed -n 's/^version=//p' contrib/node/check-public-api.sh)
+          rustup toolchain install "$toolchain" --profile minimal
+          cargo install --locked cargo-public-api --version "$version"
+          contrib/node/check-public-api.sh
+          echo "public_api_s=$((SECONDS - t0))" >> "$METRICS"
+
+      - name: Upload failed dashd test logs
+        if: failure() && matrix.kind == 'test'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dashd-test-logs-${{ matrix.shard }}
+          path: ${{ runner.temp }}/dashd-test-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Metrics
+        if: always()
+        run: |
+          df -h / | tail -1
+          line="${{ matrix.shard }} $(tr '\n' ' ' < "$METRICS" 2>/dev/null)disk_used=$(df --output=used -BG / | tail -1 | tr -d ' ')"
+          echo "NODE-GATE-METRIC $line"
+          echo "NODE-GATE-METRIC $line" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$RUNNER_TEMP/metrics" && echo "$line" > "$RUNNER_TEMP/metrics/${{ matrix.shard }}.txt"
+
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: metrics-${{ matrix.shard }}
+          path: ${{ runner.temp }}/metrics/${{ matrix.shard }}.txt
+          retention-days: 30
+
+  summary:
+    name: Summary
+    needs: [deps, static, shard]
+    # Not after a cancel: its failure on cancelled shards would make the cancelled run look red to
+    # rdc-ci-verdict.sh, which counts a cancelled run with a failed job as red.
+    if: ${{ !cancelled() && !inputs.deps_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+    steps:
+      - name: Download metrics
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: metrics-*
+          path: metrics
+          merge-multiple: true
+
+      # DEC-699 / manager 10-29: save a closure only for the integration tip, and only when its shards
+      # rebuilt third-party units a save would have held; task branches restore master's and save nothing.
+      - name: Cache
+        env:
+          HIT: ${{ needs.deps.outputs.hit }}
+          TITLE: ${{ github.event.head_commit.message || format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source) }}
+          SNAPSHOT: ${{ inputs.snapshot || github.ref_name }}
+          MASTER: ${{ github.event.repository.default_branch }}
+        shell: python3 {0}
+        run: |
+          import glob, os
+          shards = {}
+          for path in glob.glob("metrics/*.txt"):
+              kv = dict(t.split("=", 1) for line in open(path) for t in line.split() if "=" in t)
+              if "cache" in kv:
+                  shards[os.path.basename(path)[:-4]] = kv
+          known = set(os.environ["ALWAYS_REBUILT"].split())
+          exact = sum(v["cache"] == "hit" for v in shards.values())
+          partial = sum(v["cache"] == "partial" for v in shards.values())
+          mb = sum(int(v.get("stored_bytes") or 0) for v in shards.values() if v["cache"] != "miss") / 1e6
+          units = sorted({u for v in shards.values() for u in v.get("rebuilt_units", "-").split(",")} - {"-"})
+          fixable = [u for u in units if u not in known]
+          tip = os.environ["TITLE"].startswith("ci snapshot of node/integration ")
+          if os.environ["HIT"] == "true":
+              why = "no: the key is in master's scope"
+          elif not tip:
+              why = "no: not an integration-tip snapshot (task branches restore master's closure)"
+          elif not fixable:
+              why = "no: the shards rebuilt no third-party unit a save would hold"
+          else:
+              why = "yes"
+          print(f"NODE-GATE-METRIC cache shards={len(shards)} exact={exact} partial={partial} "
+                f"restored_mb={mb:.0f} rebuilt_units={','.join(units) or '-'} save={why.split(':')[0]}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(f"cache: {exact}/{len(shards)} exact hits, {partial} partial, {mb:.0f} MB restored; "
+                        f"rebuilt third-party units: {', '.join(units) or 'none'}; save: {why}\n\n")
+          if why == "yes":
+              print(f"::warning::the integration tip rebuilt {', '.join(fixable)}: save its closure with "
+                    f"gh workflow run node-gate.yml -R {os.environ['GITHUB_REPOSITORY']} --ref {os.environ['MASTER']} "
+                    f"-f snapshot={os.environ['SNAPSHOT']} -f deps_only=true")
+
+      - name: Table
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.snapshot || github.ref_name }}
+        run: |
+          {
+            echo "## node-gate $REF"
+            echo
+            echo "deps: ${{ needs.deps.result }}, static: ${{ needs.static.result }}, shards: ${{ needs.shard.result }}"
+            echo
+            echo "| job | conclusion | wall (min) |"
+            echo "|---|---|---|"
+            gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+              --jq '.jobs[] | select(.name != "Summary") | "| \(.name) | \(.conclusion // .status) | \(if .completed_at then (((.completed_at | fromdate) - (.started_at | fromdate)) / 60 | floor) else "-" end) |"'
+            echo
+            echo '```'
+            cat metrics/*.txt 2>/dev/null
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.shard.result }}" = success ]
