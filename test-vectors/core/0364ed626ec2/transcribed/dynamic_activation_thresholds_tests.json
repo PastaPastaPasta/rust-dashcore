@@ -1,0 +1,18 @@
+{
+"source": "src/test/dynamic_activation_thresholds_tests.cpp",
+"records": [
+{"kind":"threshold","attempt":0,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":80},
+{"kind":"threshold","attempt":1,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":80},
+{"kind":"threshold","attempt":2,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":80},
+{"kind":"threshold","attempt":3,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":79},
+{"kind":"threshold","attempt":4,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":77},
+{"kind":"threshold","attempt":5,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":75},
+{"kind":"threshold","attempt":6,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":73},
+{"kind":"threshold","attempt":7,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":71},
+{"kind":"threshold","attempt":8,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":68},
+{"kind":"threshold","attempt":9,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":64},
+{"kind":"threshold","attempt":10,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":60},
+{"kind":"threshold","attempt":11,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":60},
+{"kind":"threshold","attempt":12,"window":100,"th_start":80,"th_end":60,"vbparams":"testdummy:0:999999999999:0:100:80:60:5:0","core_threshold":60}
+]
+}
