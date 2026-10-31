@@ -1,0 +1,29 @@
+Dash Core dash-util utility version v24.0.0-rc.5
+
+Usage:  dash-util [options] [commands]  Do stuff
+
+Options:
+
+  -?
+       Print this help message and exit
+
+  -version
+       Print version and exit
+
+Chain selection options:
+
+  -chain=<chain>
+       Use the chain <chain> (default: main). Allowed values: main, test,
+       devnet, regtest
+
+  -devnet=<name>
+       Use devnet chain with provided name
+
+  -testnet
+       Use the test chain. Equivalent to -chain=test
+
+Commands:
+
+  grind
+       Perform proof of work on hex header string
+
