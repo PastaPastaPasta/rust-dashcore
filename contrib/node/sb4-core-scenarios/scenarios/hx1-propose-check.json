@@ -1,0 +1,94 @@
+{
+ "name": "hx1-propose-check",
+ "description": "getblocktemplate proposals on the tip A10 (TestBlockValidity, fJustCheck): A11 valid at check; C11 fails bad-cb-amount at check; D11 fails bad-cb-height before ConnectBlock; E10 is not on the tip (no TestBlockValidity); after a lock on header-only F11, A11 fails bad-chainlock before ConnectBlock and F11 is duplicate-inconclusive",
+ "rows": [
+  "HX1-X1"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A10",
+   "count": 1,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A10",
+   "count": 1,
+   "submit": "none",
+   "invalid": "cb-amount"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "A10",
+   "count": 1,
+   "submit": "none",
+   "invalid": "cb-height"
+  },
+  {
+   "op": "build",
+   "branch": "E",
+   "parent": "A9",
+   "count": 1,
+   "submit": "none"
+  },
+  {
+   "op": "propose",
+   "block": "A11"
+  },
+  {
+   "op": "propose",
+   "block": "C11"
+  },
+  {
+   "op": "propose",
+   "block": "D11"
+  },
+  {
+   "op": "propose",
+   "block": "E10"
+  },
+  {
+   "op": "build",
+   "branch": "F",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "F11"
+  },
+  {
+   "op": "propose",
+   "block": "A11"
+  },
+  {
+   "op": "propose",
+   "block": "F11"
+  }
+ ]
+}
