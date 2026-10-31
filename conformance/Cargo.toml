@@ -1,0 +1,65 @@
+[package]
+name = "dash-conformance"
+description = "Differential conformance harness: decodes Dash chains through dashcore and base-sdk and cross-checks them against a dashd oracle"
+readme = "README.md"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "dash-conformance"
+path = "src/main.rs"
+
+[features]
+# BS4b: also judge every block, transaction and payload with node-l1's base-sdk decode judges
+# (`src/bsdk_judges.rs`). Links Dash Core's oracle shim for the payloads' deserializer.
+bsdk-judges = ["dep:node-l1", "dep:dash-oracle-sys", "dash-oracle-sys/oracle"]
+
+[dependencies]
+dashcore = { path = "../dash" }
+# The node's consensus wrappers, the third leg (CS0 §9.2).
+dash-consensus = { path = "../dash-consensus" }
+node-l1 = { path = "../node-l1", features = ["oracle"], optional = true }
+dash-oracle-sys = { path = "../dash-oracle-sys", optional = true }
+# `digest replay` (O9a-2): V, its header chain, the mock clock, the chain params and the tap.
+# dashd-chainstate without its `rocksdb` feature links no RocksDB.
+dash-chain = { path = "../dash-chain" }
+dash-clock = { path = "../dash-clock" }
+# The bundle's evo section (O9b S6a-2): `EvoSnapshot`'s Core-exact decoder and hash.
+dash-dml = { path = "../dash-dml" }
+# `digest l2` (CH3a a7-2): the preloaded chain's work.
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate", features = ["statedigest"] }
+# The CoreConnector leg's stores (CH3a a7-1): the block and undo files, and the memory engine
+# under the coins. Without its default `rocksdb` feature it links no RocksDB.
+dashd-store = { path = "../dashd-store", default-features = false }
+dash-pkc = { workspace = true, features = ["bls", "std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-statedigest = { path = "../dash-statedigest" }
+dash-types = { workspace = true, features = ["std", "codec"] }
+
+anyhow = "1.0"
+base64 = "0.22"
+clap = { version = "4.5", features = ["derive"] }
+hex-conservative = { workspace = true }
+# `digest l2`'s manifest: getrusage and sysconf (CH3a D154).
+libc = "0.2"
+rayon = { workspace = true }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = "1.0"
+# The null replay leg's block directory (CH3a D148).
+tempfile = "3"
+ureq = { version = "3", default-features = false, features = ["json"] }
+# Reads the zstd-compressed StateDigest vectors (O9a), over the zstd-sys RocksDB already
+# brings in (manager ruling 2: one decoder implementation in the tree).
+zstd = { version = "0.14", default-features = false }
+
+[dev-dependencies]
+# The fingerprint lab's sim leg (O13a): rdashd's processor and network core in `sim`, configured
+# per fixture profile.
+dash-p2p = { path = "../dash-p2p" }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
