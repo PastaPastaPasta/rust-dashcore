@@ -1,0 +1,58 @@
+# Clippy reads the nearest clippy.toml and does not merge it with the root one,
+# so this repeats the root's contents (msrv) and the determinism bans of
+# contrib/node/pure-clippy.toml, and adds dash-consensus's floating-point bans
+# (A1 §2.1). contrib/node/check-pure.sh merges the root file, pure-clippy.toml
+# and this file, and makes all of them forbid-level.
+#
+# Unlike dash-dml this crate keeps base-sdk's message hashes: a queue's
+# inventory hash and the queue and DSTX signature hashes are BS9b's
+# (`DsQueue`/`DsTx`), which Core computes over the message as written, not
+# over a consensus serialization. Transaction ids come from dash-consensus.
+msrv = "1.89"
+
+# Determinism (A1 §2.1): BTreeMap/BTreeSet or a sorted Vec.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order is not deterministic; consensus code uses BTreeMap or a sorted Vec (A1 §2.1)" },
+    { path = "std::collections::HashSet", reason = "iteration order is not deterministic; consensus code uses BTreeSet or a sorted Vec (A1 §2.1)" },
+]
+
+# No libm (CS2 §2.2). Core's only CoinJoin float is CalculateAmountPriority's
+# single-precision `COIN / denom * 10000`: IEEE / and *, bit-exact everywhere.
+disallowed-methods = [
+    { path = "std::env::var", reason = "consensus code does not read the environment" },
+    { path = "std::env::var_os", reason = "consensus code does not read the environment" },
+    { path = "f64::powf", reason = "libm (CS2 §2.2)" },
+    { path = "f64::powi", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp2", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp_m1", reason = "libm (CS2 §2.2)" },
+    { path = "f64::ln", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log2", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log10", reason = "libm (CS2 §2.2)" },
+    { path = "f64::ln_1p", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sqrt", reason = "libm (CS2 §2.2)" },
+    { path = "f64::cbrt", reason = "libm (CS2 §2.2)" },
+    { path = "f64::mul_add", reason = "fused multiply-add rounds differently from Core's x86_64 build (CS2 §2.2)" },
+    { path = "f64::hypot", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sin", reason = "libm (CS2 §2.2)" },
+    { path = "f64::cos", reason = "libm (CS2 §2.2)" },
+    { path = "f64::tan", reason = "libm (CS2 §2.2)" },
+    { path = "f32::powf", reason = "libm (CS2 §2.2)" },
+    { path = "f32::powi", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp2", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp_m1", reason = "libm (CS2 §2.2)" },
+    { path = "f32::ln", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log2", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log10", reason = "libm (CS2 §2.2)" },
+    { path = "f32::ln_1p", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sqrt", reason = "libm (CS2 §2.2)" },
+    { path = "f32::cbrt", reason = "libm (CS2 §2.2)" },
+    { path = "f32::mul_add", reason = "fused multiply-add (CS2 §2.2)" },
+    { path = "f32::hypot", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sin", reason = "libm (CS2 §2.2)" },
+    { path = "f32::cos", reason = "libm (CS2 §2.2)" },
+    { path = "f32::tan", reason = "libm (CS2 §2.2)" },
+]
