@@ -1,0 +1,9 @@
+# CRASH planted bug X14 (CH2 §6.4), minimised in 21 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=12,22 presumed=25:31 crash=- replay=- planted=X14
+workload c10;c5;f;c10;f
+adversary realistic
+granularity write
+expect D1f
+minimality verified

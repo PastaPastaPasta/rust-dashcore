@@ -1,0 +1,11 @@
+# ToyChain planted bug T22 (ST3a §6.2), minimised in 117 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=0 invalid=- effects=12,22 presumed=25:31 prune=- sub=synced:0:96 bug=T22
+workload c5;i;c5;f;c10;f
+crash 97 power-loss
+decide 1:subscriber:b3=1
+adversary realistic
+granularity write
+expect R11c
+minimality verified
