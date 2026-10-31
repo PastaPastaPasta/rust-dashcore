@@ -1,0 +1,69 @@
+[package]
+name = "dash-evo"
+description = "The evo layer the Rust Dash node and SPV share: Core's evo vocabulary types, the views LLMQ consensus reads through, the effect channel and the BLS scheme context. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_evo"
+path = "src/lib.rs"
+
+[features]
+# Builders for tests in this crate and its consumers: an in-memory block tree.
+test-utils = []
+# Models of Core's LLMQ caches (`llmq::reference`), for tests, harnesses and comparators only.
+reference = []
+# `VerifiedQuorum::reloaded`, which rebuilds a recorded `Verified` verdict without verifying: for
+# dash-mnlist's restart (D38) only (DEC-412). No other crate enables it.
+reload = []
+# `VerifiedQuorum::mined` and `ScannedQuorum::mined`, which take a mined commitment's key without
+# verifying it, as Core does: for dashd-chainstate's validation-accepted mined rows only
+# (OD-CP-2). No other crate enables it (tests/feature_gates.rs).
+mined = []
+
+[dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-num = { workspace = true, features = ["std"] }
+# The `ClSig` and `IsdLock` wire types `locks` verifies, and the `spork` wire type (`spork`).
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# `bls`: the scheme context (`BlsCtx`, `BlsSchemeKind`) the BLS module re-exports.
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+# `spork`: Core's `CPubKey::RecoverCompact` and `CKey::SignCompact`. The version is
+# dash-consensus's exact pin; `recovery` adds libsecp256k1's recovery module to that build and
+# changes nothing it already compiles (SP0 D-row).
+secp256k1 = { workspace = true, features = ["recovery"] }
+
+[dev-dependencies]
+criterion = "0.8.1"
+# tests/cbtx_root_history.rs reads the gzip JSONL dumps (SB7 acceptance).
+flate2 = "1.1"
+serde_json = "1.0"
+# tests/feature_gates.rs finds the workspace tables with TOML semantics.
+toml = "0.9"
+# tests/feature_gates.rs: the probe workspaces, outside the repository's.
+tempfile = "3"
+# benches/bls_core.rs: a seeded RNG for generate_contributions (dash-pkc's rand_core major).
+rand_core = "0.10"
+
+# PF0 measures production code: no self dev-dependency turns `test-utils` on in the benches; the
+# tests that need it require it (PROCESS.md, "benches measure production only").
+[[test]]
+name = "consumers"
+required-features = ["test-utils"]
+
+[[bench]]
+name = "sml_root"
+harness = false
+
+[[bench]]
+name = "bls_core"
+harness = false
