@@ -1,0 +1,18 @@
+[package]
+name = "integration_test"
+authors = ["Steven Roose <steven@stevenroose.org>"]
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+dashcore-rpc = { path = "../rpc-client" }
+lazy_static = "1.4.0"
+hex-conservative = { workspace = true }
+dotenvy = "0.15.7"
+tracing = "0.1"
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
