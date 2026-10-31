@@ -1,0 +1,49 @@
+{
+ "name": "a1a-devnet-min-difficulty-window-edge",
+ "description": "the same chain with -minimumdifficultyblocks=1151: the parent 1151 is past the window, so 1152 retargets: the minimum difficulty is refused (B1152 bad-diffbits) and Core's next bits are accepted (C1152)",
+ "rows": [
+  "A-1a/devnet"
+ ],
+ "network": "devnet",
+ "args": [
+  "-devnet=sb4",
+  "-highsubsidyblocks=500",
+  "-highsubsidyfactor=10",
+  "-minimumdifficultyblocks=1151"
+ ],
+ "check_block_index": false,
+ "ops": [
+  {
+   "op": "build",
+   "branch": "X",
+   "parent": "G",
+   "count": 1,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "DG",
+   "count": 1150,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A1151",
+   "count": 1,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A1151",
+   "count": 1,
+   "submit": "headers",
+   "bits": "next"
+  }
+ ]
+}
