@@ -1,0 +1,56 @@
+[package]
+name = "key-wallet-manager"
+description = "High-level wallet management for Dash (WalletManager, WalletInterface, events, compact filters)"
+edition = "2021"
+keywords = ["dash", "wallet", "manager", "spv"]
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+parallel-filters = ["dep:rayon"]
+serde = ["dep:serde", "key-wallet/serde", "dashcore/serde"]
+bincode = ["key-wallet/bincode", "dep:bincode"]
+test-utils = ["key-wallet/test-utils"]
+bls = ["key-wallet/bls"]
+eddsa = ["key-wallet/eddsa"]
+# Forward to `key-wallet/keep-finalized-transactions`. With this on,
+# every processed transaction (including chainlocked ones) stays in
+# the in-memory `transactions` map for the wallet's lifetime. With
+# it off (the default), records of chainlocked transactions are
+# dropped and only their txids are kept (in `finalized_txids`) for
+# dedup. See `key-wallet`'s feature documentation for details.
+keep-finalized-transactions = ["key-wallet/keep-finalized-transactions"]
+
+[dependencies]
+# `getrandom` is required, not optional: `create_wallet_with_random_mnemonic`
+# calls `Mnemonic::generate`, which without this feature compiles to a stub that
+# always returns an error. Workspace builds and the dev-dependency below both
+# enable it via feature unification, so dropping it here fails only for external
+# consumers — and only at runtime.
+key-wallet = { path = "../key-wallet", default-features = false, features = ["getrandom"] }
+dashcore = { path = "../dash" }
+async-trait = "0.1"
+tokio = { version = "1", features = ["macros", "rt", "sync"] }
+tracing = "0.1"
+zeroize = { workspace = true }
+hex-conservative = { workspace = true }
+rayon = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+key-wallet = { path = "../key-wallet", features = ["test-utils", "bincode"] }
+dashcore = { path = "../dash", features = ["test-utils"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+criterion = "0.8.1"
+
+[[bench]]
+name = "filter_scan"
+harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(bench)', 'cfg(fuzzing)'] }
