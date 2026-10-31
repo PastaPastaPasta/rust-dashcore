@@ -1,0 +1,7 @@
+# fp-v2off-in-v2: dashd /Dash Core:24.0.0/ (240000), regtest, fresh datadir, -mocktime=1700000000
+# args: -regtest -server -listen=1 -listenonion=0 -discover=0 -dnsseed=0 -fixedseeds=0 -upnp=0 -natpmp=0 -debug=net -logips -printtoconsole=0 -port=32020 -bind=127.0.0.1:32020 -mocktime=1700000000 -v2transport=0
+# O13a profile `v2off`.
+mocktime 1700000000
+ibd 1
+accept 1 v2
+< 1 closed

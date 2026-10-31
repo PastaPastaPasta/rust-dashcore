@@ -1,0 +1,29 @@
+[package]
+name = "rdash-cli"
+description = "rdash-cli: a byte-compatible port of Dash Core v24's dash-cli (JSON-RPC client, -getinfo, -netinfo, -addrinfo, -generate)"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "rdash_cli"
+
+[[bin]]
+name = "rdash-cli"
+path = "src/main.rs"
+
+[dependencies]
+dash-args = { path = "../dash-args" }
+dash-rpc-spec = { path = "../dash-rpc-spec" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+# Free ports for the nodes the xcli tests start, and ports nobody listens on (BL-221).
+node-test-ports = { path = "../node-test-ports" }
+tempfile = "3"
