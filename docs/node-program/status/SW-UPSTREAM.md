@@ -1,0 +1,19 @@
+# SW-UPSTREAM status log (DEC-973)
+
+Outcome lines only, newest last. Scope: weekly upstream sync, ADAPT-902, BS5-R re-pin, BL-553. Scratch: /work/scratch/sw-upstream (staging ADAPT-902-STEP2-STAGING.md; check logs logs/{step2,fix1,fix2,t56}).
+
+- 2026-10-31 05:29Z BS5-R re-pin (ADAPT-902 step 2) on node/sw-upstream-1030: head 161d41457 (signed).
+  - On 17ae8b305: 84b2bb812 (merge upstream e7d144feb, #1223), 865d79aa3 (re-pin 1976a145, quirk 46, pure-clippy stamp, rdc-gen-final.patch), 63e10b0a8 (R2), 183cf5787 (R6), 272141780 (R3–R5), 51d8357c1 (§2g bans P1–P6).
+  - Opus review (in-turn subagent) of 17ae8b305..51d8357c1 was APPROVE-WITH-CHANGES; the fixes are 9642e223b..dab051af4. An Opus re-review found no blocker or major; its lows went into fde6085e9. 631274cec: bs9 builds dash-pkc `portable`.
+  - 161d41457: follow-merge of node/integration f6e059506 (T56), 0 conflicts; the R2 script finds nothing in the T56 delta.
+  - Checks:
+    - Full workspace test at 51d8357c1: 8,335 passed; dashd_sync 38/38, FFI 7/7, dashd_masternode 11/11. The failures were dash-testkit (RDASHD_PATH unset in my script; rerun 31/31) and asserted_log_lines (fixed in dab051af4).
+    - At 161d41457: fmt, gate clippy, check-layers (+17 tests), base-sdk pins, dashd-chainstate, dashd-node, rdashd restart, cs2-diff/bs7/bs8/bs9/node-fuzz/spv-feature-off: all green. has-trims PASS. `cargo metadata --locked` OK for the root and 6 nested workspaces. Clean status.
+    - Not run: `node-l1 --test p2p_node` (needs `oracle`; clippy compiles it); dash-conformance after T56 (2 lines; disk under 200G).
+  - **Blocked: check-quirks** fails with "quirk 46: needs exactly one test, found 3". Fork 1976a145 `pkgs/params/tests/builder.rs` has 3 `quirk_46_*` fns (:438, :527, :543).
+- 2026-10-31 05:29Z OD-SW-UPSTREAM-1: fix quirk 46 on the fork, not in check-quirks. Rename the two extra tests (`quirk_46_cores_errors_come_first`, `quirk_46_ignored_options_start`) so that only the register's `quirk_46_llmq_overrides_outside_u16` keeps the prefix. Reason: the one-test-per-quirk rule is a bar (FR-CON-34), and loosening it would be E3.
+- 2026-10-31 05:29Z OD-SW-UPSTREAM-2: BL-553 lands as `cherry-pick -x` of upstream 29402a39 (#95: Cargo.lock + MODULE.bazel.lock, libz-sys 1.1.31) onto the fork, in the same round as OD-1, instead of a full merge of upstream develop (69 commits ahead). Reason: fork CI on the renamed head is then GREEN on its own, not under DEC-960's one-run exception. The full develop merge rides the next weekly sync.
+- 2026-10-31 05:29Z Plan: fork branch node/bsdk-sw-upstream-1031 off node/base-sdk 1976a145 (rename + #95) → local head comb → denylist → CI-S0 fork snapshot → GREEN → FF node/base-sdk, push node-sdk-integration + tag node-base-sdk-2026-10-31.2 → rdc bump-base-sdk.sh + check-quirks. In parallel: the two READY reviews (Opus-h, Sol) of 17ae8b305..161d41457 as fresh delegate_tasks.
+- 2026-10-31 05:33Z READY reviews r1 started on 161d41457 (fresh delegate_tasks: Opus 5.5 high, GPT-6.1-Sol high; brief /work/scratch/sw-upstream/reviews/BRIEF-bs5r-repin-r1.md; outputs reviews/r1-{opus,sol}.md).
+- 2026-10-31 05:33Z Fork round: worktree bsdk-wt/sw-upstream-1031, branch node/bsdk-sw-upstream-1031 off node/base-sdk 1976a145. 9c17cdff renames the two extra quirk-46 tests (OD-1). The cherry-pick -x -m 1 of 29402a39 (OD-2) is in progress: Cargo.lock applied; MODULE.bazel.lock needs `zglock` (bazel, scratch caches), held while /work is at 175G (stop line 190G).
+- 2026-10-31 05:38Z OD-SW-UPSTREAM-3 (CLERK disk request): freed 119G with rm-if-idle.sh. Deleted the build output of the four ADAPT-902 dense-scan copies (dense-scan/{drainf17,fix0a0,pre832,win17a}/target, 28+28+29+28G), plus pure-repro (4G, 10-29) and target-fork (2G, 10-28). The copies' source trees and their retain-*/run logs stay until the ADAPT-902 merge (DEC-959's keep rule), so a rerun needs only a rebuild. /work 172G → 245G.
