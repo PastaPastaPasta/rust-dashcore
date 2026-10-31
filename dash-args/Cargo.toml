@@ -1,0 +1,17 @@
+[package]
+name = "dash-args"
+description = "Dash Core's ArgsManager: dash.conf and settings.json parsing, chain selection, help and Core's option tables"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+bitcoin_hashes = { workspace = true, features = ["std"] }
+hex-conservative = { workspace = true }
+tempfile = "3"

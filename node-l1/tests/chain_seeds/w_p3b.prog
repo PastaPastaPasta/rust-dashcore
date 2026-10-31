@@ -1,0 +1,7 @@
+# W-P3b's Core half (O2b §6.3): the persisted image stores all three disconnected blocks
+# with BLOCK_FAILED_VALID.
+extend main 4
+flush always
+invalidate main@-2
+flush always
+restart kill
