@@ -1,0 +1,200 @@
+{
+ "mask": "non-mn",
+ "observer": true,
+ "pin": "v24.0",
+ "tests": {
+  "feature_asset_locks.py": {
+   "class": "unimplemented-option",
+   "detail": "-acceptnonstdtxn",
+   "status": "fail"
+  },
+  "feature_dip4_coinbasemerkleroots.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_evo_shares_activation.py": {
+   "class": "unimplemented-option",
+   "detail": "-persistmempool",
+   "status": "fail"
+  },
+  "feature_governance.py --descriptors": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_governance_cl.py --descriptors": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_governance_objects.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_chainlocks.py": {
+   "class": "unimplemented-option",
+   "detail": "-spentindex",
+   "status": "fail"
+  },
+  "feature_llmq_chainlocks_automatic.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_connections.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_data_recovery.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_dkg_intake.py": {
+   "class": "unimplemented-option",
+   "detail": "-watchquorums",
+   "status": "fail"
+  },
+  "feature_llmq_dkgerrors.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_evo.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_is_cl_conflicts.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_is_retroactive.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_rotation.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_signing.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_signing.py --spork21": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py --disable-spork23": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_llmq_singlenode.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_masternode_payout_shares.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "feature_masternode_shares.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "feature_mnehf.py": {
+   "class": "unimplemented-option",
+   "detail": "-persistmempool",
+   "status": "fail"
+  },
+  "feature_notifications.py": {
+   "class": "unimplemented-option",
+   "detail": "-instantsendnotify",
+   "status": "fail"
+  },
+  "feature_protx_version.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "interface_zmq_dash.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  },
+  "p2p_instantsend.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "p2p_platform_ban.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "p2p_quorum_data.py": {
+   "class": "unimplemented-option",
+   "detail": "-recovery",
+   "status": "fail"
+  },
+  "rpc_masternode.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "rpc_mnauth.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "rpc_net.py --v1transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_net.py --v2transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_quorum.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "rpc_verifychainlock.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_verifyislock.py": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "wallet_dash_rpcs.py --descriptors": {
+   "class": "allowed-diff",
+   "detail": "D18",
+   "status": "fail"
+  },
+  "wallet_dash_rpcs.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  }
+ }
+}
