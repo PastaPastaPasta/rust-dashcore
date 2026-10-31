@@ -1,0 +1,24 @@
+# The dash-params entry points that read the static chain tables (BS5-R §2g,
+# DEC-903, DEC-911). Node code reads its chain's parameters from the
+# `ChainSetup` the builder made, which applies -llmqtest*params,
+# -llmqdevnetparams and devnet names; where Core reads its static LLMQ table by
+# design, the node calls dash_params::available_params, which
+# contrib/node/check-layers.py's text rule P4 polices.
+#
+# The single source of these entries (check-layers.py P3):
+#   (a) `python3 contrib/node/check-layers.py params --write` writes each
+#       generated crate clippy.toml: the root clippy.toml with the entries
+#       below added to its disallowed-methods;
+#   (b) the hand-written crate configs (dash-coinjoin, dash-consensus,
+#       dash-dml, dash-evo, dash-llmq, dashd-chainstate) list each entry, with
+#       the same path and reason.
+# The root clippy.toml stays without them, so the upstream crates (dashcore,
+# dash-network, dash-spv) keep their static calls.
+disallowed-methods = [
+    # dash-params' static tables (BS5-R §2g; contrib/node/node-params-bans.toml).
+    { path = "dash_params::ConsensusParams::llmq", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::LlmqType::params", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::chain", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::consensus", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::addr", reason = "reads #83's static address parameters, whose `bech32_hrp` is wrong at V23_1; use `ChainSetup`'s `addr_params` and `platform_hrp`" },
+]
