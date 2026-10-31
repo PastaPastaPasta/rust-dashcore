@@ -1,0 +1,61 @@
+# Clippy bans for the SPV client library (V: SB0 §7, DEC-112 O5). V's CPU
+# work runs inside the pool its host injects (dash-spv's `CpuPool`, through
+# `install`), so rayon's global pool is never built; and V makes none of
+# blst's pooled calls (DEC-79), whose pool dash-spv-ffi also compiles out
+# (blst `no-threads`). Parallel iterators and joins run on the pool they are
+# called in, rayon's global one outside an install, so they are banned too: a
+# call inside `CpuPool::install` allows the lint and says so (SB13 D26).
+#
+# contrib/node/check-spv.sh merges this with the root clippy.toml, the blst
+# and dash-pkc entries of pure-clippy.toml (DEC-79's pooled calls, under the
+# same audit stamp) and the crate's own clippy.toml, and runs clippy with
+# these lints denied. `allow-invalid` keeps a crate without rayon quiet.
+
+disallowed-methods = [
+    { path = "rayon::ThreadPoolBuilder::build_global", reason = "V's CPU work runs in the host's CpuPool; rayon's global pool is never built (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn", reason = "outside a pool's install this starts rayon's global pool; use the CpuPool (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn_fifo", reason = "outside a pool's install this starts rayon's global pool; use the CpuPool (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn_broadcast", reason = "outside a pool's install this starts rayon's global pool; use the CpuPool (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::broadcast", reason = "outside a pool's install this starts rayon's global pool; use the CpuPool (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::current_num_threads", reason = "outside a pool's install this starts rayon's global pool; ask the CpuPool (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::join", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::join_context", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::scope", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::scope_fifo", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::in_place_scope", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::in_place_scope_fifo", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelIterator::into_par_iter", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelRefIterator::par_iter", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelRefMutIterator::par_iter_mut", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelBridge::par_bridge", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_chunks", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_chunks_exact", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_windows", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_chunks_mut", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by_key", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by_cached_key", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable_by", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable_by_key", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_chunks_exact_mut", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_rchunks_mut", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_rchunks", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_rchunks_exact", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_split", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelExtend::par_extend", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelDrainRange::par_drain", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelDrainFull::par_drain", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_chars", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_bytes", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_lines", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_split", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeat", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeatn", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeat_n", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::split", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree_prefix", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree_postfix", reason = "outside a pool's install this runs on rayon's global pool; call it inside CpuPool::install and allow it there (SB0 §7, DEC-112 O5)", allow-invalid = true },
+]
