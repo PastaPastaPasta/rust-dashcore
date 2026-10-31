@@ -1,0 +1,31 @@
+{
+ "name": "a29-vii-fresh-first-lock",
+ "description": "observed false, no CL, SPORK_19 just enabled: ProcessNewChainLock's first CheckActiveState resets the empty state, A100 is installed, the scheduled check keeps it",
+ "rows": [
+  "A-29(vii)",
+  "smoke"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  }
+ ]
+}
