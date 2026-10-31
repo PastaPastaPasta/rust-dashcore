@@ -1,0 +1,99 @@
+[package]
+name = "dashd-store"
+description = "Storage layer of the Rust Dash node: the RocksDB engine and block files over dash-kv's engine contract"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = ["rocksdb"]
+# The RocksDB engine. Crates that only need the codecs (e.g. `dash-coreimport`) turn it off.
+rocksdb = ["dep:rocksdb", "dep:librocksdb-sys"]
+# The `kv_model` differential test driver (used by tests and the fuzz target).
+model = ["dash-kv/model"]
+# `CoreUndoBytes::from_raw`: wrap raw bytes as Core's undo serialization (until CS5a).
+# Tests only (byte-identity tests against Core's files); never enable it in a normal dependency.
+raw-bytes = []
+# ST3a's power-loss model (`faulty`): `FaultyEngine`, `FaultyFlatFiles`, the explorer, the checks
+# and the toy systems under test. Tests and the fuzz target only; never a runtime dependency.
+faulty = ["dash-kv/faulty", "model", "raw-bytes"]
+
+[dependencies]
+bitcoin_hashes = { workspace = true, features = ["std"] }
+# CoreBytes (DEC-30 N3): runtime crates may depend on pure crates (A1 §2.1).
+dash-consensus = { path = "../dash-consensus" }
+# The engine contract, the in-memory engine, codecs and ST3a's model (SB10); re-exported here.
+dash-kv = { path = "../dash-kv" }
+libc = "0.2"
+thiserror = "2"
+tracing = "0.1"
+rocksdb = { version = "0.25", default-features = false, features = ["lz4", "zstd", "bindgen-runtime", "raw-ptr"], optional = true }
+# The same native library `rocksdb` links (column-family handles, write batches and writes).
+librocksdb-sys = { version = "0.19.0", default-features = false, optional = true }
+
+[dev-dependencies]
+criterion = "0.8.1"
+# The RocksDB engine's unit tests run the `kv_model` differential (as before the move, when
+# `model` was this crate's `cfg(test)` module). It adds a module, and no hook to engine code.
+dash-kv = { path = "../dash-kv", features = ["model"] }
+tempfile = "3"
+
+[[bench]]
+name = "flatfile"
+harness = false
+required-features = ["raw-bytes"]
+
+# ST3a's power-loss suites need the test-only `faulty` feature. A self dev-dependency would turn it
+# on in the benches too (PROCESS.md: benches measure production only), so each suite requires it
+# instead; the gate's feature-tests step runs them with `--features faulty`.
+[[test]]
+name = "power_loss_checkers"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp2"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp3"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp31"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp32"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp33"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_cp33_witness"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_deep"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_micro"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_model"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_phase_d"
+required-features = ["faulty"]
+
+[[test]]
+name = "power_loss_toy"
+required-features = ["faulty"]
