@@ -611,6 +611,35 @@ jobs:
           echo "skipped_lines=$(grep -ciE 'skipped|skipping' "$RUNNER_TEMP/test.log")" | tee -a "$METRICS"
           exit "$rc"
 
+      # rdashd's targets that require `test-hooks` alone (hooks; CH3b F01's f01_restart): no workspace
+      # resolve turns the feature on, so the test step above logs them as not run. They build with the
+      # shard's own packages and features plus `rdashd/test-hooks`: `-p rdashd` alone unifies third-party
+      # features differently and rebuilt 48 of them, RocksDB included (10 min, proof 41206013077). This
+      # way only the workspace crates that test-hooks reaches rebuild (dashd-chainstate and dependents).
+      # Last in the shard; the tests start cargo's own hooked rdashd (CARGO_BIN_EXE_rdashd), and
+      # f01_restart needs the v24 dashd above. `--test <name>` picks that name in every selected crate,
+      # so another shard crate's test of the same name fails the step (as the plan's targets_of check).
+      - name: rdashd test-hooks
+        if: ${{ matrix.shard == 'rdashd' && !cancelled() }}
+        env:
+          DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
+        run: |
+          meta=$(cargo metadata --locked --no-deps --format-version 1)
+          mapfile -t names < <(jq -r '.packages[] | select(.name == "rdashd") | .targets[]
+            | select(.kind[0] == "test" and .["required-features"] == ["test-hooks"]) | .name' <<< "$meta")
+          [ "${#names[@]}" -gt 0 ] || { echo "::error::no rdashd test target requires test-hooks"; exit 1; }
+          echo "rdashd test-hooks targets: ${names[*]}"
+          crates=$(sed -E 's/(^| )-p /\1/g' <<< "${{ matrix.packages }}")
+          clash=$(jq -r --arg crates "$crates" --args '($crates | split(" ")) as $c | [.packages[]
+            | select(.name != "rdashd" and (.name | IN($c[]))) | .name as $p | .targets[]
+            | select(.kind[0] == "test" and (.name | IN($ARGS.positional[]))) | "\($p)/\(.name)"] | join(" ")' \
+            "${names[@]}" <<< "$meta")
+          [ -z "$clash" ] || { echo "::error::another shard crate has a test of the same name: $clash"; exit 1; }
+          args=()
+          for n in "${names[@]}"; do args+=(--test "$n"); done
+          /usr/bin/time -f 'test_hooks_s=%e test_hooks_cpu_s=%U+%S' -a -o "$METRICS" \
+            cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} --features rdashd/test-hooks "${args[@]}"
+
       - name: clippy
         if: matrix.kind == 'clippy'
         run: |
