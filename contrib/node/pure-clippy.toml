@@ -1,0 +1,164 @@
+# Clippy bans for the libraries of the pure crates (A1 §1.5, X-1): the std
+# entry points to the file system, sockets, processes, threads and the clock.
+# Clippy cannot ban a whole module, so this lists the types and functions;
+# `Duration` stays allowed (the time is passed in as a value).
+#
+# blst runs the methods listed under "Threads in blst" on its own thread pool:
+# its build script enables `std`, and so the pool, on every hosted target, so
+# no feature turns it off short of `no-threads`. Pure crates reach blst through
+# dash-pkc, which re-exports it, so both blst's methods and dash-pkc's wrappers
+# around them are banned (DEC-68/71). The lists come from blst 0.3.17's
+# sources (`mt::da_pool` callers) and dash-pkc's. Clippy does not lint other
+# crates' bodies, so any blst or base SDK entry point that reaches them must
+# be added here. `allow-invalid` keeps crates without dash-pkc's BLS backend
+# quiet; selftest-checks.sh proves every entry resolves where it is present.
+#
+# dash-pkc's `bls::core` verifies as Core does with serial blst calls only
+# (Miller loops, the final exponentiation, hashing to G2 and point
+# arithmetic), so it is not banned: it is the verify pure crates call
+# (DEC-79).
+#
+# The audit stamp below names the blst release and the base SDK revision the
+# lists were last audited against (DEC-71/79). check-pure.sh fails when a pure
+# crate links another blst or the base SDK pin moves, until the lists are
+# re-audited and the stamp updated: diff the base SDK between the stamped and
+# the new revision for calls that reach blst's pool, in dash-pkc and in every
+# base SDK library a pure crate links.
+# audited: blst 0.3.17, base-sdk 1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a
+# contrib/node/check-pure.sh appends this to the root clippy.toml and points
+# CLIPPY_CONF_DIR at the result.
+
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order is not deterministic; consensus code uses BTreeMap or a sorted Vec (A1 §2.1)" },
+    { path = "std::collections::HashSet", reason = "iteration order is not deterministic; consensus code uses BTreeSet or a sorted Vec (A1 §2.1)" },
+    { path = "std::fs::File", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::OpenOptions", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::ReadDir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::DirBuilder", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::TcpStream", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::TcpListener", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::UdpSocket", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::os::unix::net::UnixStream", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::os::unix::net::UnixListener", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::os::unix::net::UnixDatagram", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::process::Command", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::time::SystemTime", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::time::Instant", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::thread::Builder", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::JoinHandle", reason = "pure crates are single-threaded (A1 X-1)" },
+    # Scoped threads and the thread pools of other crates.
+    { path = "std::thread::Scope", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::ScopedJoinHandle", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "threadpool::ThreadPool", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "threadpool::Builder", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "scoped_threadpool::Pool", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures::executor::ThreadPool", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures::executor::ThreadPoolBuilder", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures_executor::ThreadPool", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures_executor::ThreadPoolBuilder", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "crossbeam::thread::Scope", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "crossbeam_utils::thread::Scope", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+]
+
+disallowed-methods = [
+    { path = "std::fs::read", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::read_to_string", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::write", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::read_dir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::read_link", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::create_dir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::create_dir_all", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::remove_file", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::remove_dir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::remove_dir_all", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::copy", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::rename", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::hard_link", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::metadata", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::symlink_metadata", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::set_permissions", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::canonicalize", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::fs::exists", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::exists", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::try_exists", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::is_file", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::is_dir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::is_symlink", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::metadata", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::symlink_metadata", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::read_dir", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::read_link", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::path::Path::canonicalize", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::TcpStream::connect", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::TcpListener::bind", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::UdpSocket::bind", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::net::ToSocketAddrs::to_socket_addrs", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::os::unix::net::UnixStream::connect", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::os::unix::net::UnixListener::bind", reason = "pure crates do no I/O (A1 X-1)" },
+    { path = "std::time::SystemTime::now", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::time::SystemTime::elapsed", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::time::Instant::now", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::time::Instant::elapsed", reason = "pure crates take the time as a value (A1 X-1)" },
+    { path = "std::thread::spawn", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::scope", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::sleep", reason = "pure crates are single-threaded (A1 X-1)" },
+    # Scoped threads and the thread pools of other crates.
+    { path = "std::thread::Scope::spawn", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::Builder::spawn_scoped", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "std::thread::Builder::spawn_unchecked", reason = "pure crates are single-threaded (A1 X-1)" },
+    { path = "threadpool::ThreadPool::new", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "threadpool::ThreadPool::with_name", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "scoped_threadpool::Pool::new", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures::executor::ThreadPool::new", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "futures_executor::ThreadPool::new", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "crossbeam::scope", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "crossbeam::thread::scope", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    { path = "crossbeam_utils::thread::scope", reason = "pure crates are single-threaded (A1 X-1)", allow-invalid = true },
+    # Threads in blst: its methods that use the pool.
+    { path = "blst::min_pk::Signature::verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::Signature::aggregate_verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::Signature::fast_aggregate_verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::Signature::fast_aggregate_verify_pre_aggregated", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::Signature::verify_multiple_aggregate_signatures", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::AggregatePublicKey::aggregate_with_randomness", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_pk::AggregateSignature::aggregate_with_randomness", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::Signature::verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::Signature::aggregate_verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::Signature::fast_aggregate_verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::Signature::fast_aggregate_verify_pre_aggregated", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::Signature::verify_multiple_aggregate_signatures", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::AggregatePublicKey::aggregate_with_randomness", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::min_sig::AggregateSignature::aggregate_with_randomness", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::blst_fp12::miller_loop_n", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p1_affines::from", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p1_affines::mult", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p1_affines::add", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p2_affines::from", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p2_affines::mult", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::p2_affines::add", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::MultiPoint::mult", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::MultiPoint::add", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "blst::MultiPoint::validate", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    # Threads in blst: dash-pkc's wrappers that reach them (the IETF scheme's;
+    # clippy cannot tell a generic method's instances apart, so the serial
+    # Chia ones go too).
+    { path = "dash_pkc::bls::BlsPublicKey::verify_digest", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsPublicKey::verify_message", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsPublicKey::verify_with", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsPublicKey::verify_possession", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::fast_verify_aggregates_digest", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::fast_verify_aggregates_message", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::secure_verify_aggregates_digest", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::secure_verify_aggregates_message", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::verify_aggregates_digests", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsSignature::verify_aggregates_messages", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsScheme::verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsScheme::fast_verify_aggregates", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsScheme::secure_verify_aggregates", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_pkc::bls::BlsScheme::verify_aggregates", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    # Threads in blst: the base SDK trait whose BLS-signed impls reach them
+    # (dash-primitives' GovVoteBls, ProUpRevTx and ProUpServTx verify through
+    # dash-pkc); clippy names the trait method, so the ECDSA impls go too.
+    { path = "dash_types::Signable::verify", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+    { path = "dash_types::Signable::set_signature", reason = "runs on blst's thread pool; pure crates are single-threaded (A1 X-1, DEC-71)", allow-invalid = true },
+]
