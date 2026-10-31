@@ -1,0 +1,64 @@
+# Classes of the reachable relic and dashbls error sites that are not `caught` or
+# `no_memory` (throwsites.py; BS11a design §3.3, D65, D71). Columns: path (relic
+# sources and headers under src/dashbls/depends/relic, dashbls sources as
+# dashbls/<file>), line, class, and a note where the class's reason needs one.
+#
+# Why no normal input of an oracle op reaches a site of each class:
+# decode              ep*_read_bin and the fp/fp2 reads under it: the decode outcome
+#                     dashbls consumes and clears (D8)
+# fixed_length        dashbls and relic pass buffers and lengths fixed for the type
+# fixed_precondition  sizes in range, divisors r or curve constants, bit indices >= 0,
+#                     radix 16, fixed map lengths, SHA-256 inputs under 2^61 bytes
+# no_op_path          on a path no op takes inside its window
+# unreachable_arith   an arithmetic case the curve's parameters exclude
+dashbls/legacy.cpp	336	fixed_length	ep2_map_legacy length check: every caller hashes a 32-byte uint256
+src/bn/relic_bn_div.c	137	fixed_precondition
+src/bn/relic_bn_div.c	145	fixed_precondition
+src/bn/relic_bn_mem.c	46	fixed_precondition
+src/bn/relic_bn_mem.c	81	fixed_precondition
+src/bn/relic_bn_mem.c	133	fixed_precondition
+src/bn/relic_bn_rec.c	122	fixed_length
+src/bn/relic_bn_rec.c	154	fixed_length
+src/bn/relic_bn_util.c	124	fixed_precondition
+src/bn/relic_bn_util.c	317	fixed_precondition
+src/bn/relic_bn_util.c	478	fixed_length
+src/dv/relic_dv_util.c	59	fixed_precondition
+src/ep/relic_ep_map.c	93	fixed_precondition
+src/ep/relic_ep_util.c	243	decode
+src/ep/relic_ep_util.c	249	decode
+src/ep/relic_ep_util.c	266	decode
+src/ep/relic_ep_util.c	276	decode
+src/ep/relic_ep_util.c	282	decode
+src/ep/relic_ep_util.c	296	fixed_length
+src/ep/relic_ep_util.c	311	fixed_length
+src/ep/relic_ep_util.c	319	fixed_length
+src/epx/relic_ep2_map.c	106	fixed_precondition
+src/epx/relic_ep2_util.c	252	decode
+src/epx/relic_ep2_util.c	258	decode
+src/epx/relic_ep2_util.c	276	decode
+src/epx/relic_ep2_util.c	286	decode
+src/epx/relic_ep2_util.c	292	decode
+src/epx/relic_ep2_util.c	305	fixed_length
+src/epx/relic_ep2_util.c	319	fixed_length
+src/epx/relic_ep2_util.c	327	fixed_length
+src/fp/relic_fp_util.c	236	decode
+src/fp/relic_fp_util.c	246	decode
+src/fp/relic_fp_util.c	273	fixed_length
+src/fpx/relic_fpx_srt.c	83	unreachable_arith	fp2_srt: p = 3 mod 4 and the non-residue is -1, so the operand always has a root branch
+src/fpx/relic_fpx_srt.c	106	unreachable_arith	fp2_srt: p = 3 mod 4 and the non-residue is -1, so the operand always has a root branch
+src/fpx/relic_fpx_util.c	77	decode
+src/fpx/relic_fpx_util.c	102	fixed_length
+src/fpx/relic_fpx_util.c	111	fixed_length
+src/fpx/relic_fpx_util.c	274	no_op_path	fp6/fp12 read and write are GTElement serialization, which no op uses
+src/fpx/relic_fpx_util.c	284	no_op_path	fp6/fp12 read and write are GTElement serialization, which no op uses
+src/fpx/relic_fpx_util.c	453	no_op_path	fp6/fp12 read and write are GTElement serialization, which no op uses
+src/fpx/relic_fpx_util.c	481	no_op_path	fp6/fp12 read and write are GTElement serialization, which no op uses
+src/fpx/relic_fpx_util.c	490	no_op_path	fp6/fp12 read and write are GTElement serialization, which no op uses
+src/md/relic_md_sha256.c	47	fixed_precondition
+src/md/relic_md_sha256.c	51	fixed_precondition
+src/md/relic_md_sha256.c	55	fixed_precondition
+src/md/relic_md_xmd.c	48	fixed_precondition	a SHA-256 call fails only on a null pointer, an input over 2^61 bytes or input after the result
+src/md/relic_md_xmd.c	68	fixed_length	ep_map_dst and ep2_map_dst ask for 128 or 256 bytes under the scheme's constant tag
+src/rand/relic_rand_hashd.c	159	no_op_path	rand_bytes: key generation and init seeding, outside every window
+src/tmpl/relic_tmpl_map.h	231	unreachable_arith	SSWU: u is a non-square and g(x2) = u^3 t^6 g(x1), so g(x1) or g(x2) is a square
+src/tmpl/relic_tmpl_map.h	310	unreachable_arith	SvdW: one of g(x1), g(x2), g(x3) is a square for the curve's constants

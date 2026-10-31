@@ -1,0 +1,27 @@
+# ND1 F2, Sol round 1 — shutdown and signal drain
+
+**Verdict: CHANGES REQUIRED**
+
+Reviewed rust-dashcore `b618547f1` against Dash Core v24.0.0-rc.3 `0364ed626e` in detached worktrees.
+
+## Findings
+
+1. **Core abort parity is misstated.** `dashd-node/src/node.rs:503` skips each flush once `NodeAbort` sets `aborted`; `rdashd/tests/hooks.rs:61-72` calls this Core behavior. Core `src/shutdown.cpp:27-37` only sets exit 1 and requests shutdown. Its `src/init.cpp:379-385,449-455` calls both flushes whenever `CanFlushToDisk()` is true; `src/validation.h:564-568` defines that condition as the initialized coins cache, independent of the shutdown request. **Schedule:** complete initialization, then call `AbortNode`, then enter `Shutdown()`: Core attempts both flushes and exits 1, while rdashd attempts neither and exits 1. Either document an intentional divergence and change the parity claim/test, or align the behavior with Core; the current claim cannot stand.
+
+2. **A WAL flush failure currently exits successfully; D11(a) is already reachable.** `dashd-node/src/node.rs:499-512` counts the flush, logs an error and continues. `dashd-node/src/chainstate.rs:217-220` calls `sync_wal()`, and `dashd-store/src/rocks.rs:912-914` can return an I/O error; the guard latches that error (`dashd-chainstate/src/store/guarded.rs:238-270,350-352`). Core `src/validation.cpp:3089-3118,3122-3127` routes a failed forced flush through `AbortNode`; `src/shutdown.cpp:35-36` sets exit 1. **Schedule:** after clean init, the first shutdown `flush_wal(true)` fails; rdashd logs the error, attempts the second now-refused barrier, and exits 0, whereas Core records a failed flush and exits 1. The second call does not make the first failure safe to defer until 2b.
+
+3. **The new drain tests do not pin its placement in `Node::shutdown`.** The call under review is `dashd-node/src/node.rs:468-473`, corresponding to Core `src/init.cpp:354-360,378-390`. `dashd-node/src/chain/tests.rs:680-740` calls `Chain::drain_background_callbacks` directly; the hooks test at `rdashd/tests/hooks.rs:27-40` only checks flush/store markers. **Schedule:** queue a listener that waits on a test gate, start shutdown, and remove only the call at `node.rs:470`. Let shutdown pass its first flush, then release the listener to panic while `flush_background_callbacks` joins it. The first flush has run on a node that then aborts; with the barrier present, the listener panics before that flush can start. Both new chain tests still call the drain method, and the hooks test has no such listener. Verified: removing only `node.rs:470` in the detached checkout left the full dashd-node and hooks suites green. Add a shutdown-level regression that observes flush count and exit status for this schedule.
+
+## Other checks
+
+- On the current components, the clean sequence is V stop, signal barrier, first WAL sync, signal-thread stop, spork store, second WAL sync, coins drop. The Core-only governance, masternode and index teardown is not implemented here. D11(b) can wait for the real flush adapter: the current WAL-only stub emits no `ChainStateFlushed`, and there are no production listeners. D11(c) can wait: `Node` retains an opened chainstate before its attach step, while a failed open has no completed coins cache to flush. D11(a) cannot wait, for finding 2. The real adapter must preserve Core's first signal drain before the stores.
+- A queued listener panic is reported before the barrier disconnects, so the current `NodeAbort` latch is visible before the first flush. A panic while stopping the signal thread also precedes the second flush. V is joined before the barrier; its reaper does not need a signal-thread join. A listener that blocks forever can hold either implementation's drain forever; a listener that re-enqueues forever can keep Rust's stop drain and Core's `EmptyQueue()` busy forever (`dashd-chainstate/src/chain/signals/fifo.rs:104-150`; Core `src/scheduler.cpp:185-193`). These are listener liveness limits, not a new V/reaper deadlock.
+- When retained against a single-flush implementation, f9ada01ce's clean-stop assertions fail. Literal whole-commit reversions also remove their own tests, so implementation-only mutations are the useful check. The f611de35a/b618547f1 chain tests detect a broken `Chain::drain_background_callbacks` method, but do not detect removing its production call. Their 200 ms sleep is unnecessary for the FIFO barrier result; the expected result does not depend on overtaking the worker.
+
+## Validation
+
+- At `b618547f1`: `cargo test -p dashd-node` — exit 0; 112 unit tests passed, 1 ignored, 11 integration checks passed.
+- At `b618547f1`: `cargo test -p rdashd --test hooks` — exit 101 before building: Cargo requires the `test-hooks` feature for this target.
+- At `b618547f1`: `cargo test -p rdashd --features test-hooks --test hooks` — exit 0; 6 passed.
+- Implementation-only mutant: removed `chain.drain_background_callbacks()` from `Node::shutdown`, reran both full suites above with the required hooks feature; both exited 0 (112 + 11 and 6 passed). Restored the source and verified the detached worktree was clean.
+- The first cache-backed build and a later direct Rust build were deliberately interrupted while native compilation stalled under host load; the completed runs used the private target with `CC="ccache cc"`, `CXX="ccache c++"`, `RUSTC_WRAPPER=` and `CARGO_BUILD_JOBS=12`.
