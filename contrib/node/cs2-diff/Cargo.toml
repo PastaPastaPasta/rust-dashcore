@@ -1,0 +1,52 @@
+[package]
+name = "cs2-diff"
+description = "CS2's differential harness against Dash Core's in-process oracle: records dash-consensus/tests/data, runs the live differential and the mainnet/testnet header-history sweeps (CS2 §6). Test tooling; never a runtime dependency. Run it through run.sh."
+version = "0.0.0"
+edition = "2024"
+# Includes dash-consensus's test helpers (MIT, Dash Core ports).
+license = "MIT"
+publish = false
+
+# A workspace of its own, like node-fuzz, so `cargo test --workspace` never links the oracle
+# archives. It repeats the root's base-sdk [patch] table (and CS0's dash-pow), which run.sh
+# checks before every build.
+[workspace]
+
+[[bin]]
+name = "cs2-diff"
+path = "src/main.rs"
+test = false
+doc = false
+bench = false
+
+[dependencies]
+dash-consensus = { path = "../../../dash-consensus" }
+dash-core-vectors = { path = "../../../test-vectors" }
+dash-num = { git = "https://github.com/dashpay/base-sdk", rev = "addedfa16a56c77f435b41804cd2c0668b776e97", default-features = false, features = ["std"] }
+dash-oracle-sys = { path = "../../../dash-oracle-sys", features = ["oracle"] }
+dash-params = { git = "https://github.com/dashpay/base-sdk", rev = "addedfa16a56c77f435b41804cd2c0668b776e97", default-features = false, features = ["std"] }
+# X11, to check that a header dump links (sweep.rs)
+dash-pow = { git = "https://github.com/dashpay/base-sdk", rev = "addedfa16a56c77f435b41804cd2c0668b776e97", default-features = false }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "addedfa16a56c77f435b41804cd2c0668b776e97", default-features = false, features = ["std"] }
+# SHA-256, to identify a header dump (sweep.rs)
+dash-sha256 = { path = "../../../dash-sha256" }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "addedfa16a56c77f435b41804cd2c0668b776e97", default-features = false, features = ["codec", "std"] }
+serde_json = "1.0"
+
+[profile.release]
+debug-assertions = true
+overflow-checks = true
+
+# X11 over a whole dump: base-sdk's tested code, not under test here
+[profile.release.package.dash-pow]
+debug-assertions = false
+overflow-checks = false
+
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "1eda0100802ce5f4b8d3ef1c011c74c39e76ea0a" }
