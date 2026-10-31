@@ -1,0 +1,11 @@
+# MicroLog planted bug P8 (ST3a §6.1), minimised in 53 replays.
+harness st3a/1
+sut microlog
+config bug=P8 max=1024
+workload a300:1;a300:2;c;a300:3;a300:4;c;s
+crash 22 power-loss
+decide 1:fs:i3:u2=1
+adversary realistic
+granularity sector
+expect R1
+minimality verified

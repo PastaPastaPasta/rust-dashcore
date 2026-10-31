@@ -1,0 +1,64 @@
+{
+ "name": "hx1-bad-chainlock-then-connect",
+ "description": "B86..B110 headers (fork A85) known before a lock on header-only A100 while A90 is the tip: enforcement's walk stops at A90, so B86 stays unmarked; B's data makes ConnectTip(B86) fail bad-chainlock (HasConflictingChainLock, occurrence 1); B111's header takes the lazy m_failed_blocks walk; a lock on B110 resets the failure flags and the same B86 bytes connect (occurrence 2)",
+ "rows": [
+  "HX1-X1"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 90,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A90",
+   "count": 10,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A85",
+   "count": 25,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "B86..B110"
+   ]
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "B110",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "cl",
+   "block": "B110"
+  }
+ ]
+}
