@@ -1,0 +1,33 @@
+{
+ "name": "r2m2-first-lock-seed-order",
+ "description": "the order R2-M2 rejected (record, then check): the check resets and erases A100 (contrast a29-vii-fresh-first-lock)",
+ "rows": [
+  "R2-M2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "seed-cl",
+   "block": "A100"
+  },
+  {
+   "op": "check-active-state"
+  }
+ ]
+}

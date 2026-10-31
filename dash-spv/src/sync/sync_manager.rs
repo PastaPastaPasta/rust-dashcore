@@ -1,0 +1,622 @@
+use crate::error::SyncResult;
+use crate::network::{Message, MessageType, NetworkEvent, RequestSender};
+use crate::sync::{
+    BlockHeadersProgress, BlocksProgress, ChainLockProgress, FilterHeadersProgress,
+    FiltersProgress, InstantSendProgress, ManagerIdentifier, MasternodesProgress, MempoolProgress,
+    SyncEvent, SyncState,
+};
+use async_trait::async_trait;
+
+use crate::SyncError;
+
+/// Contains a trait for event-driven sync managers.
+///
+/// Each manager is responsible for a specific sync task (headers, filters, blocks, etc.)
+/// and communicates with other managers via events. Managers progress independently and
+/// catch up to each other as events flow between them.
+use std::time::Duration;
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::watch;
+use tokio::time::interval;
+use tokio_util::sync::CancellationToken;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SyncManagerProgress {
+    BlockHeaders(BlockHeadersProgress),
+    FilterHeaders(FilterHeadersProgress),
+    Filters(FiltersProgress),
+    Blocks(BlocksProgress),
+    Masternodes(MasternodesProgress),
+    ChainLock(ChainLockProgress),
+    InstantSend(InstantSendProgress),
+    Mempool(MempoolProgress),
+}
+
+impl SyncManagerProgress {
+    pub fn state(&self) -> SyncState {
+        match self {
+            SyncManagerProgress::BlockHeaders(progress) => progress.state(),
+            SyncManagerProgress::FilterHeaders(progress) => progress.state(),
+            SyncManagerProgress::Filters(progress) => progress.state(),
+            SyncManagerProgress::Blocks(progress) => progress.state(),
+            SyncManagerProgress::Masternodes(progress) => progress.state(),
+            SyncManagerProgress::ChainLock(progress) => progress.state(),
+            SyncManagerProgress::InstantSend(progress) => progress.state(),
+            SyncManagerProgress::Mempool(progress) => progress.state(),
+        }
+    }
+}
+
+pub struct SyncManagerTaskContext {
+    pub(super) message_receiver: UnboundedReceiver<Message>,
+    pub(super) sync_event_sender: broadcast::Sender<SyncEvent>,
+    pub(super) network_event_receiver: broadcast::Receiver<NetworkEvent>,
+    pub(super) requests: RequestSender,
+    pub(super) shutdown: CancellationToken,
+    pub(super) progress_sender: watch::Sender<SyncManagerProgress>,
+}
+
+impl SyncManagerTaskContext {
+    pub(super) fn emit_sync_event(&self, event: SyncEvent) {
+        let _ = self.sync_event_sender.send(event);
+    }
+    pub(super) fn emit_sync_events(&self, events: impl IntoIterator<Item = SyncEvent>) {
+        for event in events {
+            self.emit_sync_event(event);
+        }
+    }
+}
+
+/// Guard that verifies a manager has not already been started.
+pub(super) fn ensure_not_started(
+    state: SyncState,
+    identifier: ManagerIdentifier,
+) -> SyncResult<()> {
+    if state != SyncState::WaitingForConnections {
+        tracing::warn!("{} sync already started.", identifier);
+        return Err(SyncError::SyncInProgress(identifier));
+    }
+    Ok(())
+}
+
+#[async_trait]
+pub trait SyncManager: Send + Sync + std::fmt::Debug {
+    /// Get the unique identifier for this manager.
+    fn identifier(&self) -> ManagerIdentifier;
+
+    /// Get the manager's sync state.
+    fn state(&self) -> SyncState;
+
+    /// Update the manager's sync state.
+    fn set_state(&mut self, state: SyncState);
+
+    /// Update the target height for this manager.
+    fn update_target_height(&mut self, _height: u32) {}
+
+    /// Message types this manager subscribes to for topic-based routing.
+    ///
+    /// The network manager uses this to route only relevant messages to each
+    /// manager's task via topic-based filtering.
+    fn wanted_message_types(&self) -> &'static [MessageType];
+
+    /// Start the sync process.
+    ///
+    /// Called after initialization to trigger the initial sync requests.
+    /// For example, BlockHeadersManager sends its first getheaders request here.
+    /// The default implementation is for reactive managers that just wait for events.
+    async fn start_sync(&mut self, _requests: &RequestSender) -> SyncResult<Vec<SyncEvent>> {
+        ensure_not_started(self.state(), self.identifier())?;
+        self.set_state(SyncState::WaitForEvents);
+        Ok(vec![SyncEvent::SyncStart {
+            identifier: self.identifier(),
+        }])
+    }
+
+    /// Stop the internal processing.
+    /// Called when the network manager loses its peers.
+    fn stop_sync(&mut self) {
+        self.set_state(SyncState::WaitingForConnections);
+        self.on_disconnect();
+    }
+
+    /// Drop peer-bound in-flight state on disconnect.
+    ///
+    /// Each manager keeps as much progress as it can across a disconnect, and
+    /// only invalidates state that was tied to the now-dead peer. Anything
+    /// derivable from durable storage (block headers, filter headers, the
+    /// masternode engine) or from preserved per-batch bookkeeping should
+    /// survive so reconnect resumes instead of restarting.
+    ///
+    /// `BlocksManager` and `FiltersManager` go further and requeue their
+    /// in-flight network slots so the next `send_pending` reissues them
+    /// immediately to the new peer.
+    fn on_disconnect(&mut self);
+
+    /// Requeue in-flight work after a single peer drops while others remain.
+    ///
+    /// Distinct from [`SyncManager::on_disconnect`], which runs only once every
+    /// peer is gone and is therefore free to discard peer-bound state wholesale.
+    /// Here the surviving peers can still serve the work, so an implementation
+    /// must requeue and nothing else.
+    ///
+    /// In-flight items carry no peer attribution, so an implementation requeues
+    /// everything outstanding, including requests a healthy peer is still going
+    /// to answer. Retry counts survive a requeue and every receive path treats a
+    /// response it no longer tracks as unrequested, so the cost is redundant
+    /// traffic rather than lost work or a corrupted retry budget.
+    fn on_peer_disconnect(&mut self) {}
+
+    /// Handle an incoming network message.
+    ///
+    /// Returns events to emit to other managers.
+    async fn handle_message(
+        &mut self,
+        msg: Message,
+        requests: &RequestSender,
+    ) -> SyncResult<Vec<SyncEvent>>;
+
+    /// Handle a sync event from another manager.
+    ///
+    /// This is how managers learn about progress from other managers.
+    /// For example, `FilterHeadersManager` subscribes to `BlockHeadersStored`
+    /// events to know when new headers are available.
+    async fn handle_sync_event(
+        &mut self,
+        event: &SyncEvent,
+        requests: &RequestSender,
+    ) -> SyncResult<Vec<SyncEvent>>;
+
+    /// Periodic tick for timeouts, retries, and proactive work.
+    ///
+    /// Called regularly by the coordinator (e.g., every 100ms).
+    /// Use this for:
+    /// - Timeout detection and retry logic
+    /// - Proactive request sending
+    /// - State cleanup
+    async fn tick(&mut self, requests: &RequestSender) -> SyncResult<Vec<SyncEvent>>;
+
+    /// Handle a network event (peer connection changes).
+    ///
+    /// Default implementation handles state transitions for WaitingForConnections.
+    /// Managers can override to customize behavior.
+    async fn handle_network_event(
+        &mut self,
+        event: &NetworkEvent,
+        requests: &RequestSender,
+    ) -> SyncResult<Vec<SyncEvent>> {
+        match event {
+            // `PeersUpdated` carries only the surviving count, so a drop that
+            // leaves other peers connected is invisible there. `PeerDisconnected`
+            // precedes it for every removal path and is what makes the drop
+            // observable at all.
+            NetworkEvent::PeerDisconnected {
+                ..
+            } => self.on_peer_disconnect(),
+            // Default: transition from WaitingForConnections to Syncing when peers connect
+            NetworkEvent::PeersUpdated {
+                connected_count,
+                best_height,
+                ..
+            } => {
+                if let Some(best_height) = best_height {
+                    self.update_target_height(*best_height);
+                }
+                if *connected_count == 0 {
+                    tracing::info!("{} - no peers available, stopping sync", self.identifier());
+                    self.stop_sync();
+                } else if *connected_count > 0 && self.state() == SyncState::WaitingForConnections {
+                    tracing::info!(
+                        "{} - peers available ({}), starting sync",
+                        self.identifier(),
+                        connected_count
+                    );
+                    return self.start_sync(requests).await;
+                }
+            }
+            NetworkEvent::PeerConnected {
+                ..
+            } => {}
+        }
+        Ok(vec![])
+    }
+
+    /// Retrieves the current progress of the Manager.
+    fn progress(&self) -> SyncManagerProgress;
+
+    fn try_emit_progress(
+        &self,
+        progress_before: SyncManagerProgress,
+        progress_sender: &watch::Sender<SyncManagerProgress>,
+    ) {
+        let progress_now = self.progress();
+        if progress_now != progress_before {
+            let _ = progress_sender.send(progress_now);
+        }
+    }
+
+    /// Run the manager task, processing messages, events, and periodic ticks.
+    ///
+    /// This consumes the manager and runs until shutdown is signaled.
+    async fn run(mut self, mut context: SyncManagerTaskContext) -> SyncResult<ManagerIdentifier>
+    where
+        Self: Sized,
+    {
+        let identifier = self.identifier();
+        tracing::info!("{} task starting", identifier);
+
+        let mut sync_event_receiver = context.sync_event_sender.subscribe();
+
+        // Tick interval for periodic housekeeping
+        let mut tick_interval = interval(Duration::from_millis(100));
+
+        tracing::info!("{} task entering main loop", identifier);
+
+        loop {
+            tokio::select! {
+                _ = context.shutdown.cancelled() => {
+                    tracing::info!("{} task received shutdown signal", identifier);
+                    break;
+                }
+                // Process incoming network messages
+                Some(message) = context.message_receiver.recv() => {
+                    tracing::trace!("{} received message: {}", identifier, message.cmd());
+                    let progress_before = self.progress();
+                    match self.handle_message(message, &context.requests).await {
+                        Ok(events) => {
+                            if !events.is_empty() {
+                                for event in &events {
+                                    tracing::debug!("{} emitting: {}", identifier, event);
+                                }
+                                context.emit_sync_events(events);
+                            }
+                            self.try_emit_progress(progress_before, &context.progress_sender);
+                        }
+                        Err(e) => {
+                            tracing::error!("{} error handling message: {}", identifier, e);
+                            let error_event = SyncEvent::ManagerError {
+                                manager: identifier,
+                                error: e.to_string(),
+                            };
+                            context.emit_sync_event(error_event);
+                        }
+                    }
+                }
+                // Process events from other managers
+                result = sync_event_receiver.recv() => {
+                    match result {
+                        Ok(event) => {
+                            tracing::trace!("{} received event: {}", identifier, event);
+                            let progress_before = self.progress();
+                            match self.handle_sync_event(&event, &context.requests).await {
+                                Ok(events) => {
+                                    if !events.is_empty() {
+                                        for e in &events {
+                                            tracing::trace!("{} emitting: {}", identifier, e);
+                                        }
+                                        context.emit_sync_events(events);
+                                    }
+                                    self.try_emit_progress(progress_before, &context.progress_sender);
+                                }
+                                Err(e) => {
+                                    tracing::error!("{} error handling event: {}", identifier, e);
+                                }
+                            }
+                        }
+                        // A lag while shutting down loses nothing that matters.
+                        Err(RecvError::Lagged(_)) if context.shutdown.is_cancelled() => break,
+                        Err(RecvError::Lagged(skipped)) => {
+                            return Err(lagged(identifier, "sync event", skipped));
+                        }
+                        Err(RecvError::Closed) => {
+                            tracing::error!("{} sync event channel closed", identifier);
+                            break;
+                        }
+                    }
+                }
+                // Process network events
+                result = context.network_event_receiver.recv() => {
+                    match result {
+                        Ok(event) => {
+                            tracing::debug!("{} received network event: {}", identifier, event);
+                            let progress_before = self.progress();
+                            match self.handle_network_event(&event, &context.requests).await {
+                                Ok(events) => {
+                                    if !events.is_empty() {
+                                        for e in &events {
+                                            tracing::debug!("{} emitting: {}", identifier, e);
+                                        }
+                                        context.emit_sync_events(events);
+                                    }
+                                    self.try_emit_progress(progress_before, &context.progress_sender);
+                                }
+                                Err(e) => {
+                                    tracing::error!("{} error handling network event: {}", identifier, e);
+                                }
+                            }
+                        }
+                        // A lag while shutting down loses nothing that matters.
+                        Err(RecvError::Lagged(_)) if context.shutdown.is_cancelled() => break,
+                        Err(RecvError::Lagged(skipped)) => {
+                            return Err(lagged(identifier, "network event", skipped));
+                        }
+                        Err(RecvError::Closed) => {
+                            tracing::error!("{} network event channel closed", identifier);
+                            break;
+                        }
+                    }
+                }
+                // Periodic tick for timeouts and housekeeping
+                _ = tick_interval.tick() => {
+                    let progress_before = self.progress();
+                    match self.tick(&context.requests).await {
+                        Ok(events) => {
+                            if !events.is_empty() {
+                                context.emit_sync_events(events);
+                            }
+                            self.try_emit_progress(progress_before, &context.progress_sender);
+                        }
+                        Err(e) => {
+                            tracing::error!("{} tick error: {}", identifier, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        tracing::info!("{} task exiting", identifier);
+        Ok(identifier)
+    }
+}
+
+/// The error a task returns when it falls behind a broadcast channel. The
+/// skipped events are gone, and managers rely on seeing every one of them
+/// (the disconnect count behind `BlockHeaderSyncComplete::connection_epoch`,
+/// for one), so the task stops with an error the coordinator reports instead
+/// of carrying on with a view that silently diverged.
+fn lagged(identifier: ManagerIdentifier, channel: &str, skipped: u64) -> SyncError {
+    tracing::error!("{} fell {} events behind the {} channel", identifier, skipped, channel);
+    SyncError::InvalidState(format!(
+        "{} fell {} events behind the {} channel",
+        identifier, skipped, channel
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::network::NetworkRequest;
+    use crate::sync::BlockHeadersProgress;
+    use crate::sync::SyncState;
+    use crate::test_utils::test_socket_address;
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    use tokio::sync::{broadcast, mpsc};
+
+    /// Mock manager for testing the task runner.
+    struct MockManager {
+        identifier: ManagerIdentifier,
+        state: SyncState,
+        message_count: Arc<AtomicU32>,
+        event_count: Arc<AtomicU32>,
+        tick_count: Arc<AtomicU32>,
+        /// Stands in for the destructive state a total-loss `on_disconnect`
+        /// throws away.
+        progress_kept: bool,
+        requeue_count: u32,
+    }
+
+    impl MockManager {
+        fn new(state: SyncState) -> Self {
+            Self {
+                identifier: ManagerIdentifier::BlockHeader,
+                state,
+                message_count: Arc::new(AtomicU32::new(0)),
+                event_count: Arc::new(AtomicU32::new(0)),
+                tick_count: Arc::new(AtomicU32::new(0)),
+                progress_kept: true,
+                requeue_count: 0,
+            }
+        }
+    }
+
+    impl std::fmt::Debug for MockManager {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("MockManager").field("identifier", &self.identifier).finish()
+        }
+    }
+
+    #[async_trait]
+    impl SyncManager for MockManager {
+        fn identifier(&self) -> ManagerIdentifier {
+            self.identifier
+        }
+
+        fn state(&self) -> SyncState {
+            self.state
+        }
+
+        fn set_state(&mut self, state: SyncState) {
+            self.state = state;
+        }
+
+        fn wanted_message_types(&self) -> &'static [MessageType] {
+            &[]
+        }
+
+        fn on_disconnect(&mut self) {
+            self.progress_kept = false;
+        }
+
+        fn on_peer_disconnect(&mut self) {
+            self.requeue_count += 1;
+        }
+
+        async fn handle_message(
+            &mut self,
+            _msg: Message,
+            _requests: &RequestSender,
+        ) -> SyncResult<Vec<SyncEvent>> {
+            self.message_count.fetch_add(1, Ordering::Relaxed);
+            Ok(vec![])
+        }
+
+        async fn handle_sync_event(
+            &mut self,
+            _event: &SyncEvent,
+            _requests: &RequestSender,
+        ) -> SyncResult<Vec<SyncEvent>> {
+            self.event_count.fetch_add(1, Ordering::Relaxed);
+            Ok(vec![])
+        }
+
+        async fn tick(&mut self, _requests: &RequestSender) -> SyncResult<Vec<SyncEvent>> {
+            self.tick_count.fetch_add(1, Ordering::Relaxed);
+            Ok(vec![])
+        }
+
+        fn progress(&self) -> SyncManagerProgress {
+            let mut progress = BlockHeadersProgress::default();
+            progress.set_state(self.state);
+            SyncManagerProgress::BlockHeaders(progress)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_manager_task_shutdown() {
+        let manager = MockManager::new(SyncState::WaitForEvents);
+        let tick_count = manager.tick_count.clone();
+
+        // Create channels
+        let (_, message_receiver) = mpsc::unbounded_channel();
+        let sync_event_sender = broadcast::Sender::<SyncEvent>::new(100);
+        let network_event_sender = broadcast::Sender::<NetworkEvent>::new(100);
+        let (req_tx, _req_rx) = mpsc::unbounded_channel::<NetworkRequest>();
+        let requests = RequestSender::new(req_tx);
+        let shutdown = CancellationToken::new();
+        let (progress_sender, _progress_rx) = watch::channel(manager.progress());
+
+        let context = SyncManagerTaskContext {
+            message_receiver,
+            sync_event_sender,
+            network_event_receiver: network_event_sender.subscribe(),
+            requests,
+            shutdown: shutdown.clone(),
+            progress_sender,
+        };
+
+        // Spawn the task using trait's run method
+        let handle = tokio::spawn(async move { manager.run(context).await });
+
+        // Let it run for a bit
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Signal shutdown
+        shutdown.cancel();
+
+        // Wait for task to complete
+        let result = handle.await.unwrap();
+        assert!(result.is_ok());
+
+        // Verify the returned identifier matches
+        assert_eq!(result.unwrap(), ManagerIdentifier::BlockHeader);
+
+        // Verify tick was called multiple times
+        assert!(tick_count.load(Ordering::Relaxed) > 0);
+    }
+
+    /// A context whose network-event receiver has already lagged behind a
+    /// capacity-1 channel, plus the shutdown token.
+    fn lagged_context(manager: &MockManager) -> (SyncManagerTaskContext, CancellationToken) {
+        let (_, message_receiver) = mpsc::unbounded_channel();
+        let network_event_sender = broadcast::Sender::<NetworkEvent>::new(1);
+        let network_event_receiver = network_event_sender.subscribe();
+        for _ in 0..2 {
+            network_event_sender
+                .send(NetworkEvent::PeerConnected {
+                    address: test_socket_address(1),
+                })
+                .unwrap();
+        }
+        let (req_tx, _req_rx) = mpsc::unbounded_channel::<NetworkRequest>();
+        let shutdown = CancellationToken::new();
+        let (progress_sender, _progress_rx) = watch::channel(manager.progress());
+        let context = SyncManagerTaskContext {
+            message_receiver,
+            sync_event_sender: broadcast::Sender::<SyncEvent>::new(100),
+            network_event_receiver,
+            requests: RequestSender::new(req_tx),
+            shutdown: shutdown.clone(),
+            progress_sender,
+        };
+        (context, shutdown)
+    }
+
+    /// Events a task skipped are gone, and managers depend on seeing every one
+    /// (the disconnect counts behind `connection_epoch`), so a lag ends the
+    /// task with an error the coordinator reports, not with `Ok`.
+    #[tokio::test]
+    async fn test_lagged_network_events_end_the_task_with_an_error() {
+        let manager = MockManager::new(SyncState::WaitForEvents);
+        let (context, _shutdown) = lagged_context(&manager);
+        let result = manager.run(context).await;
+        assert!(
+            matches!(&result, Err(SyncError::InvalidState(message)) if message.contains("behind")),
+            "{result:?}"
+        );
+    }
+
+    /// During shutdown a lag is not an error. Shutdown and the lag are both
+    /// ready and `select!` picks at random, so repeat it.
+    #[tokio::test]
+    async fn test_lag_during_shutdown_is_not_an_error() {
+        for _ in 0..50 {
+            let manager = MockManager::new(SyncState::WaitForEvents);
+            let (context, shutdown) = lagged_context(&manager);
+            shutdown.cancel();
+            let result = manager.run(context).await;
+            assert!(matches!(result, Ok(ManagerIdentifier::BlockHeader)), "{result:?}");
+        }
+    }
+
+    /// Losing one peer of several must reach the requeue hook and leave the
+    /// destructive total-loss hook alone. Only the final `PeersUpdated` with a
+    /// zero count is allowed to discard progress.
+    #[tokio::test]
+    async fn test_peer_disconnect_requeues_without_dropping_progress() {
+        let mut manager = MockManager::new(SyncState::Syncing);
+        let (req_tx, _req_rx) = mpsc::unbounded_channel::<NetworkRequest>();
+        let requests = RequestSender::new(req_tx);
+
+        let disconnect = NetworkEvent::PeerDisconnected {
+            address: test_socket_address(1),
+        };
+        let survivors = NetworkEvent::PeersUpdated {
+            connected_count: 2,
+            addresses: vec![test_socket_address(2), test_socket_address(3)],
+            best_height: Some(1000),
+        };
+
+        manager.handle_network_event(&disconnect, &requests).await.unwrap();
+        manager.handle_network_event(&survivors, &requests).await.unwrap();
+
+        assert_eq!(manager.requeue_count, 1);
+        assert!(manager.progress_kept);
+        assert_eq!(manager.state(), SyncState::Syncing);
+
+        // The last peer going away still runs the destructive hook.
+        let no_peers = NetworkEvent::PeersUpdated {
+            connected_count: 0,
+            addresses: vec![],
+            best_height: Some(1000),
+        };
+        manager.handle_network_event(&disconnect, &requests).await.unwrap();
+        manager.handle_network_event(&no_peers, &requests).await.unwrap();
+
+        assert_eq!(manager.requeue_count, 2);
+        assert!(!manager.progress_kept);
+        assert_eq!(manager.state(), SyncState::WaitingForConnections);
+    }
+}

@@ -1,0 +1,45 @@
+{
+ "name": "a18-invalidate-walkback",
+ "description": "InvalidateBlock on a header-only best header and on the active chain; ReconsiderBlock",
+ "rows": [
+  "A-18"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A95",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "invalidate",
+   "block": "B105"
+  },
+  {
+   "op": "invalidate",
+   "block": "A99"
+  },
+  {
+   "op": "reconsider",
+   "block": "A99"
+  },
+  {
+   "op": "reconsider",
+   "block": "B105"
+  }
+ ]
+}
