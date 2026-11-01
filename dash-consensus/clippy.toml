@@ -1,0 +1,126 @@
+# Clippy reads the nearest clippy.toml and does not merge it with the root one,
+# so this repeats the root's contents (msrv and the Block::merkle ban) and the
+# determinism bans of contrib/node/pure-clippy.toml, and adds this crate's own.
+# contrib/node/check-pure.sh merges the root file, pure-clippy.toml and this
+# file, and makes all of them forbid-level.
+msrv = "1.89"
+
+# Determinism (A1 §2.1): consensus code uses BTreeMap/BTreeSet or a sorted Vec.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order is not deterministic; consensus code uses BTreeMap or a sorted Vec (A1 §2.1)" },
+    { path = "std::collections::HashSet", reason = "iteration order is not deterministic; consensus code uses BTreeSet or a sorted Vec (A1 §2.1)" },
+    # Purity (A1 X-1). pure-clippy.toml carries these for check-pure.sh; repeated here so that a
+    # plain `cargo clippy` enforces them for this crate too (CS1).
+    { path = "std::time::SystemTime", reason = "consensus code takes the time as a value (A1 X-1)" },
+    { path = "std::time::Instant", reason = "consensus code takes the time as a value (A1 X-1)" },
+    { path = "std::fs::File", reason = "consensus code does no I/O (A1 X-1)" },
+    { path = "std::net::TcpStream", reason = "consensus code does no I/O (A1 X-1)" },
+    { path = "std::net::UdpSocket", reason = "consensus code does no I/O (A1 X-1)" },
+]
+
+# The sole consensus encoder (A1 §1.3): bytes come from core_serialize and hashes
+# from the Tx/Header/Block wrappers, never from base-sdk's encoders.
+#
+# No libm anywhere in dash-consensus (CS2 §2.2). Core's consensus floating point
+# calls libm's pow twice: the subsidy's pow(x, 2.0), which every release build
+# compiles to one multiplication, and KGW's pow(m / 28.2, -1.228), which `fp`
+# replaces with a table of correctly rounded values. So the port needs only IEEE
+# + - * / and comparisons, which are bit-exact on every target; a libm result
+# depends on the platform's libm, and a fused multiply-add rounds once where
+# Core's x86_64 build rounds twice. Rounding methods (floor, ceil, round, trunc,
+# fract) are libm calls on x86_64 without SSE4.1; a float `%` is libm's fmod:
+# the trait methods are banned here, the operator by tests/fp_confinement.rs,
+# and contrib/node/check-no-libm.sh finds any libm call in the compiled crate.
+disallowed-methods = [
+    { path = "dash_primitives::Block::merkle", reason = "consensus hashes come from dash-consensus (Block::merkle(rules)), not base-sdk's encoder (A1 §1.3)" },
+    { path = "dash_types::codec::BaseCodec::encode", reason = "consensus bytes come from core_serialize (A1 §1.3)" },
+    { path = "dash_types::Hashable::hash", reason = "consensus hashes come from the Tx/Header/Block wrappers (A1 §1.3)" },
+    { path = "std::env::var", reason = "consensus code does not read the environment" },
+    { path = "std::env::var_os", reason = "consensus code does not read the environment" },
+    { path = "std::thread::spawn", reason = "consensus code is single-threaded (A1 X-1)" },
+    { path = "std::time::SystemTime::now", reason = "consensus code takes the time as a value (A1 X-1)" },
+    { path = "std::time::Instant::now", reason = "consensus code takes the time as a value (A1 X-1)" },
+    { path = "dash_num::Arith256::to_f64", reason = "floats stay in fp; Core's difficulty is ConvertBitsToDouble of the raw nBits (CS2 §2.2, §2.6)" },
+    { path = "core::ops::Rem::rem", reason = "a float remainder is libm's fmod; write `%` on integers (CS2 §2.2)" },
+    { path = "core::ops::RemAssign::rem_assign", reason = "a float remainder is libm's fmod; write `%=` on integers (CS2 §2.2)" },
+    { path = "f64::powf", reason = "libm (CS2 §2.2)" },
+    { path = "f64::powi", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp2", reason = "libm (CS2 §2.2)" },
+    { path = "f64::exp_m1", reason = "libm (CS2 §2.2)" },
+    { path = "f64::ln", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log2", reason = "libm (CS2 §2.2)" },
+    { path = "f64::log10", reason = "libm (CS2 §2.2)" },
+    { path = "f64::ln_1p", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sqrt", reason = "libm (CS2 §2.2)" },
+    { path = "f64::cbrt", reason = "libm (CS2 §2.2)" },
+    { path = "f64::mul_add", reason = "fused multiply-add rounds differently from Core's x86_64 build (CS2 §2.2)" },
+    { path = "f64::hypot", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sin", reason = "libm (CS2 §2.2)" },
+    { path = "f64::cos", reason = "libm (CS2 §2.2)" },
+    { path = "f64::tan", reason = "libm (CS2 §2.2)" },
+    { path = "f64::atan", reason = "libm (CS2 §2.2)" },
+    { path = "f64::atan2", reason = "libm (CS2 §2.2)" },
+    { path = "f64::asin", reason = "libm (CS2 §2.2)" },
+    { path = "f64::acos", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sinh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::cosh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::tanh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::asinh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::acosh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::atanh", reason = "libm (CS2 §2.2)" },
+    { path = "f64::sin_cos", reason = "libm (CS2 §2.2)" },
+    { path = "f64::floor", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::ceil", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::round", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::round_ties_even", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::trunc", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::fract", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f64::rem_euclid", reason = "libm (CS2 §2.2)" },
+    { path = "f64::div_euclid", reason = "libm (CS2 §2.2)" },
+    { path = "f64::abs_sub", reason = "libm's fdim (CS2 §2.2)" },
+    { path = "f32::powf", reason = "libm (CS2 §2.2)" },
+    { path = "f32::powi", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp2", reason = "libm (CS2 §2.2)" },
+    { path = "f32::exp_m1", reason = "libm (CS2 §2.2)" },
+    { path = "f32::ln", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log2", reason = "libm (CS2 §2.2)" },
+    { path = "f32::log10", reason = "libm (CS2 §2.2)" },
+    { path = "f32::ln_1p", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sqrt", reason = "libm (CS2 §2.2)" },
+    { path = "f32::cbrt", reason = "libm (CS2 §2.2)" },
+    { path = "f32::mul_add", reason = "fused multiply-add (CS2 §2.2)" },
+    { path = "f32::hypot", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sin", reason = "libm (CS2 §2.2)" },
+    { path = "f32::cos", reason = "libm (CS2 §2.2)" },
+    { path = "f32::tan", reason = "libm (CS2 §2.2)" },
+    { path = "f32::atan", reason = "libm (CS2 §2.2)" },
+    { path = "f32::atan2", reason = "libm (CS2 §2.2)" },
+    { path = "f32::asin", reason = "libm (CS2 §2.2)" },
+    { path = "f32::acos", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sinh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::cosh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::tanh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::asinh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::acosh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::atanh", reason = "libm (CS2 §2.2)" },
+    { path = "f32::sin_cos", reason = "libm (CS2 §2.2)" },
+    { path = "f32::floor", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::ceil", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::round", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::round_ties_even", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::trunc", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::fract", reason = "libm without SSE4.1 (CS2 §2.2)" },
+    { path = "f32::rem_euclid", reason = "libm (CS2 §2.2)" },
+    { path = "f32::div_euclid", reason = "libm (CS2 §2.2)" },
+    { path = "f32::abs_sub", reason = "libm's fdim (CS2 §2.2)" },
+    # dash-params' static tables (BS5-R §2g; contrib/node/node-params-bans.toml).
+    { path = "dash_params::ConsensusParams::llmq", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::LlmqType::params", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::chain", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::consensus", reason = "reads #83's static table; use `ChainSetup` (sees `-llmqtest*params`, `-llmqdevnetparams`, devnet names; DEC-903)" },
+    { path = "dash_params::Network::addr", reason = "reads #83's static address parameters, whose `bech32_hrp` is wrong at V23_1; use `ChainSetup`'s `addr_params` and `platform_hrp`" },
+]
