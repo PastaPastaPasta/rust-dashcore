@@ -1,0 +1,25 @@
+[package]
+name = "dash-kv"
+description = "The storage engine contract shared by the Rust Dash node and dash-spv: the KvEngine trait, the in-memory engine, typed tables, explicit codecs and ST3a's power-loss model"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# The `kv_model` differential test driver (used by every engine's tests and the fuzz target).
+model = []
+# ST3a's power-loss model (`faulty`): `FaultyEngine`, `FaultyFlatFiles`, the explorer and the
+# checks. Tests and the fuzz target only; never a runtime dependency.
+faulty = ["model", "dep:libc"]
+
+# The gate's feature-tests step runs the lib tests behind these (no test target requires them).
+[package.metadata.gate]
+test-features = ["faulty"]
+
+[dependencies]
+thiserror = "2"
+libc = { version = "0.2", optional = true }
