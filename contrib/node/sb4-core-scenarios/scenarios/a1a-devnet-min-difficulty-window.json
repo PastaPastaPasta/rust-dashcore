@@ -1,0 +1,49 @@
+{
+ "name": "a1a-devnet-min-difficulty-window",
+ "description": "devnet sb4 with -minimumdifficultyblocks=1152 (and dashmate's high-subsidy args, without which the node cannot connect its own block 1, DG: bad-cb-amount): block 1 must be the devnet genesis (X1: devnet-genesis); A2..A1151 at the minimum difficulty; at the retarget height 1152 the parent 1151 is inside the window, so the minimum difficulty is required (B1152 accepted) and next is powLimit too (C1152)",
+ "rows": [
+  "A-1a/devnet"
+ ],
+ "network": "devnet",
+ "args": [
+  "-devnet=sb4",
+  "-highsubsidyblocks=500",
+  "-highsubsidyfactor=10",
+  "-minimumdifficultyblocks=1152"
+ ],
+ "check_block_index": false,
+ "ops": [
+  {
+   "op": "build",
+   "branch": "X",
+   "parent": "G",
+   "count": 1,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "DG",
+   "count": 1150,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A1151",
+   "count": 1,
+   "submit": "headers",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A1151",
+   "count": 1,
+   "submit": "headers",
+   "bits": "next"
+  }
+ ]
+}
