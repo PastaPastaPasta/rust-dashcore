@@ -13,7 +13,9 @@
 #            protocol-tables (no build, no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
 #            `features` shard runs the test targets whose required features the workspace resolve
-#            leaves off, BL-608), clippy, or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
+#            leaves off, BL-608), the `gate-lib` shard (each crate's lib tests behind its
+#            [package.metadata.gate] test-features, BL-608 phase 2), clippy, or extras (no-libm,
+#            public-api, pure, planted, private tests skip cleanly).
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
@@ -78,11 +80,11 @@ env:
   RUST_BACKTRACE: "1"
   # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
   # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
-  CACHE_GEN: v3
+  CACHE_GEN: v4
   # `<CACHE_GEN>-<hash of the deps job's build list>`, which the deps job checks (BL-520): a change
   # to that list fails every run until CACHE_GEN is bumped and this re-pinned to the hash it prints.
-  # v3: v16's features shard (BL-608).
-  CACHE_GEN_BUILDS: v3-3887874f29acdd53
+  # v3: v16's features shard (BL-608). v4: v17's gate-lib selections (BL-608 phase 2).
+  CACHE_GEN_BUILDS: v4-cfd5d74c7fcd7014
   # Third-party units the closure in use lacks, which Summary's save rule leaves out (BL-520): the
   # rdashd shard's cbindgen (its --bin/--test selection leaves clap build-only, so cbindgen links
   # debuginfo-0 clap units and gets its own hash), which v8's deps job, the one that saved the v2
@@ -340,6 +342,30 @@ jobs:
                               "features": f"--features {','.join(feats)}",
                               "targets": " ".join(f"--test {n}" for _, n, _ in picked),
                               "runs": [], "rdashd": False})
+          # BL-608 phase 2: lib tests behind a feature that no test target requires, which the crate
+          # declares as [package.metadata.gate] test-features (test-filter: the test names that need
+          # it). Until v17 only the nightly feature-tests step ran them. One run per crate, as there:
+          # a shared selection would unify planted-bugs into the other crates' code. Each run asks for
+          # the crate's workspace-resolved features too, so its lib builds as in tier 1 plus the gate's.
+          lib = []
+          for p in sorted((p for p in meta["packages"] if p["name"] in members), key=lambda p: p["name"]):
+              gate = (p.get("metadata") or {}).get("gate") or {}
+              want, names = set(gate.get("test-features") or ()), list(gate.get("test-filter") or ())
+              if names and not want:
+                  raise SystemExit(f"{p['name']}: [package.metadata.gate] test-filter without test-features")
+              for f in sorted(want & LOCAL.keys()):
+                  print(f"gate-lib: {p['name']} drops test feature {f}: {LOCAL[f]}")
+              want -= LOCAL.keys()
+              if not want:
+                  continue
+              if not any(t["kind"][0] == "lib" or "lib" in t["kind"] for t in p["targets"]):
+                  raise SystemExit(f"{p['name']}: [package.metadata.gate] test-features on a crate with no lib")
+              feats = sorted({f"{p['name']}/{f}" for f in resolved.get(p["name"], ()) | want})
+              lib.append({"crate": p["name"], "features": ",".join(feats), "filter": " ".join(names)})
+              print(f"gate-lib: {p['name']} --lib --features {','.join(feats)}" + (f" -- {' '.join(names)}" if names else ""))
+          if lib:
+              include.append({"shard": "gate-lib", "kind": "lib", "packages": "", "features": "", "targets": "",
+                              "runs": [], "rdashd": False, "lib": lib})
           include += [{"shard": k, "kind": k, "packages": "", "features": "", "targets": "", "runs": [], "rdashd": False}
                       for k in ("clippy", "extras")]
           for e in include:
@@ -424,6 +450,9 @@ jobs:
             # shellcheck disable=SC2086
             build cargo test --locked --no-run $selection
           done < <(jq -r '.include[] | select(.kind == "test") | "\(.packages) \(.features) \(.targets)"' <<<"$MATRIX")
+          while read -r crate feats; do
+            build cargo test --locked --no-run -p "$crate" --features "$feats" --lib
+          done < <(jq -r '.include[] | select(.kind == "lib") | .lib[] | "\(.crate) \(.features)"' <<<"$MATRIX")
           build cargo build --locked -p rdashd
           build cargo test --locked --no-run -p dashd-chainstate --features crash,planted-bugs --test crash_planted
           build cargo build --locked --release -p dash-consensus --lib
@@ -625,16 +654,16 @@ jobs:
       # `cargo tree` downloads them); a cold or partial restore holds only what that closure built
       # (v16's first run under CACHE_GEN v3, 41248794453).
       - name: Fetch every locked crate
-        if: matrix.kind == 'test'
+        if: matrix.kind == 'test' || matrix.kind == 'lib'
         run: /usr/bin/time -f 'fetch_s=%e' -a -o "$METRICS" cargo fetch --locked
 
       - name: dashd 23.1.0 and the regtest data
-        if: matrix.kind == 'test' || matrix.kind == 'extras'
+        if: matrix.kind == 'test' || matrix.kind == 'extras' || matrix.kind == 'lib'
         run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
 
       # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
       - name: dashd 24.0.0-rc.4
-        if: matrix.kind == 'test'
+        if: matrix.kind == 'test' || matrix.kind == 'lib'
         env:
           DASHVERSION: 24.0.0-rc.4
         run: |
@@ -706,6 +735,48 @@ jobs:
           for n in "${names[@]}"; do args+=(--test "$n"); done
           /usr/bin/time -f 'test_hooks_s=%e test_hooks_cpu_s=%U+%S' -a -o "$METRICS" \
             cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} --features rdashd/test-hooks "${args[@]}"
+
+      # One `cargo test -p <crate> --lib` per crate the plan lists; a run that fails, or runs no test
+      # (a filter that no longer matches), fails the shard. Every run goes, whatever the others do.
+      - name: lib tests
+        if: matrix.kind == 'lib'
+        env:
+          LIB: ${{ toJSON(matrix.lib) }}
+          DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
+        run: |
+          [ -z "${SKIP_DASHD_TESTS+x}" ] || { echo "::error::SKIP_DASHD_TESTS is set: the dashd tests would pass without running"; exit 1; }
+          # The list must decode to a nonempty array, and every entry must run: a jq failure inside the
+          # process substitution below would otherwise end the loop early, green.
+          want=$(jq -e 'if type == "array" and length > 0 then length else error("no gate-lib runs") end' <<< "$LIB")
+          bad=0 rebuilt=0 units=() ran=0 t0=$SECONDS
+          # fd 3: the tests must not read the list on stdin.
+          while read -r -u 3 crate feats filter; do
+            echo "::group::$crate"
+            s=$SECONDS
+            rc=0
+            : > "$RUNNER_TEMP/lib.log"
+            cargo test --locked --no-run --message-format=json-render-diagnostics -p "$crate" --features "$feats" --lib > "$RUNNER_TEMP/build.json" || rc=$?
+            mapfile -t new < <(jq -r 'select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)' "$RUNNER_TEMP/build.json")
+            rebuilt=$((rebuilt + ${#new[@]})); units+=("${new[@]}")
+            if [ "$rc" -eq 0 ]; then
+              # shellcheck disable=SC2086
+              cargo test --locked --no-fail-fast -p "$crate" --features "$feats" --lib -- $filter 2>&1 | tee "$RUNNER_TEMP/lib.log" || rc=$?
+            fi
+            passed=$(awk '/^test result/ {p += $4} END {print p + 0}' "$RUNNER_TEMP/lib.log")
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::gate-lib $crate failed (rc=$rc)"; bad=$((bad + 1))
+            elif [ "$passed" -eq 0 ]; then
+              echo "::error::gate-lib $crate ran no test${filter:+ (filter: $filter)}"; bad=$((bad + 1))
+            fi
+            echo "lib_${crate//-/_}_s=$((SECONDS - s)) lib_${crate//-/_}_passed=$passed" | tee -a "$METRICS"
+            rm -f "$RUNNER_TEMP/lib.log"
+            ran=$((ran + 1))
+          done 3< <(jq -r '.[] | "\(.crate) \(.features) \(.filter)"' <<< "$LIB")
+          list=$(printf '%s\n' "${units[@]}" | sort -u | paste -sd, -)
+          echo "rebuilt_third_party=$rebuilt rebuilt_units=${list:--} lib_s=$((SECONDS - t0))" | tee -a "$METRICS"
+          [ "$ran" -eq "$want" ] || { echo "::error::gate-lib ran $ran of $want crates"; exit 1; }
+          exit $((bad > 0))
 
       - name: clippy
         if: matrix.kind == 'clippy'
@@ -805,7 +876,7 @@ jobs:
           echo "public_api_s=$((SECONDS - t0))" >> "$METRICS"
 
       - name: Upload failed dashd test logs
-        if: failure() && matrix.kind == 'test'
+        if: failure() && (matrix.kind == 'test' || matrix.kind == 'lib')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dashd-test-logs-${{ matrix.shard }}
