@@ -2,7 +2,7 @@
 #
 # Runs on the parentless `ci/<short sha>` snapshot commits CI-S0's export pushes (DEC-670 option c),
 # whose message names the node/integration commit they snapshot. Fork-only: the export drops the
-# inherited upstream workflows, and this file never fires outside `ci/**`.
+# inherited upstream workflows, and this file never fires outside `ci/**` except as the nightly.
 #
 # Jobs:
 #   deps     builds the shard matrix from .github/ci-groups.yml and owns the ONE dependency-closure
@@ -19,6 +19,9 @@
 #   macos    BL-556: cargo check --all-targets of the node crates and an rdashd link on macOS arm64;
 #            its own third-party cache, saved by default-branch dispatches only.
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
+#   nightly  instead of static, shard and summary, on the schedule (or a `nightly` dispatch): CH3b b4b's
+#            -dbcrashratio reorg loop (contrib/node/b4b-nightly.sh) on `nightly/integration`, the GREEN
+#            train snapshot CI-S0 moves it to at each merge. Never part of a verdict; saves no cache.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -41,11 +44,14 @@
 # (DEC-699) for the integration tip, and only when its shards rebuilt third-party units: Summary
 # prints the dispatch then, and the cache metric (exact hits, MB restored) on every run.
 name: node-gate
-run-name: node-gate ${{ inputs.snapshot || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source)) || github.sha }}
+run-name: node-gate ${{ (github.event_name == 'schedule' || inputs.nightly) && 'nightly ' || '' }}${{ inputs.snapshot || ((github.event_name == 'schedule' || inputs.nightly) && 'nightly/integration') || github.ref_name }} ${{ github.event.head_commit.message || (inputs.deps_only && 'deps only') || (inputs.source && format('ci snapshot of {0} {1}', inputs.source_ref, inputs.source)) || github.sha }}
 
 on:
   push:
     branches: ["ci/**"]
+  # The default branch's copy alone schedules; b4b-nightly.sh's seed is the UTC date.
+  schedule:
+    - cron: "17 5 * * *"
   workflow_dispatch:
     inputs:
       snapshot:
@@ -65,11 +71,21 @@ on:
         required: false
         type: boolean
         default: false
+      nightly:
+        description: "Run the nightly job instead of the gate (snapshot default: nightly/integration)"
+        required: false
+        type: boolean
+        default: false
+      b4b_seed:
+        description: "With nightly: B4B_SEED to replay a night (default: the UTC date)"
+        required: false
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: node-gate-${{ github.ref }}-${{ inputs.snapshot }}
+  # The nightly holds its group for hours: its own, so master's deps_only dispatches never queue behind it.
+  group: node-gate-${{ (github.event_name == 'schedule' || inputs.nightly) && 'nightly-' || '' }}${{ github.ref }}-${{ inputs.snapshot }}
   cancel-in-progress: false
 
 env:
@@ -105,11 +121,13 @@ jobs:
       prefix: ${{ steps.key.outputs.prefix }}
       matrix: ${{ steps.plan.outputs.matrix }}
       hit: ${{ steps.lookup.outputs.cache-hit }}
+      commit: ${{ steps.checkout.outputs.commit }}
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          ref: ${{ inputs.snapshot || github.sha }}
+          ref: ${{ inputs.snapshot || ((github.event_name == 'schedule' || inputs.nightly) && 'nightly/integration') || github.sha }}
           persist-credentials: false
 
       # A dispatch runs the default branch's copy of this file on the snapshot's tree, a push run the
@@ -396,7 +414,7 @@ jobs:
           lookup-only: true
 
       - name: Free disk space
-        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch && !(github.event_name == 'schedule' || inputs.nightly)
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
         with:
           tool-cache: true
@@ -407,7 +425,7 @@ jobs:
       # deps/ and its build/ dir. strip.py drops every unit of a workspace member (lib, test and bin
       # targets, build scripts) and the final binaries, so the cache holds third-party units only.
       - name: Strip script
-        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch && !(github.event_name == 'schedule' || inputs.nightly)
         run: |
           cat > "$RUNNER_TEMP/strip.py" <<'PY'
           import glob, json, os, re, shutil, subprocess
@@ -435,7 +453,7 @@ jobs:
       # Cold on purpose: building over an older closure would carry its stale units into the new one.
       # Workspace units are stripped after each selection, so the disk holds one shard's at a time.
       - name: Build every selection
-        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch && !(github.event_name == 'schedule' || inputs.nightly)
         env:
           MATRIX: ${{ steps.plan.outputs.matrix }}
         run: |
@@ -464,7 +482,7 @@ jobs:
 
       - name: Save the dependency closure
         id: save
-        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        if: steps.lookup.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch && !(github.event_name == 'schedule' || inputs.nightly)
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           key: ${{ steps.key.outputs.key }}
@@ -490,7 +508,7 @@ jobs:
 
   static:
     name: Static
-    if: ${{ !inputs.deps_only }}
+    if: ${{ !inputs.deps_only && !(github.event_name == 'schedule' || inputs.nightly) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -593,7 +611,7 @@ jobs:
     name: ${{ matrix.shard }}
     needs: deps
     # A failed deps build (a workspace compile error, say) still gives every lane its own verdict.
-    if: ${{ !cancelled() && !inputs.deps_only && needs.deps.outputs.matrix != '' }}
+    if: ${{ !cancelled() && !inputs.deps_only && !(github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -912,6 +930,8 @@ jobs:
   # makes one run list every crate that fails.
   macos:
     name: macOS
+    # Not on the nightly: its default-branch runs would build and save this lane's cache.
+    if: ${{ !(github.event_name == 'schedule' || inputs.nightly) }}
     runs-on: macos-latest
     timeout-minutes: 60
     permissions:
@@ -1047,7 +1067,7 @@ jobs:
     needs: [deps, static, shard, macos]
     # Not after a cancel: its failure on cancelled shards would make the cancelled run look red to
     # rdc-ci-verdict.sh, which counts a cancelled run with a failed job as red.
-    if: ${{ !cancelled() && !inputs.deps_only }}
+    if: ${{ !cancelled() && !inputs.deps_only && !(github.event_name == 'schedule' || inputs.nightly) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -1122,3 +1142,100 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.shard.result }}" = success ] \
             && [ "${{ needs.macos.result }}" = success ]
+
+  # CH3b b4b's L1 nightly. The dbcrash binary builds with the rdashd shard's packages and features, so
+  # it restores that shard's third-party units: the script's own `cargo test -p rdashd` unifies them
+  # differently (as `-p rdashd` did in v15, 10 min). dbcrash compares against the dashd its tree pins
+  # (rdashd/tests/common's CORE_VERSION), so the job installs that one rather than the lanes'.
+  nightly:
+    name: b4b nightly
+    needs: deps
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' }}
+    runs-on: ubuntu-24.04
+    # The build, then three components of at most 3600 s each.
+    timeout-minutes: 200
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The commit deps planned, not the ref again: CI-S0 may move nightly/integration in between.
+          ref: ${{ needs.deps.outputs.commit }}
+          persist-credentials: false
+
+      - name: Snapshot
+        run: |
+          [ -x contrib/node/b4b-nightly.sh ] || { echo "::error::this snapshot has no contrib/node/b4b-nightly.sh"; exit 1; }
+          line="nightly snapshot $(git rev-parse HEAD): $(git log -1 --format=%s)"
+          echo "$line"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+
+      - name: Restore the dependency closure
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.key }}
+          restore-keys: ${{ needs.deps.outputs.prefix }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: dashd at the tree's pin
+        run: |
+          set -o pipefail
+          version=$(sed -n 's/^pub const CORE_VERSION: &str = "v\(.*\)";$/\1/p' rdashd/tests/common/mod.rs)
+          [ -n "$version" ] || { echo "::error::no CORE_VERSION in rdashd/tests/common/mod.rs"; exit 1; }
+          v=$(DASHVERSION=$version python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
+          [ -x "$v" ] || { echo "::error::no dashd $version"; exit 1; }
+          echo "DASHD_V24_PATH=$v" >> "$GITHUB_ENV"
+
+      - name: Build dbcrash
+        env:
+          MATRIX: ${{ needs.deps.outputs.matrix }}
+        run: |
+          selection=$(jq -r '.include[] | select(.shard == "rdashd") | "\(.packages) \(.features)"' <<< "$MATRIX")
+          [ -n "$selection" ] || { echo "::error::the plan has no rdashd shard"; exit 1; }
+          # shellcheck disable=SC2086
+          /usr/bin/time -f 'build_s=%e build_cpu_s=%U+%S' cargo test --locked --no-run --message-format=json-render-diagnostics \
+            $selection --test dbcrash > "$RUNNER_TEMP/build.json"
+          bin=$(jq -r 'select(.reason == "compiler-artifact" and .profile.test and .executable
+                            and .target.name == "dbcrash" and (.package_id | contains("rdashd"))) | .executable' "$RUNNER_TEMP/build.json")
+          [ -x "$bin" ] || { echo "::error::no dbcrash test binary in the build"; exit 1; }
+          echo "B4B_NIGHTLY_BIN=$bin" >> "$GITHUB_ENV"
+
+      - name: b4b-nightly.sh
+        env:
+          SEED: ${{ inputs.b4b_seed }}
+        run: |
+          # The dashd components return early, and pass, when SKIP_DASHD_TESTS is set (BL-608).
+          [ -z "${SKIP_DASHD_TESTS+x}" ] || { echo "::error::SKIP_DASHD_TESTS is set: the dashd components would pass without running"; exit 1; }
+          [ -z "$SEED" ] || export B4B_SEED=$SEED
+          echo "open files: $(ulimit -Sn)"
+          rc=0
+          contrib/node/b4b-nightly.sh "$RUNNER_TEMP/b4b" || rc=$?
+          { echo '```'; cat "$RUNNER_TEMP/b4b/summary.txt"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+      - name: Upload the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: b4b-nightly
+          path: ${{ runner.temp }}/b4b/
+          retention-days: 14
+          if-no-files-found: ignore
