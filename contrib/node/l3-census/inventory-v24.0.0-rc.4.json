@@ -1,0 +1,1879 @@
+{
+ "provenance": {
+  "tag": "v24.0.0-rc.4",
+  "commit": "0e7382df80d0bc6811068d076b232a5a26d34a3c",
+  "blobs": {
+   "src/validation.cpp": "85d41ae6d7c6346ce914a8afac156d9ce8723aa0",
+   "src/consensus/tx_check.cpp": "86b0e80479a8a423bf1ca36df9ccd5f5e4067772",
+   "src/consensus/tx_verify.cpp": "ce179ec2192e38c9f217b130ced4d4f41f9e5499",
+   "src/evo/specialtxman.cpp": "b1576f52750869244fc6cdba82d7152db1b2ee58",
+   "src/script/script_error.cpp": "9870b150efe5474318bb05f30871356cc12f007c"
+  },
+  "scanner_version": 1,
+  "note": "Scanned rows: contrib/node/l3-census.py scan over Dash Core's tag (git show, no checkout); decisions, paths, guards and covered_by: the L3-accepted plan rev5.1 section 6.2 (Sol r7 ACCEPT, sha256 0a81f780...). Unscanned rows are annotated only (partial claim, a10-4)."
+ },
+ "script_errors": [
+  "No error",
+  "Script evaluated without error but finished with a false/empty top stack element",
+  "Script failed an OP_VERIFY operation",
+  "Script failed an OP_EQUALVERIFY operation",
+  "Script failed an OP_CHECKMULTISIGVERIFY operation",
+  "Script failed an OP_CHECKSIGVERIFY operation",
+  "Script failed an OP_CHECKDATASIGVERIFY operation",
+  "Script failed an OP_NUMEQUALVERIFY operation",
+  "Script is too big",
+  "Push value size limit exceeded",
+  "Operation limit exceeded",
+  "Stack size limit exceeded",
+  "Signature count negative or greater than pubkey count",
+  "Pubkey count negative or limit exceeded",
+  "Opcode missing or not understood",
+  "Attempted to use a disabled opcode",
+  "Operation not valid with the current stack size",
+  "Operation not valid with the current altstack size",
+  "OP_RETURN was encountered",
+  "Invalid OP_IF construction",
+  "Invalid OP_SPLIT range",
+  "Invalid operand size",
+  "Given operand is not a number within the valid range [-2^31...2^31]",
+  "The requested encoding is impossible to satisfy",
+  "Division by zero error",
+  "Modulo by zero error",
+  "Negative locktime",
+  "Locktime requirement not satisfied",
+  "Signature hash type missing or not understood",
+  "Non-canonical DER signature",
+  "Data push larger than necessary",
+  "Only push operators allowed in signatures",
+  "Non-canonical signature: S value is unnecessarily high",
+  "Dummy CHECKMULTISIG argument must be zero",
+  "Signature must be zero for failed CHECK(MULTI)SIG operation",
+  "NOPx reserved for soft-fork upgrades",
+  "Public key is neither compressed or uncompressed",
+  "Stack size must be exactly one after execution",
+  "Using OP_CODESEPARATOR",
+  "Signature is found in scriptCode",
+  "unknown error"
+ ],
+ "rows": [
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlockHeader",
+   "ordinal": 1,
+   "line": 4317,
+   "template": "high-hash",
+   "result": "B_INVALID_HEADER",
+   "key": "validation.cpp:CheckBlockHeader#1:high-hash",
+   "sha": "9c9f8ff412dde2af",
+   "paths": [
+    "Submit",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "bits_plus Submit/Header"
+   ],
+   "note": "fCheckPOW"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlockHeader",
+   "ordinal": 2,
+   "line": 4324,
+   "template": "devnet-genesis",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:CheckBlockHeader#2:devnet-genesis",
+   "sha": "48a3fd5bb5c673a9",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "network": "devnet"
+   },
+   "covered_by": [],
+   "note": "hashDevnetGenesisBlock null on regtest"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckMerkleRoot",
+   "ordinal": 1,
+   "line": 4337,
+   "template": "bad-txnmrklroot",
+   "result": "B_MUTATED",
+   "key": "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot",
+   "sha": "ff50c4a71497da26",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "merkle_root"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckMerkleRoot",
+   "ordinal": 2,
+   "line": 4347,
+   "template": "bad-txns-duplicate",
+   "result": "B_MUTATED",
+   "key": "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate",
+   "sha": "01abcad9e619865c",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "duplicate_tx",
+    "S1"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckMerkleRoot",
+   "ordinal": 3,
+   "line": 4361,
+   "template": "bad-cbtx-assetunlockmerkleroot",
+   "result": "B_MUTATED",
+   "key": "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot",
+   "sha": "87ed77312bca10fd",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-evo",
+   "guards": {
+    "cbtx": true
+   },
+   "covered_by": [],
+   "note": "decoded CbTx >= MERKLE_ROOT_ASSETUNLOCKS (Q7)"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlock",
+   "ordinal": 1,
+   "line": 4400,
+   "template": "bad-blk-length",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:CheckBlock#1:bad-blk-length",
+   "sha": "88a991e19ec387cf",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "block_size_max"
+   },
+   "covered_by": [
+    "block_size.2000001@Reg",
+    "empty_block (Proposal)"
+   ],
+   "note": "vtx.size() arm subsumed by size"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlock",
+   "ordinal": 2,
+   "line": 4404,
+   "template": "bad-cb-missing",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:CheckBlock#2:bad-cb-missing",
+   "sha": "242dfd4245125d7d",
+   "paths": [
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_missing (Proposal)"
+   ],
+   "note": "Submit refused at mi:1033; class unverified"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlock",
+   "ordinal": 3,
+   "line": 4407,
+   "template": "bad-cb-multiple",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:CheckBlock#3:bad-cb-multiple",
+   "sha": "3402e6bb007433bc",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_multiple"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "W",
+   "file": "validation.cpp",
+   "function": "CheckBlock",
+   "line": 4417,
+   "result": "B_CONSENSUS",
+   "callee": "CheckTransaction",
+   "key": "validation.cpp:CheckBlock@W:CheckTransaction",
+   "sha": "bc59a896d19cb113",
+   "decision": "W",
+   "wrapper": "wrapper"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckBlock",
+   "ordinal": 4,
+   "line": 4428,
+   "template": "bad-blk-sigops",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:CheckBlock#4:bad-blk-sigops",
+   "sha": "a85be5a96ead220a",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "sigops_legacy_max"
+   },
+   "covered_by": [
+    "sigops_check.40001@Reg"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 1,
+   "line": 4490,
+   "template": "bad-diffbits",
+   "result": "B_INVALID_HEADER",
+   "key": "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits",
+   "sha": "4cb3f06490271678",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "network": "main"
+   },
+   "covered_by": [],
+   "note": "NetworkIDString()==MAIN && h <= 68589"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 2,
+   "line": 4494,
+   "template": "bad-diffbits",
+   "result": "B_INVALID_HEADER",
+   "key": "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits",
+   "sha": "91f744552007ff5d",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "bits_minus (all modes)",
+    "bits_plus (Proposal)"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 3,
+   "line": 4506,
+   "template": "bad-fork-prior-to-checkpoint",
+   "result": "B_CHECKPOINT",
+   "key": "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint",
+   "sha": "d1c30273cbfc57b3",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "checkpoint": true
+   },
+   "covered_by": [],
+   "note": "the regtest checkpoint is genesis only (cp:908)"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 4,
+   "line": 4512,
+   "template": "time-too-old",
+   "result": "B_INVALID_HEADER",
+   "key": "validation.cpp:ContextualCheckBlockHeader#4:time-too-old",
+   "sha": "6846e299d391cf72",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "time_at_mtp"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 5,
+   "line": 4516,
+   "template": "time-too-new",
+   "result": "B_TIME_FUTURE",
+   "key": "validation.cpp:ContextualCheckBlockHeader#5:time-too-new",
+   "sha": "f412840303fc3a89",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "time_too_new"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlockHeader",
+   "ordinal": 6,
+   "line": 4523,
+   "template": "bad-version(0x%08x)",
+   "result": "B_INVALID_HEADER",
+   "key": "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)",
+   "sha": "3d0b091a09572c40",
+   "paths": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "version_3",
+    "header_version",
+    "bad_version@B"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "ordinal": 1,
+   "line": 4559,
+   "template": "bad-blk-length",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckBlock#1:bad-blk-length",
+   "sha": "88a991e19ec387cf",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "block_size_dip1"
+   },
+   "covered_by": [
+    "block_size.1000001@P1"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "ordinal": 2,
+   "line": 4566,
+   "template": "bad-txns-nonfinal",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal",
+   "sha": "0390e847b3bd5d80",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "nonfinal_locktime"
+   },
+   "covered_by": [
+    "locktime_*",
+    "bip113@B"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "W",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "line": 4573,
+   "result": "B_CONSENSUS",
+   "callee": "ContextualCheckTransaction",
+   "key": "validation.cpp:ContextualCheckBlock@W:ContextualCheckTransaction",
+   "sha": "bc59a896d19cb113",
+   "decision": "W",
+   "wrapper": "wrapper"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "ordinal": 3,
+   "line": 4581,
+   "template": "bad-blk-sigops",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckBlock#3:bad-blk-sigops",
+   "sha": "a85be5a96ead220a",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "sigops_dip1"
+   },
+   "covered_by": [
+    "sigops_ctx.20001@P1"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "ordinal": 4,
+   "line": 4591,
+   "template": "bad-cb-height",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckBlock#4:bad-cb-height",
+   "sha": "feff30e51390cea5",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_height"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckBlock",
+   "ordinal": 5,
+   "line": 4597,
+   "template": "bad-cb-type",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckBlock#5:bad-cb-type",
+   "sha": "65634dc841097154",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated (DIP3 at 2000; legs stay below)"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckTransaction",
+   "ordinal": 1,
+   "line": 372,
+   "template": "bad-txns-type",
+   "result": "T_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckTransaction#1:bad-txns-type",
+   "sha": "ca839a85cf063d07",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckTransaction",
+   "ordinal": 2,
+   "line": 375,
+   "template": "bad-txns-cb-type",
+   "result": "T_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type",
+   "sha": "6a222abafbfe2920",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckTransaction",
+   "ordinal": 3,
+   "line": 377,
+   "template": "bad-txns-type",
+   "result": "T_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckTransaction#3:bad-txns-type",
+   "sha": "ca839a85cf063d07",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ContextualCheckTransaction",
+   "ordinal": 4,
+   "line": 383,
+   "template": "bad-txns-oversize",
+   "result": "T_CONSENSUS",
+   "key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-oversize",
+   "sha": "b75cd0eb699e3aa8",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "tx_size_ctx"
+   },
+   "covered_by": [
+    "tx_size_100k.100001@Reg",
+    "tx_size_1m.999999/1000000"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 1,
+   "line": 4620,
+   "template": "duplicate",
+   "result": "B_CACHED_INVALID",
+   "key": "validation.cpp:AcceptBlockHeader#1:duplicate",
+   "sha": "e90538fd2eb9de13",
+   "paths": [
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "S3h"
+   ],
+   "note": "Submit/Proposal short-circuit at mi:1041-1047 / :708-714"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 2,
+   "line": 4624,
+   "template": "duplicate",
+   "result": "B_CHAINLOCK",
+   "key": "validation.cpp:AcceptBlockHeader#2:duplicate",
+   "sha": "a9b9e5d8fecc9d9c",
+   "paths": [
+    "Header"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "ChainLock"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 3,
+   "line": 4639,
+   "template": "prev-blk-not-found",
+   "result": "B_MISSING_PREV",
+   "key": "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found",
+   "sha": "edfed527e00339ae",
+   "paths": [
+    "Submit"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "S5"
+   ],
+   "note": "Header refused at mi:1092; Proposal answers inconclusive-not-best-prevblk"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 4,
+   "line": 4646,
+   "template": "bad-prevblk",
+   "result": "B_INVALID_PREV",
+   "key": "validation.cpp:AcceptBlockHeader#4:bad-prevblk",
+   "sha": "61bf6df67ca076f4",
+   "paths": [
+    "Submit",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {
+    "parent": "failed"
+   },
+   "covered_by": [
+    "S2"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 5,
+   "line": 4652,
+   "template": "bad-prevblk-chainlock",
+   "result": "B_CHAINLOCK",
+   "key": "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock",
+   "sha": "bed4f28bc2a0d389",
+   "paths": [
+    "Submit",
+    "Header"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "ChainLock"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 6,
+   "line": 4694,
+   "template": "bad-prevblk",
+   "result": "B_INVALID_PREV",
+   "key": "validation.cpp:AcceptBlockHeader#6:bad-prevblk",
+   "sha": "61bf6df67ca076f4",
+   "paths": [
+    "Submit",
+    "Header"
+   ],
+   "decision": "C",
+   "guards": {
+    "parent": "unmarked_failed_ancestor"
+   },
+   "covered_by": [
+    "S6"
+   ],
+   "note": "parent unmarked, not VALID_SCRIPTS, descends from a block in Core's failed set"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "AcceptBlockHeader",
+   "ordinal": 7,
+   "line": 4704,
+   "template": "bad-chainlock",
+   "result": "B_CHAINLOCK",
+   "key": "validation.cpp:AcceptBlockHeader#7:bad-chainlock",
+   "sha": "7a9cef59d719de7c",
+   "paths": [
+    "Submit",
+    "Header"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "ChainLock"
+  },
+  {
+   "kind": "F",
+   "file": "validation.cpp",
+   "function": "AcceptBlock",
+   "line": 4845,
+   "key": "validation.cpp:AcceptBlock@F4845",
+   "sha": "4c5d0b449a944f1d",
+   "decision": "F",
+   "note": "state.Error: failed to find position to write new block to disk"
+  },
+  {
+   "kind": "F",
+   "file": "validation.cpp",
+   "function": "AcceptBlock",
+   "line": 4850,
+   "key": "validation.cpp:AcceptBlock@F4850",
+   "sha": "34700451dc3e654c",
+   "decision": "F",
+   "note": "AbortNode, system error"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "TestBlockValidity",
+   "ordinal": 1,
+   "line": 4945,
+   "template": "bad-chainlock",
+   "result": "B_INVALID_PREV",
+   "key": "validation.cpp:TestBlockValidity#1:bad-chainlock",
+   "sha": "e10cc533749f3983",
+   "paths": [
+    "Proposal"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "ChainLock"
+  },
+  {
+   "kind": "F",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "line": 2516,
+   "key": "validation.cpp:ConnectBlock@F2516",
+   "sha": "7fe6993518a15bdf",
+   "decision": "F",
+   "note": "AbortNode on a MUTATED re-call (also X-unr)"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 1,
+   "line": 2524,
+   "template": "bad-chainlock",
+   "result": "B_CHAINLOCK",
+   "key": "validation.cpp:ConnectBlock#1:bad-chainlock",
+   "sha": "7a9cef59d719de7c",
+   "paths": [
+    "Submit"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "ChainLock"
+  },
+  {
+   "kind": "F",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "line": 2535,
+   "key": "validation.cpp:ConnectBlock@F2535",
+   "sha": "6c1b2b07fe1ce8b0",
+   "decision": "F",
+   "note": "AbortNode, EvoDb inconsistency"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 2,
+   "line": 2614,
+   "template": "bad-txns-BIP30",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#2:bad-txns-BIP30",
+   "sha": "dfeb0a901d8dfa41",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "bip30"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 3,
+   "line": 2627,
+   "template": "bad-sb-start",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#3:bad-sb-start",
+   "sha": "987c618c3bf1324f",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "network": "superblock_start"
+   },
+   "covered_by": [],
+   "note": "nSuperblockStartHash null on regtest (cp:805)"
+  },
+  {
+   "kind": "W",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "line": 2707,
+   "result": "B_CONSENSUS",
+   "callee": "Consensus::CheckTxInputs",
+   "key": "validation.cpp:ConnectBlock@W:Consensus::CheckTxInputs",
+   "sha": "b29b2ce6c40234f3",
+   "decision": "W",
+   "wrapper": "wrapper"
+  },
+  {
+   "kind": "W",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "line": 2719,
+   "result": "B_CONSENSUS",
+   "callee": "CheckSharedCollateralSpends",
+   "key": "validation.cpp:ConnectBlock@W:CheckSharedCollateralSpends",
+   "sha": "69717d886e989bb5",
+   "decision": "W",
+   "wrapper": "e-evo",
+   "evo_key": "g.coll"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 4,
+   "line": 2726,
+   "template": "bad-txns-accumulated-fee-outofrange",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#4:bad-txns-accumulated-fee-outofrange",
+   "sha": "13daa9dcfd279c35",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "accumulated_fee@BO"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 5,
+   "line": 2739,
+   "template": "bad-txns-nonfinal",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#5:bad-txns-nonfinal",
+   "sha": "22f423007d691ffa",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "bip68"
+   },
+   "covered_by": [
+    "bip68_*",
+    "tx_version",
+    "bip68@B"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 6,
+   "line": 2749,
+   "template": "bad-blk-sigops",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#6:bad-blk-sigops",
+   "sha": "242caad6ed316c5d",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "sigops_connect"
+   },
+   "covered_by": [
+    "sigops_connect"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "W",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "line": 2760,
+   "result": "B_CONSENSUS",
+   "callee": "CheckInputScripts",
+   "key": "validation.cpp:ConnectBlock@W:CheckInputScripts",
+   "sha": "b29b2ce6c40234f3",
+   "decision": "W",
+   "wrapper": "wrapper"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 7,
+   "line": 2786,
+   "template": "block-validation-failed",
+   "result": "B_CONSENSUS",
+   "key": "validation.cpp:ConnectBlock#7:block-validation-failed",
+   "sha": "b1df2c7207c2793f",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "par_gt": 1
+   },
+   "covered_by": [
+    "script ops @par4",
+    "group M par4"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 8,
+   "line": 2821,
+   "template": "conflict-tx-lock",
+   "result": "B_CHAINLOCK",
+   "key": "validation.cpp:ConnectBlock#8:conflict-tx-lock",
+   "sha": "89a366a467aa1575",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-cl",
+   "guards": {
+    "chainlock": true
+   },
+   "covered_by": [],
+   "note": "IS, M4"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 9,
+   "line": 2855,
+   "template": "bad-cb-amount",
+   "result": "B_RESULT_UNSET",
+   "key": "validation.cpp:ConnectBlock#9:bad-cb-amount",
+   "sha": "323692ff12ede2b5",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_value",
+    "cb_amount"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "ConnectBlock",
+   "ordinal": 10,
+   "line": 2870,
+   "template": "bad-cb-payee",
+   "result": "B_RESULT_UNSET",
+   "key": "validation.cpp:ConnectBlock#10:bad-cb-payee",
+   "sha": "5bcd97e877428a2a",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "mnsync": true
+   },
+   "covered_by": [],
+   "note": "D49 (mnsync not synced)"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckInputScripts",
+   "ordinal": 1,
+   "line": 2218,
+   "template": "non-mandatory-script-verify-flag (%s)",
+   "result": "T_NOT_STANDARD",
+   "key": "validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s)",
+   "sha": "3798b1c5877562e8",
+   "paths": [],
+   "decision": "X-unr",
+   "guards": {},
+   "covered_by": [],
+   "note": "block flags carry no non-mandatory bits, so hasNonMandatoryFlags is false"
+  },
+  {
+   "kind": "R",
+   "file": "validation.cpp",
+   "function": "CheckInputScripts",
+   "ordinal": 2,
+   "line": 2229,
+   "template": "mandatory-script-verify-flag-failed (%s)",
+   "result": "T_CONSENSUS",
+   "key": "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)",
+   "sha": "21766e392d735252",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "par": 1
+   },
+   "covered_by": [
+    "script ops @par1",
+    "group B script rows",
+    "group M par1"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 1,
+   "line": 28,
+   "template": "bad-txns-vin-empty",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty",
+   "sha": "a2662392bab03325",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "vin_empty"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 2,
+   "line": 30,
+   "template": "bad-txns-vout-empty",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty",
+   "sha": "c8b5d7ed5fbdc93f",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "vout_empty"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 3,
+   "line": 33,
+   "template": "bad-txns-oversize",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#3:bad-txns-oversize",
+   "sha": "b75cd0eb699e3aa8",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {
+    "measured": "tx_size_max"
+   },
+   "covered_by": [
+    "tx_size_1m.1000001"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 4,
+   "line": 35,
+   "template": "bad-txns-payload-oversize",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize",
+   "sha": "7e9c42dfa1705c52",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "payload_size.10001"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 5,
+   "line": 41,
+   "template": "bad-txns-vout-negative",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative",
+   "sha": "a25d33fcec728dcb",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "vout_negative"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 6,
+   "line": 43,
+   "template": "bad-txns-vout-toolarge",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge",
+   "sha": "93f520aea38fd13d",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "vout_toolarge"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 7,
+   "line": 46,
+   "template": "bad-txns-txouttotal-toolarge",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge",
+   "sha": "62d2c57952536d54",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "txouttotal"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 8,
+   "line": 57,
+   "template": "bad-txns-inputs-duplicate",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate",
+   "sha": "60c91111d9c4eb1c",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "duplicate_input"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 9,
+   "line": 67,
+   "template": "bad-cb-length",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#9:bad-cb-length",
+   "sha": "bf6229969bc32633",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_length.1",
+    "cb_length.101"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_check.cpp",
+   "function": "CheckTransaction",
+   "ordinal": 10,
+   "line": 71,
+   "template": "bad-txns-prevout-null",
+   "result": "T_CONSENSUS",
+   "key": "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null",
+   "sha": "502011b125391e81",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "prevout_null"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_verify.cpp",
+   "function": "Consensus::CheckTxInputs",
+   "ordinal": 1,
+   "line": 171,
+   "template": "bad-txns-inputs-missingorspent",
+   "result": "T_MISSING_INPUTS",
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent",
+   "sha": "11506cf711241341",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "missing_input",
+    "double_spend",
+    "spent_earlier",
+    "group M"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_verify.cpp",
+   "function": "Consensus::CheckTxInputs",
+   "ordinal": 2,
+   "line": 183,
+   "template": "bad-txns-premature-spend-of-coinbase",
+   "result": "T_PREMATURE_SPEND",
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase",
+   "sha": "7ecd891129618e75",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "premature_coinbase",
+    "maturity.99"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_verify.cpp",
+   "function": "Consensus::CheckTxInputs",
+   "ordinal": 3,
+   "line": 190,
+   "template": "bad-txns-inputvalues-outofrange",
+   "result": "T_CONSENSUS",
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#3:bad-txns-inputvalues-outofrange",
+   "sha": "6fd7e842723bd299",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "inputvalues@BO"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_verify.cpp",
+   "function": "Consensus::CheckTxInputs",
+   "ordinal": 4,
+   "line": 196,
+   "template": "bad-txns-in-belowout",
+   "result": "T_CONSENSUS",
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout",
+   "sha": "78d73c516a8fc0c3",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "in_below_out",
+    "group M"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "tx_verify.cpp",
+   "function": "Consensus::CheckTxInputs",
+   "ordinal": 5,
+   "line": 203,
+   "template": "bad-txns-fee-outofrange",
+   "result": "T_CONSENSUS",
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange",
+   "sha": "61c3f1a0370398ff",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {},
+   "covered_by": [],
+   "note": "0 <= out <= in <= MAX_MONEY already enforced by :190/:196 and tc:41-46"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "CheckSpecialTxInner",
+   "ordinal": 1,
+   "line": 228,
+   "template": "bad-tx-type-dip3-inactive",
+   "result": "T_BAD_SPECIAL",
+   "key": "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive",
+   "sha": "bcd6b93911fa641d",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "special_tx_type",
+    "special_cb_type",
+    "r7 group M rows"
+   ],
+   "note": ""
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "CheckSpecialTxInner",
+   "ordinal": 2,
+   "line": 249,
+   "template": "bad-cbtx-invalid",
+   "result": "T_CONSENSUS",
+   "key": "specialtxman.cpp:CheckSpecialTxInner#2:bad-cbtx-invalid",
+   "sha": "2fbc2b58196f8334",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "after the DIP3 gate at :228 (pre-DIP3 regime)"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "CheckSpecialTxInner",
+   "ordinal": 3,
+   "line": 254,
+   "template": "bad-cbtx-payload",
+   "result": "T_CONSENSUS",
+   "key": "specialtxman.cpp:CheckSpecialTxInner#3:bad-cbtx-payload",
+   "sha": "9a6dfc5c9da4be0f",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "after the gate"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "CheckSpecialTxInner",
+   "ordinal": 4,
+   "line": 270,
+   "template": "failed-check-special-tx",
+   "result": "T_CONSENSUS",
+   "key": "specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx",
+   "sha": "023cef692d547257",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "after the gate (exception catch)"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "CheckSpecialTxInner",
+   "ordinal": 5,
+   "line": 273,
+   "template": "bad-tx-type-check",
+   "result": "T_BAD_SPECIAL",
+   "key": "specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check",
+   "sha": "0cea9d27fce1bb63",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "after the gate"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 1,
+   "line": 879,
+   "template": "bad-cbtx-invalid",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid",
+   "sha": "31de6222450e99dd",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {},
+   "covered_by": [],
+   "note": "vtx[0] is a coinbase (CheckBlock#2 runs first on every path)"
+  },
+  {
+   "kind": "W",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "line": 886,
+   "result": "B_CONSENSUS",
+   "callee": "CheckCbTx",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckCbTx",
+   "sha": "f4a636a23b6d785b",
+   "decision": "W",
+   "wrapper": "e-evo",
+   "evo_key": "g.cbtx"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 2,
+   "line": 891,
+   "template": "bad-cbtx-payload",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload",
+   "sha": "a633395701fda47b",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "C",
+   "guards": {},
+   "covered_by": [
+    "cb_type5.v1/v2 (D54; AV-off fixtures D2/D3)"
+   ],
+   "note": "only with fScriptChecks"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 3,
+   "line": 897,
+   "template": "bad-cbtx-version",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version",
+   "sha": "f240560d0dd9cb64",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-reg",
+   "guards": {
+    "dip3": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated"
+  },
+  {
+   "kind": "W",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "line": 918,
+   "result": "B_CONSENSUS",
+   "callee": "CheckSharedCollateralTemplateOutputs",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSharedCollateralTemplateOutputs",
+   "sha": "753c93c24b6658b9",
+   "decision": "W",
+   "wrapper": "e-evo",
+   "evo_key": "g.coll"
+  },
+  {
+   "kind": "W",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "line": 933,
+   "result": "B_CONSENSUS",
+   "callee": "CheckSpecialTxInner",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSpecialTxInner",
+   "sha": "4e7bdb8e7177b60a",
+   "decision": "W",
+   "wrapper": "wrapper",
+   "evo_key": "w.stx"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 4,
+   "line": 995,
+   "template": "bad-cbtx-mnmerkleroot",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#4:bad-cbtx-mnmerkleroot",
+   "sha": "a9897c2c9482b8de",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-evo",
+   "guards": {
+    "dip3": true,
+    "cbtx": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated, decoded CbTx"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 5,
+   "line": 1010,
+   "template": "bad-cbtx-quorummerkleroot",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#5:bad-cbtx-quorummerkleroot",
+   "sha": "b29eb0f625aa06f6",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-evo",
+   "guards": {
+    "dip3": true,
+    "cbtx": true
+   },
+   "covered_by": [],
+   "note": "DIP3-gated, decoded CbTx"
+  },
+  {
+   "kind": "F",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "line": 1052,
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@F1052",
+   "sha": "4d633f4bbbba7847",
+   "decision": "F",
+   "note": "state.Error(e.what()), EvoDbInconsistencyError"
+  },
+  {
+   "kind": "R",
+   "file": "specialtxman.cpp",
+   "function": "ProcessSpecialTxsInBlock",
+   "ordinal": 6,
+   "line": 1055,
+   "template": "failed-procspectxsinblock",
+   "result": "B_CONSENSUS",
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock",
+   "sha": "04a7e0d8b17fbcaa",
+   "paths": [
+    "Submit",
+    "Proposal"
+   ],
+   "decision": "X-unr",
+   "guards": {},
+   "covered_by": [],
+   "note": "the catch of a non-EvoDb exception; the pre-DIP3 path has no throwing callee"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock@F2895",
+   "kind": "F",
+   "line": 2895,
+   "decision": "F",
+   "note": "WriteUndoDataForBlock failure (real connect only): a propagated return false",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:CheckBlock@E:CheckBlockHeader",
+   "kind": "E",
+   "line": 4387,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:CheckBlock@E:CheckMerkleRoot",
+   "kind": "E",
+   "line": 4391,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader@E:CheckBlockHeader",
+   "kind": "E",
+   "line": 4631,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader@E:ContextualCheckBlockHeader",
+   "kind": "E",
+   "line": 4657,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:AcceptBlock@E:AcceptBlockHeader",
+   "kind": "E",
+   "line": 4787,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:AcceptBlock@E:CheckBlock",
+   "kind": "E",
+   "line": 4827,
+   "decision": "X-unr",
+   "note": "re-call: fChecked",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:AcceptBlock@E:ContextualCheckBlock",
+   "kind": "E",
+   "line": 4829,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:ProcessNewBlock@E:CheckBlock",
+   "kind": "E",
+   "line": 4893,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:ProcessNewBlock@E:AcceptBlock",
+   "kind": "E",
+   "line": 4899,
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:TestBlockValidity@E:ContextualCheckBlockHeader",
+   "kind": "E",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:TestBlockValidity@E:CheckBlock",
+   "kind": "E",
+   "note": "fCheckPOW=false",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:TestBlockValidity@E:ContextualCheckBlock",
+   "kind": "E",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:TestBlockValidity@E:ConnectBlock",
+   "kind": "E",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:ConnectBlock@E:CheckBlock",
+   "kind": "E",
+   "line": 2511,
+   "decision": "X-unr",
+   "note": "re-call: already passed with the same flags",
+   "scanned": false
+  },
+  {
+   "key": "validation.cpp:ConnectBlock@E:ProcessSpecialTxsInBlock",
+   "kind": "E",
+   "line": 2672,
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:CbTxPayload",
+   "kind": "E-evo",
+   "line": 876,
+   "evo_key": "w.cbtx",
+   "class": "wrapper",
+   "note": "step 1's GetTxPayload<CCbTx> for a raw type-5 vtx[0]",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:QuorumBlockProcessor",
+   "kind": "E-evo",
+   "line": 955,
+   "evo_key": "w.quorum",
+   "class": "wrapper",
+   "note": "m_qblockman.ProcessBlock; pre-DIP3 return bp:218-220",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:MnhfProcessBlock",
+   "kind": "E-evo",
+   "line": 1033,
+   "evo_key": "w.mnhf",
+   "class": "wrapper",
+   "note": "m_mnhfman.ProcessBlock; zero-signal path mh:210-224",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner@E-evo:Validators",
+   "kind": "E-evo",
+   "line": 228,
+   "evo_key": "g.stx",
+   "class": "gated",
+   "note": "the 13 validator arms past st:228",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:QuorumProcessing",
+   "kind": "E-evo",
+   "evo_key": "g.quorum",
+   "class": "gated",
+   "note": "quorum processing past bp:218-220 (DIP3)",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:DmnList",
+   "kind": "E-evo",
+   "line": 966,
+   "evo_key": "g.dmn",
+   "class": "gated",
+   "note": "BuildNewListFromBlock / m_dmnman.ProcessBlock (DIP3)",
+   "scanned": false
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@E-evo:MnhfSignals",
+   "kind": "E-evo",
+   "evo_key": "g.mnhf",
+   "class": "gated",
+   "note": "MNHF ProcessBlock with >= 1 extracted signal",
+   "scanned": false
+  }
+ ]
+}
