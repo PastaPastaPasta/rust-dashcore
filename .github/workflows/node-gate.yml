@@ -8,7 +8,7 @@
 #   deps     builds the shard matrix from .github/ci-groups.yml and owns the ONE dependency-closure
 #            cache (DEC-699): third-party artifacts only, keyed on CACHE_GEN + toolchain + Cargo.lock +
 #            manifests (features) + ci-groups.yml. On a miss in a default-branch run it builds every
-#            selection cold, strips the workspace crates' units and saves; no other run or job saves.
+#            selection cold, strips the workspace crates' units and saves; only macos saves otherwise.
 #   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
 #            protocol-tables (no build, no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
@@ -16,6 +16,8 @@
 #            leaves off, BL-608), the `gate-lib` shard (each crate's lib tests behind its
 #            [package.metadata.gate] test-features, BL-608 phase 2), clippy, or extras (no-libm,
 #            public-api, pure, planted, private tests skip cleanly).
+#   macos    BL-556: cargo check --all-targets of the node crates and an rdashd link on macOS arm64;
+#            its own third-party cache, saved by default-branch dispatches only.
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
@@ -59,7 +61,7 @@ on:
         required: false
         type: string
       deps_only:
-        description: "Only build and save the dependency closure (run on the default branch to share it)"
+        description: "Only build and save the dependency closure, and the macOS cache (run on the default branch to share them)"
         required: false
         type: boolean
         default: false
@@ -901,9 +903,148 @@ jobs:
           path: ${{ runner.temp }}/metrics/${{ matrix.shard }}.txt
           retention-days: 30
 
+  # BL-556 (DEC-968/972): Linux lanes never compile the node crates for Apple targets (BL-555's
+  # posix_fallocate). This lane checks them, with every target, and links rdashd on macOS arm64, next
+  # to the Linux lanes. Its cache holds third-party units only, keyed on the toolchain, the lock and
+  # manifests, and a hash of MACOS_BUILD and strip.py, so a change to how it builds makes a new key
+  # without a CACHE_GEN bump. Like the closure, only default-branch runs (dispatches) build it cold and
+  # save it; push runs restore the newest one with the same toolchain and build list. `--keep-going`
+  # makes one run list every crate that fails.
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      MACOS_BUILD: |
+        cargo check --locked --keep-going --all-targets -p rdashd -p rdash-cli -p dashd-store -p dashd-chainstate -p dashd-node -p dash-kv
+        cargo build --locked -p rdashd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.snapshot || github.sha }}
+          persist-credentials: false
+
+      - name: Toolchain
+        run: |
+          echo "job_t0=$(date +%s)" >> "$GITHUB_ENV"
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          rustc -Vv
+          df -h /
+
+      # The deps job's strip.py: it drops every unit of a workspace member and the final binaries.
+      - name: Strip script
+        run: |
+          cat > "$RUNNER_TEMP/strip.py" <<'PY'
+          import glob, json, os, re, shutil, subprocess
+          meta = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+                                           check=True, capture_output=True, text=True).stdout)
+          members = {p["name"] for p in meta["packages"] if p["id"] in meta["workspace_members"]}
+          gone = 0
+          for prof in glob.glob("target/debug") + glob.glob("target/release"):
+              for fp in os.listdir(f"{prof}/.fingerprint"):
+                  m = re.fullmatch(r"(.+)-([0-9a-f]{16})", fp)
+                  if not m or m.group(1) not in members:
+                      continue
+                  h = m.group(2)
+                  for p in glob.glob(f"{prof}/deps/*-{h}*") + glob.glob(f"{prof}/build/{m.group(1)}-{h}"):
+                      shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+                  shutil.rmtree(f"{prof}/.fingerprint/{fp}")
+                  gone += 1
+              for p in os.listdir(prof):
+                  q = f"{prof}/{p}"
+                  if os.path.isfile(q) or p in ("examples", "incremental"):
+                      shutil.rmtree(q) if os.path.isdir(q) else os.remove(q)
+          print(f"strip: dropped {gone} workspace units")
+          PY
+
+      - name: Cache key
+        id: key
+        run: |
+          rustc_hash=$(rustc -Vv | shasum -a 256 | cut -c1-16)
+          build_hash=$({ printf '%s' "$MACOS_BUILD"; cat "$RUNNER_TEMP/strip.py"; } | shasum -a 256 | cut -c1-16)
+          prefix=node-macos-$CACHE_GEN-$rustc_hash-$build_hash-
+          echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+          echo "key=${prefix}${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '**/Cargo.toml') }}" >> "$GITHUB_OUTPUT"
+
+      # A default-branch run builds cold unless its key is there, so no stale unit is saved; a push run
+      # also takes the newest cache with the same toolchain and build list.
+      - name: Restore the macOS dependency cache
+        id: restore
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.key.outputs.key }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && steps.key.outputs.prefix || '' }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: Check and link
+        env:
+          HIT: ${{ steps.restore.outputs.cache-hit == 'true' && 'hit' || (steps.restore.outputs.cache-matched-key != '' && 'partial' || 'miss') }}
+        run: |
+          metrics="macos_cache=$HIT"
+          echo "metrics=$metrics" >> "$GITHUB_ENV"
+          n=0
+          while read -r -a cmd; do
+            [ ${#cmd[@]} -gt 0 ] || continue
+            n=$((n + 1))
+            s=$SECONDS
+            # Diagnostics stream to the log; stdout keeps the JSON the rebuilt-unit count reads.
+            rc=0
+            "${cmd[@]}" --message-format=json-render-diagnostics > "$RUNNER_TEMP/step$n.json" || rc=$?
+            fresh=$(jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not))] | length' "$RUNNER_TEMP/step$n.json")
+            metrics+=" ${cmd[1]}_s=$((SECONDS - s)) ${cmd[1]}_rebuilt_third_party=$fresh"
+            [ "$rc" = 0 ] || metrics+=" ${cmd[1]}=failed"
+            echo "metrics=$metrics" >> "$GITHUB_ENV"
+            [ "$rc" = 0 ] || exit "$rc"
+          done <<<"$MACOS_BUILD"
+          du -sh target
+          df -h /
+
+      - name: Strip the macOS dependency cache
+        id: strip
+        if: steps.restore.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        run: python3 -I "$RUNNER_TEMP/strip.py" && du -sh target
+
+      - name: Save the macOS dependency cache
+        id: save
+        if: steps.strip.outcome == 'success'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.key.outputs.key }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: Metrics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/metrics"
+          line="macos key=${{ steps.key.outputs.key || '-' }} ${metrics:-macos_cache=-} saved=${{ steps.save.outcome == 'success' && 'yes' || 'no' }} job_s=$(( $(date +%s) - ${job_t0:-0} ))"
+          echo "NODE-GATE-METRIC $line"
+          echo "NODE-GATE-METRIC $line" >> "$GITHUB_STEP_SUMMARY"
+          echo "$line" > "$RUNNER_TEMP/metrics/macOS.txt"
+
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: metrics-macOS
+          path: ${{ runner.temp }}/metrics/macOS.txt
+          retention-days: 30
+
   summary:
     name: Summary
-    needs: [deps, static, shard]
+    needs: [deps, static, shard, macos]
     # Not after a cancel: its failure on cancelled shards would make the cancelled run look red to
     # rdc-ci-verdict.sh, which counts a cancelled run with a failed job as red.
     if: ${{ !cancelled() && !inputs.deps_only }}
@@ -968,7 +1109,7 @@ jobs:
           {
             echo "## node-gate $REF"
             echo
-            echo "deps: ${{ needs.deps.result }}, static: ${{ needs.static.result }}, shards: ${{ needs.shard.result }}"
+            echo "deps: ${{ needs.deps.result }}, static: ${{ needs.static.result }}, shards: ${{ needs.shard.result }}, macOS: ${{ needs.macos.result }}"
             echo
             echo "| job | conclusion | wall (min) |"
             echo "|---|---|---|"
@@ -979,4 +1120,5 @@ jobs:
             cat metrics/*.txt 2>/dev/null
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
-          [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.shard.result }}" = success ]
+          [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.shard.result }}" = success ] \
+            && [ "${{ needs.macos.result }}" = success ]
