@@ -1,0 +1,11 @@
+# ToyChain planted bug T34 (ST3a §6.2), minimised in 171 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=- sub=synced:0:96 bug=T34
+workload c20;f;c20;f
+crash 160 power-loss
+decide 1:chainstate:b6=1
+adversary realistic
+granularity write
+expect R3
+minimality verified
