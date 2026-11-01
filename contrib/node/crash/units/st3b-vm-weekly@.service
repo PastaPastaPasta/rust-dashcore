@@ -1,0 +1,25 @@
+[Unit]
+Description=ST3b VM-level power-loss weekly: component %i (PLAN-ST3b-S7 §2.4)
+
+# One component of the week (%i: v-ibd-ext4, v-reorg-xfs, ...), started in turn by
+# st3b-vm-weekly.service after it built everything: weekly-vm.sh --component reads the week's
+# binaries, guest and seed from the out dir the driver recorded, and holds
+# /work/scratch/st3b/weekly-vm/guest.lock while its guest runs (one guest at a time). Killed at its
+# timeout, it writes a `TIMEOUT <component>` row to the summary and the ledger first. Each
+# component's TimeoutStartSec is in its drop-in (st3b-vm-weekly@<component>.service.d/): v-reorg's
+# sized from measured W-small times, the W-40k ones a provisional 6 h until the acceptance run
+# measures them (S7 r2 N7); the one here is for v-reindex, which only prints SKIPPED (CH5).
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+WorkingDirectory=/work/scratch/st3b/weekly-vm
+ExecStart=/work/scratch/st3b/weekly-vm/checkout/contrib/node/crash/weekly-vm.sh --component %i
+# A harness stopped by a signal never unwinds: its guest's shell kills QEMU once the run lock is
+# free, and the sweep (with the week's own st3b-crash) removes the container.
+ExecStopPost=/work/scratch/st3b/weekly-vm/checkout/contrib/node/crash/weekly-vm.sh --sweep
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=25
+MemoryMax=16G
+TimeoutStartSec=10min
+TimeoutStopSec=5min
