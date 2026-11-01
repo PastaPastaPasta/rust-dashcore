@@ -1,0 +1,16 @@
+[package]
+name = "dash-statedigest"
+description = "StateDigest v1 (node program task O8): the record model, the canonical JSON Lines grammar, the writer and the strict parser shared by the patched Dash Core, rdashd and the conformance tools. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_statedigest"
+path = "src/lib.rs"
+
+[dependencies]
