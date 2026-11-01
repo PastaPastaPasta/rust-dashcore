@@ -1,0 +1,60 @@
+# Clippy bans for the SPV client library (V: SB0 §7, DEC-112 O5). V's CPU
+# work runs on its host's tokio tasks (DEC-900), so rayon's global pool is
+# never built; and V makes none of blst's pooled calls (DEC-79), whose pool
+# dash-spv-ffi also compiles out (blst `no-threads`). V still links rayon
+# through dash-chain, so parallel iterators, joins and spawns stay banned: each
+# would start or run on rayon's global pool.
+#
+# contrib/node/check-spv.sh merges this with the root clippy.toml, the blst
+# and dash-pkc entries of pure-clippy.toml (DEC-79's pooled calls, under the
+# same audit stamp) and the crate's own clippy.toml, and runs clippy with
+# these lints denied. `allow-invalid` keeps a crate without rayon quiet.
+
+disallowed-methods = [
+    { path = "rayon::ThreadPoolBuilder::build_global", reason = "V's CPU work runs on the host's tokio tasks; rayon's global pool is never built (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn", reason = "this starts rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn_fifo", reason = "this starts rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::spawn_broadcast", reason = "this starts rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::broadcast", reason = "this starts rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::current_num_threads", reason = "this starts rayon's global pool; size work from the host's runtime (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::join", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::join_context", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::scope", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::scope_fifo", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::in_place_scope", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::in_place_scope_fifo", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelIterator::into_par_iter", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelRefIterator::par_iter", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::IntoParallelRefMutIterator::par_iter_mut", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelBridge::par_bridge", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_chunks", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_chunks_exact", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_windows", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_chunks_mut", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by_key", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_by_cached_key", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable_by", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_sort_unstable_by_key", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_chunks_exact_mut", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSliceMut::par_rchunks_mut", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_rchunks", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_rchunks_exact", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::slice::ParallelSlice::par_split", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelExtend::par_extend", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelDrainRange::par_drain", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::ParallelDrainFull::par_drain", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_chars", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_bytes", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_lines", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::str::ParallelString::par_split", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeat", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeatn", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::repeat_n", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::split", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree_prefix", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+    { path = "rayon::iter::walk_tree_postfix", reason = "this runs on rayon's global pool; run the work on the host's tokio tasks (SB0 §7, DEC-112 O5)", allow-invalid = true },
+]
