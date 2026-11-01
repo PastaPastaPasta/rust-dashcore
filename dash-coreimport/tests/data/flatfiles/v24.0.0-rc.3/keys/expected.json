@@ -1,0 +1,110 @@
+{
+  "core": {
+    "dashd_sha256": "e204e3163185b1bffcd3bf3532c0957d8cc11019eaf8f3dbc3b2fc82a7ab5bb4",
+    "default_port": 19899,
+    "network": "regtest",
+    "tag": "v24.0.0-rc.3"
+  },
+  "dashd_args": [
+    "-regtest",
+    "-datadir=<datadir>",
+    "-printtoconsole=0",
+    "-listen=1",
+    "-bind=127.0.0.1:51135",
+    "-bind=127.0.0.1:49215=onion",
+    "-listenonion=1",
+    "-torcontrol=127.0.0.1:34737",
+    "-i2psam=127.0.0.1:41167",
+    "-i2pacceptincoming=1",
+    "-debug=tor",
+    "-debug=i2p",
+    "-connect=0",
+    "-dnsseed=0",
+    "-discover=0",
+    "-disablewallet",
+    "-rpcport=49431",
+    "-rpcuser=im1b",
+    "-rpcbind=127.0.0.1",
+    "-rpcallowip=127.0.0.1"
+  ],
+  "i2p_private_key": {
+    "address_match": true,
+    "b32_address_computed": "xq2oom3u2joz7f56ohxldlsqm3l3kuo2j2sgvelenedrznig7yka.b32.i2p",
+    "b32_address_core_logged": "xq2oom3u2joz7f56ohxldlsqm3l3kuo2j2sgvelenedrznig7yka.b32.i2p",
+    "b32_address_core_logged_run2": "xq2oom3u2joz7f56ohxldlsqm3l3kuo2j2sgvelenedrznig7yka.b32.i2p",
+    "b32_address_core_logged_with_port": "xq2oom3u2joz7f56ohxldlsqm3l3kuo2j2sgvelenedrznig7yka.b32.i2p:0",
+    "cert_bytes_hex": "05000400070000",
+    "cert_len_field_offset_385": 4,
+    "content_format": "raw binary private destination: 391-byte Destination (256 enc pubkey slot + 128 signing slot [96 padding + 32-byte Ed25519 pubkey] + key cert 05 0004 0007 0000) + 256-byte encryption private key + 32-byte Ed25519 seed",
+    "crypto_type": 0,
+    "dest_generate_calls_total": 1,
+    "destination_len": 391,
+    "file": "i2p_private_key",
+    "file_equals_mock_PRIV_verbatim": true,
+    "mode_octal": "600",
+    "session_create": {
+      "run1-generate": {
+        "cert_len_field": 4,
+        "phase": "run1-generate",
+        "priv_len": 679,
+        "style_stream": true,
+        "verbatim_vs_generated": true
+      },
+      "run2-cached": {
+        "cert_len_field": 4,
+        "phase": "run2-cached",
+        "priv_len": 679,
+        "style_stream": true,
+        "verbatim_vs_generated": true
+      }
+    },
+    "sha256": "1fb1ca54cbb9beda261879ca2c85962cd55636fad2b6dc4bb0bc48dd793c35c3",
+    "sig_type": 7,
+    "signing_public_key_hex": "aee1db8bfec43b328c3160c8b147983d4b06637f1efed8a0cb62e95db9717b6e",
+    "signing_public_key_rederived_from_seed": "aee1db8bfec43b328c3160c8b147983d4b06637f1efed8a0cb62e95db9717b6e",
+    "size": 679
+  },
+  "onion_v3_private_key": {
+    "add_onion_run1": "ADD_ONION NEW:ED25519-V3 Port=19899,127.0.0.1:49215",
+    "add_onion_run2": "ADD_ONION ED25519-V3:<redacted 88 chars> Port=19899,127.0.0.1:49215",
+    "address_match": true,
+    "advertised_service_core_logged": "wsd6jiq7ebrkhdink5rj24b7ayyruwtggpldnqclsczd3vp7wirlkmid.onion:19899",
+    "b64_len": 88,
+    "content_format": "ASCII 'ED25519-V3:' + standard base64 (with '=' padding) of the 64-byte Tor expanded secret key; no trailing newline",
+    "file": "onion_v3_private_key",
+    "file_equals_mock_PrivateKey_verbatim": true,
+    "key_blob_len": 64,
+    "mock_checks": {
+      "run1-generate": {
+        "kind": "NEW",
+        "phase": "run1-generate",
+        "pub_matches_cryptography": true,
+        "target": "127.0.0.1:49215",
+        "virtual_port": 19899
+      },
+      "run2-cached": {
+        "address_vs_run1": true,
+        "key_blob_len": 64,
+        "key_verbatim_vs_run1": true,
+        "kind": "CACHED",
+        "phase": "run2-cached",
+        "target": "127.0.0.1:49215",
+        "virtual_port": 19899
+      }
+    },
+    "mode_octal": "600",
+    "no_trailing_newline": true,
+    "onion_address_computed": "wsd6jiq7ebrkhdink5rj24b7ayyruwtggpldnqclsczd3vp7wirlkmid.onion",
+    "onion_address_core_logged": "wsd6jiq7ebrkhdink5rj24b7ayyruwtggpldnqclsczd3vp7wirlkmid.onion",
+    "onion_address_core_logged_run2": "wsd6jiq7ebrkhdink5rj24b7ayyruwtggpldnqclsczd3vp7wirlkmid.onion",
+    "public_key_hex": "b487e4a21f2062a38d0d57629d703f06311a5a6633d636c04b90b23dd5ffb222",
+    "public_key_rederived_from_file": "b487e4a21f2062a38d0d57629d703f06311a5a6633d636c04b90b23dd5ffb222",
+    "sha256": "1495d44598f93aaee792ee3cba61bacd7f4c297064585a46fd0dc9d03fc79eaf",
+    "size": 99
+  },
+  "problems": [],
+  "run2": {
+    "i2p_unchanged": true,
+    "onion_unchanged": true
+  }
+}
