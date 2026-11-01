@@ -1,0 +1,63 @@
+[package]
+name = "dash-spv-ffi"
+description = "FFI bindings for the Dash SPV client"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "dash_spv_ffi"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+dash-spv = { path = "../dash-spv" }
+dashcore = { path = "../dash" }
+dash-network = { path = "../dash-network", features = ["ffi"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+hex-conservative = { workspace = true }
+tracing = "0.1"
+# Use key-wallet-ffi for all wallet-related FFI types
+key-wallet-ffi = { path = "../key-wallet-ffi" }
+# Still need these for SPV client internals (not for FFI types)
+key-wallet = { path = "../key-wallet" }
+key-wallet-manager = { path = "../key-wallet-manager" }
+# Off mobile, the opt-in `blst-no-threads` below (DEC-112 O5).
+blst = { version = "0.3.17", features = ["no-threads"], optional = true }
+
+# DEC-112 O5 (SB0 §7): on mobile, blst runs every pooled call inline, so its own
+# thread pool never starts. Only this manifest may turn `no-threads` on:
+# contrib/node/check-mobile.sh (rule O5) fails if an N package's graph does, as
+# DEC-79 keeps the node's blst pooled.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+blst = { version = "0.3.17", features = ["no-threads"] }
+
+[dev-dependencies]
+dash-spv = { path = "../dash-spv", features = ["test-utils"] }
+tokio = { version = "1", features = ["full"] }
+# Tests inspect per-account transaction history end-to-end (including
+# chainlocked transactions), which requires the `keep-finalized-transactions`
+# feature on `key-wallet-ffi`. Cargo unifies features across the build graph at
+# test time, so this enables the gated FFI accessors in test builds without
+# changing the lib's default feature surface.
+key-wallet-ffi = { path = "../key-wallet-ffi", features = ["keep-finalized-transactions"] }
+serial_test = "3.0"
+tempfile = "3.8"
+
+[build-dependencies]
+cbindgen = "0.29"
+
+[features]
+# File logging in `dash_spv_ffi_init_logging`; off by default (log files are a host choice).
+log-file = ["dash-spv/log-file"]
+# `dash_spv_ffi_init_logging` with a null level reads RUST_LOG.
+env-filter = ["dash-spv/env-filter"]
+# blst's `no-threads` off mobile too: the Linux thread-count test (SB0 §7).
+blst-no-threads = ["dep:blst"]
+
+# SB0 §7's thread-count test, against the regtest masternode network: blst must be `no-threads`.
+[[test]]
+name = "thread_count"
+required-features = ["blst-no-threads"]
