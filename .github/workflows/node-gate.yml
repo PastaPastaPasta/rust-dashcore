@@ -11,8 +11,9 @@
 #            selection cold, strips the workspace crates' units and saves; no other run or job saves.
 #   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
 #            protocol-tables (no build, no cache).
-#   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`),
-#            clippy, or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
+#   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
+#            `features` shard runs the test targets whose required features the workspace resolve
+#            leaves off, BL-608), clippy, or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
@@ -22,7 +23,8 @@
 #   crates, still unify per shard (cargo cannot name a member that is not a direct dependency); the
 #   plan step prints each shard's member differences;
 # - no BL-20 rerun and no per-binary time limit (test-run.py); the job timeout bounds a hang;
-# - pure and planted always run (no merge base to trigger on); oracle-diff stays local;
+# - pure and planted always run (no merge base to trigger on); oracle-diff stays local, and so do the
+#   test targets that need `oracle`, `sut` or `l3` (the plan step counts them);
 # - the export points the base SDK pin at the public fork; static and extras point it back at a
 #   clone of that fork (`file://`), so check-base-sdk-pins.sh and the pure lane's audit stamp see
 #   the layout they check.
@@ -76,11 +78,11 @@ env:
   RUST_BACKTRACE: "1"
   # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
   # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
-  CACHE_GEN: v2
+  CACHE_GEN: v3
   # `<CACHE_GEN>-<hash of the deps job's build list>`, which the deps job checks (BL-520): a change
   # to that list fails every run until CACHE_GEN is bumped and this re-pinned to the hash it prints.
-  # v2 was saved by v8's list; the pin is v10's, so only later changes need a bump.
-  CACHE_GEN_BUILDS: v2-dc0b48b9422f4d3f
+  # v3: v16's features shard (BL-608).
+  CACHE_GEN_BUILDS: v3-3887874f29acdd53
   # Third-party units the closure in use lacks, which Summary's save rule leaves out (BL-520): the
   # rdashd shard's cbindgen (its --bin/--test selection leaves clap build-only, so cbindgen links
   # debuginfo-0 clap units and gets its own hash), which v8's deps job, the one that saved the v2
@@ -284,6 +286,60 @@ jobs:
               raise SystemExit("a crate is in two shards")
           if set(covered) != members:
               raise SystemExit(f"members in no shard: {sorted(members - set(covered))}")
+          # BL-608: a test target whose required features the workspace resolve leaves off is in no
+          # shard above, as it is not in `cargo test --workspace`. The "features" shard runs every such
+          # target in one selection, which the deps job prebuilds like the others (one
+          # `-p X --features X/f` per crate would unify third-party features anew each time). The
+          # exceptions are a target that needs a LOCAL feature, and one an explicit step runs. A target
+          # that needs an ALONE feature (one that changes other code once unified into a shared
+          # selection) and has no step fails the plan.
+          LOCAL = {"oracle": "the Core oracle archives stay local (DEC-650)",
+                   "sut": "Diff mode links the Core shim: the local oracle lane (BL-563)",
+                   "l3": "links the Core shim: the local oracle lane (BL-563)"}
+          ALONE = {"planted-bugs", "blst-no-threads"}
+          def step_for(crate, target, need):
+              if crate == "rdashd" and need == {"test-hooks"}:
+                  return "rdashd shard, step rdashd test-hooks"
+              if (crate, target) == ("dashd-chainstate", "crash_planted"):
+                  return "extras, step planted"
+              if crate in ("dash-spv", "dash-spv-ffi") and target == "thread_count":
+                  return "extras, step thread-count"
+          picked, local = [], {}
+          for p in sorted((p for p in meta["packages"] if p["name"] in members), key=lambda p: p["name"]):
+              for t in p["targets"]:
+                  need = set(t.get("required-features") or ())
+                  if t["kind"][0] != "test" or not t.get("test", True) or need <= workspace_wide.get(p["name"], set()):
+                      continue
+                  if need & LOCAL.keys():
+                      why = "; ".join(LOCAL[f] for f in sorted(need & LOCAL.keys()))
+                      local[why] = local.get(why, 0) + 1
+                      continue
+                  where = step_for(p["name"], t["name"], need)
+                  if where is None and need & ALONE:
+                      raise SystemExit(f"{p['name']} test {t['name']} requires {sorted(need & ALONE)}, which "
+                                       "must not be unified into the features shard: give it its own step")
+                  print(f"feature-gated: {p['name']} {t['name']} [{','.join(sorted(need))}]: {where or 'features shard'}")
+                  if where is None:
+                      picked.append((p["name"], t["name"], need))
+          for why, n in sorted(local.items()):
+              print(f"feature-gated: {n} targets not in fork CI: {why}")
+          if picked:
+              crates = sorted({c for c, _, _ in picked})
+              # `--test <name>` picks that name in every selected crate.
+              owners = {}
+              for p in meta["packages"]:
+                  for t in p["targets"] if p["name"] in crates else ():
+                      if t["kind"][0] == "test" and t["name"] in {n for _, n, _ in picked}:
+                          owners.setdefault(t["name"], []).append(p["name"])
+              clash = {n: cs for n, cs in owners.items() if len(cs) > 1}
+              if clash:
+                  raise SystemExit(f"shard features: a test name is in more than one selected crate: {clash}")
+              feats = sorted({f"{c}/{f}" for c in crates for f in resolved.get(c, ())} |
+                             {f"{c}/{f}" for c, _, need in picked for f in need})
+              include.append({"shard": "features", "kind": "test", "packages": " ".join(f"-p {c}" for c in crates),
+                              "features": f"--features {','.join(feats)}",
+                              "targets": " ".join(f"--test {n}" for _, n, _ in picked),
+                              "runs": [], "rdashd": False})
           include += [{"shard": k, "kind": k, "packages": "", "features": "", "targets": "", "runs": [], "rdashd": False}
                       for k in ("clippy", "extras")]
           for e in include:
@@ -564,6 +620,14 @@ jobs:
           printf 'cache=%s restore_s=%.1f stored_bytes=%s unpacked_bytes=%s\n' "$HIT" "$secs" "$stored" "$unpacked" | tee -a "$METRICS"
           df -h / | tail -1
 
+      # The feature-scope tests run `cargo tree --target all --offline`, which needs every crate in
+      # Cargo.lock, other platforms' included. A closure the deps job saved holds them all (its plan's
+      # `cargo tree` downloads them); a cold or partial restore holds only what that closure built
+      # (v16's first run under CACHE_GEN v3, 41248794453).
+      - name: Fetch every locked crate
+        if: matrix.kind == 'test'
+        run: /usr/bin/time -f 'fetch_s=%e' -a -o "$METRICS" cargo fetch --locked
+
       - name: dashd 23.1.0 and the regtest data
         if: matrix.kind == 'test' || matrix.kind == 'extras'
         run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
@@ -604,6 +668,9 @@ jobs:
         env:
           DASHD_TEST_RETAIN_DIR: ${{ runner.temp }}/dashd-test-logs
         run: |
+          # The dashd tests return early, and pass, when SKIP_DASHD_TESTS is set; libtest keeps their
+          # skip line out of the log, so a set variable fails the shard instead (BL-608).
+          [ -z "${SKIP_DASHD_TESTS+x}" ] || { echo "::error::SKIP_DASHD_TESTS is set: the dashd tests would pass without running"; exit 1; }
           /usr/bin/time -f 'test_s=%e test_cpu_s=%U+%S test_peak_kb=%M' -a -o "$METRICS" \
             cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} ${{ matrix.targets }} 2>&1 | tee "$RUNNER_TEMP/test.log"
           rc=${PIPESTATUS[0]}
