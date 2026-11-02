@@ -1,0 +1,84 @@
+[package]
+name = "rdashd"
+description = "The Rust Dash node daemon: Dash Core's dashd main over dashd-node"
+publish = false
+# Ports Dash Core code (MIT): bitcoind.cpp, util/tokenpipe.cpp.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "rdashd"
+path = "src/main.rs"
+
+[features]
+# The fault injection `tests/hooks.rs` drives (`src/test_hooks.rs`); tests only.
+test-hooks = ["dashd-node/test-hooks"]
+# ST3b's plant build (`RDASHD_ST3B_PLANT`, dashd-node's `planted-bugs`); test builds only.
+planted-bugs = ["dashd-node/planted-bugs"]
+
+[[test]]
+name = "hooks"
+required-features = ["test-hooks"]
+
+# F01 at node level (CH3b D223): a kill between a block's accept and its connect, against dashd v24.
+[[test]]
+name = "f01_restart"
+required-features = ["test-hooks"]
+
+# CH5-5's live-copy contract: the reopen oracle's self-tests (phase 4) and the process tests.
+[[test]]
+name = "live_copy"
+required-features = ["test-hooks"]
+
+[dependencies]
+dash-args = { path = "../dash-args" }
+dashd-node = { path = "../dashd-node" }
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+# fork, pipes and signal handlers (`daemon`, `signals`).
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# The console control handler (`signals`).
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
+[dev-dependencies]
+# The mock Tor control port's SAFECOOKIE hashes (`tests/tor_diff.rs`, P8b).
+bitcoin_hashes = { workspace = true, features = ["std"] }
+# Free ports for the nodes the tests start, re-exported by tests/common (BL-221).
+node-test-ports = { path = "../node-test-ports" }
+socket2 = "0.6"
+tempfile = "3"
+# DIFF-RPC getblockstats replays Core's own `rpc_getblockstats.json` chain (RP1a-2c-2).
+dash-core-vectors = { path = "../test-vectors" }
+# F01's test decodes the block index record the hook read back (`tests/f01_restart.rs`).
+dash-chain = { path = "../dash-chain" }
+# P3's proofs of silence (`tests/p2p_silence.rs`, DEC-280): the scripted peer's transport and
+# messages, and the regtest blocks it serves; and DIFF-RPC's `submitblock` blocks (X11).
+dash-consensus = { path = "../dash-consensus" }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true }
+# DIFF-RPC's stored-but-unconnected getblock block reads dashd-rpc's txtouniv fixtures (RP1a-2c).
+flate2 = "1"
+# DIFF-RPC's getmerkleblocks filters (RP1a-2c-3): P4b's `CBloomFilter`.
+dashd-p2p = { path = "../dashd-p2p" }
+# CH5-1a's L3 fixture on rdashd (`tests/verifychain.rs`): a coin rewritten in the stopped node's
+# coins column family.
+dashd-chainstate = { path = "../dashd-chainstate" }
+dashd-store = { path = "../dashd-store" }
+# CH5-5's reopen oracle (`tests/live_copy.rs`): the row reader over C0's inspector, the evo
+# rows' decoders, and the RPC replies' JSON.
+dash-testkit = { path = "../dash-testkit", features = ["crash"] }
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+serde_json = "1.0"
+# DIFF-RPC getcreditpoolinfo replays the O8 recorder's zstd `blocks.dat` (RP1a-5).
+zstd = { version = "0.14", default-features = false }
