@@ -1,0 +1,60 @@
+# cargo-deny bans for the pure crates (`node-pure` in .github/ci-groups.yml:
+# dash-consensus, dash-evo, dash-llmq, dash-governance, dash-coinjoin).
+# A1 §1.5 and §2.1 (X-1): they are ordinary `std` crates with no I/O, threads,
+# clocks or globals, so they may not depend, even transitively, on async
+# runtimes, sockets, storage engines, clocks or thread pools.
+# contrib/node/check-pure.sh runs this per pure crate, with that crate as the
+# only root, all features and without dev-dependencies (tests may read
+# fixtures). The rest of the workspace is checked by the root deny.toml.
+
+[bans]
+multiple-versions = "allow"
+deny = [
+    # Async runtimes and executors.
+    { crate = "tokio", reason = "pure crates are sans-io: no async runtime (A1 X-1)" },
+    { crate = "async-std", reason = "pure crates are sans-io: no async runtime (A1 X-1)" },
+    { crate = "smol", reason = "pure crates are sans-io: no async runtime (A1 X-1)" },
+    { crate = "async-executor", reason = "pure crates are sans-io: no async runtime (A1 X-1)" },
+    { crate = "async-io", reason = "pure crates are sans-io: no async runtime (A1 X-1)" },
+    # Sockets and network clients.
+    { crate = "mio", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "socket2", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "hyper", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "reqwest", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "ureq", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "tungstenite", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    { crate = "zmq", reason = "pure crates are sans-io: no sockets (A1 X-1)" },
+    # Storage engines and file I/O.
+    { crate = "rocksdb", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "librocksdb-sys", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "rusqlite", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "libsqlite3-sys", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "sled", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "redb", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "heed", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "libmdbx", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "memmap2", reason = "pure crates are sans-io: no storage (A1 X-1)" },
+    { crate = "tempfile", reason = "pure crates are sans-io: no file I/O (A1 X-1)" },
+    # Clocks: the time is passed in as a value.
+    { crate = "chrono", reason = "pure crates take the time as a value: no clock (A1 X-1)" },
+    { crate = "time", reason = "pure crates take the time as a value: no clock (A1 X-1)" },
+    { crate = "coarsetime", reason = "pure crates take the time as a value: no clock (A1 X-1)" },
+    { crate = "quanta", reason = "pure crates take the time as a value: no clock (A1 X-1)" },
+    # Threads.
+    { crate = "rayon", reason = "pure crates are single-threaded (A1 X-1)" },
+    { crate = "rayon-core", reason = "pure crates are single-threaded (A1 X-1)" },
+    # blst depends on threadpool on every hosted target. pure-clippy.toml bans
+    # the blst and dash-pkc entry points that use it, so it is allowed through
+    # blst alone, and blst through dash-pkc alone (DEC-68/71).
+    { crate = "threadpool", wrappers = ["blst"], reason = "pure crates are single-threaded (A1 X-1); blst's pool is banned at its call sites (DEC-71)" },
+    { crate = "blst", wrappers = ["dash-pkc"], reason = "pure crates reach blst through dash-pkc, whose threaded entry points pure-clippy.toml bans (DEC-71)" },
+    { crate = "crossbeam-channel", reason = "pure crates are single-threaded (A1 X-1)" },
+    # Allocators: a pure crate sets none, by #[global_allocator] (the canary,
+    # DEC-181) or by replacing malloc in C.
+    { crate = "tikv-jemallocator", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+    { crate = "tikv-jemalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+    { crate = "jemallocator", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+    { crate = "jemalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+    { crate = "mimalloc", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+    { crate = "libmimalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L4, L5)" },
+]
