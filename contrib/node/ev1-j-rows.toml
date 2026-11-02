@@ -1,0 +1,688 @@
+# EV1-J's row inventory (EV1-J plan rev4 §4 and §5.4; EV1 design §6.3 and D27, in
+# docs/node-program/designs/EV1-specialtx.md), at Dash Core v24.0.0-rc.5.
+#
+# [[row]]: one certification row. `id` and `case` as §4 names them; `recipe`, how the probe is
+# built (on regtest, with the chain `dashd-node/tests/ev1_j_dashd.rs` sets up); then one entry per
+# path:
+#   b    block via `submitblock`, check_sigs = true;
+#   bav  block below assumevalid, check_sigs = false (plan §5.2);
+#   m    mempool (`sendrawtransaction`, `testmempoolaccept`);
+#   l2   the history replay (plan §4 "L2 replay").
+# A path's value is the expected outcome on both nodes, `accept` or Core's reject reason, or the
+# reason the path does not apply: `n/a: ...`, `excluded: ...` (a branch no consistent node
+# reaches) or `infeasible: ...` (conditions that cannot hold together). A path with an outcome
+# has `<path>_stage`, the EV1-J stage that runs it (J0a, J0b, J1, J2; plan §3). A row the test
+# runs has `control` and `b_control`: the probe with the winning defect taken out, and the reject
+# the next check gives, which shows the probe reaches its check with every earlier one passing. A
+# row may also have `order_probe`/`b_order` and `order_control`/`b_order_control`: blocks with a
+# second defect, placed so the stage Core's ConnectBlock answers from shows; D13-B and D13-B2 must
+# have both (the test's STAGE_ROWS). The test pins the recorded exclusions (`excludes`, and the
+# covers of a row no path of applies) to plan §4's (the test's EXCLUSIONS).
+# Every block-path reject (`b`, `bav`, `b_control`, `b_order`, `b_order_control`) has `<key>_class`: Core's
+# BlockValidationResult for it, with the file:line that sets it at the tag. The test compares V's
+# class to it; dashd's class is not observed (see the test's module docs).
+# `covers` lists the §6.3 branches and pairs (EV1 design §6.3, §3.12) the row stands for: a step
+# of ev1-pairs.toml's 7c or 9c table, a step with a §6.3 variant (`9c:11 expired`), or a pair
+# `<winner>><loser>`; or one of D13's coins-view cases (`D13 ...`, plan §4 D13). `excludes` lists
+# the cases a row records as unobservable on its paths, with the reason and the evidence kept in
+# `notes`. `ev1_j_dashd`'s closure test first checks the rows against its own copy of §4's
+# inventory (every row, path, stage and outcome, and each path's n/a reason), then that every
+# branch, pair and D13 case is covered or recorded as excluded, and that each cover's reason is the
+# row's reject.
+#
+# Restricted shape, as ev1-pairs.toml's (D29): `key = "string"` or `covers = [` / `excludes = [`
+# with one string per line, so the test reads it with a line parser.
+
+# Type 7 (MNHF)
+
+[[row]]
+id = "7-OK"
+case = "valid signal, MNHF quorum, in-window EHF bit"
+recipe = "a signal signed by an MNHF quorum of the J0b fixture for an in-window EHF bit"
+b = "accept"
+b_stage = "J0b"
+bav = "accept"
+bav_stage = "J0b"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "7-S1"
+case = "the bit of an in-window deployment without useEHF"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 28 (regtest's testdummy, in its window, useEHF false), the hash of setup block 60 (an active-chain ancestor) and a well-formed BLS signature"
+b = "bad-mnhf-non-ehf"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "bit 14 (evo_shares, in its window, useEHF true) with the same hash: block 60 is no MNHF quorum"
+b_control = "bad-mnhf-missing-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-non-ehf"
+m_stage = "J1"
+covers = [
+  "7c:4",
+]
+
+[[row]]
+id = "7-S2"
+case = "unknown quorum hash"
+recipe = "an EHF bit and a quorum hash no node knows"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5a",
+]
+
+[[row]]
+id = "7-S3"
+case = "known block off the active chain"
+recipe = "an EHF bit and the hash of a stale block both validators know"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5b",
+]
+
+[[row]]
+id = "7-S4"
+case = "known ancestor that is not an llmqTypeMnhf quorum"
+recipe = "an EHF bit and the hash of an active-chain block that is no MNHF quorum"
+b = "bad-mnhf-missing-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-missing-quorum"
+m_stage = "J1"
+covers = [
+  "7c:7",
+]
+
+[[row]]
+id = "7-S5"
+case = "bad signature"
+recipe = "an EHF bit, an MNHF quorum of the J0b fixture, a signature by another key"
+b = "bad-mnhf-invalid"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "bad-mnhf-invalid"
+bav_stage = "J0b"
+bav_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+m = "bad-mnhf-invalid"
+m_stage = "J1"
+covers = [
+  "7c:8",
+  "7c:8 BAV",
+]
+
+[[row]]
+id = "7-P1"
+case = "non-ehf + unknown quorum hash"
+recipe = "7-S1's tx with a quorum hash no node knows (32 bytes of 0x42)"
+b = "bad-mnhf-non-ehf"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "bit 14 with the same unknown hash"
+b_control = "bad-mnhf-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-non-ehf"
+m_stage = "J1"
+covers = [
+  "7c:4>7c:5a",
+]
+
+[[row]]
+id = "7-P2"
+case = "unknown quorum hash + bad signature"
+recipe = "an EHF bit, an unknown quorum hash, a signature by another key"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5a>7c:8",
+]
+
+[[row]]
+id = "7-P3"
+case = "off-chain quorum block + not an MNHF quorum (the off-chain block is not one)"
+recipe = "an EHF bit and the hash of a stale block that is no MNHF quorum"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5b>7c:7",
+]
+
+[[row]]
+id = "7-P4"
+case = "not an MNHF quorum + bad signature"
+recipe = "an EHF bit, an active-chain block that is no MNHF quorum, a signature by another key"
+b = "bad-mnhf-missing-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-missing-quorum"
+m_stage = "J1"
+covers = [
+  "7c:7>7c:8",
+]
+
+# Type 9 (asset unlock)
+
+[[row]]
+id = "9-OK"
+case = "valid v1 and v2 unlock, scanned Platform quorum, in window"
+recipe = "v1 and v2 unlocks signed by a scanned Platform quorum of the J0b fixture, credit pool funded by asset locks"
+b = "accept"
+b_stage = "J0b"
+bav = "accept"
+bav_stage = "J0b"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "9-S1"
+case = "index already in the credit pool at pprev (set by a mined unlock)"
+recipe = "an unlock whose index a mined unlock of the J0b fixture used"
+b = "bad-assetunlock-duplicated-index"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: ATMP answers txn-already-known for a mined index before the special check (validation.cpp:934-938); recorded as excluded"
+covers = [
+  "9c:7",
+]
+
+[[row]]
+id = "9-S2"
+case = "unknown quorum hash"
+recipe = "an unused index and a quorum hash no node knows"
+b = "bad-assetunlock-quorum-hash"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-quorum-hash"
+m_stage = "J1"
+covers = [
+  "9c:8",
+]
+
+[[row]]
+id = "9-S3a"
+case = "known chain block that is not a scanned quorum"
+recipe = "an unused index and the hash of an active-chain block that is no Platform quorum"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11",
+  "9c:11 unscanned",
+]
+
+[[row]]
+id = "9-S3b"
+case = "mined Platform quorum aged out of the scan (also BL-568)"
+recipe = "the hash of a Platform quorum of the J0b fixture past signingActiveQuorumCount + 1 newer ones"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11 expired",
+]
+
+[[row]]
+id = "9-S4a"
+case = "tip below requestedHeight"
+recipe = "a scanned Platform quorum and requestedHeight above the parent's height"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12",
+  "9c:12 below",
+]
+
+[[row]]
+id = "9-S4b"
+case = "tip at requestedHeight + 48 (v1 unlock)"
+recipe = "a v1 unlock, a scanned Platform quorum, the parent at requestedHeight + 48"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12 expiry",
+]
+
+[[row]]
+id = "9-S5"
+case = "bad signature"
+recipe = "a scanned Platform quorum, in window, a signature by another key"
+b = "bad-assetunlock-not-verified"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "bad-assetunlock-not-verified"
+bav_stage = "J0b"
+bav_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+m = "bad-assetunlock-not-verified"
+m_stage = "J1"
+covers = [
+  "9c:14",
+  "9c:14 BAV",
+]
+
+[[row]]
+id = "9-X"
+case = "bad-assetunlock-quorum-internal-error"
+recipe = "none: the scan found the hash and GetQuorum did not"
+b = "excluded: unreachable on a consistent node (L0 only, EV1 design §6.3)"
+bav = "excluded: as b"
+m = "excluded: as b"
+covers = [
+  "9c:13",
+  "9c:3>9c:13",
+  "9c:5>9c:13",
+]
+
+[[row]]
+id = "9-P1"
+case = "duplicated index + unknown quorum hash"
+recipe = "9-S1's mined index and a quorum hash no node knows"
+b = "bad-assetunlock-duplicated-index"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1"
+covers = [
+  "9c:7>9c:8",
+]
+
+[[row]]
+id = "9-P2"
+case = "unknown hash + known-unscanned hash"
+recipe = "none"
+b = "infeasible: one quorumHash field (ev1-pairs.toml 9c:8 / 9c:11)"
+bav = "infeasible: as b"
+m = "infeasible: as b"
+covers = [
+  "9c:8>9c:11",
+]
+
+[[row]]
+id = "9-P3"
+case = "not scanned + too late"
+recipe = "an active-chain block that is no Platform quorum, requestedHeight above the parent's height"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11>9c:12",
+]
+
+[[row]]
+id = "9-P4"
+case = "too late + bad signature"
+recipe = "a scanned Platform quorum, requestedHeight above the parent's height, a signature by another key"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12>9c:14",
+]
+
+# 9-P5a and 9-P5b (§4: a payload-level reject plus each of the four context rejects) are split per
+# second defect. Too late (9c:12) and the signature (9c:14) come after the platform scan (9c:11),
+# so their pairs need a scanned Platform quorum, which only J0b's fixture has.
+
+[[row]]
+id = "9-P5a.1"
+case = "payload version 0 or 3 + unknown quorum hash"
+recipe = "a type 9 tx with no inputs, one P2PKH output, payload version 0 and, apart, version 3 (both well-formed 145-byte payloads; version 3 has the stable txid and the CbTx commits to its instance hash), an unused index, requestedHeight the parent's height, a quorum hash no node knows (32 bytes of 0x42) and a well-formed BLS signature"
+b = "bad-assetunlocktx-version"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1"
+b_control = "bad-assetunlock-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:8",
+]
+
+[[row]]
+id = "9-P5a.2"
+case = "payload version 0 or 3 + known block that is not a scanned quorum"
+recipe = "9-P5a.1's txs with the hash of setup block 60, an active-chain block that is no Platform quorum"
+b = "bad-assetunlocktx-version"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1, and apart version 2"
+b_control = "bad-assetunlock-too-old-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:11",
+]
+
+[[row]]
+id = "9-P5a.3"
+case = "payload version 0 or 3 + too late"
+recipe = "version 0 or 3, a scanned Platform quorum, requestedHeight above the parent's height"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:12",
+]
+
+[[row]]
+id = "9-P5a.4"
+case = "payload version 0 or 3 + bad signature"
+recipe = "version 0 or 3, a scanned Platform quorum, in window, a signature by another key"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:14",
+]
+
+[[row]]
+id = "9-P5b.1"
+case = "33 outputs + unknown quorum hash"
+recipe = "9-P5a.1's tx at payload version 1 with 33 P2PKH outputs"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs"
+b_control = "bad-assetunlock-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:8",
+]
+
+[[row]]
+id = "9-P5b.2"
+case = "33 outputs + known block that is not a scanned quorum"
+recipe = "9-P5a.2's tx at payload version 1 with 33 P2PKH outputs"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs"
+b_control = "bad-assetunlock-too-old-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:11",
+]
+
+[[row]]
+id = "9-P5b.3"
+case = "33 outputs + too late"
+recipe = "33 outputs, a scanned Platform quorum, requestedHeight above the parent's height"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:12",
+]
+
+[[row]]
+id = "9-P5b.4"
+case = "33 outputs + bad signature"
+recipe = "33 outputs, a scanned Platform quorum, in window, a signature by another key"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:14",
+]
+
+[[row]]
+id = "9-P5c"
+case = "payload version 0 or 3 + duplicated index"
+recipe = "9-S1's mined index at payload version 0 or 3"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1, txn-already-known preempts on a decodable payload with a mined index; recorded"
+covers = [
+  "9c:5>9c:7",
+]
+
+[[row]]
+id = "9-P5d"
+case = "33 outputs + duplicated index (Core assetlocktx.cpp:192-193 before :214-215)"
+recipe = "9-S1's mined index with 33 outputs"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1, txn-already-known preempts; recorded"
+covers = [
+  "9c:3>9c:7",
+]
+
+# Type 9 version 2 expired-instance retry (mempool, validation.cpp:805-831). Every recipe uses an
+# unused index, and keeps the quorum in the scan at the current parent, so the block half gives
+# too-late rather than too-old-quorum.
+
+[[row]]
+id = "9-R1"
+case = "v2 at tip requestedHeight + 48, quorum scanned at first_height"
+recipe = "a v2 unlock, unused index, its quorum scanned at first_height and at the current parent"
+m = "accept"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry first_height",
+]
+
+[[row]]
+id = "9-R2"
+case = "v2 expired within the mempool age bound, the first_height scan misses the quorum, the last_height scan has it"
+recipe = "a v2 unlock, unused index, its quorum newer than first_height and scanned at last_height and the current parent"
+m = "accept"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry last_height",
+]
+
+[[row]]
+id = "9-R3"
+case = "v2 expired within the mempool age bound, neither retry passes"
+recipe = "two recipes, one ending at each retry: the last_height retry runs only when the first_height one gave too-old-quorum (validation.cpp:828-831); unused index, quorum scanned at the current parent"
+m = "Core's reject from the last retry actually run, compared exactly"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry fails",
+]
+
+# D13 (coins views)
+
+[[row]]
+id = "D13-B"
+case = "a valid shared ProReg (type 1) and, later in the same block, an ordinary spend of its template collateral output: the reject of the masternode-list build (FinishListForBlock's collateral-spend loop), not the covenant's block view"
+recipe = "the producer's block mining its shared ProReg (protx shared_register_prepare, shared_sign, shared_combine, signed by its wallet; mined on the producer alone, then invalidated there), with a version 2 tx spending the template output to a P2PKH output appended. At rc.5 ProcessSpecialTxsInBlock's masternode-list build answers: its collateral-spend loop already holds the masternode registered earlier in the block (specialtxman.cpp:742-753; dash-dml build/mod.rs:533). ConnectBlock's covenant on the block view (validation.cpp:2716-2725) runs after it and is not reached, so the row certifies the list-build reject only. A second probe puts an ordinary version 2 tx spending a missing outpoint (32 bytes of 0x55, index 0) to a P2PKH output between the registration and the spend: Core runs ProcessSpecialTxsInBlock, list build included, before ConnectBlock's CheckTxInputs loop (validation.cpp:2674 before :2699-2713), so the list build still answers, which shows the stage that answers"
+notes = "the covenant's block-view binding is unobservable on B (shadowed by FinishListForBlock; L0/L1 evidence `coins_views_d13`, dash-dml specialtx::tests): after V24 only a shared ProReg may create a template output, at its own collateral index (CheckSharedCollateralTemplateOutputs, specialtxman.cpp:1893-1909), so every same-block template output is a new masternode's collateral and the list build rejects its spend first, and a template output of an earlier block is in both views"
+b = "bad-shared-collateral-spend"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:752, FinishListForBlock's collateral-spend loop"
+control = "the registration block itself, through the probe builder"
+b_control = "accept"
+order_probe = "registration, the missing-input tx, then the collateral spend: the list build (ProcessSpecialTxsInBlock, validation.cpp:2674) runs before ConnectBlock's CheckTxInputs loop (:2699-2713), so it answers the spend even behind the missing input"
+b_order = "bad-shared-collateral-spend"
+b_order_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:752, FinishListForBlock's collateral-spend loop"
+order_control = "the registration block with the missing-input tx appended and no spend: the missing input answers from ConnectBlock's CheckTxInputs loop"
+b_order_control = "bad-txns-inputs-missingorspent"
+b_order_control_class = "BLOCK_CONSENSUS: validation.cpp:2709-2713, ConnectBlock's CheckTxInputs, whose TX_MISSING_INPUTS (consensus/tx_verify.cpp:170-171) it rewraps"
+bav = "n/a: no signature row"
+m = "n/a: D13-M1 and D13-M2 are the mempool rows"
+covers = [
+  "D13 list build",
+]
+excludes = [
+  "D13 covenant block view",
+]
+
+[[row]]
+id = "D13-B2"
+case = "an output paying the shared-collateral template script, mined before V24 activates (an ordinary output of an ordinary tx, no masternode's collateral; permanently frozen, specialtxman.cpp:1879-1881), spent by an ordinary tx after activation: ConnectBlock's covenant"
+recipe = "setup block 121 (V24 not active for it, checked by getdeploymentinfo at block 120) mines, through generateblock, a version 2 tx of the producer's wallet paying 10 DASH to the template script (sharedcollateral.h; dash-dml SHARED_COLLATERAL_SCRIPT) plus change; the creation rule runs only under rules.v24 (specialtxman.cpp:915-917). The probe, on the setup tip with V24 active, is a version 2 tx spending that output with an empty scriptSig to a P2PKH output, without a fee (the template's coinbase pays for a block without fees). GetMNByCollateral finds no masternode, so FinishListForBlock passes, and ConnectBlock's covenant (validation.cpp:2716-2725) answers. A second probe has the template spend first and then an ordinary version 2 tx spending a missing outpoint (32 bytes of 0x55, index 0) to a P2PKH output: the covenant runs in ConnectBlock's per-tx loop after that tx's CheckTxInputs, so the spend ahead of the missing input answers first"
+b = "bad-shared-collateral-spend"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: validation.cpp:2721-2725, ConnectBlock's CheckSharedCollateralSpends"
+control = "the same block with a spend of the tx's change output (P2PKH, wallet-signed, no fee) in place of the template spend"
+b_control = "accept"
+order_probe = "the template spend, then the missing-input tx: the covenant runs in ConnectBlock's per-tx loop after that tx's CheckTxInputs (validation.cpp:2709-2725), so the spend ahead of the missing input answers first"
+b_order = "bad-shared-collateral-spend"
+b_order_class = "BLOCK_CONSENSUS: validation.cpp:2721-2725, ConnectBlock's CheckSharedCollateralSpends"
+order_control = "the missing-input tx, then the template spend: ConnectBlock's per-tx loop reaches the missing input first, so a node that ran the covenant before the CheckTxInputs loop would answer bad-shared-collateral-spend"
+b_order_control = "bad-txns-inputs-missingorspent"
+b_order_control_class = "BLOCK_CONSENSUS: validation.cpp:2709-2713, ConnectBlock's CheckTxInputs, whose TX_MISSING_INPUTS (consensus/tx_verify.cpp:170-171) it rewraps"
+bav = "n/a: no signature row"
+m = "n/a: a block row (plan §4 D13); D13-M1 is the covenant's mempool row"
+covers = [
+  "D13 covenant block",
+]
+
+[[row]]
+id = "D13-M1"
+case = "a valid shared ProReg (type 1) in the mempool, then an ordinary spend of its template collateral output: the covenant's m_view"
+recipe = "the shared ProReg through sendrawtransaction, then the spend"
+m = "bad-shared-collateral-spend"
+m_stage = "J1"
+b = "n/a: D13-B and D13-B2 are the block rows"
+bav = "n/a: D13-B and D13-B2 are the block rows"
+covers = [
+  "D13 covenant m_view",
+]
+
+[[row]]
+id = "D13-M2"
+case = "an otherwise valid ProReg whose external collateral is an unconfirmed ordinary output: ctx.coins is CoinsTip(), not the mempool cache"
+recipe = "a 1000 DASH output in the mempool, then a ProReg naming it as external collateral"
+m = "bad-protx-collateral"
+m_stage = "J1"
+b = "n/a: D13-B and D13-B2 are the block rows"
+bav = "n/a: D13-B and D13-B2 are the block rows"
+covers = [
+  "D13 ctx.coins",
+]
+
+# D14 (scan capacity)
+
+[[row]]
+id = "D14-33"
+case = "an unlock under the 33rd-newest of 34 retained llmq_60_75 Platform quorums"
+recipe = "the D14 devnet of plan §4 and §5.3, scan order read from both nodes first"
+b = "accept"
+b_stage = "J0b"
+bav = "n/a: no signature row"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "D14-34"
+case = "an unlock under the 34th-newest of 34 retained llmq_60_75 Platform quorums"
+recipe = "as D14-33"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: no signature row"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+
+# The operator-signature first-reject row (plan §3 J0a; ev1-pairs.toml 4c:5)
+
+[[row]]
+id = "OPSIG-B"
+case = "a ProUpRevTx with a bad operator signature ahead of a later structural reject in the same block: the first reject in block order wins"
+recipe = "protx revoke (submit false) of a masternode registered in setup with reason 0, its operator signature replaced by the one of the reason-1 revoke (the right key over another payload) and its inputs signed again by the producer's wallet; then a ProUpRevTx naming no masternode (bad-protx-hash)"
+b = "bad-protx-sig"
+b_stage = "J0a"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the reason-0 revoke with its own signature, then the same tx naming no masternode; and that tx first, then the bad-signature revoke"
+b_control = "bad-protx-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: a signature row on the operator key; type 2 and 4 signatures follow check_sigs, so below assumevalid the probe would answer bad-protx-hash"
+m = "n/a: first reject in block order is a block-path property"
+
+# L2 replay (plan §4)
+
+[[row]]
+id = "L2-mainnet"
+case = "mainnet history through CH7 with EV1 in place"
+recipe = "O8 StateDigest windows that contain types 7 and 9"
+l2 = "every type 7 and 9 tx passes; block verdicts equal Core's"
+l2_stage = "J2"
+
+[[row]]
+id = "L2-testnet"
+case = "testnet history through CH7 with EV1 in place"
+recipe = "O8 StateDigest windows that contain types 7 and 9 (dense asset-unlock windows, e.g. 1,572,800-1,582,800)"
+l2 = "every type 7 and 9 tx passes; block verdicts equal Core's"
+l2_stage = "J2"
