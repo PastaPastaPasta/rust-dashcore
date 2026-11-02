@@ -1,0 +1,18 @@
+diff --git a/dashd-mining/tests/evo_dashd.rs b/dashd-mining/tests/evo_dashd.rs
+index fbb21929b96ea0befa9565c53232ce492f7dc87a..3109e49e2817216fb21083111a45a1634b72f287 100644
+--- a/dashd-mining/tests/evo_dashd.rs
++++ b/dashd-mining/tests/evo_dashd.rs
+@@ -219,8 +219,11 @@ fn replay(chain: &Value) -> (String, BTreeMap<u16, u32>, u64) {
+         .expect("a mining window");
+     let mut real = first;
+     {
+-        let mut signers = real.signers().clone();
+-        signers.data[0] |= 1;
++        let signers = real.signers();
++        let mut data = signers.data().clone();
++        data[0] |= 1;
++        let signers = dash_primitives::DynBitset::new(signers.num_bits(), data)
++            .expect("member 0 is in range");
+         real = dash_primitives::Commitment::new(
+             real.version(),
+             real.llmq_type(),

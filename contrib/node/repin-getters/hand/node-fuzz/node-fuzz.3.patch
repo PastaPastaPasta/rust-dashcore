@@ -1,0 +1,10 @@
+diff --git a/node-fuzz/Cargo.toml b/node-fuzz/Cargo.toml
+index 1de4446dde9a41e8a0d713a094935916f6344dc4..b7831d93eeb8508db5a2264ad5fde9a66084ec08 100644
+--- a/node-fuzz/Cargo.toml
++++ b/node-fuzz/Cargo.toml
+@@ -944,4 +944,5 @@ dash-params = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80
+ dash-pkc = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-pow = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-primitives = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
++dash-script = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-types = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }

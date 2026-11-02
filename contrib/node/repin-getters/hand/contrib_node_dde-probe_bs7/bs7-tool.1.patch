@@ -1,0 +1,11 @@
+diff --git a/contrib/node/dde-probe/bs7/Cargo.toml b/contrib/node/dde-probe/bs7/Cargo.toml
+index abf990a7b83bd7e7a5179a93ad690dc93c0d3755..8d95310dd4652a241070ad8d6a339cf52efeabdd 100644
+--- a/contrib/node/dde-probe/bs7/Cargo.toml
++++ b/contrib/node/dde-probe/bs7/Cargo.toml
+@@ -42,5 +42,6 @@ dash-params = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80
+ dash-pkc = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-pow = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-primitives = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
++dash-script = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-types = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }
+ dash-p2p-core = { git = "file:///work/home/agent/workspace/base-sdk", rev = "fda80b21bf19c19fb3cb98eaba7bb8f43ee570b6" }

@@ -1,0 +1,84 @@
+diff --git a/dashd-mining/src/evo.rs b/dashd-mining/src/evo.rs
+index 305a160cf59f760c051c0336e83613b6a018bb34..f5c250dcd1cba29a4110c88e0fdce6b508fa164e 100644
+--- a/dashd-mining/src/evo.rs
++++ b/dashd-mining/src/evo.rs
+@@ -272,56 +272,50 @@ fn build_cbtx(
+     // :297-303: no transaction changes an empty list.
+     let merkle_root_mn_list = merkle_root_mn_list_full(chain.list)
+         .map_err(|e| failed(format_args!("CalcCbTxMerkleRootMNList failed: {e}")))?;
+-    let mut cbtx = CoinbaseCommitment {
+-        version,
+-        height,
+-        merkle_root_mn_list,
+-        merkle_root_quorums: None,
+-        best_cl_height_diff: None,
+-        best_cl_signature: None,
+-        credit_pool_balance: None,
+-        merkle_root_asset_unlocks: None,
++    // The fields after the list root, as each era step adds them (base-sdk's `CoinbaseCommitment`
++    // is built whole, so each return builds it from the fields so far).
++    let cbtx = |merkle_root_quorums: Option<dash_primitives::MerkleRoot>,
++                best_cl: Option<(u64, BlsGlobalSig)>,
++                credit_pool_balance: Option<i64>,
++                merkle_root_asset_unlocks: Option<dash_primitives::MerkleRoot>| {
++        let (best_cl_height_diff, best_cl_signature) = best_cl.unzip();
++        CoinbaseCommitment::new(
++            version,
++            height,
++            merkle_root_mn_list,
++            merkle_root_quorums,
++            best_cl_height_diff,
++            best_cl_signature,
++            credit_pool_balance,
++            merkle_root_asset_unlocks,
++        )
+     };
+     if !eras.dip8 {
+-        return Ok(cbtx);
++        return Ok(cbtx(None, None, None, None));
+     }
+     // :305-308
+     let root = quorum_root(&chain.qc.llmq, chain.qc.mined, qc_cache, block, prev)
+         .map_err(|e| failed(format_args!("CalcCbTxMerkleRootQuorums: {e:?}")))?
+         .map_err(|e| failed(format_args!("CalcCbTxMerkleRootQuorums failed: {e}")))?;
+-    cbtx.merkle_root_quorums = Some(root);
+     if !eras.v20 {
+-        return Ok(cbtx);
++        return Ok(cbtx(Some(root), None, None, None));
+     }
+     // :309-315: `CalcCbTxBestChainlock` finds none ([`EvoChain::chainlock`]).
+     tracing::info!(
+         "CreateNewBlock() h[{}] CbTx failed to find best CL. Inserting null CL",
+         facts.height
+     );
+-    cbtx.best_cl_height_diff = Some(0);
+-    cbtx = dash_primitives::CoinbaseCommitment::new(
+-        cbtx.version(),
+-        cbtx.height(),
+-        cbtx.merkle_root_mn_list(),
+-        cbtx.merkle_root_quorums(),
+-        cbtx.best_cl_height_diff(),
+-        Some(null_signature()),
+-        cbtx.credit_pool_balance(),
+-        cbtx.merkle_root_asset_unlocks(),
+-    );
++    let best_cl = Some((0, null_signature()));
+     // :316-322
+     let reward = platform_reward(eras.mn_rr, height, facts.subsidy, chain.payments)
+         .map_err(|e| failed(format_args!("PlatformShare: {e}")))?;
+     let diff = credit_pool_diff_for_block(block, chain.credit_pool, reward)
+         .map_err(|e| failed(format_args!("GetCreditPoolDiffForBlock failed: {e}")))?;
+     let balance = diff.total_locked().ok_or_else(|| failed("GetTotalLocked: overflow"))?;
+-    cbtx.credit_pool_balance = Some(balance);
+     // :324-326
+-    if version >= CBTX_MERKLE_ROOT_ASSETUNLOCKS {
+-        cbtx.merkle_root_asset_unlocks =
+-            Some(dash_consensus::block::asset_unlocks_merkle_root(block));
+-    }
+-    Ok(cbtx)
++    let asset_unlocks = (version >= CBTX_MERKLE_ROOT_ASSETUNLOCKS)
++        .then(|| dash_consensus::block::asset_unlocks_merkle_root(block));
++    Ok(cbtx(Some(root), best_cl, Some(balance), asset_unlocks))
+ }
+ 
+ /// `CCbTx::bestCLSignature` left default: Core's `CBLSSignature()` is invalid, and

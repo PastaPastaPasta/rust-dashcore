@@ -1,0 +1,77 @@
+# repin-getters configuration. Every entry here is checked against base-sdk's source on each run.
+
+# Fields upstream renamed while making them private (old name -> new name). Found by comparing the
+# struct shapes of the old and new pins (`api` at each rev); most carry `serde(rename = "<old>")`.
+[[rename]]
+struct = "OutPoint"
+old = "hash"
+new = "txid"
+
+[[rename]]
+struct = "DeletedQuorum"
+old = "hash"
+new = "quorum_hash"
+
+[[rename]]
+struct = "GovSync"
+old = "hash"
+new = "object_hash"
+
+[[rename]]
+struct = "Inventory"
+old = "hash"
+new = "inv_hash"
+
+[[rename]]
+struct = "UserAgentTooLong"
+old = "len"
+new = "size"
+
+[[rename]]
+struct = "NetInfoV2"
+old = "entries"
+new = "groups"
+
+[[rename]]
+struct = "ProRegTx"
+old = "vch_sig"
+new = "sig"
+
+[[rename]]
+struct = "ProUpRegTx"
+old = "vch_sig"
+new = "sig"
+
+[[rename]]
+struct = "ProUpShareTx"
+old = "vch_sig"
+new = "sig"
+
+# Test code only: a write to a type whose constructor resets a field (the ProTx `new`s reset `sig`)
+# is rebuilt through that constructor when the old value can be put back: `path(&rebuilt, old)`
+# returns `rebuilt` with `field` set to `old`. dash-dml's `testkit::WithSig::with_sig` re-encodes
+# the payload with the old signature's bytes, decodes it and asserts the round trip. `crate` itself
+# (through `in_crate`) and members depending on it with `feature` reach it; elsewhere such a write
+# goes to the hand list.
+[[restore]]
+field = "sig"
+structs = ["ProRegTx", "ProUpRegTx", "ProUpServTx", "ProUpRevTx"]
+crate = "dash-dml"
+feature = "test-utils"
+path = "dash_dml::testkit::WithSig::with_sig"
+in_crate = "crate::testkit::WithSig::with_sig"
+
+# Per workspace manifest: feature sets for crates whose `--all-features` build is broken for reasons
+# unrelated to the port, and target sets replacing `--all-targets`.
+[workspace."Cargo.toml".targets]
+# dashd-store's benches refuse the test-only `faulty` feature (benches/flatfile.rs); its
+# all-features check covers the other targets.
+dashd-store = ["--lib", "--bins", "--tests", "--examples"]
+# dashd-chainstate's benches refuse its `crash` and `planted-bugs` features (benches measure
+# production only).
+dashd-chainstate = ["--lib", "--bins", "--tests", "--examples"]
+
+[workspace."Cargo.toml".extra]
+# The benches those target sets leave out, with the default features they build with.
+dashd-store = [["--benches"]]
+dashd-chainstate = [["--benches"]]

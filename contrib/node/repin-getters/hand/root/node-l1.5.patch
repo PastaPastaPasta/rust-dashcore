@@ -1,0 +1,666 @@
+diff --git a/node-l1/tests/l1_specialtx_sig.rs b/node-l1/tests/l1_specialtx_sig.rs
+index 47128940f1d642dd131825fd75fd240f13ad4a6f..d55972f88cdf321d21fafb9ddea122d8de06b505 100644
+--- a/node-l1/tests/l1_specialtx_sig.rs
++++ b/node-l1/tests/l1_specialtx_sig.rs
+@@ -16,10 +16,15 @@ use dash_oracle_sys::mnlist::SignHashes;
+ use dash_oracle_sys::{Chain, Oracle, Pin};
+ use dash_params::ChainSetup;
+ use dash_primitives::{
+-    CompactSig, InputsHash, MnType, NetInfo, NetInfoV2, ProRegTx, ProTxVersion, ProUpServTx,
++    CollateralShare, CompactSig, InputsHash, MnType, NetInfo, NetInfoV2, PayoutShare, ProTxVersion,
+     SpecialPayload, TxHash,
+ };
+ use dash_types::codec::BaseCodec;
++// The payloads these tests rewrite: base-sdk's, with public fields (DEC-1066).
++use node_l1::protx_mirror::{
++    ProDisTx, ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, ToBsdk,
++};
++use node_l1::rebuild::Rebuild;
+ 
+ #[path = "support/special_tx_records.rs"]
+ mod support;
+@@ -394,39 +399,13 @@ fn preimages_hash_the_decoded_net_info_d23() {
+         panic!("type 2")
+     };
+     let canonical = ext_wire(&[&ipv4_entry([10, 1, 2, 3], 9999)]);
+-    let mut p: ProUpServTx = base.clone();
+-    {
+-        let rebuilt = dash_primitives::ProUpServTx::new(
+-            ProTxVersion::ExtAddr,
+-            MnType::Regular,
+-            p.pro_tx_hash(),
+-            p.net_info().clone(),
+-            p.script_operator_payout().clone(),
+-            p.inputs_hash(),
+-            p.platform_node_id(),
+-            p.platform_p2p_port(),
+-            p.platform_http_port(),
+-        );
+-        p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-    };
++    let mut p = ProUpServTx::from(base);
++    p.version = ProTxVersion::ExtAddr;
++    p.mn_type = MnType::Regular;
+     (p.platform_node_id, p.platform_p2p_port, p.platform_http_port) = (None, None, None);
+     let mut rest = &canonical[..];
+-    {
+-        let rebuilt = dash_primitives::ProUpServTx::new(
+-            p.version(),
+-            p.mn_type(),
+-            p.pro_tx_hash(),
+-            NetInfo::Extended(NetInfoV2::decode(&mut rest).expect("an ExtNetInfo")),
+-            p.script_operator_payout().clone(),
+-            p.inputs_hash(),
+-            p.platform_node_id(),
+-            p.platform_p2p_port(),
+-            p.platform_http_port(),
+-        );
+-        p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-    };
+-    let mut payload = Vec::new();
+-    p.encode(&mut payload);
++    p.net_info = NetInfo::Extended(NetInfoV2::decode(&mut rest).expect("an ExtNetInfo"));
++    let payload = p.to_bytes();
+     let at = payload.windows(canonical.len()).position(|w| w == canonical).expect("the NetInfo");
+     for oracle in Oracle::all() {
+         for (case, entry) in [
+@@ -486,62 +465,14 @@ fn registration_preimages_hash_the_decoded_net_info_d23() {
+             if base.mn_type() != MnType::Regular {
+                 continue;
+             }
+-            let mut p: ProRegTx = base.clone();
+-            if p.version() < ProTxVersion::ExtAddr {
+-                {
+-                    let rebuilt = dash_primitives::ProRegTx::new(
+-                        ProTxVersion::ExtAddr,
+-                        p.mn_type(),
+-                        p.mode(),
+-                        p.collateral_hash(),
+-                        p.collateral_index(),
+-                        p.net_info().clone(),
+-                        p.key_id_owner(),
+-                        p.pub_key_operator().clone(),
+-                        p.key_id_voting(),
+-                        p.operator_reward(),
+-                        p.script_payout().clone(),
+-                        vec![],
+-                        p.shares().clone(),
+-                        p.join_sigs().clone(),
+-                        p.early_period_blocks(),
+-                        p.early_penalty(),
+-                        p.inputs_hash(),
+-                        p.platform_node_id(),
+-                        p.platform_p2p_port(),
+-                        p.platform_http_port(),
+-                    );
+-                    p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-                };
++            let mut p = ProRegTx::from(base);
++            if p.version < ProTxVersion::ExtAddr {
++                p.version = ProTxVersion::ExtAddr;
++                p.payouts = vec![];
+             }
+             let mut rest = &canonical[..];
+-            {
+-                let rebuilt = dash_primitives::ProRegTx::new(
+-                    p.version(),
+-                    p.mn_type(),
+-                    p.mode(),
+-                    p.collateral_hash(),
+-                    p.collateral_index(),
+-                    NetInfo::Extended(NetInfoV2::decode(&mut rest).expect("an ExtNetInfo")),
+-                    p.key_id_owner(),
+-                    p.pub_key_operator().clone(),
+-                    p.key_id_voting(),
+-                    p.operator_reward(),
+-                    p.script_payout().clone(),
+-                    p.payouts().clone(),
+-                    p.shares().clone(),
+-                    p.join_sigs().clone(),
+-                    p.early_period_blocks(),
+-                    p.early_penalty(),
+-                    p.inputs_hash(),
+-                    p.platform_node_id(),
+-                    p.platform_p2p_port(),
+-                    p.platform_http_port(),
+-                );
+-                p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
+-            let mut payload = Vec::new();
+-            p.encode(&mut payload);
++            p.net_info = NetInfo::Extended(NetInfoV2::decode(&mut rest).expect("an ExtNetInfo"));
++            let payload = p.to_bytes();
+             let at =
+                 payload.windows(canonical.len()).position(|w| w == canonical).expect("the NetInfo");
+             for (case, entry) in
+@@ -583,7 +514,7 @@ fn registration_preimages_hash_the_decoded_net_info_d23() {
+                 if let Some(consent) = core.consent_hash {
+                     assert_eq!(shared_reg_consent_hash(q, &ours), Some(consent), "{txid} {case}");
+                 }
+-                *shapes.entry(!q.shares.is_empty()).or_default() += 1;
++                *shapes.entry(!q.shares().is_empty()).or_default() += 1;
+             }
+         }
+     }
+@@ -616,267 +547,90 @@ impl Rng {
+     }
+ }
+ 
+-/// `p` with its signed fields drawn from `rng`, in the shape it has (version, shared or not).
+-fn mutate(p: &mut SpecialPayload, rng: &mut Rng) {
++/// The payload `p` with its signed fields drawn from `rng`, in the shape it has (version, shared or
++/// not), encoded: the fields are set in its mirror (DEC-1066), which encodes as base-sdk does.
++fn mutate(p: &SpecialPayload, rng: &mut Rng) -> Vec<u8> {
+     let hash = |rng: &mut Rng| TxHash::from(rng.bytes::<32>());
+     let key_id = |rng: &mut Rng| KeyId::from(rng.bytes::<20>());
+     let inputs = |rng: &mut Rng| InputsHash::from(rng.bytes::<32>());
+     match p {
+         SpecialPayload::ProviderRegister(p) => {
+-            if p.shares().is_empty() && rng.below(2) == 0 {
+-                {
+-                    let rebuilt = dash_primitives::ProRegTx::new(
+-                        p.version(),
+-                        p.mn_type(),
+-                        p.mode(),
+-                        hash(rng),
+-                        p.collateral_index(),
+-                        p.net_info().clone(),
+-                        p.key_id_owner(),
+-                        p.pub_key_operator().clone(),
+-                        p.key_id_voting(),
+-                        p.operator_reward(),
+-                        p.script_payout().clone(),
+-                        p.payouts().clone(),
+-                        p.shares().clone(),
+-                        p.join_sigs().clone(),
+-                        p.early_period_blocks(),
+-                        p.early_penalty(),
+-                        p.inputs_hash(),
+-                        p.platform_node_id(),
+-                        p.platform_p2p_port(),
+-                        p.platform_http_port(),
+-                    );
+-                    *p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-                };
++            let mut p = ProRegTx::from(p);
++            if p.shares.is_empty() && rng.below(2) == 0 {
++                p.collateral_hash = hash(rng);
+             }
+-            {
+-                let rebuilt = dash_primitives::ProRegTx::new(
+-                    p.version(),
+-                    p.mn_type(),
+-                    p.mode(),
+-                    p.collateral_hash(),
+-                    rng.next() as u32,
+-                    p.net_info().clone(),
+-                    p.key_id_owner(),
+-                    p.pub_key_operator().clone(),
+-                    key_id(rng),
+-                    rng.next() as u16,
+-                    rng.script().into(),
+-                    p.payouts().clone(),
+-                    p.shares().clone(),
+-                    p.join_sigs().clone(),
+-                    p.early_period_blocks(),
+-                    p.early_penalty(),
+-                    inputs(rng),
+-                    p.platform_node_id(),
+-                    p.platform_p2p_port(),
+-                    p.platform_http_port(),
+-                );
+-                *p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
+-            if p.shares().is_empty() {
+-                {
+-                    let rebuilt = dash_primitives::ProRegTx::new(
+-                        p.version(),
+-                        p.mn_type(),
+-                        p.mode(),
+-                        p.collateral_hash(),
+-                        p.collateral_index(),
+-                        p.net_info().clone(),
+-                        key_id(rng),
+-                        p.pub_key_operator().clone(),
+-                        p.key_id_voting(),
+-                        p.operator_reward(),
+-                        p.script_payout().clone(),
+-                        p.payouts().clone(),
+-                        p.shares().clone(),
+-                        p.join_sigs().clone(),
+-                        p.early_period_blocks(),
+-                        p.early_penalty(),
+-                        p.inputs_hash(),
+-                        p.platform_node_id(),
+-                        p.platform_p2p_port(),
+-                        p.platform_http_port(),
+-                    );
+-                    *p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-                };
++            p.collateral_index = rng.next() as u32;
++            p.key_id_voting = key_id(rng);
++            p.operator_reward = rng.next() as u16;
++            p.script_payout = rng.script().into();
++            p.inputs_hash = inputs(rng);
++            if p.shares.is_empty() {
++                p.key_id_owner = key_id(rng);
+             }
+             for payout in &mut p.payouts {
+-                (payout.script_payout, payout.reward) = (rng.script().into(), rng.next() as u16);
++                *payout = PayoutShare::new(rng.script().into(), rng.next() as u16);
+             }
+-            if let Some(extra) = p.payouts().first().cloned().filter(|_| rng.below(2) == 0) {
+-                {
+-                    let mut payouts = p.payouts().clone();
+-                    payouts.push(extra);
+-                    {
+-                        let rebuilt = dash_primitives::ProRegTx::new(
+-                            p.version(),
+-                            p.mn_type(),
+-                            p.mode(),
+-                            p.collateral_hash(),
+-                            p.collateral_index(),
+-                            p.net_info().clone(),
+-                            p.key_id_owner(),
+-                            p.pub_key_operator().clone(),
+-                            p.key_id_voting(),
+-                            p.operator_reward(),
+-                            p.script_payout().clone(),
+-                            payouts,
+-                            p.shares().clone(),
+-                            p.join_sigs().clone(),
+-                            p.early_period_blocks(),
+-                            p.early_penalty(),
+-                            p.inputs_hash(),
+-                            p.platform_node_id(),
+-                            p.platform_p2p_port(),
+-                            p.platform_http_port(),
+-                        );
+-                        p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-                    }
+-                }
++            if let Some(extra) = p.payouts.first().cloned().filter(|_| rng.below(2) == 0) {
++                p.payouts.push(extra);
+             }
+             for share in &mut p.shares {
+-                share.amount = rng.next() as i64;
+-                (share.script_refund, share.script_reward) =
+-                    (rng.script().into(), rng.script().into());
+-                share.key_id_owner = key_id(rng);
++                // In the order the fields were drawn: amount, refund, reward, owner.
++                *share = CollateralShare::new(
++                    rng.next() as i64,
++                    rng.script().into(),
++                    rng.script().into(),
++                    key_id(rng),
++                );
+             }
+-            if !p.shares().is_empty() {
++            if !p.shares.is_empty() {
+                 (p.early_period_blocks, p.early_penalty) = (rng.next() as u32, rng.next() as i64);
+             }
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderUpdateService(p) => {
+-            {
+-                let rebuilt = dash_primitives::ProUpServTx::new(
+-                    p.version(),
+-                    p.mn_type(),
+-                    hash(rng),
+-                    p.net_info().clone(),
+-                    rng.script().into(),
+-                    inputs(rng),
+-                    p.platform_node_id(),
+-                    p.platform_p2p_port(),
+-                    p.platform_http_port(),
+-                );
+-                p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
++            let mut p = ProUpServTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.script_operator_payout = rng.script().into();
++            p.inputs_hash = inputs(rng);
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderUpdateRegistrar(p) => {
+-            {
+-                let rebuilt = dash_primitives::ProUpRegTx::new(
+-                    p.version(),
+-                    hash(rng),
+-                    p.mode(),
+-                    p.pub_key_operator().clone(),
+-                    key_id(rng),
+-                    rng.script().into(),
+-                    p.payouts().clone(),
+-                    p.inputs_hash(),
+-                );
+-                p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
++            let mut p = ProUpRegTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.key_id_voting = key_id(rng);
++            p.script_payout = rng.script().into();
+             for payout in &mut p.payouts {
+-                (payout.script_payout, payout.reward) = (rng.script().into(), rng.next() as u16);
++                *payout = PayoutShare::new(rng.script().into(), rng.next() as u16);
+             }
+-            {
+-                let rebuilt = dash_primitives::ProUpRegTx::new(
+-                    p.version(),
+-                    p.pro_tx_hash(),
+-                    p.mode(),
+-                    p.pub_key_operator().clone(),
+-                    p.key_id_voting(),
+-                    p.script_payout().clone(),
+-                    p.payouts().clone(),
+-                    inputs(rng),
+-                );
+-                p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
++            p.inputs_hash = inputs(rng);
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderUpdateRevoke(p) => {
+-            {
+-                let rebuilt = dash_primitives::ProUpRevTx::new(
+-                    p.version(),
+-                    hash(rng),
+-                    p.reason(),
+-                    inputs(rng),
+-                );
+-                p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+-            };
++            let mut p = ProUpRevTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.inputs_hash = inputs(rng);
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderDissolve(p) => {
+-            p = dash_primitives::ProDisTx::new(
+-                p.version(),
+-                hash(rng),
+-                p.actor_index(),
+-                p.sigs().clone(),
+-            );
+-            p = dash_primitives::ProDisTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                rng.next() as u16,
+-                p.sigs().clone(),
+-            );
++            let mut p = ProDisTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.actor_index = rng.next() as u16;
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderUpdateShare(p) => {
+-            p = dash_primitives::ProUpShareTx::new(
+-                p.version(),
+-                hash(rng),
+-                p.share_index(),
+-                p.script_reward().clone(),
+-                p.inputs_hash(),
+-                p.sig().clone(),
+-            );
+-            p = dash_primitives::ProUpShareTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                rng.next() as u16,
+-                p.script_reward().clone(),
+-                p.inputs_hash(),
+-                p.sig().clone(),
+-            );
+-            p = dash_primitives::ProUpShareTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                p.share_index(),
+-                rng.script().into(),
+-                p.inputs_hash(),
+-                p.sig().clone(),
+-            );
+-            p = dash_primitives::ProUpShareTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                p.share_index(),
+-                p.script_reward().clone(),
+-                inputs(rng),
+-                p.sig().clone(),
+-            );
++            let mut p = ProUpShareTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.share_index = rng.next() as u16;
++            p.script_reward = rng.script().into();
++            p.inputs_hash = inputs(rng);
++            p.to_bytes()
+         }
+         SpecialPayload::ProviderUpdateSharedRegistrar(p) => {
+-            p = dash_primitives::ProUpSharedRegTx::new(
+-                p.version(),
+-                hash(rng),
+-                p.pub_key_operator().clone(),
+-                p.key_id_voting(),
+-                p.inputs_hash(),
+-                p.sigs().clone(),
+-            );
+-            p = dash_primitives::ProUpSharedRegTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                p.pub_key_operator().clone(),
+-                key_id(rng),
+-                p.inputs_hash(),
+-                p.sigs().clone(),
+-            );
+-            p = dash_primitives::ProUpSharedRegTx::new(
+-                p.version(),
+-                p.pro_tx_hash(),
+-                p.pub_key_operator().clone(),
+-                p.key_id_voting(),
+-                inputs(rng),
+-                p.sigs().clone(),
+-            );
++            let mut p = ProUpSharedRegTx::from(p);
++            p.pro_tx_hash = hash(rng);
++            p.key_id_voting = key_id(rng);
++            p.inputs_hash = inputs(rng);
++            p.to_bytes()
+         }
+         other => panic!("not a provider payload: {other:?}"),
+     }
+@@ -901,25 +655,12 @@ fn generated_preimages_match_core() {
+                 let Some(Ok(decoded)) = tx.payload() else {
+                     panic!("{}: payload", r.txid)
+                 };
+-                let mut payload = decoded.payload().clone();
+-                mutate(&mut payload, &mut rng);
++                let payload = mutate(decoded.payload(), &mut rng);
+                 let mut t = tx.to_mutable();
+-                t = dash_primitives::Transaction::new(
+-                    t.version(),
+-                    t.tx_type(),
+-                    t.inputs().clone(),
+-                    t.outputs().clone(),
+-                    t.lock_time(),
+-                    encode_payload(&payload),
+-                );
+-                t = dash_primitives::Transaction::new(
+-                    t.version(),
+-                    t.tx_type(),
+-                    t.inputs().clone(),
+-                    t.outputs().clone(),
+-                    rng.next() as u32,
+-                    t.extra_payload().clone(),
+-                );
++                t.edit(|t| {
++                    t.extra_payload = payload;
++                    t.lock_time = rng.next() as u32;
++                });
+                 let mut raw = Vec::new();
+                 t.encode(&mut raw);
+                 let label = format!("{} #{}", r.txid, compared.get(&r.tx_type).unwrap_or(&0));
+diff --git a/node-l1/tests/l1_specialtx_trivial.rs b/node-l1/tests/l1_specialtx_trivial.rs
+index 3534e1cdb049e38e1e56aaeabae7e444471a9811..38357250e4773e3306bd7c0ae3445ba8b4585aa2 100644
+--- a/node-l1/tests/l1_specialtx_trivial.rs
++++ b/node-l1/tests/l1_specialtx_trivial.rs
+@@ -21,6 +21,8 @@ use dash_primitives::{
+ };
+ use dash_types::codec::BaseCodec;
+ use node_l1::dml_checks::{PRO_REG, PRO_UP_REG, PRO_UP_REV, PRO_UP_SERV, Table};
++// The shared payloads `shared_variants` rewrites: base-sdk's, with public fields (DEC-1066).
++use node_l1::protx_mirror::{self as mirror, ToBsdk};
+ 
+ #[path = "support/special_tx_records.rs"]
+ mod support;
+@@ -270,56 +272,59 @@ fn shared_records() -> Vec<Tx> {
+     records().iter().filter(|r| (10..=12).contains(&r.tx_type)).map(|r| r.tx()).collect()
+ }
+ 
++/// A shared-type payload's mirror (DEC-1066): base-sdk's, with public fields, which encodes as
++/// base-sdk does.
++#[derive(Clone)]
++enum Shared {
++    Dis(mirror::ProDisTx),
++    Share(mirror::ProUpShareTx),
++    Reg(mirror::ProUpSharedRegTx),
++}
++
++impl Shared {
++    fn of(p: &SpecialPayload) -> Self {
++        match p {
++            SpecialPayload::ProviderDissolve(p) => Self::Dis(p.into()),
++            SpecialPayload::ProviderUpdateShare(p) => Self::Share(p.into()),
++            SpecialPayload::ProviderUpdateSharedRegistrar(p) => Self::Reg(p.into()),
++            _ => unreachable!(),
++        }
++    }
++
++    fn to_bytes(&self) -> Vec<u8> {
++        match self {
++            Self::Dis(p) => p.to_bytes(),
++            Self::Share(p) => p.to_bytes(),
++            Self::Reg(p) => p.to_bytes(),
++        }
++    }
++}
++
+ /// `p` with each field `IsTriviallyValid` reads pushed past its bound, and every payload
+ /// version up to 4.
+ fn shared_variants(p: &SpecialPayload) -> Vec<(String, Vec<u8>)> {
+     let mut out = vec![("as shipped".to_string(), encode_payload(p))];
++    let shared = Shared::of(p);
+     for version in 0..=4 {
+-        let mut q = p.clone();
++        let mut q = shared.clone();
+         match &mut q {
+-            SpecialPayload::ProviderDissolve(q) => {
+-                q = dash_primitives::ProDisTx::new(
+-                    version,
+-                    q.pro_tx_hash(),
+-                    q.actor_index(),
+-                    q.sigs().clone(),
+-                )
+-            }
+-            SpecialPayload::ProviderUpdateShare(q) => {
+-                q = dash_primitives::ProUpShareTx::new(
+-                    version,
+-                    q.pro_tx_hash(),
+-                    q.share_index(),
+-                    q.script_reward().clone(),
+-                    q.inputs_hash(),
+-                    q.sig().clone(),
+-                )
+-            }
+-            SpecialPayload::ProviderUpdateSharedRegistrar(q) => {
+-                q = dash_primitives::ProUpSharedRegTx::new(
+-                    version,
+-                    q.pro_tx_hash(),
+-                    q.pub_key_operator().clone(),
+-                    q.key_id_voting(),
+-                    q.inputs_hash(),
+-                    q.sigs().clone(),
+-                )
+-            }
+-            _ => unreachable!(),
++            Shared::Dis(q) => q.version = version,
++            Shared::Share(q) => q.version = version,
++            Shared::Reg(q) => q.version = version,
+         }
+-        out.push((format!("v{version}"), encode_payload(&q)));
++        out.push((format!("v{version}"), q.to_bytes()));
+     }
+-    let mut edit = |what: &str, f: &dyn Fn(&mut SpecialPayload)| {
+-        let mut q = p.clone();
++    let mut edit = |what: &str, f: &dyn Fn(&mut Shared)| {
++        let mut q = shared.clone();
+         f(&mut q);
+-        out.push((what.to_string(), encode_payload(&q)));
++        out.push((what.to_string(), q.to_bytes()));
+     };
+     let sigs = |n: usize| {
+-        move |q: &mut SpecialPayload| {
++        move |q: &mut Shared| {
+             let sigs = match q {
+-                SpecialPayload::ProviderDissolve(q) => &mut q.sigs,
+-                SpecialPayload::ProviderUpdateSharedRegistrar(q) => &mut q.sigs,
+-                _ => unreachable!(),
++                Shared::Dis(q) => &mut q.sigs,
++                Shared::Reg(q) => &mut q.sigs,
++                Shared::Share(_) => unreachable!(),
+             };
+             let first = sigs[0];
+             sigs.resize(n, first);
+@@ -334,33 +339,15 @@ fn shared_variants(p: &SpecialPayload) -> Vec<(String, Vec<u8>)> {
+         SpecialPayload::ProviderUpdateShare(_) => {
+             for n in [0, 64, 66] {
+                 edit(&format!("sig of {n} bytes"), &move |q| {
+-                    if let SpecialPayload::ProviderUpdateShare(q) = q {
+-                        {
+-                            let mut sig = q.sig().clone();
+-                            sig.resize(n, 0x1b);
+-                            *q = dash_primitives::ProUpShareTx::new(
+-                                q.version(),
+-                                q.pro_tx_hash(),
+-                                q.share_index(),
+-                                q.script_reward().clone(),
+-                                q.inputs_hash(),
+-                                sig,
+-                            );
+-                        }
++                    if let Shared::Share(q) = q {
++                        q.sig.resize(n, 0x1b);
+                     }
+                 });
+             }
+             for (what, script) in [("empty payee", vec![]), ("OP_RETURN payee", vec![0x6a])] {
+                 edit(what, &move |q| {
+-                    if let SpecialPayload::ProviderUpdateShare(q) = q {
+-                        *q = dash_primitives::ProUpShareTx::new(
+-                            q.version(),
+-                            q.pro_tx_hash(),
+-                            q.share_index(),
+-                            script.clone().into(),
+-                            q.inputs_hash(),
+-                            q.sig().clone(),
+-                        );
++                    if let Shared::Share(q) = q {
++                        q.script_reward = script.clone().into();
+                     }
+                 });
+             }
+@@ -369,15 +356,8 @@ fn shared_variants(p: &SpecialPayload) -> Vec<(String, Vec<u8>)> {
+     }
+     if let SpecialPayload::ProviderUpdateSharedRegistrar(q) = p {
+         edit("null voting key", &|q| {
+-            if let SpecialPayload::ProviderUpdateSharedRegistrar(q) = q {
+-                *q = dash_primitives::ProUpSharedRegTx::new(
+-                    q.version(),
+-                    q.pro_tx_hash(),
+-                    q.pub_key_operator().clone(),
+-                    dash_dml::KeyId::from([0u8; 20]),
+-                    q.inputs_hash(),
+-                    q.sigs().clone(),
+-                );
++            if let Shared::Reg(q) = q {
++                q.key_id_voting = dash_dml::KeyId::from([0u8; 20]);
+             }
+         });
+         // The other half of `bad-protx-key-null`: the operator key's bytes zeroed, the null key.

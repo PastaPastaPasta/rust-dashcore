@@ -1,0 +1,518 @@
+{
+ "provenance": {
+  "tag": "v24.0.0-rc.4",
+  "commit": "0e7382df80d0bc6811068d076b232a5a26d34a3c",
+  "claims_version": 1,
+  "inputs": {
+   "inventory-tree-v24.0.0-rc.4.json": "b82cf6003041826f7f4cbd77916cbc9ff45ec2a27c76c11ae0eb685b32ddff63",
+   "inventory-v24.0.0-rc.4.json": "df3134f22e2574bec6d243846eea755fef3da00f9e68c9f7e7d97c3ba3a5c236",
+   "o10-overlay-v24.0.0-rc.4.json": "0edc7bbf9d396491b7b7593c12368b0c8856e956aac1843a6687d0fdb1e25ad3"
+  },
+  "note": "a skeleton (O10 plan §5.3): M3's rows deferred to M5, filled by their slices"
+ },
+ "milestone": "M5",
+ "skeleton": true,
+ "rows": [
+  {
+   "key": "validation.cpp:ConnectBlock#10:bad-cb-payee",
+   "a10_decision": "X-reg",
+   "status": "unfilled",
+   "slice": "O10-9",
+   "dep": [
+    "SP1",
+    "MN0-3"
+   ],
+   "milestone": "M5",
+   "reason": "regime-excluded: the synced leg (D49, mnsync not synced on the census legs; §5.3, §3.3)"
+  },
+  {
+   "template": "bad-assetlocktx-credit-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:70"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-creditamount",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:85"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-emptycreditoutputs",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:64"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-multiple-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:45"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-no-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:49"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-non-empty-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:40"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-opreturn-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:42"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:53"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-pubKeyHash",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:80"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-script-pubkey",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:76"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:32"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:57"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-version-2",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:60"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-duplicated-index",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:215"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-not-verified",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:152"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-quorum-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:219"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-quorum-internal-error",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:142"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-too-late",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:135"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-too-old-quorum",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:129",
+    "validation.cpp:829"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-have-input",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:189"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:203",
+    "evo/assetlocktx.cpp:259"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-too-many-outs",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:193"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:185"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:208"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-version-2",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:211"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-cbtx-assetlocked-amount",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1114"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-txns-assetunlock-fee-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:263"
+   ],
+   "status": "unfilled",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-txns-inputs-missingorspent",
+   "bucket": "block",
+   "sites": [
+    "validation.cpp:985"
+   ],
+   "status": "unfilled",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "template": "bad-txns-nonstandard-inputs",
+   "bucket": "atmp",
+   "sites": [
+    "validation.cpp:1028"
+   ],
+   "status": "unfilled",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "template": "bad-txns-too-many-sigops",
+   "bucket": "atmp",
+   "sites": [
+    "validation.cpp:1053"
+   ],
+   "status": "unfilled",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "plane": "peer-penalty",
+   "status": "unfilled",
+   "slice": "O10-9",
+   "dep": [
+    "P4",
+    "P2b",
+    "SP1",
+    "GV1b"
+   ],
+   "milestone": "M5",
+   "reason": "Q-13: the P2P penalty plane (scores by result class, §3.3); every report states peer penalty untested/deferred until O10-9"
+  }
+ ]
+}

@@ -1,0 +1,447 @@
+diff --git a/node-l1/examples/payments_quirk_vectors.rs b/node-l1/examples/payments_quirk_vectors.rs
+index aae5a62dc86ab1606e9970890db4e3421eee4d3d..20968ae73d65eae553a4f53ff68afe07c39cf937 100644
+--- a/node-l1/examples/payments_quirk_vectors.rs
++++ b/node-l1/examples/payments_quirk_vectors.rs
+@@ -21,6 +21,7 @@ use dash_oracle_sys::{Oracle, Pin, ThresholdState};
+ use node_l1::payments::{
+     Case, Payments, compare_case_record, governance_probe, sample_index, superblock_case,
+ };
++use node_l1::rebuild::Rebuild;
+ use serde_json::{Value, json};
+ 
+ fn index(name: &str) -> usize {
+@@ -58,28 +59,16 @@ fn in_state(mut case: Case, state: &str) -> Case {
+ fn paying(mut case: Case, total: i64) -> Case {
+     let paid: i64 = case.coinbase.outputs().iter().map(|o| o.value()).sum();
+     let mut cut = paid - total;
+-    if cut < 0 {
+-        {
+-            let mut outputs = case.coinbase.outputs().clone();
+-            outputs[0] = dash_primitives::TxOut::from_duffs(
+-                outputs[0].value() - cut,
+-                outputs[0].script_pubkey().clone(),
+-            );
+-            case.coinbase = dash_primitives::transaction::Transaction::new(
+-                case.coinbase.version(),
+-                case.coinbase.tx_type(),
+-                case.coinbase.inputs().clone(),
+-                outputs,
+-                case.coinbase.lock_time(),
+-                case.coinbase.extra_payload().clone(),
+-            );
++    case.coinbase.edit(|t| {
++        if cut < 0 {
++            t.outputs[0].edit(|o| o.value -= cut);
+         }
+-    }
+-    for o in &mut case.coinbase.outputs {
+-        let take = cut.clamp(0, o.value);
+-        o.value -= take;
+-        cut -= take;
+-    }
++        for o in &mut t.outputs {
++            let take = cut.clamp(0, o.value());
++            o.edit(|f| f.value -= take);
++            cut -= take;
++        }
++    });
+     case
+ }
+ 
+diff --git a/node-l1/examples/quorum_root_history.rs b/node-l1/examples/quorum_root_history.rs
+index 67ebcc913a2dde942ce752169edca0b9db30ee0c..6479c12d7173a7b325d242c2be6c08be82a1825a 100644
+--- a/node-l1/examples/quorum_root_history.rs
++++ b/node-l1/examples/quorum_root_history.rs
+@@ -293,7 +293,7 @@ pub fn replay(params: &ChainSetup, dir: &Path, tip: Option<Hash256>) -> Result<R
+                     .map_err(|e| format!("block {height}: {e}"))?;
+                 *report
+                     .commitments
+-                    .entry((qc.llmq_type.to_base(), record.rotation_index.is_some()))
++                    .entry((qc.llmq_type().to_base(), record.rotation_index.is_some()))
+                     .or_default() += 1;
+                 mined.push(record);
+             }
+diff --git a/node-l1/src/bsdk_decode.rs b/node-l1/src/bsdk_decode.rs
+index 77c9a80b8ec3f9aa67e28dfc79a676b2a8e2a7f6..c1f537698e8dd01f4a4aa0088fa77e36734cecb4 100644
+--- a/node-l1/src/bsdk_decode.rs
++++ b/node-l1/src/bsdk_decode.rs
+@@ -26,7 +26,8 @@
+ use dash_consensus::primitives::canonical;
+ use dash_pkc::bls::{BlsCtx, BlsGlobal, BlsLazy, BlsSchemeKind, BlsSchemeSource, BlsWirePoint};
+ use dash_primitives::{
+-    Block, BlockHeader, CoinbaseCommitment, SpecialPayload, Transaction, TxType,
++    Block, BlockHeader, CoinbaseCommitment, ProRegTx, ProUpRegTx, ProUpSharedRegTx, SpecialPayload,
++    Transaction, TxType,
+ };
+ use dash_types::codec::BaseCodec;
+ use dash_types::{CompactSize, Numeric};
+@@ -352,22 +353,66 @@ fn global<K: BlsWirePoint<N>, const N: usize>(
+ }
+ 
+ fn slots(payload: &SpecialPayload, ctx: BlsCtx, written: usize) -> Vec<Slot> {
+-    // The key is set in the payload's mirror (DEC-1066), whose encoder is base-sdk's: base-sdk
+-    // keeps the field private.
++    // The key is set by rebuilding the payload with it: the field is private. `ProRegTx::new` and
++    // `ProUpRegTx::new` reset the signature, alike for both copies `locate_key` compares, and the
++    // signature follows the key, so the first byte that differs is where it was.
+     macro_rules! operator_key {
+-        ($p:expr, $mirror:ident) => {
++        ($p:expr, $with_key:expr) => {
+             vec![lazy(
+                 &$p.pub_key_operator(),
+-                locate_key(&crate::protx_mirror::$mirror::from($p), |copy, key| {
+-                    copy.pub_key_operator = key
+-                }),
++                locate_key($p, |copy, key| *copy = $with_key(&*copy, key)),
+             )]
+         };
+     }
+     match payload {
+-        SpecialPayload::ProviderRegister(p) => operator_key!(p, ProRegTx),
+-        SpecialPayload::ProviderUpdateRegistrar(p) => operator_key!(p, ProUpRegTx),
+-        SpecialPayload::ProviderUpdateSharedRegistrar(p) => operator_key!(p, ProUpSharedRegTx),
++        SpecialPayload::ProviderRegister(p) => operator_key!(p, |p: &ProRegTx, key| {
++            ProRegTx::new(
++                p.version(),
++                p.mn_type(),
++                p.mode(),
++                p.collateral_hash(),
++                p.collateral_index(),
++                p.net_info().clone(),
++                p.key_id_owner(),
++                key,
++                p.key_id_voting(),
++                p.operator_reward(),
++                p.script_payout().clone(),
++                p.payouts().clone(),
++                p.shares().clone(),
++                p.join_sigs().clone(),
++                p.early_period_blocks(),
++                p.early_penalty(),
++                p.inputs_hash(),
++                p.platform_node_id(),
++                p.platform_p2p_port(),
++                p.platform_http_port(),
++            )
++        }),
++        SpecialPayload::ProviderUpdateRegistrar(p) => operator_key!(p, |p: &ProUpRegTx, key| {
++            ProUpRegTx::new(
++                p.version(),
++                p.pro_tx_hash(),
++                p.mode(),
++                key,
++                p.key_id_voting(),
++                p.script_payout().clone(),
++                p.payouts().clone(),
++                p.inputs_hash(),
++            )
++        }),
++        SpecialPayload::ProviderUpdateSharedRegistrar(p) => {
++            operator_key!(p, |p: &ProUpSharedRegTx, key| {
++                ProUpSharedRegTx::new(
++                    p.version(),
++                    p.pro_tx_hash(),
++                    key,
++                    p.key_id_voting(),
++                    p.inputs_hash(),
++                    p.sigs().clone(),
++                )
++            })
++        }
+         // The signature is followed by the credit pool balance (an i64) and, from version 4, the
+         // asset unlocks root (32 bytes).
+         SpecialPayload::CoinbaseCommitment(cbtx) => match cbtx.best_cl_signature() {
+diff --git a/node-l1/src/rebuild.rs b/node-l1/src/rebuild.rs
+index fe6184b6670d17cc6ce80fb1fbd65a7672901102..b5c3991747444c82b7a3da4213750904aa85bc7d 100644
+--- a/node-l1/src/rebuild.rs
++++ b/node-l1/src/rebuild.rs
+@@ -8,11 +8,13 @@
+ //! [`crate::protx_mirror`]).
+ 
+ use bitcoin_primitives::script::{ScriptPubKeyBuf, ScriptSigBuf};
+-use dash_pkc::bls::{BlsEagerSig, BlsGlobalSig};
++use dash_params::LlmqType;
++use dash_pkc::bls::{BlsEagerPk, BlsEagerSig, BlsGlobalSig};
+ use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
+ use dash_primitives::{
+-    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, MerkleRoot, MnHardFork, OutPoint,
+-    PayoutShare, QuorumHash, Transaction, TxHash, TxIn, TxOut, TxType,
++    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, Commitment, DynBitset, MerkleRoot,
++    MnHardFork, OutPoint, PayoutShare, QuorumHash, QuorumVvecHash, Transaction, TxHash, TxIn,
++    TxOut, TxType,
+ };
+ 
+ /// A base-sdk value rebuilt from its fields.
+@@ -148,3 +150,19 @@ rebuild! {
+         get quorum_sig: BlsGlobalSig,
+     }
+ }
++
++rebuild! {
++    /// `Commitment`'s fields (a quorum commitment); a bitset is built with `DynBitset::new`.
++    Commitment => CommitmentFields via new {
++        copy version: u16,
++        copy llmq_type: LlmqType,
++        copy quorum_hash: QuorumHash,
++        copy quorum_index: Option<i16>,
++        get signers: DynBitset,
++        get valid_members: DynBitset,
++        get quorum_public_key: BlsEagerPk,
++        copy quorum_vvec_hash: QuorumVvecHash,
++        get quorum_sig: BlsEagerSig,
++        get members_sig: BlsEagerSig,
++    }
++}
+diff --git a/node-l1/tests/l1_dml_block.rs b/node-l1/tests/l1_dml_block.rs
+index d3c0c07b0eea53f65b0f7023d0fc583be0b8e709..4797ff4ded0cea9d03fbc10931f78b1e782f5027 100644
+--- a/node-l1/tests/l1_dml_block.rs
++++ b/node-l1/tests/l1_dml_block.rs
+@@ -21,19 +21,20 @@ use dash_oracle_sys::{
+     Chain, Checkpoints, Context, DmlEffects, DmlStage, MnList, Oracle, Pin, Verdict,
+ };
+ use dash_primitives::{
+-    CollateralSig, NetInfo, NetInfoV2, ProRegTx, ProTxVersion, ProUpRevTx, ProUpServTx,
+-    Transaction, TxType,
++    CollateralSig, NetInfo, NetInfoV2, ProTxVersion, ProUpRevTx, Transaction, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+ use node_l1::Outcome;
+ use node_l1::dml_apply::checked::{FLAG_CHECKED, FLAG_PROBE, Walk};
+ use node_l1::dml_apply::{Case, assemble, cases, generate, split_block, testnet_case, with_one_tx};
++// The provider payloads these tests rewrite: base-sdk's, with public fields (DEC-1066).
+ use node_l1::dml_block::{
+     Detailed, SequenceBlock, compare_block, compare_dml_block, compare_dml_block_detailed,
+     compare_sequence,
+ };
+ use node_l1::dml_checks::{COVENANT, CheckOutcome, DISPATCH, TABLES, missing_checks};
++use node_l1::protx_mirror::{ProRegTx, ProUpServTx};
+ 
+ fn tally(counts: &mut BTreeMap<String, usize>, key: String) {
+     *counts.entry(key).or_default() += 1;
+@@ -449,7 +450,7 @@ fn crafted_payload(tx_type: TxType, pick: impl Fn(&Case) -> bool) -> (usize, Vec
+             txs.iter()
+                 .map(|tx| Transaction::decode(&mut &tx[..]).unwrap())
+                 .find(|tx| tx.tx_type() == tx_type)
+-                .map(|tx| (i, tx.extra_payload()))
++                .map(|tx| (i, tx.extra_payload().clone()))
+         })
+         .unwrap()
+ }
+@@ -483,29 +484,8 @@ fn check_layer_mutant_inputs_compare_exactly() {
+     // C: a ProRegTx paying its operator 10001 (out of 10000), unsigned to fit a raw payload.
+     let (case, payload) = crafted_payload(TxType::ProviderRegister, |_| true);
+     let mut p = ProRegTx::decode(&mut &payload[..]).unwrap();
+-    p = dash_primitives::ProRegTx::new(
+-        p.version(),
+-        p.mn_type(),
+-        p.mode(),
+-        p.collateral_hash(),
+-        p.collateral_index(),
+-        p.net_info().clone(),
+-        p.key_id_owner(),
+-        p.pub_key_operator().clone(),
+-        p.key_id_voting(),
+-        10_001,
+-        p.script_payout().clone(),
+-        p.payouts().clone(),
+-        p.shares().clone(),
+-        p.join_sigs().clone(),
+-        p.early_period_blocks(),
+-        p.early_penalty(),
+-        p.inputs_hash(),
+-        p.platform_node_id(),
+-        p.platform_p2p_port(),
+-        p.platform_http_port(),
+-    );
+-    p.vch_sig = CollateralSig::default();
++    p.operator_reward = 10_001;
++    p.sig = CollateralSig::default();
+     let mut c = Vec::new();
+     p.encode(&mut c);
+     let c = raw_input(case, 0, &c);
+@@ -521,7 +501,7 @@ fn check_layer_mutant_inputs_compare_exactly() {
+         let net_info = NetInfo::Extended(NetInfoV2::decode(&mut &canonical[..]).unwrap());
+         (p.version, p.net_info, p.operator_reward) =
+             (ProTxVersion::ExtAddr, net_info, operator_reward);
+-        p.vch_sig = CollateralSig::default();
++        p.sig = CollateralSig::default();
+         let mut out = Vec::new();
+         p.encode(&mut out);
+         assert_eq!(out[42..42 + canonical.len()], canonical[..]);
+diff --git a/node-l1/tests/l1_llmq.rs b/node-l1/tests/l1_llmq.rs
+index dde985764daf9d9a873995d6e785359904a09a80..c19f8d318f487f8fb824af91fc734d70a434e7c2 100644
+--- a/node-l1/tests/l1_llmq.rs
++++ b/node-l1/tests/l1_llmq.rs
+@@ -59,6 +59,7 @@ use node_l1::llmq::{
+     rot_call_bytes, rot_scenario_bytes, rows_digest, scenario_bytes, seed_mined, snapshot_bytes,
+     twelve,
+ };
++use node_l1::rebuild::Rebuild;
+ use node_l1::{
+     Outcome, compare_quorum_members, compare_quorum_members_rot, compare_scan_quorums,
+     compare_select_quorum, compare_type_enabled,
+@@ -1342,19 +1343,23 @@ fn resized(b: &DynBitset, n: u64) -> DynBitset {
+     for i in (0..n.min(b.num_bits())).filter(|&i| b.get(i) == Some(true)) {
+         data[(i / 8) as usize] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: n,
+-        data,
+-    }
++    DynBitset::new(n, data).expect("n bits, none set past them")
+ }
+ 
+ /// `b` with only its first `k` set bits.
+ fn first_set(b: &DynBitset, k: usize) -> DynBitset {
+-    let mut out = b.clone();
++    let mut data = b.data().clone();
+     for i in b.iter_set_bits().skip(k) {
+-        out.data[(i / 8) as usize] &= !(1 << (i % 8));
++        data[(i / 8) as usize] &= !(1 << (i % 8));
+     }
+-    out
++    DynBitset::new(b.num_bits(), data).expect("a bitset with bits cleared")
++}
++
++/// `b` with bit `i` cleared.
++fn cleared(b: &DynBitset, i: usize) -> DynBitset {
++    let mut data = b.data().clone();
++    data[i / 8] &= !(1 << (i % 8));
++    DynBitset::new(b.num_bits(), data).expect("a bitset with a bit cleared")
+ }
+ 
+ /// One structural mutation of a commitment Core accepted, made on the commitment's fields and
+@@ -1548,8 +1553,7 @@ fn structural_mutations(
+             last_signer,
+             CommitmentReject::SignerBit(last_signer),
+             &|m| {
+-                let mut valid_members = m.valid_members().clone();
+-                valid_members.data[last_signer / 8] &= !(1 << (last_signer % 8));
++                let valid_members = cleared(m.valid_members(), last_signer);
+                 *m = dash_primitives::Commitment::new(
+                     m.version(),
+                     m.llmq_type(),
+@@ -3388,11 +3392,11 @@ fn mined_commitments_match_cores_mined_path() {
+                 });
+             }
+             with("membersSig and quorumSig swapped", &|m| {
+-                std::mem::swap(&mut m.members_sig, &mut m.quorum_sig)
++                m.edit(|f| std::mem::swap(&mut f.members_sig, &mut f.quorum_sig))
+             });
+             let signer = qc.signers().iter_set_bits().next().expect("a signer") as usize;
+             with("the first signer's bit cleared", &|m| {
+-                m.signers.data[signer / 8] &= !(1 << (signer % 8))
++                m.edit(|f| f.signers = cleared(&f.signers, signer))
+             });
+             for (how, m) in cases {
+                 let mut bytes = Vec::new();
+diff --git a/node-l1/tests/l1_lq2.rs b/node-l1/tests/l1_lq2.rs
+index c83c74af35847f05e9699cf6fe04777f64f70f48..4be524aa17627cc03d3c2989b5a908c6d7b816bd 100644
+--- a/node-l1/tests/l1_lq2.rs
++++ b/node-l1/tests/l1_lq2.rs
+@@ -48,13 +48,14 @@ use dash_oracle_sys::{
+ use dash_params::LlmqType;
+ use dash_params::{ChainOption, ChainParamsBuilder, ChainSetup, Network, Release};
+ use dash_pkc::bls::BlsSchemeKind;
+-use dash_primitives::{Transaction, TxType};
++use dash_primitives::{DynBitset, Transaction, TxType};
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+ use dashd_chainstate::checkqueue::bls::{
+     BlsCheckQueue, DEFAULT_BLSCHECK_THREADS, bls_check_threads,
+ };
+ use node_l1::llmq::{HeightDeployments, HeldChain, ViewError, header_hash};
++use node_l1::rebuild::Rebuild;
+ 
+ /// LLMQ_60_75, the rotated type of the captures.
+ const ROTATED: u8 = 5;
+@@ -431,7 +432,7 @@ fn captured_commitments_hash_as_received() {
+         write_commitment(&qc, &mut written);
+         assert_eq!(written, bytes, "{what}: the commitment writes as Core mined it");
+         assert_eq!(commitment_hash(&qc), sha256d(&bytes), "{what}");
+-        *versions.entry((qc.is_null(), qc.version)).or_default() += 1;
++        *versions.entry((qc.is_null(), qc.version())).or_default() += 1;
+         bitset_sizes.extend([qc.signers().num_bits(), qc.valid_members().num_bits()]);
+     }
+     // The legacy-scheme mainnet cycle (version 2), the basic-scheme ones (version 4) and the
+@@ -1172,12 +1173,16 @@ fn check_longer_bitset(bytes: &[u8], which: Bitset) {
+     let mut want = LlmqCommitment::decode(&mut &bytes[..]).expect("a commitment");
+     let longer = apply(bytes, Op::LongerBitset(which));
+     let got = LlmqCommitment::decode(&mut &longer[..]).expect("still a commitment");
+-    let bits = match which {
+-        Bitset::Signers => &mut want.signers,
+-        Bitset::ValidMembers => &mut want.valid_members,
+-    };
+-    bits.num_bits += 1;
+-    bits.data.resize(bits.num_bits.div_ceil(8) as usize, 0);
++    want.edit(|f| {
++        let bits = match which {
++            Bitset::Signers => &mut f.signers,
++            Bitset::ValidMembers => &mut f.valid_members,
++        };
++        let num_bits = bits.num_bits() + 1;
++        let mut data = bits.data().clone();
++        data.resize(num_bits.div_ceil(8) as usize, 0);
++        *bits = DynBitset::new(num_bits, data).expect("one bit longer, the new bit clear");
++    });
+     assert_eq!(got, want, "{which:?}");
+     let mut written = Vec::new();
+     write_commitment(&got, &mut written);
+@@ -1191,10 +1196,11 @@ fn longer_bitset_on_a_byte_boundary() {
+     let capture = &captures_named(&SAMPLED[1..2])[0];
+     let (_, bytes, _) = capture.mined().next().expect("a commitment");
+     let mut qc = LlmqCommitment::decode(&mut &bytes[..]).expect("a commitment");
+-    for bits in [&mut qc.signers, &mut qc.valid_members] {
+-        bits.num_bits = 400;
+-        bits.data = (0..50u8).map(|i| i | 0x81).collect();
+-    }
++    qc.edit(|f| {
++        for bits in [&mut f.signers, &mut f.valid_members] {
++            *bits = DynBitset::new(400, (0..50u8).map(|i| i | 0x81).collect()).expect("400 bits");
++        }
++    });
+     let mut bytes = Vec::new();
+     write_commitment(&qc, &mut bytes);
+     for which in [Bitset::Signers, Bitset::ValidMembers] {
+diff --git a/node-l1/tests/l1_specialtx.rs b/node-l1/tests/l1_specialtx.rs
+index 1287b1ed7e637218e4527f7d90f1cb8b42813c2e..f61c30fedb0f59ae3ec31b8d566f7fa9a0953bc1 100644
+--- a/node-l1/tests/l1_specialtx.rs
++++ b/node-l1/tests/l1_specialtx.rs
+@@ -292,7 +292,7 @@ fn same_as_agrees_with_the_signed_comparison() {
+     let Payload::UpReg(p) = &mut overwritten.payload else {
+         unreachable!("an owner update");
+     };
+-    p.vch_sig = BaseCodec::decode(&mut &[1u8, 7][..]).expect("a one-byte signature");
++    p.sig = BaseCodec::decode(&mut &[1u8, 7][..]).expect("a one-byte signature");
+     assert!(owner.same_signed(&overwritten), "signing writes the owner signature over it");
+     assert!(owner.same_as(&overwritten), "the signed comparison decides it");
+     println!("same_as: {} same, {} different", answers[1], answers[0]);
+diff --git a/node-l1/tests/l1_specialtx_d17.rs b/node-l1/tests/l1_specialtx_d17.rs
+index 0d931c0237d60b734e0499ba7ce92838b7ef0b6c..7ee193a50f293b076aff627508c2e68fe82f6f4f 100644
+--- a/node-l1/tests/l1_specialtx_d17.rs
++++ b/node-l1/tests/l1_specialtx_d17.rs
+@@ -34,11 +34,13 @@ use dash_params::{ChainOption, ChainParamsBuilder, ChainSetup, Network, Release}
+ use dash_pkc::bls::{BlsLazyPk, BlsSchemeKind, BlsSchemeSource};
+ use dash_primitives::{
+     AddrV1, BlockHash, InputsHash, NetInfo, NetInfoV1, OutPoint, OwnerSig, PayoutShare,
+-    ProTxVersion, ProUpRegTx, ServiceV1, Transaction, TxHash, TxIn, TxType,
++    ProTxVersion, ServiceV1, Transaction, TxHash, TxIn, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+ use node_l1::dml_checks::CheckCtx;
++// The payload the test writes: base-sdk's, with public fields (DEC-1066).
++use node_l1::protx_mirror::ProUpRegTx;
+ 
+ const V19: &str = "v19@100";
+ const DIP3: &str = "2:2";
+@@ -160,7 +162,7 @@ fn up_reg(key: OperatorKey) -> Tx {
+             reward: 10_000,
+         }],
+         inputs_hash: InputsHash::from_lendian(inputs_hash_of(&inputs)),
+-        vch_sig: OwnerSig::decode(&mut &[[65].as_slice(), &[0; 65]].concat()[..])
++        sig: OwnerSig::decode(&mut &[[65].as_slice(), &[0; 65]].concat()[..])
+             .expect("a 65-byte signature"),
+     };
+     let mut extra_payload = Vec::new();
