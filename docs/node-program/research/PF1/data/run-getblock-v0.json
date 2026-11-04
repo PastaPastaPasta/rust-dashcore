@@ -1,0 +1,59 @@
+{
+ "workload": "getblock",
+ "argv": [
+  "bin/sym/dashd",
+  "-datadir=runs/getblock-v0/datadir",
+  "-server=1",
+  "-printtoconsole=0",
+  "-logtimemicros=1",
+  "-rpcuser=REDACTED",
+  "-rpcpassword=REDACTED",
+  "-rpcbind=127.0.0.1",
+  "-rpcallowip=127.0.0.1",
+  "-rpcport=48831",
+  "-port=48830",
+  "-rpcthreads=16",
+  "-rpcworkqueue=256",
+  "-dbcache=1024",
+  "-par=1",
+  "-parbls=1",
+  "-upnp=0",
+  "-natpmp=0",
+  "-listenonion=0",
+  "-listen=0",
+  "-connect=0",
+  "-dnsseed=0",
+  "-fixedseeds=0",
+  "-disablewallet=1",
+  "-testnet"
+ ],
+ "dashd": "bin/sym/dashd",
+ "dashd_sha256": "4ad82cf6d9e4ecd50884cbb33a1e1d0fac13c552f849497840e88cbc108068d8",
+ "datadir_src": "data/seed-test-v24",
+ "cpus": "28-31",
+ "par": 1,
+ "parbls": 1,
+ "dbcache_mib": 1024,
+ "ready_s": 23.22,
+ "idle_wait_s": 4.0,
+ "loop_wall_s": 6.5432,
+ "ops": 2000,
+ "unit": "getblock v0",
+ "response_bytes": 86372744,
+ "tip": 1568368,
+ "heights": "random in [421000,440000) seed 42",
+ "peak_rss_kib": 1324916,
+ "exit_code": 0,
+ "wall_total_s": 35.967,
+ "recorded_windows_monotonic": [
+  [
+   232618.012737103,
+   232624.55594773
+  ]
+ ],
+ "fold_stderr": [
+  "cpu-clock: weight 1798395137 samples 1793 span 6.53s",
+  "instructions:u: weight 7062012947 samples 1177 span 6.53s"
+ ],
+ "perf_throttle_events": 0
+}
