@@ -1,0 +1,55 @@
+{
+ "name": "hx1-precious",
+ "description": "preciousblock between equal-work tips: A10 first seen, B10 precious takes it, A10 precious takes it back; preciousblock on header-only C11 (more work, no data) succeeds and leaves A10 the tip; A11 then connects",
+ "rows": [
+  "HX1-X2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A9",
+   "count": 1,
+   "submit": "connect"
+  },
+  {
+   "op": "precious",
+   "block": "B10"
+  },
+  {
+   "op": "precious",
+   "block": "A10"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "B10",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "precious",
+   "block": "C11"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A10",
+   "count": 1,
+   "submit": "connect"
+  }
+ ]
+}

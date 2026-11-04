@@ -1,0 +1,62 @@
+{
+ "name": "a29-ix-reset-then-lower-lock",
+ "description": "fork at 80, B81..B110 active, A81..A95 headers: lock B100 (on the active chain, so EnforceBlock marks nothing; A81 stays unmarked); signed toggle off (observed) then on; lock A90 is accepted after the reset: B81 marked, B disconnected, the tip ends at A80",
+ "rows": [
+  "A-29(ix)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 80,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A80",
+   "count": 30,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A80",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "B100"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A90"
+  }
+ ]
+}
