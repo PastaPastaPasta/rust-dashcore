@@ -1,0 +1,11 @@
+# MicroLog planted bug X1 (ST3a §6.1), minimised in 35 replays.
+harness st3a/1
+sut microlog
+config bug=X1 max=1024
+workload a300:1;a300:2;c;a300:3;a300:4;c
+crash 14 power-loss
+decide 1:fs:i1:u1=1
+adversary realistic
+granularity sector
+expect R1
+minimality verified
