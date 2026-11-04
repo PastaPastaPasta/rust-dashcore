@@ -1,0 +1,9 @@
+# A fork block at the locked height (bad-chainlock) and one on a conflicting parent
+# (bad-prevblk-chainlock: a child of the block marked conflicting).
+extend main 1
+fork 1 1
+cl main@-0
+cl_enforce
+fork 1 1
+extend b1 1
+extend b2 1
