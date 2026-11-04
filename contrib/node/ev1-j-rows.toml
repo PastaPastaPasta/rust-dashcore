@@ -1,0 +1,1021 @@
+# EV1-J's row inventory (EV1-J plan rev4 §4 and §5.4; EV1 design §6.3 and D27, in
+# docs/node-program/designs/EV1-specialtx.md), at Dash Core v24.0.0-rc.5.
+#
+# [[row]]: one certification row. `id` and `case` as §4 names them; `recipe`, how the probe is
+# built (on regtest, with the chain `dashd-node/tests/ev1_j_dashd.rs` sets up); then one entry per
+# path:
+#   b    block via `submitblock`, check_sigs = true;
+#   bav  block below assumevalid, check_sigs = false (plan §5.2);
+#   m    mempool (`sendrawtransaction`, `testmempoolaccept`);
+#   l2   the history replay (plan §4 "L2 replay").
+# A path's value is the expected outcome on both nodes, `accept` or Core's reject reason, or the
+# reason the path does not apply: `n/a: ...`, `excluded: ...` (a branch no consistent node
+# reaches) or `infeasible: ...` (conditions that cannot hold together). A path with an outcome
+# has `<path>_stage`, the EV1-J stage that runs it (J0a, J0b, J1, J2, J3; plan §3 and its J2
+# delta). J3 holds deferrals only, `deferred: <where the evidence comes from>`, which no head
+# runs and the test lists as skipped, never as passed. A row the test
+# runs has `control` and `b_control`: the probe with the winning defect taken out, and the reject
+# the next check gives, which shows the probe reaches its check with every earlier one passing. A
+# row may also have `order_probe`/`b_order` and `order_control`/`b_order_control`: blocks with a
+# second defect, placed so the stage Core's ConnectBlock answers from shows; D13-B and D13-B2 must
+# have both (the test's STAGE_ROWS). A type 9 reject run at J0b-1 (and L2-C3.9, the test's
+# POOL_ROWS) also needs its pool control: the
+# valid unlock in the probe's place on the same template, whose CbTx does not count it, so Core's
+# credit-pool check (run after the special-tx loop) answers `bad-cbtx-assetlocked-amount`; it is
+# the row's `control`/`b_control` when the row has one defect, else
+# `pool_control`/`b_pool_control`. A pair row's `b_control` is its loser's reject. Every run row
+# pins `b_probes`, its number of block probes: each variant a row names (9-OK's payload versions,
+# 9-R3's two recipes, 9-P5's versions 0 and 3) is its own probe with its own name, so a dropped
+# variant fails. A row whose `bav` path runs pins `bav_probes` the same way and has two more
+# controls (plan §5.2's assumevalid fixture, `dashd-node/tests/ev1_j/bav.rs`): `mode_control`/
+# `bav_mode_control`, the row's probe without its defect and with one invalid script spend, which
+# both nodes accept only below assumevalid (`fScriptChecks` false), and `twin`/`bav_twin`, the
+# same block where its scripts are checked, which both reject with the script error. The test
+# runs the rows file's J0b in sub-stages: J0b-1 every J0b block path but D14's, J0b-2 the BAV
+# paths, J0b-3 D14; and J2 in J2-C (the L2-C block rows on the ChainLock fixture), J2-R2 (the
+# rc.5 re-judging of the stored recordings, whose `l2_probes` pins the number of recordings) and
+# J2-lib (L2-R1 and L2-R3, run by CH7a-5b's replay in dashd-node's lib tests; each names them in
+# `l2_tests`, which the test checks against that source, since it cannot read their verdicts;
+# `l2_probes` is the number of recordings they replay). The test pins the recorded exclusions
+# (`excludes`, and the covers of a row no path of applies) to plan §4's (the test's EXCLUSIONS).
+# Every block-path reject (`b`, `bav`, `b_control`, `b_order`, `b_order_control`,
+# `b_pool_control`, `bav_twin`) has `<key>_class`: Core's BlockValidationResult for it, with the file:line that
+# sets it at the tag. The test compares V's class to it; dashd's class is not observed (see the
+# test's module docs).
+# `covers` lists the §6.3 branches and pairs (EV1 design §6.3, §3.12) the row stands for: a step
+# of ev1-pairs.toml's 7c or 9c table, a step with a §6.3 variant (`9c:11 expired`), or a pair
+# `<winner>><loser>`; or one of D13's coins-view cases (`D13 ...`, plan §4 D13). `excludes` lists
+# the cases a row records as unobservable on its paths, with the reason and the evidence kept in
+# `notes`. `ev1_j_dashd`'s closure test first checks the rows against its own copy of §4's
+# inventory (every row, path, stage and outcome, and each path's n/a reason), then that every
+# branch, pair and D13 case is covered or recorded as excluded, and that each cover's reason is the
+# row's reject.
+#
+# Restricted shape, as ev1-pairs.toml's (D29): `key = "string"` or `covers = [` / `excludes = [`
+# with one string per line, so the test reads it with a line parser.
+
+# Type 7 (MNHF)
+
+[[row]]
+id = "7-OK"
+case = "valid signal, MNHF quorum, in-window EHF bit"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the MNHF quorum of the J0b fixture (LLMQ_TEST, base 216), signed by its key over the txid with a null signature and the request id of ('mnhf', 14) (mnhftx.cpp:33-35, :139-153), on the setup tip's template"
+b = "accept"
+b_stage = "J0b"
+b_probes = "2"
+control = "the same signal signed by a key no quorum holds"
+b_control = "bad-mnhf-invalid"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "accept"
+bav_stage = "J0b"
+bav_probes = "3"
+mode_control = "the template with the valid signal (the MNHF quorum's signature) and then a spend of a mature setup coinbase's P2PKH output with an empty scriptSig, which fails its script (OP_DUP on an empty stack), under the same 8,065 descendant headers of its own: its only fault is the script, so both nodes accept it only with fScriptChecks false"
+bav_mode_control = "accept"
+twin = "the mode control's block under the first 8,064 of its descendants (exactly two weeks of proof-equivalent time, validation.cpp:2579's <=), -assumevalid at the last: its scripts are checked"
+bav_twin = "mandatory-script-verify-flag-failed (Operation not valid with the current stack size)"
+bav_twin_class = "BLOCK_CONSENSUS: validation.cpp:2763-2765, CheckInputScripts' TX_CONSENSUS reject (:2234) as the block's, inline at -par=1"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "7-S1"
+case = "the bit of an in-window deployment without useEHF"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 28 (regtest's testdummy, in its window, useEHF false), the hash of setup block 60 (an active-chain ancestor) and a well-formed BLS signature"
+b = "bad-mnhf-non-ehf"
+b_stage = "J0a"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "bit 14 (evo_shares, in its window, useEHF true) with the same hash: block 60 is no MNHF quorum"
+b_control = "bad-mnhf-missing-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-non-ehf"
+m_stage = "J1"
+covers = [
+  "7c:4",
+]
+
+[[row]]
+id = "7-S2"
+case = "unknown quorum hash"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), a quorum hash no node knows (32 bytes of 0x42), signed by the MNHF quorum's key"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's hash and signature"
+b_control = "accept"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5a",
+]
+
+[[row]]
+id = "7-S3"
+case = "known block off the active chain"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the hash of the stale sibling of setup block 230 (both validators have it, off their active chain), signed by the MNHF quorum's key"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's hash and signature"
+b_control = "accept"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5b",
+]
+
+[[row]]
+id = "7-S4"
+case = "known ancestor that is not an llmqTypeMnhf quorum"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the base of the fixture's oldest Platform quorum (block 240, an active-chain block that is no LLMQ_TEST quorum: no MNHF commitment for that base), signed by the MNHF quorum's key"
+b = "bad-mnhf-missing-quorum"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's hash and signature"
+b_control = "accept"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-missing-quorum"
+m_stage = "J1"
+covers = [
+  "7c:7",
+]
+
+[[row]]
+id = "7-S5"
+case = "bad signature"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the MNHF quorum's hash, the right message signed by a key no quorum holds"
+b = "bad-mnhf-invalid"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's own signature"
+b_control = "accept"
+bav = "bad-mnhf-invalid"
+bav_stage = "J0b"
+bav_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav_probes = "3"
+mode_control = "the template with the valid signal (the MNHF quorum's signature) and then a spend of a mature setup coinbase's P2PKH output with an empty scriptSig, which fails its script (OP_DUP on an empty stack), under the same 8,065 descendant headers of its own: its only fault is the script, so both nodes accept it only with fScriptChecks false"
+bav_mode_control = "accept"
+twin = "the mode control's block under the first 8,064 of its descendants (exactly two weeks of proof-equivalent time, validation.cpp:2579's <=), -assumevalid at the last: its scripts are checked"
+bav_twin = "mandatory-script-verify-flag-failed (Operation not valid with the current stack size)"
+bav_twin_class = "BLOCK_CONSENSUS: validation.cpp:2763-2765, CheckInputScripts' TX_CONSENSUS reject (:2234) as the block's, inline at -par=1"
+m = "bad-mnhf-invalid"
+m_stage = "J1"
+covers = [
+  "7c:8",
+  "7c:8 BAV",
+]
+
+[[row]]
+id = "7-P1"
+case = "non-ehf + unknown quorum hash"
+recipe = "7-S1's tx with a quorum hash no node knows (32 bytes of 0x42)"
+b = "bad-mnhf-non-ehf"
+b_stage = "J0a"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "bit 14 with the same unknown hash"
+b_control = "bad-mnhf-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-non-ehf"
+m_stage = "J1"
+covers = [
+  "7c:4>7c:5a",
+]
+
+[[row]]
+id = "7-P2"
+case = "unknown quorum hash + bad signature"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), a quorum hash no node knows, signed by a key no quorum holds"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's hash, still signed by the other key"
+b_control = "bad-mnhf-invalid"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5a>7c:8",
+]
+
+[[row]]
+id = "7-P3"
+case = "off-chain quorum block + not an MNHF quorum (the off-chain block is not one)"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the stale sibling of setup block 230 (no quorum of any type), signed by the MNHF quorum's key"
+b = "bad-mnhf-quorum-hash"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the oldest Platform quorum's base instead, an active-chain block that is no MNHF quorum"
+b_control = "bad-mnhf-missing-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-quorum-hash"
+m_stage = "J1"
+covers = [
+  "7c:5b>7c:7",
+]
+
+[[row]]
+id = "7-P4"
+case = "not an MNHF quorum + bad signature"
+recipe = "a type 7 tx with no inputs or outputs, payload version 1, bit 14 (regtest's evo_shares, in its window, useEHF true), the oldest Platform quorum's base, signed by a key no quorum holds"
+b = "bad-mnhf-missing-quorum"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's hash, still signed by the other key"
+b_control = "bad-mnhf-invalid"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-mnhf-missing-quorum"
+m_stage = "J1"
+covers = [
+  "7c:7>7c:8",
+]
+
+# Type 9 (asset unlock)
+
+[[row]]
+id = "9-OK"
+case = "valid v1 and v2 unlock, scanned Platform quorum, in window"
+recipe = "versions 1 and 2 of the valid unlock (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226)), each sent to a copy of the stopped producer, whose getblocktemplate then carries it (never submitted): its CbTx payload, coinbase value and payee outputs on the coinbase and header of the copy's generateblock with no transactions (submit false), which the template before the unlock reproduces exactly, so that Core computes the coinbase, the fee and the CbTx's credit pool; the credit pool holds the asset lock of block 202 (generateblock itself reads no mempool and appends a given transaction to an unchanged coinbase, rpc/mining.cpp generateblock)"
+b = "accept"
+b_stage = "J0b"
+b_probes = "4"
+control = "the producer's block with the unlock signed by a key no quorum holds in its place"
+b_control = "bad-assetunlock-not-verified"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "accept"
+bav_stage = "J0b"
+bav_probes = "6"
+mode_control = "the producer's block of the probe's payload version with the valid unlock (Core's CbTx and coinbase), then a spend of a mature setup coinbase's P2PKH output with an empty scriptSig, which fails its script (OP_DUP on an empty stack), under the same 8,065 descendant headers of its own: its only fault is the script, so both nodes accept it only with fScriptChecks false"
+bav_mode_control = "accept"
+twin = "each mode control's block under the first 8,064 of its descendants (exactly two weeks of proof-equivalent time, validation.cpp:2579's <=), -assumevalid at the last: its scripts are checked"
+bav_twin = "mandatory-script-verify-flag-failed (Operation not valid with the current stack size)"
+bav_twin_class = "BLOCK_CONSENSUS: validation.cpp:2763-2765, CheckInputScripts' TX_CONSENSUS reject (:2234) as the block's, inline at -par=1"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "9-S1"
+case = "index already in the credit pool at pprev (set by a mined unlock)"
+recipe = "the valid unlock with index 1, which the fixture's unlock mined in block 330 put in the credit pool (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-duplicated-index"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: ATMP answers txn-already-known for a mined index before the special check (validation.cpp:934-938); recorded as excluded"
+covers = [
+  "9c:7",
+]
+
+[[row]]
+id = "9-S2"
+case = "unknown quorum hash"
+recipe = "the valid unlock with a quorum hash no node knows (32 bytes of 0x42) (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-quorum-hash"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-quorum-hash"
+m_stage = "J1"
+covers = [
+  "9c:8",
+]
+
+[[row]]
+id = "9-S3a"
+case = "known chain block that is not a scanned quorum"
+recipe = "the valid unlock naming the MNHF quorum's base (block 216, an LLMQ_TEST quorum and no Platform quorum), signed by that quorum's key (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11",
+  "9c:11 unscanned",
+]
+
+[[row]]
+id = "9-S3b"
+case = "mined Platform quorum aged out of the scan (also BL-568)"
+recipe = "the valid unlock naming the oldest Platform quorum (base 240, mined 250), signed by its key: at the parent the scan of signingActiveQuorumCount + 1 = 3 holds the three newer ones (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11 expired",
+]
+
+[[row]]
+id = "9-S4a"
+case = "tip below requestedHeight"
+recipe = "the valid unlock with requestedHeight 359, above the parent's height (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12",
+  "9c:12 below",
+]
+
+[[row]]
+id = "9-S4b"
+case = "tip at requestedHeight + 48 (v1 unlock)"
+recipe = "the valid unlock (version 1) with requestedHeight 310: the parent, 358, is at requestedHeight + 48 (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12 expiry",
+]
+
+[[row]]
+id = "9-S5"
+case = "bad signature"
+recipe = "the valid unlock, its message signed by a key no quorum holds (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-not-verified"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "bad-assetunlock-not-verified"
+bav_stage = "J0b"
+notes = "the BAV probe is 9-OK's version 1 block (the producer's, whose CbTx counts the unlock) with the unlock signed by a key no quorum holds in its place: its only fault is the signature, and its mode control is that block with the valid unlock and the failing spend"
+bav_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav_probes = "3"
+mode_control = "the producer's block of payload version 1 with the valid unlock (Core's CbTx and coinbase), then a spend of a mature setup coinbase's P2PKH output with an empty scriptSig, which fails its script (OP_DUP on an empty stack), under the same 8,065 descendant headers of its own: its only fault is the script, so both nodes accept it only with fScriptChecks false"
+bav_mode_control = "accept"
+twin = "the mode control's block under the first 8,064 of its descendants (exactly two weeks of proof-equivalent time, validation.cpp:2579's <=), -assumevalid at the last: its scripts are checked"
+bav_twin = "mandatory-script-verify-flag-failed (Operation not valid with the current stack size)"
+bav_twin_class = "BLOCK_CONSENSUS: validation.cpp:2763-2765, CheckInputScripts' TX_CONSENSUS reject (:2234) as the block's, inline at -par=1"
+m = "bad-assetunlock-not-verified"
+m_stage = "J1"
+covers = [
+  "9c:14",
+  "9c:14 BAV",
+]
+
+[[row]]
+id = "9-X"
+case = "bad-assetunlock-quorum-internal-error"
+recipe = "none: the scan found the hash and GetQuorum did not"
+b = "excluded: unreachable on a consistent node (L0 only, EV1 design §6.3)"
+bav = "excluded: as b"
+m = "excluded: as b"
+covers = [
+  "9c:13",
+  "9c:3>9c:13",
+  "9c:5>9c:13",
+]
+
+[[row]]
+id = "9-P1"
+case = "duplicated index + unknown quorum hash"
+recipe = "the valid unlock with the mined index 1 and a quorum hash no node knows (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-duplicated-index"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the unused index with the same unknown hash"
+b_control = "bad-assetunlock-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1"
+covers = [
+  "9c:7>9c:8",
+]
+
+[[row]]
+id = "9-P2"
+case = "unknown hash + known-unscanned hash"
+recipe = "none"
+b = "infeasible: one quorumHash field (ev1-pairs.toml 9c:8 / 9c:11)"
+bav = "infeasible: as b"
+m = "infeasible: as b"
+covers = [
+  "9c:8>9c:11",
+]
+
+[[row]]
+id = "9-P3"
+case = "not scanned + too late"
+recipe = "the valid unlock naming the MNHF quorum's base (no Platform quorum), signed by that quorum's key, requestedHeight 359 (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the newest Platform quorum, still requestedHeight 359"
+b_control = "bad-assetunlock-too-late"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+covers = [
+  "9c:11>9c:12",
+]
+
+[[row]]
+id = "9-P4"
+case = "too late + bad signature"
+recipe = "the valid unlock with requestedHeight 359, signed by a key no quorum holds (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "requestedHeight 358, still signed by the other key"
+b_control = "bad-assetunlock-not-verified"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlock-too-late"
+m_stage = "J1"
+covers = [
+  "9c:12>9c:14",
+]
+
+# 9-P5a and 9-P5b (§4: a payload-level reject plus each of the four context rejects) are split per
+# second defect. Too late (9c:12) and the signature (9c:14) come after the platform scan (9c:11),
+# so their pairs need a scanned Platform quorum, which only J0b's fixture has.
+
+[[row]]
+id = "9-P5a.1"
+case = "payload version 0 or 3 + unknown quorum hash"
+recipe = "a type 9 tx with no inputs, one P2PKH output, payload version 0 and, apart, version 3 (both well-formed 145-byte payloads; version 3 has the stable txid and the CbTx commits to its instance hash), an unused index, requestedHeight the parent's height, a quorum hash no node knows (32 bytes of 0x42) and a well-formed BLS signature"
+b = "bad-assetunlocktx-version"
+b_stage = "J0a"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1"
+b_control = "bad-assetunlock-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:8",
+]
+
+[[row]]
+id = "9-P5a.2"
+case = "payload version 0 or 3 + known block that is not a scanned quorum"
+recipe = "9-P5a.1's txs with the hash of setup block 60, an active-chain block that is no Platform quorum"
+b = "bad-assetunlocktx-version"
+b_stage = "J0a"
+b_probes = "4"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1, and apart version 2"
+b_control = "bad-assetunlock-too-old-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:11",
+]
+
+[[row]]
+id = "9-P5a.3"
+case = "payload version 0 or 3 + too late"
+recipe = "the valid unlock at payload version 0 and, apart, version 3, with requestedHeight 359 (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_probes = "5"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1, and apart version 2, still requestedHeight 359"
+b_control = "bad-assetunlock-too-late"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:12",
+]
+
+[[row]]
+id = "9-P5a.4"
+case = "payload version 0 or 3 + bad signature"
+recipe = "the valid unlock at payload version 0 and, apart, version 3, signed by a key no quorum holds (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_probes = "5"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1, and apart version 2, still signed by the other key"
+b_control = "bad-assetunlock-not-verified"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-version"
+m_stage = "J1"
+covers = [
+  "9c:5>9c:14",
+]
+
+[[row]]
+id = "9-P5b.1"
+case = "33 outputs + unknown quorum hash"
+recipe = "9-P5a.1's tx at payload version 1 with 33 P2PKH outputs"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0a"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs"
+b_control = "bad-assetunlock-quorum-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:8",
+]
+
+[[row]]
+id = "9-P5b.2"
+case = "33 outputs + known block that is not a scanned quorum"
+recipe = "9-P5a.2's tx at payload version 1 with 33 P2PKH outputs"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0a"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs"
+b_control = "bad-assetunlock-too-old-quorum"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:11",
+]
+
+[[row]]
+id = "9-P5b.3"
+case = "33 outputs + too late"
+recipe = "the valid unlock with 33 outputs and requestedHeight 359 (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs, still requestedHeight 359"
+b_control = "bad-assetunlock-too-late"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, 32 outputs, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:12",
+]
+
+[[row]]
+id = "9-P5b.4"
+case = "33 outputs + bad signature"
+recipe = "the valid unlock with 33 outputs, signed by a key no quorum holds (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs, still signed by the other key"
+b_control = "bad-assetunlock-not-verified"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, 32 outputs, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "bad-assetunlocktx-too-many-outs"
+m_stage = "J1"
+covers = [
+  "9c:3>9c:14",
+]
+
+[[row]]
+id = "9-P5c"
+case = "payload version 0 or 3 + duplicated index"
+recipe = "the valid unlock with the mined index 1 at payload version 0 and, apart, version 3 (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-version"
+b_stage = "J0b"
+b_probes = "5"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "payload version 1, and apart version 2, still the mined index"
+b_control = "bad-assetunlock-duplicated-index"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, one output, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1, txn-already-known preempts on a decodable payload with a mined index; recorded"
+covers = [
+  "9c:5>9c:7",
+]
+
+[[row]]
+id = "9-P5d"
+case = "33 outputs + duplicated index (Core assetlocktx.cpp:192-193 before :214-215)"
+recipe = "the valid unlock with the mined index 1 and 33 outputs (a type 9 tx with no inputs, payload fee 10000 and P2PKH outputs of 100000 on the setup tip's template (block 359); the valid unlock is version 1, unused index 7, one output, requestedHeight 358 (the parent's), the newest Platform quorum (base 312, mined 322), signed by its key over the whole serialization with a null signature and the request id of ('plwdtx', index) (assetlocktx.cpp:141, :218-226))"
+b = "bad-assetunlocktx-too-many-outs"
+b_stage = "J0b"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "32 outputs, still the mined index"
+b_control = "bad-assetunlock-duplicated-index"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid unlock (version 1, unused index 7, 32 outputs, requestedHeight the parent's, signed by the newest Platform quorum) in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+m = "n/a: as 9-S1, txn-already-known preempts; recorded"
+covers = [
+  "9c:3>9c:7",
+]
+
+# Type 9 version 2 expired-instance retry (mempool, validation.cpp:805-831). Every recipe uses an
+# unused index, and keeps the quorum in the scan at the current parent, so the block half gives
+# too-late rather than too-old-quorum.
+
+[[row]]
+id = "9-R1"
+case = "v2 at tip requestedHeight + 48, quorum scanned at first_height"
+recipe = "a version 2 unlock (unused index 7, one output, fee 10000) with requestedHeight 310, the parent 358 at requestedHeight + 48, under a Platform quorum in the scan at the parent: the third Platform quorum (base 288, mined 298, so also in the scan at the first height 310), signed by its key"
+m = "accept"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "requestedHeight 358, the same quorum"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry first_height",
+]
+
+[[row]]
+id = "9-R2"
+case = "v2 expired within the mempool age bound, the first_height scan misses the quorum, the last_height scan has it"
+recipe = "a version 2 unlock (unused index 7, one output, fee 10000) with requestedHeight 310, the parent 358 at requestedHeight + 48, under a Platform quorum in the scan at the parent: the newest Platform quorum (base 312, mined 322: after the first height 310, before the last height 357, so the first height's scan misses it and the last height's has it), signed by its key"
+m = "accept"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "requestedHeight 358, the same quorum"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry last_height",
+]
+
+[[row]]
+id = "9-R3"
+case = "v2 expired within the mempool age bound, neither retry passes"
+recipe = "a version 2 unlock (unused index 7, one output, fee 10000) with requestedHeight 310, the parent 358 at requestedHeight + 48, under a Platform quorum in the scan at the parent, signed by a key no quorum holds, in two recipes: under the third Platform quorum (the first_height retry runs and fails with a signature reject, so the last_height retry does not run, validation.cpp:828-831) and under the newest (the first_height retry gives too-old-quorum, so the last_height retry runs and fails with a signature reject)"
+m = "Core's reject from the last retry actually run, compared exactly"
+m_stage = "J1"
+b = "bad-assetunlock-too-late"
+b_stage = "J0b"
+b_probes = "5"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "each recipe with requestedHeight 358, still signed by the other key"
+b_control = "bad-assetunlock-not-verified"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+pool_control = "the valid version 2 unlock under the newest Platform quorum with requestedHeight 358 in the probe's place: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_pool_control = "bad-cbtx-assetlocked-amount"
+b_pool_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: BAV is the bad-signature rows only (plan §5.2)"
+covers = [
+  "9c:12 retry fails",
+]
+
+# D13 (coins views)
+
+[[row]]
+id = "D13-B"
+case = "a valid shared ProReg (type 1) and, later in the same block, an ordinary spend of its template collateral output: the reject of the masternode-list build (FinishListForBlock's collateral-spend loop), not the covenant's block view"
+recipe = "the producer's block mining its shared ProReg (protx shared_register_prepare, shared_sign, shared_combine, signed by its wallet; mined on the producer alone, then invalidated there), with a version 2 tx spending the template output to a P2PKH output appended. At rc.5 ProcessSpecialTxsInBlock's masternode-list build answers: its collateral-spend loop already holds the masternode registered earlier in the block (specialtxman.cpp:742-753; dash-dml build/mod.rs:533). ConnectBlock's covenant on the block view (validation.cpp:2716-2725) runs after it and is not reached, so the row certifies the list-build reject only. A second probe puts an ordinary version 2 tx spending a missing outpoint (32 bytes of 0x55, index 0) to a P2PKH output between the registration and the spend: Core runs ProcessSpecialTxsInBlock, list build included, before ConnectBlock's CheckTxInputs loop (validation.cpp:2674 before :2699-2713), so the list build still answers, which shows the stage that answers"
+notes = "the covenant's block-view binding is unobservable on B (shadowed by FinishListForBlock; L0/L1 evidence `coins_views_d13`, dash-dml specialtx::tests): after V24 only a shared ProReg may create a template output, at its own collateral index (CheckSharedCollateralTemplateOutputs, specialtxman.cpp:1893-1909), so every same-block template output is a new masternode's collateral and the list build rejects its spend first, and a template output of an earlier block is in both views"
+b = "bad-shared-collateral-spend"
+b_stage = "J0a"
+b_probes = "4"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:752, FinishListForBlock's collateral-spend loop"
+control = "the registration block itself, through the probe builder"
+b_control = "accept"
+order_probe = "registration, the missing-input tx, then the collateral spend: the list build (ProcessSpecialTxsInBlock, validation.cpp:2674) runs before ConnectBlock's CheckTxInputs loop (:2699-2713), so it answers the spend even behind the missing input"
+b_order = "bad-shared-collateral-spend"
+b_order_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:752, FinishListForBlock's collateral-spend loop"
+order_control = "the registration block with the missing-input tx appended and no spend: the missing input answers from ConnectBlock's CheckTxInputs loop"
+b_order_control = "bad-txns-inputs-missingorspent"
+b_order_control_class = "BLOCK_CONSENSUS: validation.cpp:2709-2713, ConnectBlock's CheckTxInputs, whose TX_MISSING_INPUTS (consensus/tx_verify.cpp:170-171) it rewraps"
+bav = "n/a: no signature row"
+m = "n/a: D13-M1 and D13-M2 are the mempool rows"
+covers = [
+  "D13 list build",
+]
+excludes = [
+  "D13 covenant block view",
+]
+
+[[row]]
+id = "D13-B2"
+case = "an output paying the shared-collateral template script, mined before V24 activates (an ordinary output of an ordinary tx, no masternode's collateral; permanently frozen, specialtxman.cpp:1879-1881), spent by an ordinary tx after activation: ConnectBlock's covenant"
+recipe = "setup block 121 (V24 not active for it, checked by getdeploymentinfo at block 120) mines, through generateblock, a version 2 tx of the producer's wallet paying 10 DASH to the template script (sharedcollateral.h; dash-dml SHARED_COLLATERAL_SCRIPT) plus change; the creation rule runs only under rules.v24 (specialtxman.cpp:915-917). The probe, on the setup tip with V24 active, is a version 2 tx spending that output with an empty scriptSig to a P2PKH output, without a fee (the template's coinbase pays for a block without fees). GetMNByCollateral finds no masternode, so FinishListForBlock passes, and ConnectBlock's covenant (validation.cpp:2716-2725) answers. A second probe has the template spend first and then an ordinary version 2 tx spending a missing outpoint (32 bytes of 0x55, index 0) to a P2PKH output: the covenant runs in ConnectBlock's per-tx loop after that tx's CheckTxInputs, so the spend ahead of the missing input answers first"
+b = "bad-shared-collateral-spend"
+b_stage = "J0a"
+b_probes = "4"
+b_class = "BLOCK_CONSENSUS: validation.cpp:2721-2725, ConnectBlock's CheckSharedCollateralSpends"
+control = "the same block with a spend of the tx's change output (P2PKH, wallet-signed, no fee) in place of the template spend"
+b_control = "accept"
+order_probe = "the template spend, then the missing-input tx: the covenant runs in ConnectBlock's per-tx loop after that tx's CheckTxInputs (validation.cpp:2709-2725), so the spend ahead of the missing input answers first"
+b_order = "bad-shared-collateral-spend"
+b_order_class = "BLOCK_CONSENSUS: validation.cpp:2721-2725, ConnectBlock's CheckSharedCollateralSpends"
+order_control = "the missing-input tx, then the template spend: ConnectBlock's per-tx loop reaches the missing input first, so a node that ran the covenant before the CheckTxInputs loop would answer bad-shared-collateral-spend"
+b_order_control = "bad-txns-inputs-missingorspent"
+b_order_control_class = "BLOCK_CONSENSUS: validation.cpp:2709-2713, ConnectBlock's CheckTxInputs, whose TX_MISSING_INPUTS (consensus/tx_verify.cpp:170-171) it rewraps"
+bav = "n/a: no signature row"
+m = "n/a: a block row (plan §4 D13); D13-M1 is the covenant's mempool row"
+covers = [
+  "D13 covenant block",
+]
+
+[[row]]
+id = "D13-M1"
+case = "a valid shared ProReg (type 1) in the mempool, then an ordinary spend of its template collateral output: the covenant's m_view"
+recipe = "the shared ProReg through sendrawtransaction, then the spend"
+m = "bad-shared-collateral-spend"
+m_stage = "J1"
+b = "n/a: D13-B and D13-B2 are the block rows"
+bav = "n/a: D13-B and D13-B2 are the block rows"
+covers = [
+  "D13 covenant m_view",
+]
+
+[[row]]
+id = "D13-M2"
+case = "an otherwise valid ProReg whose external collateral is an unconfirmed ordinary output: ctx.coins is CoinsTip(), not the mempool cache"
+recipe = "a 1000 DASH output in the mempool, then a ProReg naming it as external collateral"
+m = "bad-protx-collateral"
+m_stage = "J1"
+b = "n/a: D13-B and D13-B2 are the block rows"
+bav = "n/a: D13-B and D13-B2 are the block rows"
+covers = [
+  "D13 ctx.coins",
+]
+
+# D14 (scan capacity)
+
+[[row]]
+id = "D14-33"
+case = "an unlock under the 33rd-newest of 34 retained llmq_60_75 Platform quorums"
+recipe = "the D14 devnet of plan §4 and §5.3, scan order read from both nodes first"
+b = "accept"
+b_stage = "J0b"
+bav = "n/a: no signature row"
+m = "accept"
+m_stage = "J1"
+
+[[row]]
+id = "D14-34"
+case = "an unlock under the 34th-newest of 34 retained llmq_60_75 Platform quorums"
+recipe = "as D14-33"
+b = "bad-assetunlock-too-old-quorum"
+b_stage = "J0b"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: no signature row"
+m = "bad-assetunlock-too-old-quorum"
+m_stage = "J1"
+
+# The operator-signature first-reject row (plan §3 J0a; ev1-pairs.toml 4c:5)
+
+[[row]]
+id = "OPSIG-B"
+case = "a ProUpRevTx with a bad operator signature ahead of a later structural reject in the same block: the first reject in block order wins"
+recipe = "protx revoke (submit false) of a masternode registered in setup with reason 0, its operator signature replaced by the one of the reason-1 revoke (the right key over another payload) and its inputs signed again by the producer's wallet; then a ProUpRevTx naming no masternode (bad-protx-hash)"
+b = "bad-protx-sig"
+b_stage = "J0a"
+b_probes = "3"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the reason-0 revoke with its own signature, then the same tx naming no masternode; and that tx first, then the bad-signature revoke"
+b_control = "bad-protx-hash"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+bav = "n/a: a signature row on the operator key; type 2 and 4 signatures follow check_sigs, so below assumevalid the probe would answer bad-protx-hash"
+m = "n/a: first reject in block order is a block-path property"
+
+# L2 replay, J2 (regtest only; plan delta of 2026-11-04, OD-CP-73). L2-R rows replay the O8
+# recorder's stored regtest v24 recordings (recorder v24.0.0-rc.3-8-g0a36fab32cb5); L2-C rows put
+# types 7 and 9 next to a CbTx ChainLock on J0b's fixture and are judged by dashd rc.5 and V.
+# Spork 19 is off on every dashd, so each verifies every non-null CbTx ChainLock. On V each L2-C
+# probe also pins its step-10 census (the test's ClChecks): one verify of the claimed height with
+# its verdict where the probe reaches step 10 with a non-null ChainLock, none where an earlier
+# check rejects it. L2-R1 and L2-R3 run in CH7a-5b's replay (merged as a32d095cb, dashd-node's
+# lib sut::tests::recorded); L2-testnet and L2-mainnet are deferrals at J3, which no head runs.
+
+[[row]]
+id = "L2-R1"
+case = "every type 7 and 9 tx of the seven stored regtest recordings that carry one, connected by the node"
+recipe = "CH7a-5b's replay (a32d095cb, dashd-node's lib sut::tests::recorded, one test per recording in l2_tests): each recording's node0 blocks on a -assumevalid=0 node with step 10 live, and on the -assumevalid node for the five recordings with a CbTx ChainLock. The census test decodes all 18 stored node0 chains: exactly these seven carry a type 7 or 9 tx, 9 type 7 and 19 type 9 (14 of payload version 1, 5 of version 2) at the pinned heights (positions in the chain the replay connects), and the five type 7 blocks' CbTx ChainLocks, (176, 174), (181, 180), (221, 220), (301, 300) and (332, 329), are entries of the sequence step 10's census must equal (step_ten_checks). The replay's reach is its own asserts: the checked node connects every block to the tip (connect), linear_clean from 0 to the tip fails on a height the node did not log (a gap, dashd-node/src/sut/tests/state_hash.rs:303) and requires a pair at every height (report.pairs == to - from + 1, no short range, :305-306) on the checked node and on the assumed one, and assumed_on asserts the assumed node's tip (recorded.rs:231). A replay whose checked node stops one block short fails at the gap (:303) in all seven; one whose assumed node does fails at assumed_on's tip in the five that run it"
+l2 = "accept"
+l2_stage = "J2"
+l2_probes = "7"
+l2_tests = [
+  "l2_census_pins_every_type_7_and_9_tx_of_the_recordings",
+  "feature_asset_locks_connects_as_dashd_did",
+  "feature_evo_shares_activation_state_hashes_are_dashds",
+  "feature_governance_cl_connects_as_dashd_did",
+  "feature_llmq_chainlocks_connects_as_dashd_did",
+  "feature_llmq_evo_connects_as_dashd_did",
+  "feature_llmq_rotation_connects_as_dashd_did",
+  "feature_mnehf_connects_as_dashd_did",
+]
+notes = "regtest only; the recordings are the O8 recorder's (v24.0.0-rc.3-8-g0a36fab32cb5). ev1_j_dashd cannot read a lib test's verdict, so the closure checks each name in l2_tests is a #[test] fn in recorded.rs with no other attribute (no #[ignore], no cfg, on the test or its module), each replay test's body is the one-line replay assert, and they replay all seven recordings; the node-gate lib-tests step runs them (the sut:: filter of dashd-node's [package.metadata.gate])"
+
+[[row]]
+id = "L2-R2"
+case = "the same blocks re-judged by dashd rc.5"
+recipe = "for each stored regtest recording whose node0 chain carries a type 7 or 9 tx, a fresh dashd rc.5 on the recording's own segments (the boundaries from extract.json's bip9 groups, the recorder's record of the heights each argument set connected; the arguments those of chainargs.json's starts, each start's full chain parameters read and checked against extract.json's chain_args, an unclassified argument failing), restarted on its datadir at each boundary, at the recording's own mock time (extract.json mocktime, contrib/node/statedigest/extract.py:46-51, :196, :236), takes submitblock of each node0 block in turn: null each time and the tip that block, as the recording's C records have it; at each segment's last block, getdeploymentinfo there gives the golden C record's s.dep (status_next, since as conformance/src/digest/extract/checks.rs:576-597 derives it, a deployment the RPC omits failed since 0). The clock is the recorder's own (extract.json mocktime), where CH7a-5b's replay uses max(T0, latest + 1 day); the verdicts do not depend on it here, since no block is time-too-new at either"
+l2 = "accept"
+l2_stage = "J2"
+l2_probes = "7"
+notes = "the test pins each recording's blocks, segments and type 7 and 9 heights; any duplicate, inconclusive or other non-null answer fails, as does a skipped segment; dashd's version and spork 19 off are asserted on every start. Every block is accepted under any of a recording's argument sets, so the answers alone cannot show the segments; the deployment states at the segment ends do (a replay of every segment under the last start's arguments differs at feature_evo_shares_activation 208 and feature_mnehf 176 and 200)"
+
+[[row]]
+id = "L2-R3"
+case = "state-hash windows holding types 7 and 9"
+recipe = "CH7a-5b's linear_clean (a32d095cb) in each recording's replay, the tests in l2_tests: the node's state-hash log equals dashd's golden on all 22 C.s keys at every height of each recording, on the checked node and, for the five recordings with a CbTx ChainLock, on the assumed node"
+l2 = "equal"
+l2_stage = "J2"
+l2_probes = "7"
+l2_tests = [
+  "feature_asset_locks_connects_as_dashd_did",
+  "feature_evo_shares_activation_state_hashes_are_dashds",
+  "feature_governance_cl_connects_as_dashd_did",
+  "feature_llmq_chainlocks_connects_as_dashd_did",
+  "feature_llmq_evo_connects_as_dashd_did",
+  "feature_llmq_rotation_connects_as_dashd_did",
+  "feature_mnehf_connects_as_dashd_did",
+]
+notes = "regtest only; recorder v24.0.0-rc.3-8-g0a36fab32cb5. The keys are live at the type 7 and 9 heights: CH7a-5b's M7 and M8 (cp) fail feature_asset_locks at 134 and 100, and M9 (ehf) fails feature_mnehf at 188 and feature_asset_locks at 189 (docs/node-program/designs/CH7-notes.md:242-244)"
+
+[[row]]
+id = "L2-C1"
+case = "valid type 7 and type 9 (payload versions 1 and 2) next to a verified non-null CbTx ChainLock"
+recipe = "the valid signal of 7-OK on the template at 360, and 9-OK's unlocks (versions 1 and 2, requestedHeight 359) in the producer's own blocks at 360 (Core's CbTx and coinbase, as J-D7), on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "accept"
+b_stage = "J2"
+b_probes = "6"
+control = "K-CLNULL: each probe with its CbTx's ChainLock nulled (bestCLHeightDiff 0 and the null signature of Core's own template at 359), the merkle root recomputed: the parent's ChainLock is live in both validators"
+b_control = "bad-cbtx-null-clsig"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:173, CheckCbTxBestChainlock (called at :1020)"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-C2"
+case = "a valid type 7, and separately a valid type 9, next to a CbTx ChainLock with one fault"
+recipe = "L2-C1's 7 probe and its version 1 type 9 probe with the carried ChainLock replaced by one fault from a real one: the same message signed by a key no quorum holds, the fixture's real CLSIG for block 357 under the claim of 358 (bestCLHeightDiff 1), or the carried CLSIG for block 358 itself under the claim of 359 (bestCLHeightDiff 0, the height alone moved), on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "bad-cbtx-invalid-clsig"
+b_stage = "J2"
+b_probes = "10"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:204, CheckCbTxBestChainlock (called at :1020, after the special-tx loop at :931-934 and the credit pool at :943)"
+control = "the same blocks with the carried ChainLock, and with a fresh CLSIG for block 359 by the same quorum key under the claim of 359 (bestCLHeightDiff 0; the moved claim's twin, a newer ChainLock than the parent's): both accept. Spork 19 is off, so neither has a best ChainLock; V's census shows one verify per probe of the claimed height (358, or 359 for the moved and the fresh ones) with the verdict, so V verified each and matched none against the parent's ChainLock"
+b_control = "accept"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-C3.7"
+case = "a type 7 signal with a bad signature next to a valid CbTx ChainLock"
+recipe = "7-S5's signal (the right message signed by a key no quorum holds) on the template at 360, on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "bad-mnhf-invalid"
+b_stage = "J2"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the MNHF quorum's own signature on the same template"
+b_control = "accept"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-C3.9"
+case = "a type 9 unlock with a bad signature next to a valid CbTx ChainLock"
+recipe = "9-S5's unlock (version 1, unused index 7, requestedHeight 359, the newest Platform quorum, its message signed by a key no quorum holds) on the template at 360, on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "bad-assetunlock-not-verified"
+b_stage = "J2"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "J-D8's pool control: the valid unlock in the probe's place on the same template, whose CbTx does not count it: Core's credit-pool check answers, so the special-tx loop answered the probe first"
+b_control = "bad-cbtx-assetlocked-amount"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:1114, CheckCreditPoolDiffForBlock (called at :943, after the special-tx loop at :931-934)"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-C4.7"
+case = "pair: a type 7 signal with a bad signature and a CbTx ChainLock with one fault in one block"
+recipe = "L2-C3.7's probe with L2-C2's ChainLock signed by a key no quorum holds: the special-tx loop (specialtxman.cpp:931) runs before step 10 (:1020), on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "bad-mnhf-invalid"
+b_stage = "J2"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the pair's loser: the valid signal with the same faulty ChainLock (L2-C2's 7 probe)"
+b_control = "bad-cbtx-invalid-clsig"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:204, CheckCbTxBestChainlock (called at :1020, after the special-tx loop at :931-934 and the credit pool at :943)"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-C4.9"
+case = "pair: a type 9 unlock with a bad signature and a CbTx ChainLock with one fault in one block"
+recipe = "the producer's version 1 block of L2-C1 with the unlock signed by a key no quorum holds in its place (no pool fault: Core's CbTx counts the unlock) and L2-C2's ChainLock signed by a key no quorum holds: the special-tx loop (specialtxman.cpp:931) runs before step 10 (:1020), on J0b's fixture extended by setup block 359, whose CbTx carries the CLSIG for block 358 (bestCLHeightDiff 0) signed by the LLMQ_TEST quorum's key (base 216, mined 226) over SignHash(100, its base, SerializeHash(('clsig', 358)), the hash of 358) (llmq/signhash.cpp:14-22, chainlock/clsig.cpp:248-261); the producer's miner carries it into the probe's template at 360 with bestCLHeightDiff 1 (node/miner.cpp:132-140), and the probe is built from that template after it, read through getblocktemplate"
+b = "bad-assetunlock-not-verified"
+b_stage = "J2"
+b_probes = "2"
+b_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:931-934, CheckSpecialTxInner's reject wrapped by ProcessSpecialTxsInBlock"
+control = "the pair's loser: the producer's block with the valid unlock and the same faulty ChainLock (L2-C2's 9 probe)"
+b_control = "bad-cbtx-invalid-clsig"
+b_control_class = "BLOCK_CONSENSUS: evo/specialtxman.cpp:204, CheckCbTxBestChainlock (called at :1020, after the special-tx loop at :931-934 and the credit pool at :943)"
+bav = "n/a: steps 8–10 run only with fCheckCbTxMerkleRoots (specialtxman.cpp:876, :984-1029), which is fScriptChecks (validation.cpp:2674-2676), false under assumevalid (D113)"
+m = "n/a: block-path property"
+notes = "fixture limit (as J-D9 names member order): one LLMQ_TEST quorum (base 216, mined 226), so every sign height from 350 to 358 selects it whatever the sign-height offset (SIGN_HEIGHT_OFFSET, 8) or the selection rule; a V that signs or selects at another offset or by another rule passes this row (the request id and the message are live)"
+
+[[row]]
+id = "L2-testnet"
+case = "testnet history past V20 through CH7 with EV1 in place"
+recipe = "CH7b-3a-2's testnet evidence (census, MN payments, the 1,572,800-1,582,800 window); not claimed by J2"
+l2 = "deferred: CH7b-3a-2 (DEC-1082)"
+l2_stage = "J3"
+
+[[row]]
+id = "L2-mainnet"
+case = "mainnet history through CH7 with EV1 in place"
+recipe = "no mainnet recording exists (O8 §1 non-goal); not claimed by J2"
+l2 = "deferred: E-O8-1"
+l2_stage = "J3"
