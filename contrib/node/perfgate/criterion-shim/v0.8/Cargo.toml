@@ -1,0 +1,33 @@
+# PF0 counter-gate stand-in for criterion 0.8.x; see ../src/lib.rs. Patched in by
+# contrib/node/perfgate only, never published. Its own workspace root, so the
+# main workspace never builds it.
+[package]
+name = "criterion"
+version = "0.8.99"
+edition = "2021"
+license = "CC0-1.0"
+publish = false
+
+[lib]
+path = "../src/lib.rs"
+
+[dependencies]
+libc = "0.2"
+tokio = { version = "1", default-features = false, features = ["rt"], optional = true }
+
+[features]
+default = []
+async_tokio = ["dep:tokio"]
+# Accepted and ignored, so that benches enabling them still resolve.
+async = []
+async_futures = []
+async_smol = []
+async_std = []
+cargo_bench_support = []
+csv_output = []
+html_reports = []
+plotters = []
+rayon = []
+stable = []
+
+[workspace]
