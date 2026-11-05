@@ -1,0 +1,58 @@
+[package]
+name = "dash-p2p"
+description = "The network core shared by the Rust Dash node and dash-spv (SB0 §3.1): connection table, per-peer tasks and queues, Core's push accounting, handshake, gates, decode policy, ping, addr intake, AddrMan, BanList and sans-io dial steps. Runs on the host's tokio runtime and starts no threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_p2p"
+path = "src/lib.rs"
+
+[features]
+# The listener, inbound limits and `AttemptToEvictConnection` (SB0 §3.1); off in dash-spv.
+inbound = []
+# `Peer::set_successfully_connected_for_tests` and `Peer::recv_queue_empty`, for loop-level tests.
+test-utils = []
+
+[dependencies]
+# Core's FastRandomContext keystream (RFC 8439 ChaCha20).
+chacha20 = { version = "0.10.2", default-features = false, features = ["cipher"] }
+dash-clock = { path = "../dash-clock" }
+# `CNetAddr`, `CService`, `CSubNet` and the resolver-free name helpers (EV1 D28), re-exported.
+dash-netaddr = { path = "../dash-netaddr" }
+# Payload types, decode policy inputs, service flags and protocol versions (BS7).
+dash-p2p-core = { workspace = true, features = ["std"] }
+# Network parameters: message start, default port, DNS and fixed seeds (no statics here, L5).
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# `NET_INTERNAL` names (SHA-256, `CNetAddr::SetInternal`).
+dash-sha256 = { path = "../dash-sha256" }
+# V1 framing and BIP324 V2 (P1).
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+# Seeds for FastRandom, nonces and MNAUTH challenges.
+getrandom = { version = "0.3.4", default-features = false }
+parking_lot = "0.12"
+# Reading the ban list's `banlist.json` image.
+serde_json = "1"
+# `send` with flags, `shutdown(SHUT_WR)` and `SO_NOSIGPIPE` on a tokio socket.
+socket2 = "0.6"
+# Sockets and the per-peer tasks, on the host's runtime only (`Handle`; SB0 L5).
+tokio = { version = "1.53", default-features = false, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+# `MSG_NOSIGNAL` and `MSG_MORE` where they exist, and the errno values Core treats as transient.
+libc = "0.2"
+
+[dev-dependencies]
+dash-p2p = { path = ".", features = ["test-utils"] }
+# `BlsCtx` for the decode-boundary tests' `ProtoCtx`.
+dash-pkc = { workspace = true }
+tokio = { version = "1.53", default-features = false, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "test-util", "time"] }
