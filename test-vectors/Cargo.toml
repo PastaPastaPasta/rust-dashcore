@@ -1,0 +1,20 @@
+[package]
+name = "dash-core-vectors"
+description = "Dash Core's JSON test vectors, vectors transcribed from Core's C++ unit tests, and loaders that follow Core's own test-harness semantics. Test infrastructure only."
+authors.workspace = true
+edition.workspace = true
+# Contains data and harness logic derived from Dash Core (MIT); see test-vectors/README.md.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_core_vectors"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+dashcore_hashes = { path = "../hashes" }
