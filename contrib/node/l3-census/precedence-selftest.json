@@ -1,0 +1,1453 @@
+{
+ "provenance": {
+  "calltree_version": 1,
+  "note": "l3-census.py o10-check (O10 plan §4.4): the synthetic witnesses, scanned by the call-tree builder, each case with the winner §4.3 predicts; node-l1's l3::precedence walks them"
+ },
+ "witnesses": {
+  "loops": {
+   "attrs": {},
+   "modes": {
+    "Submit": [
+     {
+      "n": "call",
+      "line": 2,
+      "callee": "Outer"
+     }
+    ]
+   },
+   "functions": {
+    "Inner": {
+     "file": "validation.cpp",
+     "line": 3,
+     "body": [
+      {
+       "n": "row",
+       "line": 4,
+       "key": "validation.cpp:Inner#1:bad-body",
+       "kind": "R"
+      },
+      {
+       "n": "return",
+       "line": 5
+      }
+     ]
+    },
+    "Outer": {
+     "file": "validation.cpp",
+     "line": 8,
+     "body": [
+      {
+       "n": "row",
+       "line": 9,
+       "key": "validation.cpp:Outer#1:bad-pre",
+       "kind": "R"
+      },
+      {
+       "n": "loop",
+       "line": 10,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "call",
+         "line": 12,
+         "callee": "Inner"
+        },
+        {
+         "n": "row",
+         "line": 12,
+         "key": "validation.cpp:Outer@W:Inner",
+         "kind": "W"
+        }
+       ]
+      },
+      {
+       "n": "loop",
+       "line": 14,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "row",
+         "line": 15,
+         "key": "validation.cpp:Outer#2:bad-loop2",
+         "kind": "R"
+        }
+       ]
+      },
+      {
+       "n": "row",
+       "line": 17,
+       "key": "validation.cpp:Outer#3:bad-post",
+       "kind": "R"
+      },
+      {
+       "n": "return",
+       "line": 18
+      }
+     ]
+    }
+   },
+   "pruned": [],
+   "cases": [
+    {
+     "name": "pre-loop row vs a body row at index 0 (W5)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#1:bad-pre",
+       "trigger": []
+      },
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#1:bad-pre",
+     "deferred": false
+    },
+    {
+     "name": "pre-loop row vs a body row above its position (W5)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         5
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Outer#1:bad-pre",
+       "trigger": []
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#1:bad-pre",
+     "deferred": false
+    },
+    {
+     "name": "post-loop row vs a body row at a high index (W6)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#3:bad-post",
+       "trigger": []
+      },
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         11
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inner#1:bad-body",
+     "deferred": false
+    },
+    {
+     "name": "sibling loop 2 at 0 vs sibling loop 1 at 5",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#2:bad-loop2",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         5
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inner#1:bad-body",
+     "deferred": false
+    },
+    {
+     "name": "solo: the body row",
+     "instances": [
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         11
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inner#1:bad-body",
+     "deferred": false
+    },
+    {
+     "name": "solo: the post-loop row",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#3:bad-post",
+       "trigger": []
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#3:bad-post",
+     "deferred": false
+    },
+    {
+     "name": "solo: bad-pre at no loop (of block.vtx 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#1:bad-pre",
+       "trigger": []
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#1:bad-pre",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 1
+     }
+    },
+    {
+     "name": "solo: bad-body at block.vtx 0 (of block.vtx 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inner#1:bad-body",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 1
+     }
+    },
+    {
+     "name": "solo: bad-body at block.vtx 5 (of block.vtx 6)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inner#1:bad-body",
+       "trigger": [
+        [
+         "block.vtx",
+         5
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inner#1:bad-body",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 6
+     }
+    },
+    {
+     "name": "solo: bad-pre at no loop (of block.vtx 6)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#1:bad-pre",
+       "trigger": []
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#1:bad-pre",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 6
+     }
+    },
+    {
+     "name": "solo: bad-post at no loop (of block.vtx 12)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#3:bad-post",
+       "trigger": []
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#3:bad-post",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 12
+     }
+    },
+    {
+     "name": "solo: bad-loop2 at block.vtx 0 (of block.vtx 6)",
+     "instances": [
+      {
+       "row": "validation.cpp:Outer#2:bad-loop2",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Outer#2:bad-loop2",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 6
+     }
+    }
+   ]
+  },
+  "inputs": {
+   "attrs": {},
+   "modes": {
+    "Submit": [
+     {
+      "n": "call",
+      "line": 2,
+      "callee": "Inputs"
+     }
+    ]
+   },
+   "functions": {
+    "Inputs": {
+     "file": "validation.cpp",
+     "line": 3,
+     "body": [
+      {
+       "n": "loop",
+       "line": 4,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "loop",
+         "line": 5,
+         "domain": "tx.vin",
+         "body": [
+          {
+           "n": "row",
+           "line": 6,
+           "key": "validation.cpp:Inputs#1:bad-premature",
+           "kind": "R"
+          },
+          {
+           "n": "row",
+           "line": 7,
+           "key": "validation.cpp:Inputs#2:bad-range",
+           "kind": "R"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "n": "return",
+       "line": 10
+      }
+     ]
+    }
+   },
+   "pruned": [],
+   "cases": [
+    {
+     "name": "nested: outer 1 inner 0 vs outer 0 inner 7",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ],
+        [
+         "tx.vin",
+         7
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false
+    },
+    {
+     "name": "W3: [MAX, MAX, immature]: range at j = 1",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#2:bad-range",
+     "deferred": false
+    },
+    {
+     "name": "W3 reversed: [immature, MAX, MAX]: premature at j = 0",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         2
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false
+    },
+    {
+     "name": "W3b: [MAX mature, immature]: premature at j = 1",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false
+    },
+    {
+     "name": "solo: bad-range at block.vtx 1, tx.vin 0 (of block.vtx 2, tx.vin 8)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#2:bad-range",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 8
+     }
+    },
+    {
+     "name": "solo: bad-premature at block.vtx 0, tx.vin 7 (of block.vtx 2, tx.vin 8)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ],
+        [
+         "tx.vin",
+         7
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 8
+     }
+    },
+    {
+     "name": "solo: bad-range at block.vtx 1, tx.vin 1 (of block.vtx 2, tx.vin 3)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#2:bad-range",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 3
+     }
+    },
+    {
+     "name": "solo: bad-premature at block.vtx 1, tx.vin 2 (of block.vtx 2, tx.vin 3)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 3
+     }
+    },
+    {
+     "name": "solo: bad-range at block.vtx 1, tx.vin 2 (of block.vtx 2, tx.vin 3)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#2:bad-range",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 3
+     }
+    },
+    {
+     "name": "solo: bad-premature at block.vtx 1, tx.vin 0 (of block.vtx 2, tx.vin 3)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 3
+     }
+    },
+    {
+     "name": "solo: bad-range at block.vtx 1, tx.vin 1 (of block.vtx 2, tx.vin 2)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#2:bad-range",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#2:bad-range",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 2
+     }
+    },
+    {
+     "name": "solo: bad-premature at block.vtx 1, tx.vin 1 (of block.vtx 2, tx.vin 2)",
+     "instances": [
+      {
+       "row": "validation.cpp:Inputs#1:bad-premature",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Inputs#1:bad-premature",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 2
+     }
+    }
+   ]
+  },
+  "connect": {
+   "attrs": {
+    "coinbase": {
+     "kind": "iter",
+     "domain": "block.vtx",
+     "default": [
+      0
+     ]
+    },
+    "par": {
+     "kind": "par"
+    }
+   },
+   "modes": {
+    "Submit": [
+     {
+      "n": "call",
+      "line": 2,
+      "callee": "Connect"
+     }
+    ]
+   },
+   "functions": {
+    "Belowout": {
+     "file": "validation.cpp",
+     "line": 3,
+     "body": [
+      {
+       "n": "row",
+       "line": 4,
+       "key": "validation.cpp:Belowout#1:bad-belowout",
+       "kind": "R"
+      },
+      {
+       "n": "return",
+       "line": 5
+      }
+     ]
+    },
+    "Scripts": {
+     "file": "validation.cpp",
+     "line": 8,
+     "body": [
+      {
+       "n": "loop",
+       "line": 9,
+       "domain": "tx.vin",
+       "body": [
+        {
+         "n": "block",
+         "line": 11,
+         "guards": [
+          [
+           "par",
+           true
+          ]
+         ],
+         "body": [
+          {
+           "n": "defer",
+           "line": 11,
+           "row": "validation.cpp:Scripts#1:bad-script",
+           "wait": "validation.cpp:Connect#2:bad-wait"
+          }
+         ]
+        },
+        {
+         "n": "block",
+         "line": 13,
+         "guards": [
+          [
+           "par",
+           false
+          ]
+         ],
+         "body": [
+          {
+           "n": "row",
+           "line": 14,
+           "key": "validation.cpp:Scripts#1:bad-script",
+           "kind": "R"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "n": "return",
+       "line": 17
+      }
+     ]
+    },
+    "Connect": {
+     "file": "validation.cpp",
+     "line": 20,
+     "body": [
+      {
+       "n": "loop",
+       "line": 21,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "block",
+         "line": 22,
+         "guards": [
+          [
+           "coinbase",
+           false
+          ]
+         ],
+         "body": [
+          {
+           "n": "call",
+           "line": 24,
+           "callee": "Belowout"
+          },
+          {
+           "n": "row",
+           "line": 24,
+           "key": "validation.cpp:Connect@W:Belowout",
+           "kind": "W"
+          },
+          {
+           "n": "row",
+           "line": 25,
+           "key": "validation.cpp:Connect#1:bad-seqlock",
+           "kind": "R"
+          },
+          {
+           "n": "call",
+           "line": 26,
+           "callee": "Scripts"
+          },
+          {
+           "n": "row",
+           "line": 26,
+           "key": "validation.cpp:Connect@W:Scripts",
+           "kind": "W"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "n": "row",
+       "line": 29,
+       "key": "validation.cpp:Connect#2:bad-wait",
+       "kind": "wait"
+      },
+      {
+       "n": "row",
+       "line": 30,
+       "key": "validation.cpp:Connect#3:bad-after",
+       "kind": "R"
+      },
+      {
+       "n": "return",
+       "line": 31
+      }
+     ]
+    }
+   },
+   "pruned": [],
+   "cases": [
+    {
+     "name": "W1: tx1 sequence lock, tx2 below-out",
+     "instances": [
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false
+    },
+    {
+     "name": "W1 reversed",
+     "instances": [
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false
+    },
+    {
+     "name": "W2: a callee row in tx1 vs a caller row in tx2",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false
+    },
+    {
+     "name": "W2: call site before the caller's later row, one tx",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false
+    },
+    {
+     "name": "W4: tx1 script fault, tx2 clean, par1",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1
+     ],
+     "want": "validation.cpp:Scripts#1:bad-script",
+     "deferred": false
+    },
+    {
+     "name": "W4: tx1 script fault, tx2 clean, par4",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      4
+     ],
+     "want": "validation.cpp:Connect#2:bad-wait",
+     "deferred": true
+    },
+    {
+     "name": "W4 reversed: tx1 script + tx2 sequence lock, par1",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1
+     ],
+     "want": "validation.cpp:Scripts#1:bad-script",
+     "deferred": false
+    },
+    {
+     "name": "deferred vs a later-iteration inline row: inline wins at par4",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false
+    },
+    {
+     "name": "deferred vs a post-Wait row: the deferral wins",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      },
+      {
+       "row": "validation.cpp:Connect#3:bad-after",
+       "trigger": []
+      }
+     ],
+     "par": [
+      4
+     ],
+     "want": "validation.cpp:Connect#2:bad-wait",
+     "deferred": true
+    },
+    {
+     "name": "a guarded-out iteration (the coinbase) holds no instance",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": null,
+     "deferred": false
+    },
+    {
+     "name": "the same row past the coinbase fires",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false
+    },
+    {
+     "name": "solo: bad-belowout at block.vtx 2 (of block.vtx 3, tx.vin 0)",
+     "instances": [
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 0
+     }
+    },
+    {
+     "name": "solo: bad-seqlock at block.vtx 1 (of block.vtx 3, tx.vin 0)",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 0
+     }
+    },
+    {
+     "name": "solo: bad-belowout at block.vtx 1 (of block.vtx 3, tx.vin 0)",
+     "instances": [
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 0
+     }
+    },
+    {
+     "name": "solo: bad-seqlock at block.vtx 2 (of block.vtx 3, tx.vin 0)",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 0
+     }
+    },
+    {
+     "name": "solo: bad-belowout at block.vtx 1 (of block.vtx 2, tx.vin 0)",
+     "instances": [
+      {
+       "row": "validation.cpp:Belowout#1:bad-belowout",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Belowout#1:bad-belowout",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 0
+     }
+    },
+    {
+     "name": "solo: bad-script at block.vtx 1, tx.vin 0 (of block.vtx 3, tx.vin 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1
+     ],
+     "want": "validation.cpp:Scripts#1:bad-script",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 1
+     }
+    },
+    {
+     "name": "solo: bad-seqlock at block.vtx 2 (of block.vtx 3, tx.vin 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#1:bad-seqlock",
+       "trigger": [
+        [
+         "block.vtx",
+         2
+        ]
+       ]
+      }
+     ],
+     "par": [
+      1,
+      4
+     ],
+     "want": "validation.cpp:Connect#1:bad-seqlock",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 1
+     }
+    },
+    {
+     "name": "solo: bad-script at block.vtx 1, tx.vin 0 (of block.vtx 3, tx.vin 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Scripts#1:bad-script",
+       "trigger": [
+        [
+         "block.vtx",
+         1
+        ],
+        [
+         "tx.vin",
+         0
+        ]
+       ]
+      }
+     ],
+     "par": [
+      4
+     ],
+     "want": "validation.cpp:Connect#2:bad-wait",
+     "deferred": true,
+     "lengths": {
+      "block.vtx": 3,
+      "tx.vin": 1
+     }
+    },
+    {
+     "name": "solo: bad-after at no loop (of block.vtx 2, tx.vin 1)",
+     "instances": [
+      {
+       "row": "validation.cpp:Connect#3:bad-after",
+       "trigger": []
+      }
+     ],
+     "par": [
+      4
+     ],
+     "want": "validation.cpp:Connect#3:bad-after",
+     "deferred": false,
+     "lengths": {
+      "block.vtx": 2,
+      "tx.vin": 1
+     }
+    }
+   ]
+  }
+ }
+}
