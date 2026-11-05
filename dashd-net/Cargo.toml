@@ -1,0 +1,61 @@
+[package]
+name = "dashd-net"
+description = "The Rust Dash node's connection manager and address relay (P2a-net over SB6's dash-p2p): the opencon, addcon and dnsseed threads driving the sans-io dial steps, InitBinds and the listener, open_one_try, NodeStats, peers.dat and anchors.dat files, and RelayAddress, MaybeSendAddr and the getaddr cache behind P2a-core's AddressRelay seam."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dashd_net"
+path = "src/lib.rs"
+
+[features]
+# Test-only knobs of dash-p2p, among them the deterministic `NetConfig` (RNG, V2 keys, nonces):
+# never in a production build.
+test-utils = ["dash-p2p/test-utils"]
+# The dial `sim` (a virtual clock and in-memory connections behind the dial steps), for this
+# crate's tests and the `connman_sched` fuzz target. It sets `NetConfig::deterministic`, so it
+# needs `test-utils`.
+sim = ["test-utils", "dashd-p2p/sim", "tokio/rt-multi-thread"]
+
+[dependencies]
+# Tor control's SAFECOOKIE HMAC-SHA256 (`torcontrol`).
+bitcoin_hashes = { workspace = true, features = ["std"] }
+# Core's `fs::quoted` for the legacy banlist.dat warning.
+dash-args = { path = "../dash-args" }
+dash-clock = { path = "../dash-clock" }
+# The network core: connection table, dial steps, AddrMan, addr intake, local addresses; the
+# listener and inbound limits (`inbound`).
+dash-p2p = { path = "../dash-p2p", features = ["inbound"] }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# The processor whose AddressRelay seam this crate fills.
+dashd-p2p = { path = "../dashd-p2p" }
+# Tor control's SAFECOOKIE client nonce (`GetRandBytes`).
+getrandom = { version = "0.3.4", default-features = false }
+parking_lot = "0.12"
+# Listening sockets with Core's options (SO_REUSEADDR, IPV6_V6ONLY) before `listen`.
+socket2 = "0.6"
+tokio = { version = "1.53", default-features = false, features = ["io-util", "net", "rt", "sync", "time"] }
+tracing = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+# `SOMAXCONN`, the listen backlog Core passes.
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+# Re-sealing a patched anchors.dat in the loopback anchors test.
+dash-sha256 = { path = "../dash-sha256" }
+dash-p2p = { path = "../dash-p2p", features = ["inbound", "test-utils"] }
+dashd-net = { path = ".", features = ["sim"] }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+tokio = { version = "1.53", default-features = false, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
