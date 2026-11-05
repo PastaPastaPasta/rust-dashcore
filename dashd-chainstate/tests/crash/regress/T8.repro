@@ -1,0 +1,10 @@
+# CRASH planted bug T8 (CH2 §6.4), minimised in 79 replays.
+harness st3a/1
+sut chainsut
+config sub=250 invalid=- effects=- presumed=- crash=- replay=- planted=T8
+workload c10;f;r7:3;f
+crash 72 process-kill
+adversary realistic
+granularity write
+expect R6
+minimality verified
