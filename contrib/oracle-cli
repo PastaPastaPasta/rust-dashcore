@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Query the shared reference dashd oracles that back differential tests on agentbox.
+# See docs/node-program/ORACLE.md. The oracles are for correctness checks only, never timing.
+#
+# Usage: contrib/oracle-cli <mainnet|testnet> <rpc-method> [args...]
+#   contrib/oracle-cli testnet getblockchaininfo
+#   contrib/oracle-cli mainnet getblock "$(contrib/oracle-cli mainnet getblockhash 1000)" 2
+#
+# DASH_ORACLE_ROOT overrides the oracle root directory (default /work/chains).
+set -euo pipefail
+
+net="${1:-}"
+case "$net" in
+    mainnet | testnet) shift ;;
+    *)
+        echo "usage: oracle-cli <mainnet|testnet> <rpc-method> [args...]" >&2
+        exit 2
+        ;;
+esac
+root="${DASH_ORACLE_ROOT:-/work/chains}"
+exec "$root/bin/current/bin/dash-cli" -conf="$root/$net/dash.conf" -datadir="$root/$net/data" "$@"
