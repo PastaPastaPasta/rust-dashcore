@@ -1,0 +1,1831 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1800" height="638" onload="init(evt)" viewBox="0 0 1800 638" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:monospace; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1800.0" height="638.0" fill="url(#background)"  />
+<text id="title" x="900.00" y="24" >dashd v24.0.0-rc.3: regtest-gbt-20000</text>
+<text id="subtitle" x="900.00" y="48" >instructions:u (user-space instructions retired)</text>
+<text id="details" x="10.00" y="621" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1690.00" y="24" >Search</text>
+<text id="ignorecase" x="1774.00" y="24" >ic</text>
+<text id="matched" x="1690.00" y="621" > </text>
+<g id="frames">
+<g >
+<title>CCoinsViewErrorCatcher::GetCoin (336,000,616 instructions, 9.40%)</title><rect x="589.4" y="253" width="167.2" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="592.40" y="263.5" >CCoinsViewErrorCatche..</text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="374.4" y="333" width="2.9" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="377.36" y="343.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (6,000,011 instructions, 0.17%)</title><rect x="1171.8" y="349" width="3.0" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="1174.78" y="359.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (72,000,132 instructions, 2.01%)</title><rect x="21.9" y="381" width="35.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="24.95" y="391.5" >__m..</text>
+</g>
+<g >
+<title>_int_free_merge_chunk (18,000,033 instructions, 0.50%)</title><rect x="508.8" y="333" width="8.9" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="511.76" y="343.5" ></text>
+</g>
+<g >
+<title>JSONRPCReply[abi:cxx11] (1,116,002,046 instructions, 31.21%)</title><rect x="1204.6" y="461" width="555.5" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="1207.63" y="471.5" >JSONRPCReply[abi:cxx11]</text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (24,000,044 instructions, 0.67%)</title><rect x="1091.1" y="333" width="12.0" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1094.14" y="343.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (12,000,022 instructions, 0.34%)</title><rect x="532.7" y="317" width="5.9" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="535.65" y="327.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (6,000,011 instructions, 0.17%)</title><rect x="1177.8" y="349" width="2.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1180.75" y="359.5" ></text>
+</g>
+<g >
+<title>GetScriptOp (24,000,044 instructions, 0.67%)</title><rect x="1034.4" y="285" width="11.9" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="1037.40" y="295.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::SpendCoin (30,000,055 instructions, 0.84%)</title><rect x="953.8" y="301" width="14.9" height="15.0" fill="rgb(214,41,9)" rx="2" ry="2" />
+<text  x="956.76" y="311.5" ></text>
+</g>
+<g >
+<title>llmq::CInstantSendManager::GetConflictingLock (12,000,022 instructions, 0.34%)</title><rect x="571.5" y="301" width="5.9" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="574.48" y="311.5" ></text>
+</g>
+<g >
+<title>std::_Function_handler&lt;UniValue (RPCHelpMan const&amp;, JSONRPCRequest const&amp;), getblocktemplate()::{lambda(RPCHelpMan const&amp;, JSONRPCRequest const&amp;)#1}&gt;::_M_invoke (2,388,004,378 instructions, 66.78%)</title><rect x="10.0" y="397" width="1188.7" height="15.0" fill="rgb(222,80,19)" rx="2" ry="2" />
+<text  x="13.00" y="407.5" >std::_Function_handler&lt;UniValue (RPCHelpMan const&amp;, JSONRPCRequest const&amp;), getblocktemplate()::{lambda(RPCHelpMan const&amp;, JSONRPCRequest const&amp;)#1}&gt;::_M_invoke</text>
+</g>
+<g >
+<title>alloc_perturb (6,000,011 instructions, 0.17%)</title><rect x="1219.6" y="333" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="1222.56" y="343.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="1127.0" y="317" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1129.98" y="327.5" ></text>
+</g>
+<g >
+<title>HexStr[abi:cxx11] (12,000,022 instructions, 0.34%)</title><rect x="532.7" y="349" width="5.9" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="535.65" y="359.5" ></text>
+</g>
+<g >
+<title>UniValue::setInt (162,000,297 instructions, 4.53%)</title><rect x="401.2" y="365" width="80.7" height="15.0" fill="rgb(211,32,7)" rx="2" ry="2" />
+<text  x="404.24" y="375.5" >UniValue:..</text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="272.8" y="333" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="275.82" y="343.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.34%)</title><rect x="1198.7" y="445" width="5.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1201.66" y="455.5" ></text>
+</g>
+<g >
+<title>CScript::GetSigOpCount (42,000,077 instructions, 1.17%)</title><rect x="998.6" y="301" width="20.9" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1001.56" y="311.5" ></text>
+</g>
+<g >
+<title>AddCoins (48,000,088 instructions, 1.34%)</title><rect x="544.6" y="317" width="23.9" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="547.60" y="327.5" >A..</text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::pair&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const, std::vector&lt;UniValue, std::allocator&lt;UniValue&gt; &gt; &gt;, std::_Select1st&lt;std::pair&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const, std::vector&lt;UniValue, std::allocator&lt;UniValue&gt; &gt; &gt; &gt;, std::less&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt;, std::allocator&lt;std::pair&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const, std::vector&lt;UniValue, std::allocator&lt;UniValue&gt; &gt; &gt; &gt; &gt;::find (6,000,011 instructions, 0.17%)</title><rect x="1106.1" y="269" width="3.0" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="1109.07" y="279.5" ></text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.34%)</title><rect x="532.7" y="333" width="5.9" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="535.65" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (6,000,011 instructions, 0.17%)</title><rect x="619.3" y="141" width="2.9" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="622.26" y="151.5" ></text>
+</g>
+<g >
+<title>RPCHelpMan::HandleRequest (2,388,004,378 instructions, 66.78%)</title><rect x="10.0" y="413" width="1188.7" height="15.0" fill="rgb(250,209,50)" rx="2" ry="2" />
+<text  x="13.00" y="423.5" >RPCHelpMan::HandleRequest</text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="747.7" y="221" width="3.0" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="750.68" y="231.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (30,000,055 instructions, 0.84%)</title><rect x="759.6" y="253" width="15.0" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="762.63" y="263.5" ></text>
+</g>
+<g >
+<title>std::locale::locale (12,000,022 instructions, 0.34%)</title><rect x="458.0" y="317" width="6.0" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="460.99" y="327.5" ></text>
+</g>
+<g >
+<title>operator new (18,000,033 instructions, 0.50%)</title><rect x="251.9" y="317" width="9.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="254.91" y="327.5" ></text>
+</g>
+<g >
+<title>memcpy@plt (6,000,011 instructions, 0.17%)</title><rect x="1727.3" y="365" width="3.0" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="1730.28" y="375.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::CheckSpecialTxInner (6,000,011 instructions, 0.17%)</title><rect x="777.6" y="301" width="2.9" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="780.55" y="311.5" ></text>
+</g>
+<g >
+<title>[unknown] (12,000,022 instructions, 0.34%)</title><rect x="469.9" y="333" width="6.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="472.93" y="343.5" ></text>
+</g>
+<g >
+<title>UniValue&amp; std::vector&lt;UniValue, std::allocator&lt;UniValue&gt; &gt;::emplace_back&lt;UniValue&gt; (36,000,066 instructions, 1.01%)</title><rect x="338.5" y="349" width="17.9" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="341.52" y="359.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (12,000,022 instructions, 0.34%)</title><rect x="1076.2" y="301" width="6.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1079.21" y="311.5" ></text>
+</g>
+<g >
+<title>json_escape (690,001,265 instructions, 19.30%)</title><rect x="1303.2" y="301" width="343.4" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="1306.19" y="311.5" >json_escape</text>
+</g>
+<g >
+<title>UpdateCoins (54,000,099 instructions, 1.51%)</title><rect x="950.8" y="317" width="26.9" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="953.77" y="327.5" >U..</text>
+</g>
+<g >
+<title>json_escape (24,000,044 instructions, 0.67%)</title><rect x="1682.5" y="317" width="11.9" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="1685.48" y="327.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree_insert_and_rebalance (6,000,011 instructions, 0.17%)</title><rect x="1109.1" y="317" width="2.9" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="1112.06" y="327.5" ></text>
+</g>
+<g >
+<title>std::locale::locale (6,000,011 instructions, 0.17%)</title><rect x="1195.7" y="365" width="3.0" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="1198.67" y="375.5" ></text>
+</g>
+<g >
+<title>getJsonToken (6,000,011 instructions, 0.17%)</title><rect x="437.1" y="349" width="3.0" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="440.08" y="359.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_find_before_node (18,000,033 instructions, 0.50%)</title><rect x="765.6" y="237" width="9.0" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="768.60" y="247.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="792.5" y="269" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="795.48" y="279.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="753.7" y="237" width="2.9" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="756.66" y="247.5" ></text>
+</g>
+<g >
+<title>memory_cleanse (6,000,011 instructions, 0.17%)</title><rect x="120.5" y="333" width="3.0" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="123.50" y="343.5" ></text>
+</g>
+<g >
+<title>GetScriptOp (36,000,066 instructions, 1.01%)</title><rect x="1001.5" y="285" width="18.0" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="1004.54" y="295.5" ></text>
+</g>
+<g >
+<title>GetLegacySigOpCount (24,000,044 instructions, 0.67%)</title><rect x="795.5" y="301" width="11.9" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="798.47" y="311.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="245.9" y="317" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="248.94" y="327.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="1082.2" y="301" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1085.18" y="311.5" ></text>
+</g>
+<g >
+<title>std::ios_base::_M_init (18,000,033 instructions, 0.50%)</title><rect x="455.0" y="333" width="9.0" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="458.00" y="343.5" ></text>
+</g>
+<g >
+<title>HTTPWorkQueueRun (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="509" width="1780.0" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="13.00" y="519.5" >HTTPWorkQueueRun</text>
+</g>
+<g >
+<title>GetAdjustedTime (6,000,011 instructions, 0.17%)</title><rect x="1130.0" y="301" width="3.0" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="1132.97" y="311.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (18,000,033 instructions, 0.50%)</title><rect x="858.2" y="253" width="8.9" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="861.19" y="263.5" ></text>
+</g>
+<g >
+<title>std::ostream&amp; std::ostream::_M_insert&lt;long&gt; (24,000,044 instructions, 0.67%)</title><rect x="469.9" y="349" width="12.0" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="472.93" y="359.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="114.5" y="333" width="6.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="117.53" y="343.5" ></text>
+</g>
+<g >
+<title>UniValue::write[abi:cxx11] (756,001,386 instructions, 21.14%)</title><rect x="1279.3" y="317" width="376.3" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1282.30" y="327.5" >UniValue::write[abi:cxx11]</text>
+</g>
+<g >
+<title>UniValue::UniValue (96,000,176 instructions, 2.68%)</title><rect x="1204.6" y="413" width="47.8" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1207.63" y="423.5" >UniV..</text>
+</g>
+<g >
+<title>operator new (30,000,055 instructions, 0.84%)</title><rect x="1210.6" y="365" width="14.9" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1213.60" y="375.5" ></text>
+</g>
+<g >
+<title>node::BlockAssembler::TestPackageTransactions (54,000,099 instructions, 1.51%)</title><rect x="1130.0" y="333" width="26.8" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1132.97" y="343.5" >n..</text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="314.6" y="333" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="317.63" y="343.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (6,000,011 instructions, 0.17%)</title><rect x="974.7" y="285" width="3.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="977.66" y="295.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (12,000,022 instructions, 0.34%)</title><rect x="983.6" y="301" width="6.0" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="986.62" y="311.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_find_before_node (24,000,044 instructions, 0.67%)</title><rect x="879.1" y="221" width="11.9" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="882.09" y="231.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_mutate (18,000,033 instructions, 0.50%)</title><rect x="673.0" y="77" width="9.0" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="676.02" y="87.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_rehash (24,000,044 instructions, 0.67%)</title><rect x="556.5" y="269" width="12.0" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="559.54" y="279.5" ></text>
+</g>
+<g >
+<title>_int_malloc (6,000,011 instructions, 0.17%)</title><rect x="1216.6" y="333" width="3.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1219.58" y="343.5" ></text>
+</g>
+<g >
+<title>CRPCCommand::CRPCCommand(std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, RPCHelpMan (*)())::{lambda(JSONRPCRequest const&amp;, UniValue&amp;, bool)#1}::operator() (2,388,004,378 instructions, 66.78%)</title><rect x="10.0" y="429" width="1188.7" height="15.0" fill="rgb(248,200,47)" rx="2" ry="2" />
+<text  x="13.00" y="439.5" >CRPCCommand::CRPCCommand(std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, RPCHelpMan (*)())::{lambda(JSONRPCRequest const&amp;, UniValue&amp;..</text>
+</g>
+<g >
+<title>CRPCTable::execute (2,388,004,378 instructions, 66.78%)</title><rect x="10.0" y="461" width="1188.7" height="15.0" fill="rgb(222,80,19)" rx="2" ry="2" />
+<text  x="13.00" y="471.5" >CRPCTable::execute</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BloomFilterPolicy::KeyMayMatch (6,000,011 instructions, 0.17%)</title><rect x="717.8" y="77" width="3.0" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="720.82" y="87.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_rehash (24,000,044 instructions, 0.67%)</title><rect x="897.0" y="253" width="12.0" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="900.01" y="263.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="1124.0" y="301" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1126.99" y="311.5" ></text>
+</g>
+<g >
+<title>CSporkManager::IsSporkActive (6,000,011 instructions, 0.17%)</title><rect x="568.5" y="301" width="3.0" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="571.49" y="311.5" ></text>
+</g>
+<g >
+<title>CDBWrapper::ReadDataStream (312,000,572 instructions, 8.72%)</title><rect x="592.4" y="221" width="155.3" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="595.38" y="231.5" >CDBWrapper::ReadDat..</text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, std::_Identity&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt;, CompareIteratorByHash, std::allocator&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt; &gt;::find (30,000,055 instructions, 0.84%)</title><rect x="1156.8" y="333" width="15.0" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="1159.85" y="343.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::allocator&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt; &gt;::vector (24,000,044 instructions, 0.67%)</title><rect x="311.6" y="349" width="12.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="314.64" y="359.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (42,000,077 instructions, 1.17%)</title><rect x="870.1" y="253" width="20.9" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="873.13" y="263.5" ></text>
+</g>
+<g >
+<title>node::BlockAssembler::SortForBlock (6,000,011 instructions, 0.17%)</title><rect x="1127.0" y="333" width="3.0" height="15.0" fill="rgb(218,62,15)" rx="2" ry="2" />
+<text  x="1129.98" y="343.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::allocator&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt; &gt;::vector (18,000,033 instructions, 0.50%)</title><rect x="260.9" y="317" width="8.9" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="263.87" y="327.5" ></text>
+</g>
+<g >
+<title>_int_malloc (12,000,022 instructions, 0.34%)</title><rect x="254.9" y="285" width="6.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="257.90" y="295.5" ></text>
+</g>
+<g >
+<title>getblocktemplate()::{lambda(RPCHelpMan const&amp;, JSONRPCRequest const&amp;)#1}::operator() (2,292,004,202 instructions, 64.09%)</title><rect x="57.8" y="381" width="1140.9" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="60.79" y="391.5" >getblocktemplate()::{lambda(RPCHelpMan const&amp;, JSONRPCRequest const&amp;)#1}::operator()</text>
+</g>
+<g >
+<title>GetScriptOp (6,000,011 instructions, 0.17%)</title><rect x="1046.3" y="301" width="3.0" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="1049.34" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::TableCache::Get (228,000,418 instructions, 6.38%)</title><rect x="625.2" y="141" width="113.5" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="628.23" y="151.5" >leveldb::Table..</text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_dispose (6,000,011 instructions, 0.17%)</title><rect x="980.6" y="317" width="3.0" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="983.64" y="327.5" ></text>
+</g>
+<g >
+<title>__GI___clone3 (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="557" width="1780.0" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="13.00" y="567.5" >__GI___clone3</text>
+</g>
+<g >
+<title>CCoinsViewCache::HaveCoin (396,000,726 instructions, 11.07%)</title><rect x="580.4" y="317" width="197.2" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="583.44" y="327.5" >CCoinsViewCache::HaveCoin</text>
+</g>
+<g >
+<title>http/rpc workers (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="573" width="1780.0" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="13.00" y="583.5" >http/rpc workers</text>
+</g>
+<g >
+<title>UniValue::findKey (6,000,011 instructions, 0.17%)</title><rect x="359.4" y="349" width="3.0" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="362.43" y="359.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (54,000,099 instructions, 1.51%)</title><rect x="490.8" y="349" width="26.9" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="493.84" y="359.5" >_..</text>
+</g>
+<g >
+<title>UniValue::write[abi:cxx11] (936,001,716 instructions, 26.17%)</title><rect x="1255.4" y="349" width="465.9" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1258.40" y="359.5" >UniValue::write[abi:cxx11]</text>
+</g>
+<g >
+<title>Consensus::CheckTxInputs (126,000,231 instructions, 3.52%)</title><rect x="858.2" y="317" width="62.7" height="15.0" fill="rgb(246,192,46)" rx="2" ry="2" />
+<text  x="861.19" y="327.5" >Consen..</text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="891.0" y="269" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="894.04" y="279.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, true&gt; (6,000,011 instructions, 0.17%)</title><rect x="10.0" y="381" width="3.0" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="13.00" y="391.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (18,000,033 instructions, 0.50%)</title><rect x="275.8" y="317" width="9.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="278.81" y="327.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;CTxUndo, std::allocator&lt;CTxUndo&gt; &gt;::~vector (12,000,022 instructions, 0.34%)</title><rect x="983.6" y="317" width="6.0" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="986.62" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Valid (6,000,011 instructions, 0.17%)</title><rect x="631.2" y="125" width="3.0" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="634.21" y="135.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (12,000,022 instructions, 0.34%)</title><rect x="720.8" y="109" width="6.0" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="723.81" y="119.5" ></text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.34%)</title><rect x="305.7" y="349" width="5.9" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="308.67" y="359.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="667.0" y="77" width="3.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="670.05" y="87.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::AddCoin (42,000,077 instructions, 1.17%)</title><rect x="547.6" y="301" width="20.9" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="550.58" y="311.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (24,000,044 instructions, 0.67%)</title><rect x="956.7" y="285" width="12.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="959.74" y="295.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="968.7" y="301" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="971.69" y="311.5" ></text>
+</g>
+<g >
+<title>operator new (6,000,011 instructions, 0.17%)</title><rect x="296.7" y="317" width="3.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="299.71" y="327.5" ></text>
+</g>
+<g >
+<title>all (3,576,006,556 instructions, 100%)</title><rect x="10.0" y="589" width="1780.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="599.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (60,000,110 instructions, 1.68%)</title><rect x="682.0" y="93" width="29.8" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="684.98" y="103.5" >le..</text>
+</g>
+<g >
+<title>__libc_malloc2 (12,000,022 instructions, 0.34%)</title><rect x="317.6" y="317" width="6.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="320.62" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::ShardedLRUCache::Lookup (6,000,011 instructions, 0.17%)</title><rect x="729.8" y="109" width="3.0" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="732.77" y="119.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, std::_Identity&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt;, CompareIteratorByHash, std::allocator&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt; &gt;::equal_range (12,000,022 instructions, 0.34%)</title><rect x="1085.2" y="301" width="5.9" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="1088.17" y="311.5" ></text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (6,000,011 instructions, 0.17%)</title><rect x="726.8" y="77" width="3.0" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="729.78" y="87.5" ></text>
+</g>
+<g >
+<title>instantsend::HasLockInputs (6,000,011 instructions, 0.17%)</title><rect x="977.7" y="317" width="2.9" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="980.65" y="327.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (18,000,033 instructions, 0.50%)</title><rect x="900.0" y="237" width="9.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="903.00" y="247.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (6,000,011 instructions, 0.17%)</title><rect x="386.3" y="349" width="3.0" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="389.31" y="359.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_find_before_node (12,000,022 instructions, 0.34%)</title><rect x="914.9" y="253" width="6.0" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="917.93" y="263.5" ></text>
+</g>
+<g >
+<title>ContextualCheckBlock (48,000,088 instructions, 1.34%)</title><rect x="1025.4" y="333" width="23.9" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1028.44" y="343.5" >C..</text>
+</g>
+<g >
+<title>CheckTransaction (24,000,044 instructions, 0.67%)</title><rect x="783.5" y="301" width="12.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="786.52" y="311.5" ></text>
+</g>
+<g >
+<title>_int_free_maybe_trim (6,000,011 instructions, 0.17%)</title><rect x="1781.0" y="429" width="3.0" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1784.04" y="439.5" ></text>
+</g>
+<g >
+<title>malloc (12,000,022 instructions, 0.34%)</title><rect x="989.6" y="285" width="6.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="992.60" y="295.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="1787.0" y="461" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1790.01" y="471.5" ></text>
+</g>
+<g >
+<title>CMNHFManager::GetSignalsStage (6,000,011 instructions, 0.17%)</title><rect x="1144.9" y="285" width="3.0" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1147.90" y="295.5" ></text>
+</g>
+<g >
+<title>CScript::GetSigOpCount (24,000,044 instructions, 0.67%)</title><rect x="795.5" y="285" width="11.9" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="798.47" y="295.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (18,000,033 instructions, 0.50%)</title><rect x="858.2" y="285" width="8.9" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="861.19" y="295.5" ></text>
+</g>
+<g >
+<title>clock_gettime@plt (6,000,011 instructions, 0.17%)</title><rect x="1130.0" y="269" width="3.0" height="15.0" fill="rgb(229,112,27)" rx="2" ry="2" />
+<text  x="1132.97" y="279.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="395.3" y="349" width="5.9" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="398.27" y="359.5" ></text>
+</g>
+<g >
+<title>CheckTransaction (12,000,022 instructions, 0.34%)</title><rect x="989.6" y="317" width="6.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="992.60" y="327.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (6,000,011 instructions, 0.17%)</title><rect x="1784.0" y="429" width="3.0" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1787.03" y="439.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="269.8" y="333" width="3.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="272.83" y="343.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="917.9" y="237" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="920.92" y="247.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::allocator&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt; &gt;::vector (24,000,044 instructions, 0.67%)</title><rect x="1225.5" y="365" width="12.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1228.54" y="375.5" ></text>
+</g>
+<g >
+<title>GetLegacySigOpCount (42,000,077 instructions, 1.17%)</title><rect x="1028.4" y="317" width="20.9" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="1031.42" y="327.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (24,000,044 instructions, 0.67%)</title><rect x="909.0" y="269" width="11.9" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="911.96" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::Hash (6,000,011 instructions, 0.17%)</title><rect x="717.8" y="61" width="3.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="720.82" y="71.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="538.6" y="365" width="6.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="541.62" y="375.5" ></text>
+</g>
+<g >
+<title>void CTransaction::Serialize&lt;CDataStream&gt; (210,000,385 instructions, 5.87%)</title><rect x="105.6" y="349" width="104.5" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="108.57" y="359.5" >void CTransa..</text>
+</g>
+<g >
+<title>UniValue::writeObject (984,001,804 instructions, 27.52%)</title><rect x="1252.4" y="429" width="489.8" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="1255.42" y="439.5" >UniValue::writeObject</text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (18,000,033 instructions, 0.50%)</title><rect x="688.0" y="77" width="8.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="690.95" y="87.5" ></text>
+</g>
+<g >
+<title>sha256_sse4::Transform (6,000,011 instructions, 0.17%)</title><rect x="855.2" y="285" width="3.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="858.20" y="295.5" ></text>
+</g>
+<g >
+<title>HTTPReq_JSONRPC (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="477" width="1780.0" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.00" y="487.5" >HTTPReq_JSONRPC</text>
+</g>
+<g >
+<title>CScript::GetSigOpCount (6,000,011 instructions, 0.17%)</title><rect x="923.9" y="285" width="3.0" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="926.89" y="295.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_insert_unique_node (36,000,066 instructions, 1.01%)</title><rect x="550.6" y="285" width="17.9" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="553.57" y="295.5" ></text>
+</g>
+<g >
+<title>GetScriptOp (6,000,011 instructions, 0.17%)</title><rect x="804.4" y="269" width="3.0" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="807.43" y="279.5" ></text>
+</g>
+<g >
+<title>JSONRPCReplyObj (96,000,176 instructions, 2.68%)</title><rect x="1204.6" y="445" width="47.8" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1207.63" y="455.5" >JSON..</text>
+</g>
+<g >
+<title>util::GetSetting (6,000,011 instructions, 0.17%)</title><rect x="1106.1" y="285" width="3.0" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="1109.07" y="295.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (396,000,726 instructions, 11.07%)</title><rect x="580.4" y="301" width="197.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="583.44" y="311.5" >CCoinsViewCache::FetchCoin</text>
+</g>
+<g >
+<title>CCoinsViewDB::GetCoin (6,000,011 instructions, 0.17%)</title><rect x="586.4" y="253" width="3.0" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="589.41" y="263.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (96,000,176 instructions, 2.68%)</title><rect x="1204.6" y="397" width="47.8" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1207.63" y="407.5" >UniV..</text>
+</g>
+<g >
+<title>UniValue::pushKVEnd (30,000,055 instructions, 0.84%)</title><rect x="362.4" y="349" width="14.9" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="365.42" y="359.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="550.6" y="269" width="5.9" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="553.57" y="279.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="783.5" y="285" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="786.52" y="295.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (42,000,077 instructions, 1.17%)</title><rect x="870.1" y="237" width="20.9" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="873.13" y="247.5" ></text>
+</g>
+<g >
+<title>CTxMemPool::CalculateDescendants (36,000,066 instructions, 1.01%)</title><rect x="1073.2" y="333" width="17.9" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="1076.22" y="343.5" ></text>
+</g>
+<g >
+<title>CheckBlock (72,000,132 instructions, 2.01%)</title><rect x="989.6" y="333" width="35.8" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="992.60" y="343.5" >Che..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="520.7" y="365" width="3.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="523.70" y="375.5" ></text>
+</g>
+<g >
+<title>GetP2SHSigOpCount (6,000,011 instructions, 0.17%)</title><rect x="926.9" y="301" width="3.0" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="929.88" y="311.5" ></text>
+</g>
+<g >
+<title>GetSpecialTxRules (42,000,077 instructions, 1.17%)</title><rect x="1135.9" y="317" width="20.9" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="1138.94" y="327.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (24,000,044 instructions, 0.67%)</title><rect x="556.5" y="253" width="12.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="559.54" y="263.5" ></text>
+</g>
+<g >
+<title>node::BlockAssembler::AddToBlock (48,000,088 instructions, 1.34%)</title><rect x="1103.1" y="333" width="23.9" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="1106.09" y="343.5" >n..</text>
+</g>
+<g >
+<title>ArgsManager::GetBoolArg (12,000,022 instructions, 0.34%)</title><rect x="1103.1" y="317" width="6.0" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="1106.09" y="327.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (42,000,077 instructions, 1.17%)</title><rect x="1655.6" y="317" width="20.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1658.60" y="327.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (6,000,011 instructions, 0.17%)</title><rect x="296.7" y="301" width="3.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="299.71" y="311.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;uint256, std::pair&lt;uint256 const, long&gt;, std::_Select1st&lt;std::pair&lt;uint256 const, long&gt; &gt;, std::less&lt;uint256&gt;, std::allocator&lt;std::pair&lt;uint256 const, long&gt; &gt; &gt;::_M_erase (12,000,022 instructions, 0.34%)</title><rect x="1171.8" y="365" width="6.0" height="15.0" fill="rgb(211,29,6)" rx="2" ry="2" />
+<text  x="1174.78" y="375.5" ></text>
+</g>
+<g >
+<title>std::ios_base::ios_base (12,000,022 instructions, 0.34%)</title><rect x="1189.7" y="365" width="6.0" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1192.70" y="375.5" ></text>
+</g>
+<g >
+<title>Chainstate::ConnectBlock (894,001,639 instructions, 25.00%)</title><rect x="544.6" y="333" width="445.0" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="547.60" y="343.5" >Chainstate::ConnectBlock</text>
+</g>
+<g >
+<title>CTxMemPool::CalculateAncestorsAndCheckLimits (6,000,011 instructions, 0.17%)</title><rect x="1067.2" y="301" width="3.0" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1070.25" y="311.5" ></text>
+</g>
+<g >
+<title>_int_malloc (6,000,011 instructions, 0.17%)</title><rect x="1079.2" y="285" width="3.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1082.19" y="295.5" ></text>
+</g>
+<g >
+<title>CheckInputScripts (102,000,187 instructions, 2.85%)</title><rect x="807.4" y="317" width="50.8" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="810.42" y="327.5" >Check..</text>
+</g>
+<g >
+<title>UniValue::write[abi:cxx11] (984,001,804 instructions, 27.52%)</title><rect x="1252.4" y="445" width="489.8" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1255.42" y="455.5" >UniValue::write[abi:cxx11]</text>
+</g>
+<g >
+<title>HTTPRequest::WriteReply (12,000,022 instructions, 0.34%)</title><rect x="1198.7" y="461" width="5.9" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1201.66" y="471.5" ></text>
+</g>
+<g >
+<title>leveldb::FindFile (6,000,011 instructions, 0.17%)</title><rect x="619.3" y="157" width="2.9" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="622.26" y="167.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="1715.3" y="333" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1718.34" y="343.5" ></text>
+</g>
+<g >
+<title>clock_gettime@@GLIBC_2.17 (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="221" width="2.9" height="15.0" fill="rgb(250,209,50)" rx="2" ry="2" />
+<text  x="577.46" y="231.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::ProcessSpecialTxsInBlock (12,000,022 instructions, 0.34%)</title><rect x="777.6" y="317" width="5.9" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="780.55" y="327.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (18,000,033 instructions, 0.50%)</title><rect x="858.2" y="269" width="8.9" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="861.19" y="279.5" ></text>
+</g>
+<g >
+<title>std::set&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, CompareIteratorByHash, std::allocator&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt; &gt;::insert (30,000,055 instructions, 0.84%)</title><rect x="1112.0" y="317" width="15.0" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1115.05" y="327.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (378,000,693 instructions, 10.57%)</title><rect x="586.4" y="269" width="188.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="589.41" y="279.5" >CCoinsViewCache::FetchCoin</text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="885.1" y="205" width="5.9" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="888.07" y="215.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (162,000,297 instructions, 4.53%)</title><rect x="219.1" y="349" width="80.6" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="222.06" y="359.5" >UniValue:..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="111.5" y="333" width="3.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="114.54" y="343.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="1103.1" y="285" width="3.0" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="1106.09" y="295.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="1150.9" y="285" width="5.9" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="1153.87" y="295.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="1676.5" y="317" width="6.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1679.51" y="327.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="756.6" y="253" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="759.64" y="263.5" ></text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.34%)</title><rect x="317.6" y="333" width="6.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="320.62" y="343.5" ></text>
+</g>
+<g >
+<title>operator delete(void*)@plt (6,000,011 instructions, 0.17%)</title><rect x="123.5" y="333" width="3.0" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="126.49" y="343.5" ></text>
+</g>
+<g >
+<title>GetLegacySigOpCount (12,000,022 instructions, 0.34%)</title><rect x="920.9" y="301" width="6.0" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="923.91" y="311.5" ></text>
+</g>
+<g >
+<title>node::BlockAssembler::CreateNewBlock (1,260,002,310 instructions, 35.23%)</title><rect x="544.6" y="365" width="627.2" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="547.60" y="375.5" >node::BlockAssembler::CreateNewBlock</text>
+</g>
+<g >
+<title>CCoinsViewCache::AccessCoin (6,000,011 instructions, 0.17%)</title><rect x="926.9" y="285" width="3.0" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="929.88" y="295.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="768.6" y="221" width="6.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="771.59" y="231.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::allocator&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt; &gt;::vector (30,000,055 instructions, 0.84%)</title><rect x="284.8" y="333" width="14.9" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="287.77" y="343.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::AccessCoin (18,000,033 instructions, 0.50%)</title><rect x="858.2" y="301" width="8.9" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="861.19" y="311.5" ></text>
+</g>
+<g >
+<title>NodeClock::now (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="253" width="2.9" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="577.46" y="263.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (24,000,044 instructions, 0.67%)</title><rect x="1210.6" y="349" width="12.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1213.60" y="359.5" ></text>
+</g>
+<g >
+<title>_int_malloc (6,000,011 instructions, 0.17%)</title><rect x="308.7" y="317" width="2.9" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="311.66" y="327.5" ></text>
+</g>
+<g >
+<title>UniValue&amp; std::vector&lt;UniValue, std::allocator&lt;UniValue&gt; &gt;::emplace_back&lt;UniValue&gt; (6,000,011 instructions, 0.17%)</title><rect x="213.1" y="365" width="3.0" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="216.09" y="375.5" ></text>
+</g>
+<g >
+<title>std::pair&lt;std::_Rb_tree_iterator&lt;COutPoint&gt;, bool&gt; std::_Rb_tree&lt;COutPoint, COutPoint, std::_Identity&lt;COutPoint&gt;, std::less&lt;COutPoint&gt;, std::allocator&lt;COutPoint&gt; &gt;::_M_insert_unique&lt;COutPoint const&amp;&gt; (12,000,022 instructions, 0.34%)</title><rect x="989.6" y="301" width="6.0" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="992.60" y="311.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (66,000,121 instructions, 1.85%)</title><rect x="237.0" y="333" width="32.8" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="239.98" y="343.5" >Un..</text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_find_before_node (6,000,011 instructions, 0.17%)</title><rect x="965.7" y="253" width="3.0" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="968.70" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalFilterPolicy::KeyMayMatch (6,000,011 instructions, 0.17%)</title><rect x="717.8" y="93" width="3.0" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="720.82" y="103.5" ></text>
+</g>
+<g >
+<title>UniValue::checkType (6,000,011 instructions, 0.17%)</title><rect x="356.4" y="349" width="3.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="359.44" y="359.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (6,000,011 instructions, 0.17%)</title><rect x="299.7" y="349" width="3.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="302.70" y="359.5" ></text>
+</g>
+<g >
+<title>CCoinsViewDB::GetCoin (330,000,605 instructions, 9.23%)</title><rect x="589.4" y="237" width="164.3" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="592.40" y="247.5" >CCoinsViewDB::GetCoin</text>
+</g>
+<g >
+<title>std::default_delete&lt;node::CBlockTemplate&gt;::operator() (12,000,022 instructions, 0.34%)</title><rect x="1183.7" y="365" width="6.0" height="15.0" fill="rgb(226,100,23)" rx="2" ry="2" />
+<text  x="1186.72" y="375.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::GetCoin (42,000,077 instructions, 1.17%)</title><rect x="870.1" y="269" width="20.9" height="15.0" fill="rgb(222,79,19)" rx="2" ry="2" />
+<text  x="873.13" y="279.5" ></text>
+</g>
+<g >
+<title>UniValue::writeArray (954,001,749 instructions, 26.68%)</title><rect x="1252.4" y="365" width="474.9" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="1255.42" y="375.5" >UniValue::writeArray</text>
+</g>
+<g >
+<title>CTxMemPool::CalculateMemPoolAncestors (12,000,022 instructions, 0.34%)</title><rect x="1064.3" y="317" width="5.9" height="15.0" fill="rgb(218,64,15)" rx="2" ry="2" />
+<text  x="1067.26" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Seek (156,000,286 instructions, 4.36%)</title><rect x="634.2" y="109" width="77.6" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="637.19" y="119.5" >leveldb:..</text>
+</g>
+<g >
+<title>leveldb::BlockHandle::DecodeFrom (12,000,022 instructions, 0.34%)</title><rect x="711.8" y="109" width="6.0" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="714.85" y="119.5" ></text>
+</g>
+<g >
+<title>UniValue::~UniValue (24,000,044 instructions, 0.67%)</title><rect x="1742.2" y="445" width="12.0" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1745.21" y="455.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (18,000,033 instructions, 0.50%)</title><rect x="959.7" y="269" width="9.0" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="962.73" y="279.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="1754.2" y="445" width="5.9" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1757.16" y="455.5" ></text>
+</g>
+<g >
+<title>HexStr[abi:cxx11] (60,000,110 instructions, 1.68%)</title><rect x="75.7" y="349" width="29.9" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="78.70" y="359.5" >He..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.34%)</title><rect x="389.3" y="349" width="6.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="392.30" y="359.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="129.5" y="317" width="2.9" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="132.46" y="327.5" ></text>
+</g>
+<g >
+<title>UniValue::write[abi:cxx11] (960,001,760 instructions, 26.85%)</title><rect x="1252.4" y="381" width="477.9" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1255.42" y="391.5" >UniValue::write[abi:cxx11]</text>
+</g>
+<g >
+<title>std::basic_ios&lt;char, std::char_traits&lt;char&gt; &gt;::init (42,000,077 instructions, 1.17%)</title><rect x="443.1" y="349" width="20.9" height="15.0" fill="rgb(206,7,1)" rx="2" ry="2" />
+<text  x="446.05" y="359.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (108,000,198 instructions, 3.02%)</title><rect x="867.1" y="285" width="53.8" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="870.15" y="295.5" >CCoin..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.34%)</title><rect x="1730.3" y="381" width="5.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1733.27" y="391.5" ></text>
+</g>
+<g >
+<title>void std::vector&lt;std::byte, zero_after_free_allocator&lt;std::byte&gt; &gt;::_M_range_insert&lt;std::byte const*&gt; (6,000,011 instructions, 0.17%)</title><rect x="132.4" y="317" width="3.0" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="135.45" y="327.5" ></text>
+</g>
+<g >
+<title>UniValue::setNumStr (48,000,088 instructions, 1.34%)</title><rect x="413.2" y="349" width="23.9" height="15.0" fill="rgb(207,12,2)" rx="2" ry="2" />
+<text  x="416.19" y="359.5" >U..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::ShardedLRUCache::Value (6,000,011 instructions, 0.17%)</title><rect x="622.2" y="141" width="3.0" height="15.0" fill="rgb(252,217,52)" rx="2" ry="2" />
+<text  x="625.25" y="151.5" ></text>
+</g>
+<g >
+<title>UniValue::checkType (12,000,022 instructions, 0.34%)</title><rect x="323.6" y="365" width="6.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="326.59" y="375.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (48,000,088 instructions, 1.34%)</title><rect x="658.1" y="93" width="23.9" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="661.09" y="103.5" >l..</text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (6,000,011 instructions, 0.17%)</title><rect x="926.9" y="269" width="3.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="929.88" y="279.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="735.7" y="125" width="3.0" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="738.74" y="135.5" ></text>
+</g>
+<g >
+<title>GetLegacySigOpCount (48,000,088 instructions, 1.34%)</title><rect x="995.6" y="317" width="23.9" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="998.57" y="327.5" >G..</text>
+</g>
+<g >
+<title>GetTransactionSigOpCount (18,000,033 instructions, 0.50%)</title><rect x="920.9" y="317" width="9.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="923.91" y="327.5" ></text>
+</g>
+<g >
+<title>void std::vector&lt;std::byte, zero_after_free_allocator&lt;std::byte&gt; &gt;::_M_range_insert&lt;std::byte const*&gt; (6,000,011 instructions, 0.17%)</title><rect x="750.7" y="221" width="3.0" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="753.67" y="231.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (6,000,011 instructions, 0.17%)</title><rect x="926.9" y="253" width="3.0" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="929.88" y="263.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="547.6" y="285" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="550.58" y="295.5" ></text>
+</g>
+<g >
+<title>malloc (12,000,022 instructions, 0.34%)</title><rect x="1646.6" y="301" width="6.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1649.64" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::ReadBlock (6,000,011 instructions, 0.17%)</title><rect x="726.8" y="93" width="3.0" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="729.78" y="103.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="1073.2" y="317" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1076.22" y="327.5" ></text>
+</g>
+<g >
+<title>operator new (6,000,011 instructions, 0.17%)</title><rect x="207.1" y="317" width="3.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="210.11" y="327.5" ></text>
+</g>
+<g >
+<title>CSporkManager::IsSporkActive (12,000,022 instructions, 0.34%)</title><rect x="1130.0" y="317" width="5.9" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="1132.97" y="327.5" ></text>
+</g>
+<g >
+<title>std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; std::num_put&lt;char, std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; &gt;::_M_insert_int&lt;long&gt; (12,000,022 instructions, 0.34%)</title><rect x="475.9" y="333" width="6.0" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="478.91" y="343.5" ></text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.34%)</title><rect x="1076.2" y="317" width="6.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1079.21" y="327.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="1712.3" y="333" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1715.35" y="343.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.34%)</title><rect x="1721.3" y="349" width="6.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1724.31" y="359.5" ></text>
+</g>
+<g >
+<title>std::_Sp_counted_base&lt;(__gnu_cxx::_Lock_policy)2&gt;::_M_release (6,000,011 instructions, 0.17%)</title><rect x="780.5" y="301" width="3.0" height="15.0" fill="rgb(214,42,10)" rx="2" ry="2" />
+<text  x="783.54" y="311.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_find_before_node (6,000,011 instructions, 0.17%)</title><rect x="894.0" y="269" width="3.0" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="897.03" y="279.5" ></text>
+</g>
+<g >
+<title>WorkQueue&lt;HTTPClosure&gt;::Run (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="493" width="1780.0" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="13.00" y="503.5" >WorkQueue&lt;HTTPClosure&gt;::Run</text>
+</g>
+<g >
+<title>memcpy@plt (6,000,011 instructions, 0.17%)</title><rect x="1718.3" y="333" width="3.0" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="1721.32" y="343.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, std::_Identity&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt;, CompareIteratorByHash, std::allocator&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt; &gt;::erase (18,000,033 instructions, 0.50%)</title><rect x="1082.2" y="317" width="8.9" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="1085.18" y="327.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (54,000,099 instructions, 1.51%)</title><rect x="1760.1" y="445" width="26.9" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="1763.13" y="455.5" >_..</text>
+</g>
+<g >
+<title>leveldb::LookupKey::LookupKey (6,000,011 instructions, 0.17%)</title><rect x="598.4" y="189" width="2.9" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="601.36" y="199.5" ></text>
+</g>
+<g >
+<title>CSHA256::Write (84,000,154 instructions, 2.35%)</title><rect x="813.4" y="285" width="41.8" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="816.39" y="295.5" >CSH..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::ShardedLRUCache::Release (6,000,011 instructions, 0.17%)</title><rect x="628.2" y="125" width="3.0" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="631.22" y="135.5" ></text>
+</g>
+<g >
+<title>operator new (18,000,033 instructions, 0.50%)</title><rect x="275.8" y="333" width="9.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="278.81" y="343.5" ></text>
+</g>
+<g >
+<title>AbstractThresholdConditionChecker::GetStateFor (18,000,033 instructions, 0.50%)</title><rect x="1135.9" y="285" width="9.0" height="15.0" fill="rgb(241,168,40)" rx="2" ry="2" />
+<text  x="1138.94" y="295.5" ></text>
+</g>
+<g >
+<title>malloc (24,000,044 instructions, 0.67%)</title><rect x="195.2" y="317" width="11.9" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="198.17" y="327.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt;, std::_Identity&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt;, CompareIteratorByHash, std::allocator&lt;boost::multi_index::detail::hashed_index_iterator&lt;boost::multi_index::detail::hashed_index_node&lt;boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::ordered_index_node&lt;boost::multi_index::detail::null_augment_policy, boost::multi_index::detail::index_node_base&lt;CTxMemPoolEntry, std::allocator&lt;CTxMemPoolEntry&gt; &gt; &gt; &gt; &gt; &gt;, boost::multi_index::detail::bucket_array&lt;std::allocator&lt;CTxMemPoolEntry&gt; &gt;, boost::multi_index::detail::hashed_unique_tag, boost::multi_index::detail::hashed_index_global_iterator_tag&gt; &gt; &gt;::_M_erase (6,000,011 instructions, 0.17%)</title><rect x="1070.2" y="317" width="3.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="1073.23" y="327.5" ></text>
+</g>
+<g >
+<title>UniValue::clear (6,000,011 instructions, 0.17%)</title><rect x="413.2" y="333" width="3.0" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="416.19" y="343.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::GetCoin (384,000,704 instructions, 10.74%)</title><rect x="583.4" y="285" width="191.2" height="15.0" fill="rgb(222,79,19)" rx="2" ry="2" />
+<text  x="586.42" y="295.5" >CCoinsViewCache::GetCoin</text>
+</g>
+<g >
+<title>void std::vector&lt;std::byte, zero_after_free_allocator&lt;std::byte&gt; &gt;::_M_range_insert&lt;std::byte const*&gt; (150,000,275 instructions, 4.19%)</title><rect x="135.4" y="333" width="74.7" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="138.44" y="343.5" >void std..</text>
+</g>
+<g >
+<title>__libc_malloc2 (12,000,022 instructions, 0.34%)</title><rect x="305.7" y="333" width="5.9" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="308.67" y="343.5" ></text>
+</g>
+<g >
+<title>GetAdjustedTime (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="269" width="2.9" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="577.46" y="279.5" ></text>
+</g>
+<g >
+<title>UniValue::~UniValue (18,000,033 instructions, 0.50%)</title><rect x="377.3" y="349" width="9.0" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="380.35" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockReader::KeyMayMatch (6,000,011 instructions, 0.17%)</title><rect x="717.8" y="109" width="3.0" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="720.82" y="119.5" ></text>
+</g>
+<g >
+<title>Lloop2_30 (18,000,033 instructions, 0.50%)</title><rect x="846.2" y="269" width="9.0" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="849.24" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::InternalGet (192,000,352 instructions, 5.37%)</title><rect x="634.2" y="125" width="95.6" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="637.19" y="135.5" >leveldb::Ta..</text>
+</g>
+<g >
+<title>_int_free_maybe_trim (6,000,011 instructions, 0.17%)</title><rect x="1174.8" y="349" width="3.0" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1177.77" y="359.5" ></text>
+</g>
+<g >
+<title>CSHA256::Finalize (96,000,176 instructions, 2.68%)</title><rect x="810.4" y="301" width="47.8" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="813.40" y="311.5" >CSHA..</text>
+</g>
+<g >
+<title>UniValue::writeObject (972,001,782 instructions, 27.18%)</title><rect x="1252.4" y="397" width="483.8" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="1255.42" y="407.5" >UniValue::writeObject</text>
+</g>
+<g >
+<title>Lloop1_30 (66,000,121 instructions, 1.85%)</title><rect x="813.4" y="269" width="32.8" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="816.39" y="279.5" >Ll..</text>
+</g>
+<g >
+<title>VersionBitsCache::State (42,000,077 instructions, 1.17%)</title><rect x="1135.9" y="301" width="20.9" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1138.94" y="311.5" ></text>
+</g>
+<g >
+<title>UniValue::checkType (6,000,011 instructions, 0.17%)</title><rect x="371.4" y="333" width="3.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="374.38" y="343.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (18,000,033 instructions, 0.50%)</title><rect x="1237.5" y="381" width="8.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1240.48" y="391.5" ></text>
+</g>
+<g >
+<title>getJsonToken (42,000,077 instructions, 1.17%)</title><rect x="416.2" y="333" width="20.9" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="419.17" y="343.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="873.1" y="221" width="6.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="876.12" y="231.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="926.9" y="237" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="929.88" y="247.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.34%)</title><rect x="1736.2" y="413" width="6.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1739.24" y="423.5" ></text>
+</g>
+<g >
+<title>void CTransaction::Serialize&lt;CSizeComputer&gt; (12,000,022 instructions, 0.34%)</title><rect x="1019.5" y="317" width="5.9" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="1022.46" y="327.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="909.0" y="253" width="5.9" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="911.96" y="263.5" ></text>
+</g>
+<g >
+<title>CScript::GetSigOpCount (36,000,066 instructions, 1.01%)</title><rect x="1028.4" y="301" width="17.9" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1031.42" y="311.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::basic_string&lt;std::allocator&lt;char&gt; &gt; (6,000,011 instructions, 0.17%)</title><rect x="1180.7" y="365" width="3.0" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="1183.74" y="375.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_replace (6,000,011 instructions, 0.17%)</title><rect x="1652.6" y="301" width="3.0" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="1655.62" y="311.5" ></text>
+</g>
+<g >
+<title>EncodeHexTx[abi:cxx11] (270,000,495 instructions, 7.55%)</title><rect x="75.7" y="365" width="134.4" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="78.70" y="375.5" >EncodeHexTx[abi:..</text>
+</g>
+<g >
+<title>_int_free_merge_chunk (6,000,011 instructions, 0.17%)</title><rect x="986.6" y="285" width="3.0" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="989.61" y="295.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::push_back (6,000,011 instructions, 0.17%)</title><rect x="434.1" y="317" width="3.0" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="437.09" y="327.5" ></text>
+</g>
+<g >
+<title>[unknown] (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="525" width="1780.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.00" y="535.5" >[unknown]</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (30,000,055 instructions, 0.84%)</title><rect x="1697.4" y="333" width="14.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1700.42" y="343.5" ></text>
+</g>
+<g >
+<title>ExecuteCommand (2,388,004,378 instructions, 66.78%)</title><rect x="10.0" y="445" width="1188.7" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="13.00" y="455.5" >ExecuteCommand</text>
+</g>
+<g >
+<title>void WriteCompactSize&lt;CDataStream&gt; (18,000,033 instructions, 0.50%)</title><rect x="126.5" y="333" width="8.9" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="129.48" y="343.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::find (6,000,011 instructions, 0.17%)</title><rect x="774.6" y="285" width="3.0" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="777.56" y="295.5" ></text>
+</g>
+<g >
+<title>UniValue::~UniValue (72,000,132 instructions, 2.01%)</title><rect x="481.9" y="365" width="35.8" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="484.88" y="375.5" >Uni..</text>
+</g>
+<g >
+<title>leveldb::DBImpl::Get (300,000,550 instructions, 8.39%)</title><rect x="595.4" y="205" width="149.3" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="598.37" y="215.5" >leveldb::DBImpl::Get</text>
+</g>
+<g >
+<title>std::chrono::_V2::system_clock::now (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="237" width="2.9" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="577.46" y="247.5" ></text>
+</g>
+<g >
+<title>CSporkManager::IsSporkActive (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="285" width="2.9" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="577.46" y="295.5" ></text>
+</g>
+<g >
+<title>UniValue::~UniValue (54,000,099 instructions, 1.51%)</title><rect x="1760.1" y="461" width="26.9" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1763.13" y="471.5" >U..</text>
+</g>
+<g >
+<title>TestBlockValidity (1,020,001,870 instructions, 28.52%)</title><rect x="544.6" y="349" width="507.7" height="15.0" fill="rgb(241,165,39)" rx="2" ry="2" />
+<text  x="547.60" y="359.5" >TestBlockValidity</text>
+</g>
+<g >
+<title>[unknown] (6,000,011 instructions, 0.17%)</title><rect x="574.5" y="205" width="2.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="577.46" y="215.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (12,000,022 instructions, 0.34%)</title><rect x="738.7" y="189" width="6.0" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="741.72" y="199.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (18,000,033 instructions, 0.50%)</title><rect x="251.9" y="301" width="9.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="254.91" y="311.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (12,000,022 instructions, 0.34%)</title><rect x="959.7" y="253" width="6.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="962.73" y="263.5" ></text>
+</g>
+<g >
+<title>start_thread (3,576,006,556 instructions, 100.00%)</title><rect x="10.0" y="541" width="1780.0" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="13.00" y="551.5" >start_thread</text>
+</g>
+<g >
+<title>operator new (6,000,011 instructions, 0.17%)</title><rect x="670.0" y="77" width="3.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="673.03" y="87.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (216,000,396 instructions, 6.04%)</title><rect x="216.1" y="365" width="107.5" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="219.07" y="375.5" >UniValue::Uni..</text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.34%)</title><rect x="971.7" y="301" width="6.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="974.68" y="311.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::HaveInputs (108,000,198 instructions, 3.02%)</title><rect x="867.1" y="301" width="53.8" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="870.15" y="311.5" >CCoin..</text>
+</g>
+<g >
+<title>CheckBlock (48,000,088 instructions, 1.34%)</title><rect x="783.5" y="317" width="23.9" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="786.52" y="327.5" >C..</text>
+</g>
+<g >
+<title>leveldb::Version::Get(leveldb::ReadOptions const&amp;, leveldb::LookupKey const&amp;, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;*, leveldb::Version::GetStats*)::State::Match (234,000,429 instructions, 6.54%)</title><rect x="622.2" y="157" width="116.5" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="625.25" y="167.5" >leveldb::Versi..</text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_replace (6,000,011 instructions, 0.17%)</title><rect x="440.1" y="349" width="3.0" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="443.07" y="359.5" ></text>
+</g>
+<g >
+<title>Params (6,000,011 instructions, 0.17%)</title><rect x="1133.0" y="301" width="2.9" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="1135.95" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (6,000,011 instructions, 0.17%)</title><rect x="726.8" y="109" width="3.0" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="729.78" y="119.5" ></text>
+</g>
+<g >
+<title>UniValue::pushKV (144,000,264 instructions, 4.03%)</title><rect x="329.6" y="365" width="71.6" height="15.0" fill="rgb(254,225,53)" rx="2" ry="2" />
+<text  x="332.56" y="375.5" >UniValue..</text>
+</g>
+<g >
+<title>__strlen_avx2_rtm (6,000,011 instructions, 0.17%)</title><rect x="523.7" y="365" width="3.0" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="526.69" y="375.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::AccessCoin (6,000,011 instructions, 0.17%)</title><rect x="577.4" y="317" width="3.0" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="580.45" y="327.5" ></text>
+</g>
+<g >
+<title>_int_malloc (6,000,011 instructions, 0.17%)</title><rect x="1222.6" y="349" width="2.9" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1225.55" y="359.5" ></text>
+</g>
+<g >
+<title>UniValue::~UniValue (6,000,011 instructions, 0.17%)</title><rect x="19.0" y="381" width="2.9" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="21.96" y="391.5" ></text>
+</g>
+<g >
+<title>UniValue::writeObject (888,001,628 instructions, 24.83%)</title><rect x="1255.4" y="333" width="442.0" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="1258.40" y="343.5" >UniValue::writeObject</text>
+</g>
+<g >
+<title>std::_Hashtable&lt;COutPoint, std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, PoolAllocator&lt;std::pair&lt;COutPoint const, CCoinsCacheEntry&gt;, 128ul, 8ul&gt;, std::__detail::_Select1st, std::equal_to&lt;COutPoint&gt;, SaltedOutpointHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;false, false, true&gt; &gt;::_M_insert_unique_node (24,000,044 instructions, 0.67%)</title><rect x="897.0" y="269" width="12.0" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="900.01" y="279.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (6,000,011 instructions, 0.17%)</title><rect x="1171.8" y="333" width="3.0" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1174.78" y="343.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (6,000,011 instructions, 0.17%)</title><rect x="517.7" y="365" width="3.0" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="520.72" y="375.5" ></text>
+</g>
+<g >
+<title>base_blob&lt;256u&gt;::GetHex[abi:cxx11] (24,000,044 instructions, 0.67%)</title><rect x="526.7" y="365" width="11.9" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="529.68" y="375.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,011 instructions, 0.17%)</title><rect x="466.9" y="333" width="3.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="469.95" y="343.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_dispose (6,000,011 instructions, 0.17%)</title><rect x="1049.3" y="333" width="3.0" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="1052.33" y="343.5" ></text>
+</g>
+<g >
+<title>SipHashUint256Extra (6,000,011 instructions, 0.17%)</title><rect x="894.0" y="253" width="3.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="897.03" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::GetVarint64 (12,000,022 instructions, 0.34%)</title><rect x="711.8" y="93" width="6.0" height="15.0" fill="rgb(220,71,17)" rx="2" ry="2" />
+<text  x="714.85" y="103.5" ></text>
+</g>
+<g >
+<title>CChainstateHelper::ConflictingISLockIfAny (18,000,033 instructions, 0.50%)</title><rect x="568.5" y="317" width="8.9" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="571.49" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::Get (6,000,011 instructions, 0.17%)</title><rect x="744.7" y="205" width="3.0" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="747.70" y="215.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_replace (6,000,011 instructions, 0.17%)</title><rect x="1694.4" y="317" width="3.0" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="1697.43" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::Get (276,000,506 instructions, 7.72%)</title><rect x="601.3" y="189" width="137.4" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="604.34" y="199.5" >leveldb::Version:..</text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="628.2" y="109" width="3.0" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="631.22" y="119.5" ></text>
+</g>
+<g >
+<title>malloc (6,000,011 instructions, 0.17%)</title><rect x="302.7" y="349" width="3.0" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="305.68" y="359.5" ></text>
+</g>
+<g >
+<title>std::locale::locale (12,000,022 instructions, 0.34%)</title><rect x="464.0" y="349" width="5.9" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="466.96" y="359.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (96,000,176 instructions, 2.68%)</title><rect x="1204.6" y="429" width="47.8" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1207.63" y="439.5" >UniV..</text>
+</g>
+<g >
+<title>leveldb::Version::ForEachOverlapping (258,000,473 instructions, 7.21%)</title><rect x="610.3" y="173" width="128.4" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="613.30" y="183.5" >leveldb::Version..</text>
+</g>
+<g >
+<title>ArgsManager::GetSetting (12,000,022 instructions, 0.34%)</title><rect x="1103.1" y="301" width="6.0" height="15.0" fill="rgb(232,124,29)" rx="2" ry="2" />
+<text  x="1106.09" y="311.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree_iterator&lt;std::pair&lt;uint256 const, long&gt; &gt; std::_Rb_tree&lt;uint256, std::pair&lt;uint256 const, long&gt;, std::_Select1st&lt;std::pair&lt;uint256 const, long&gt; &gt;, std::less&lt;uint256&gt;, std::allocator&lt;std::pair&lt;uint256 const, long&gt; &gt; &gt;::_M_emplace_hint_unique&lt;std::piecewise_construct_t const&amp;, std::tuple&lt;uint256 const&amp;&gt;, std::tuple&lt;&gt; &gt; (6,000,011 instructions, 0.17%)</title><rect x="1177.8" y="365" width="2.9" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="1180.75" y="375.5" ></text>
+</g>
+<g >
+<title>CTxMemPool::AssumeCalculateMemPoolAncestors (18,000,033 instructions, 0.50%)</title><rect x="1064.3" y="333" width="8.9" height="15.0" fill="rgb(250,211,50)" rx="2" ry="2" />
+<text  x="1067.26" y="343.5" ></text>
+</g>
+<g >
+<title>UniValue::UniValue (54,000,099 instructions, 1.51%)</title><rect x="1210.6" y="381" width="26.9" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1213.60" y="391.5" >U..</text>
+</g>
+<g >
+<title>SequenceLocks (42,000,077 instructions, 1.17%)</title><rect x="929.9" y="317" width="20.9" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="932.87" y="327.5" ></text>
+</g>
+<g >
+<title>std::basic_ios&lt;char, std::char_traits&lt;char&gt; &gt;::_M_cache_locale (6,000,011 instructions, 0.17%)</title><rect x="452.0" y="333" width="3.0" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="455.01" y="343.5" ></text>
+</g>
+<g >
+<title>NodeClock::now (6,000,011 instructions, 0.17%)</title><rect x="1130.0" y="285" width="3.0" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1132.97" y="295.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (12,000,022 instructions, 0.34%)</title><rect x="1748.2" y="429" width="6.0" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="1751.19" y="439.5" ></text>
+</g>
+<g >
+<title>HexStr[abi:cxx11] (6,000,011 instructions, 0.17%)</title><rect x="210.1" y="365" width="3.0" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="213.10" y="375.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="1147.9" y="285" width="3.0" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="1150.89" y="295.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (6,000,011 instructions, 0.17%)</title><rect x="732.8" y="125" width="2.9" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="735.75" y="135.5" ></text>
+</g>
+<g >
+<title>CMNHFManager::GetSignalsStage (6,000,011 instructions, 0.17%)</title><rect x="1141.9" y="269" width="3.0" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1144.91" y="279.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::allocator&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; &gt; &gt;::vector (12,000,022 instructions, 0.34%)</title><rect x="1246.4" y="381" width="6.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1249.44" y="391.5" ></text>
+</g>
+<g >
+<title>std::pair&lt;std::_Rb_tree_iterator&lt;COutPoint&gt;, bool&gt; std::_Rb_tree&lt;COutPoint, COutPoint, std::_Identity&lt;COutPoint&gt;, std::less&lt;COutPoint&gt;, std::allocator&lt;COutPoint&gt; &gt;::_M_insert_unique&lt;COutPoint const&amp;&gt; (18,000,033 instructions, 0.50%)</title><rect x="786.5" y="285" width="9.0" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="789.51" y="295.5" ></text>
+</g>
+<g >
+<title>CScript::GetSigOpCount (6,000,011 instructions, 0.17%)</title><rect x="1025.4" y="317" width="3.0" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1028.44" y="327.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (18,000,033 instructions, 0.50%)</title><rect x="1294.2" y="301" width="9.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1297.23" y="311.5" ></text>
+</g>
+<g >
+<title>node::BlockAssembler::addPackageTxs (240,000,440 instructions, 6.71%)</title><rect x="1052.3" y="349" width="119.5" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="1055.32" y="359.5" >node::BlockAss..</text>
+</g>
+<g >
+<title>UniValue::push_back (12,000,022 instructions, 0.34%)</title><rect x="13.0" y="381" width="6.0" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="15.99" y="391.5" ></text>
+</g>
+<g >
+<title>malloc@plt (6,000,011 instructions, 0.17%)</title><rect x="248.9" y="317" width="3.0" height="15.0" fill="rgb(246,192,46)" rx="2" ry="2" />
+<text  x="251.93" y="327.5" ></text>
+</g>
+<g >
+<title>memcpy@plt (6,000,011 instructions, 0.17%)</title><rect x="478.9" y="317" width="3.0" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="481.89" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::TableCache::FindTable (6,000,011 instructions, 0.17%)</title><rect x="729.8" y="125" width="3.0" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="732.77" y="135.5" ></text>
+</g>
+<g >
+<title>_int_malloc (12,000,022 instructions, 0.34%)</title><rect x="532.7" y="301" width="5.9" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="535.65" y="311.5" ></text>
+</g>
+<g >
+<title>UniValue::write[abi:cxx11] (972,001,782 instructions, 27.18%)</title><rect x="1252.4" y="413" width="483.8" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1255.42" y="423.5" >UniValue::write[abi:cxx11]</text>
+</g>
+<g >
+<title>_int_malloc (12,000,022 instructions, 0.34%)</title><rect x="278.8" y="301" width="6.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="281.79" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (30,000,055 instructions, 0.84%)</title><rect x="696.9" y="77" width="14.9" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="699.91" y="87.5" ></text>
+</g>
+</g>
+</svg>
