@@ -1,0 +1,8 @@
+# check-fork-push.sh, check 2: the trees whose blobs count as already public. A run of bytes that a
+# pushed blob shares with a private file is not reported when the whole run also occurs in one of
+# these blobs. One source per line: <git dir> <ref prefix>...; the tip tree of every ref under a
+# prefix is read. Only remote-tracking refs of public GitHub repositories belong here. `.` is the
+# repository being checked; `~/` is $HOME.
+. refs/remotes/upstream/ refs/remotes/origin/
+~/workspace/dash refs/remotes/upstream/ refs/remotes/bitcoin/
+~/workspace/base-sdk refs/remotes/origin/ refs/remotes/pasta/
