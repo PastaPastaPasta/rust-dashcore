@@ -1,0 +1,40 @@
+[package]
+name = "dash-chainparams"
+description = "The node's chain parameters (Core's CChainParams): base-sdk's stateless dash-params today, re-exported unchanged; the node-side setup, policy and devnet surface moves here (POL-3, DEC-1042)."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_chainparams"
+path = "src/lib.rs"
+
+[features]
+default = []
+std = ["bsdk-params/std"]
+full = ["bsdk-params/full"]
+portable = ["bsdk-params/portable"]
+
+[dependencies]
+# base-sdk's `dash-params` under another name, so that consumers can keep the path name
+# `dash_params` for this crate (DEC-1043).
+bsdk-params = { workspace = true }
+
+# base-sdk's `dash-pow`, reached through `dash-params`, needs `portable` on targets without
+# the CPU features its accelerated X11 requires; enabling it here, as dash-network does,
+# keeps this crate building on its own.
+[target.'cfg(all(target_arch = "aarch64", not(all(target_feature = "neon", target_feature = "aes"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "x86_64", not(all(target_feature = "aes", target_feature = "avx", target_feature = "avx2", target_feature = "bmi1", target_feature = "bmi2", target_feature = "f16c", target_feature = "fma", target_feature = "lzcnt", target_feature = "movbe", target_feature = "xsave"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "wasm32", not(target_feature = "simd128")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(not(any(target_arch = "aarch64", target_arch = "x86_64", target_arch = "wasm32")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
