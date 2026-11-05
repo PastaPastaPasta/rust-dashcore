@@ -1,0 +1,11 @@
+# MicroLog planted bug P4 (ST3a §6.1), minimised in 32 replays.
+harness st3a/1
+sut microlog
+config bug=P4 max=1024
+workload a300:2;c;a300:3;c
+crash 7 power-loss
+decide 1:micro:b0=1
+adversary realistic
+granularity write
+expect R4
+minimality verified
