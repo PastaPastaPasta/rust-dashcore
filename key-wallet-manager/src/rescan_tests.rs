@@ -310,10 +310,11 @@ async fn test_unchainlocked_rescan_emits_the_record_an_output_a_later_payment_de
     output_a_later_payment_derives(ChainLockAt::Never).await;
 }
 
-/// A late output spent in the next block, before any rescan reaches it, must
-/// not come back as unspent when the rescan re-delivers its funding block,
-/// and neither must the output the first pass already held and the next
-/// block spent.
+/// A late output spent in the next block, before any rescan reaches it, and
+/// the output the first pass already held that the next block also spends,
+/// must both end spent once the rescan has re-delivered the two blocks. Once
+/// the observed spends are pruned, the funding block's re-delivery credits
+/// the late output until the next block's re-delivery spends it.
 async fn spent_outputs_stay_spent(chain_lock_at: ChainLockAt) {
     let (mut manager, wallet_id, _) = setup_manager_with_wallet();
     let (late, extending) = late_and_extending(&manager, &wallet_id);
