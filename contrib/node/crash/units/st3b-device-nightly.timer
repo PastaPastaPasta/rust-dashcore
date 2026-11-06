@@ -1,0 +1,10 @@
+[Unit]
+Description=ST3b device-level power-loss nightly at 04:10 UTC (PLAN-ST3b §10)
+
+[Timer]
+# Clear of the gfast nightly (21:47) and ch3a's (03:23).
+OnCalendar=*-*-* 04:10:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
