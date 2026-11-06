@@ -1,0 +1,10 @@
+# CRASH planted bug T9 (CH2 §6.4), minimised in 5 replays.
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=- planted=T9
+workload f
+fault nth fs sync-data 0 io applied
+adversary realistic
+granularity write
+expect R8
+minimality verified
