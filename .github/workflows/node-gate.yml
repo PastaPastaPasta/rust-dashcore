@@ -682,14 +682,14 @@ jobs:
         run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
 
       # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
-      - name: dashd 24.0.0-rc.5
+      - name: dashd 24.0.0
         if: matrix.kind == 'test' || matrix.kind == 'lib'
         env:
-          DASHVERSION: 24.0.0-rc.5
+          DASHVERSION: 24.0.0
         run: |
           set -o pipefail
           v=$(python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
-          [ -x "$v" ] || { echo "::error::no dashd 24.0.0-rc.5 (gate_env's ST2_DASHD)"; exit 1; }
+          [ -x "$v" ] || { echo "::error::no dashd 24.0.0 (gate_env's ST2_DASHD)"; exit 1; }
           echo "ST2_DASHD=$v" >> "$GITHUB_ENV"
 
       # dash-testkit starts the rdashd at RDASHD_PATH: built without features (no test hooks), copied
