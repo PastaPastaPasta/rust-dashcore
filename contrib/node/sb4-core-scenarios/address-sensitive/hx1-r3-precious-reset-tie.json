@@ -1,0 +1,47 @@
+{
+ "name": "hx1-r3-precious-reset-tie",
+ "rows": [],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 3,
+   "submit": "connect"
+  },
+  {
+   "op": "precious",
+   "block": "A3"
+  },
+  {
+   "op": "invalidate",
+   "block": "A3"
+  },
+  {
+   "op": "precious",
+   "block": "A2"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A1",
+   "count": 2,
+   "submit": "connect"
+  },
+  {
+   "op": "precious",
+   "block": "B3"
+  },
+  {
+   "op": "reconsider",
+   "block": "A3"
+  }
+ ],
+ "description": "Sol HX1 r3 R3-1: precious A3, invalidate it, precious A2, then precious B3 resets Core's reverse sequence counter (validation.cpp:3868-3878), so B3 gets nSequenceId -1 like A3; reconsider A3 makes the two equal-work, equal-id blocks compete by address (blockstorage.cpp:43-45) with no reload and one failed block"
+}
