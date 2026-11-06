@@ -1,0 +1,368 @@
+diff --git a/src/test/util/o4_dump.h b/src/test/util/o4_dump.h
+new file mode 100644
+--- /dev/null
++++ b/src/test/util/o4_dump.h
+@@ -0,0 +1,191 @@
++// Copyright (c) 2026 The Dash Core developers
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++#ifndef BITCOIN_TEST_UTIL_O4_DUMP_H
++#define BITCOIN_TEST_UTIL_O4_DUMP_H
++
++// Node-program task O4: record what Dash Core's own unit tests compute so that it can be reused
++// as test vectors. Everything here is inert unless the O4_VECTOR_OUT environment variable names
++// an output directory; the instrumented tests keep all of their assertions.
++//
++// Each instrumented test calls O4_RECORD("<file>", <UniValue object>) next to the check it
++// mirrors, with the value Core actually computed. At process exit every file is written as
++//   {"source": "<test file>", "records": [ <one record per line> ]}
++// to $O4_VECTOR_OUT/<file>.json.
++
++#include <script/interpreter.h>
++#include <script/script.h>
++#include <util/strencodings.h>
++
++#include <univalue.h>
++
++#include <algorithm>
++#include <cstdlib>
++#include <fstream>
++#include <map>
++#include <set>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace o4 {
++
++class Dump
++{
++public:
++    static Dump& Get()
++    {
++        static Dump instance;
++        return instance;
++    }
++
++    bool Enabled() const { return !m_dir.empty(); }
++
++    void Add(const std::string& file, UniValue record)
++    {
++        if (!Enabled()) return;
++        m_files[file].push_back(std::move(record));
++    }
++
++    //! Like Add(), but at most once per `key`; returns false if `key` was already recorded.
++    bool AddOnce(const std::string& file, const std::string& key, UniValue record)
++    {
++        if (!Enabled()) return false;
++        if (!m_seen.insert(file + '\0' + key).second) return false;
++        m_files[file].push_back(std::move(record));
++        return true;
++    }
++
++    ~Dump()
++    {
++        if (!Enabled()) return;
++        for (const auto& [file, records] : m_files) {
++            std::ofstream out(m_dir + "/" + file + ".json", std::ios::binary);
++            out << "{\n\"source\": " << UniValue("src/test/" + file + ".cpp").write() << ",\n\"records\": [\n";
++            for (size_t i = 0; i < records.size(); ++i) {
++                out << records[i].write() << (i + 1 < records.size() ? ",\n" : "\n");
++            }
++            out << "]\n}\n";
++        }
++    }
++
++private:
++    Dump()
++    {
++        if (const char* dir = std::getenv("O4_VECTOR_OUT"); dir != nullptr) m_dir = dir;
++    }
++
++    std::string m_dir;
++    std::map<std::string, std::vector<UniValue>> m_files;
++    std::set<std::string> m_seen;
++};
++
++inline UniValue Obj(std::initializer_list<std::pair<std::string, UniValue>> members)
++{
++    UniValue o(UniValue::VOBJ);
++    for (const auto& [k, v] : members) o.pushKV(k, v);
++    return o;
++}
++
++inline UniValue Arr(const std::vector<UniValue>& items)
++{
++    UniValue a(UniValue::VARR);
++    for (const auto& i : items) a.push_back(i);
++    return a;
++}
++
++inline UniValue Int(int64_t v) { return UniValue(v); }
++
++inline UniValue Hex(const std::vector<unsigned char>& v) { return UniValue(HexStr(v)); }
++
++inline UniValue HexStack(const std::vector<std::vector<unsigned char>>& stack)
++{
++    UniValue a(UniValue::VARR);
++    for (const auto& item : stack) a.push_back(HexStr(item));
++    return a;
++}
++
++//! The names script_tests.json uses for script errors.
++inline const char* ScriptErrorName(ScriptError err)
++{
++    switch (err) {
++    case SCRIPT_ERR_OK: return "OK";
++    case SCRIPT_ERR_UNKNOWN_ERROR: return "UNKNOWN_ERROR";
++    case SCRIPT_ERR_EVAL_FALSE: return "EVAL_FALSE";
++    case SCRIPT_ERR_OP_RETURN: return "OP_RETURN";
++    case SCRIPT_ERR_SCRIPT_SIZE: return "SCRIPT_SIZE";
++    case SCRIPT_ERR_PUSH_SIZE: return "PUSH_SIZE";
++    case SCRIPT_ERR_OP_COUNT: return "OP_COUNT";
++    case SCRIPT_ERR_STACK_SIZE: return "STACK_SIZE";
++    case SCRIPT_ERR_SIG_COUNT: return "SIG_COUNT";
++    case SCRIPT_ERR_PUBKEY_COUNT: return "PUBKEY_COUNT";
++    case SCRIPT_ERR_VERIFY: return "VERIFY";
++    case SCRIPT_ERR_EQUALVERIFY: return "EQUALVERIFY";
++    case SCRIPT_ERR_CHECKMULTISIGVERIFY: return "CHECKMULTISIGVERIFY";
++    case SCRIPT_ERR_CHECKSIGVERIFY: return "CHECKSIGVERIFY";
++    case SCRIPT_ERR_CHECKDATASIGVERIFY: return "CHECKDATASIGVERIFY";
++    case SCRIPT_ERR_NUMEQUALVERIFY: return "NUMEQUALVERIFY";
++    case SCRIPT_ERR_BAD_OPCODE: return "BAD_OPCODE";
++    case SCRIPT_ERR_DISABLED_OPCODE: return "DISABLED_OPCODE";
++    case SCRIPT_ERR_INVALID_STACK_OPERATION: return "INVALID_STACK_OPERATION";
++    case SCRIPT_ERR_INVALID_ALTSTACK_OPERATION: return "INVALID_ALTSTACK_OPERATION";
++    case SCRIPT_ERR_UNBALANCED_CONDITIONAL: return "UNBALANCED_CONDITIONAL";
++    case SCRIPT_ERR_NEGATIVE_LOCKTIME: return "NEGATIVE_LOCKTIME";
++    case SCRIPT_ERR_UNSATISFIED_LOCKTIME: return "UNSATISFIED_LOCKTIME";
++    case SCRIPT_ERR_SIG_HASHTYPE: return "SIG_HASHTYPE";
++    case SCRIPT_ERR_SIG_DER: return "SIG_DER";
++    case SCRIPT_ERR_MINIMALDATA: return "MINIMALDATA";
++    case SCRIPT_ERR_SIG_PUSHONLY: return "SIG_PUSHONLY";
++    case SCRIPT_ERR_SIG_HIGH_S: return "SIG_HIGH_S";
++    case SCRIPT_ERR_SIG_NULLDUMMY: return "SIG_NULLDUMMY";
++    case SCRIPT_ERR_PUBKEYTYPE: return "PUBKEYTYPE";
++    case SCRIPT_ERR_CLEANSTACK: return "CLEANSTACK";
++    case SCRIPT_ERR_SIG_NULLFAIL: return "NULLFAIL";
++    case SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS: return "DISCOURAGE_UPGRADABLE_NOPS";
++    case SCRIPT_ERR_INVALID_SPLIT_RANGE: return "SPLIT_RANGE";
++    case SCRIPT_ERR_INVALID_OPERAND_SIZE: return "OPERAND_SIZE";
++    case SCRIPT_ERR_INVALID_NUMBER_RANGE: return "INVALID_NUMBER_RANGE";
++    case SCRIPT_ERR_DIV_BY_ZERO: return "DIV_BY_ZERO";
++    case SCRIPT_ERR_MOD_BY_ZERO: return "MOD_BY_ZERO";
++    case SCRIPT_ERR_OP_CODESEPARATOR: return "OP_CODESEPARATOR";
++    case SCRIPT_ERR_SIG_FINDANDDELETE: return "SIG_FINDANDDELETE";
++    case SCRIPT_ERR_IMPOSSIBLE_ENCODING: return "IMPOSSIBLE_ENCODING";
++    case SCRIPT_ERR_ERROR_COUNT: break;
++    }
++    return "UNKNOWN";
++}
++
++//! Selection for the DIP0020 opcode test, which sweeps every operand width from 1 to 521 bytes with
++//! many patterns (95k evaluations, 130 MB of JSON). Every evaluation whose script and operands are
++//! at most 33 bytes is kept (this covers the 4-byte CScriptNum limit, the 8- and 32-byte widths and
++//! the push-size boundaries). Wider ones are kept only at the element-size limit (520 and 521
++//! bytes), and only six per (final opcode, outcome), which gives every opcode both its limit
++//! success and its limit failures. Evaluations are deduplicated by (script, stack, flags).
++inline bool KeepDip0020(const CScript& script, const std::vector<std::vector<unsigned char>>& in,
++                        const std::vector<std::vector<unsigned char>>& out, uint32_t flags, ScriptError err)
++{
++    static std::set<std::string> seen;
++    static std::map<std::string, int> wide_per_outcome;
++    size_t widest = script.size();
++    for (const auto& item : in) widest = std::max(widest, item.size());
++    for (const auto& item : out) widest = std::max(widest, item.size());
++    if (widest > 33 && widest < 520) return false;
++    std::string key = HexStr(script) + "|" + std::to_string(flags);
++    for (const auto& item : in) key += "|" + HexStr(item);
++    if (!seen.insert(key).second) return false;
++    if (widest >= 520) {
++        const std::string outcome = std::to_string(script.empty() ? -1 : script.back()) + "|" + ScriptErrorName(err);
++        if (++wide_per_outcome[outcome] > 6) return false;
++    }
++    return true;
++}
++
++} // namespace o4
++
++#define O4_RECORD(file, record)                                       \
++    do {                                                              \
++        if (o4::Dump::Get().Enabled()) o4::Dump::Get().Add(file, record); \
++    } while (0)
++
++#endif // BITCOIN_TEST_UTIL_O4_DUMP_H
+diff --git a/src/test/evo_snapshot_tests.cpp b/src/test/evo_snapshot_tests.cpp
+--- a/src/test/evo_snapshot_tests.cpp
++++ b/src/test/evo_snapshot_tests.cpp
+@@ -2,6 +2,7 @@
+ // Distributed under the MIT software license, see the accompanying
+ // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <clientversion.h>
+@@ -113,6 +114,71 @@
+     return list;
+ }
+ 
++// O2a-EV: record the masternode lists and diffs these tests build and read, with what Core
++// computed (evo_snapshot_tests.json under O4_VECTOR_OUT); the checks are unchanged.
++std::vector<unsigned char> Bytes(const CDataStream& s) { return {UCharCast(s.data()), UCharCast(s.data() + s.size())}; }
++
++//! A list as the tests built it: Core's evodb bytes, canonical bytes and CanonicalMNListHash.
++void RecordList(const std::string& name, const CDeterministicMNList& list)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream disk{SER_DISK, CLIENT_VERSION}, canonical{SER_DISK, CLIENT_VERSION};
++    disk << list;
++    evo::SerializeCanonicalMNList(canonical, list);
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"list"}}, {"case", UniValue{name}},
++                                             {"disk", o4::Hex(Bytes(disk))}, {"canonical", o4::Hex(Bytes(canonical))},
++                                             {"hash", UniValue{HexStr(evo::CanonicalMNListHash(list))}}}));
++}
++
++//! Bytes a test gives UnserializeCanonicalMNList: Core's verdict, re-encoding and hash.
++void RecordRead(const std::string& name, const CDataStream& bytes)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    UniValue record{o4::Obj({{"kind", UniValue{"read"}}, {"case", UniValue{name}}, {"input", o4::Hex(Bytes(bytes))}})};
++    CDataStream input{bytes};
++    try {
++        const auto list{evo::UnserializeCanonicalMNList(input)};
++        CDataStream canonical{SER_DISK, CLIENT_VERSION};
++        evo::SerializeCanonicalMNList(canonical, list);
++        record.pushKV("accepted", true);
++        record.pushKV("trailing", o4::Int(input.size()));
++        record.pushKV("canonical", o4::Hex(Bytes(canonical)));
++        record.pushKV("hash", HexStr(evo::CanonicalMNListHash(list)));
++    } catch (const std::ios_base::failure& e) {
++        record.pushKV("accepted", false);
++        record.pushKV("error", e.what());
++    }
++    O4_RECORD("evo_snapshot_tests", record);
++}
++
++//! from.BuildDiff(to) in the canonical diff encoding.
++void RecordDiff(const std::string& name, const CDeterministicMNList& from, const CDeterministicMNList& to,
++                const CDeterministicMNListDiff& diff)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream a{SER_DISK, CLIENT_VERSION}, b{SER_DISK, CLIENT_VERSION}, d{SER_DISK, CLIENT_VERSION};
++    evo::SerializeCanonicalMNList(a, from);
++    evo::SerializeCanonicalMNList(b, to);
++    evo::SerializeCanonicalMNListDiff(d, diff);
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"diff"}}, {"case", UniValue{name}},
++                                             {"from", o4::Hex(Bytes(a))}, {"to", o4::Hex(Bytes(b))},
++                                             {"diff", o4::Hex(Bytes(d))}}));
++}
++
++//! CDeterministicMNStateDiff(old_state, new_state) and its serialization.
++void RecordStateDiff(const std::string& name, const CDeterministicMNState& old_state,
++                     const CDeterministicMNState& new_state, const CDeterministicMNStateDiff& diff)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream a{SER_DISK, CLIENT_VERSION}, b{SER_DISK, CLIENT_VERSION}, d{SER_DISK, CLIENT_VERSION};
++    a << old_state;
++    b << new_state;
++    d << diff;
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"state_diff"}}, {"case", UniValue{name}},
++                                             {"old", o4::Hex(Bytes(a))}, {"new", o4::Hex(Bytes(b))},
++                                             {"diff", o4::Hex(Bytes(d))}}));
++}
++
+ evo::MinedQuorumCommitment Commitment(Consensus::LLMQType type, uint8_t quorum, uint8_t mined, bool rotated,
+                                       int16_t index = 0)
+ {
+@@ -238,6 +304,8 @@
+     const auto reverse_bytes{SerializeSnapshot(reverse)};
+     BOOST_CHECK_EQUAL_COLLECTIONS(forward_bytes.begin(), forward_bytes.end(), reverse_bytes.begin(), reverse_bytes.end());
+     BOOST_CHECK(evo::CanonicalMNListHash(forward.mn_list) == evo::CanonicalMNListHash(reverse.mn_list));
++    RecordList("synthetic_forward", forward.mn_list);
++    RecordList("synthetic_reverse", reverse.mn_list);
+     BOOST_CHECK(GetEvoSnapshotHash(forward) == GetEvoSnapshotHash(reverse));
+ 
+     CDataStream input{forward_bytes};
+@@ -327,6 +395,7 @@
+ {
+     BOOST_CHECK(evo::CanonicalMNListHash(CDeterministicMNList{}) ==
+                 evo::CanonicalMNListHash(CDeterministicMNList{}));
++    RecordList("default_list", CDeterministicMNList{});
+     const auto write_raw = [](uint32_t total, std::vector<CDeterministicMNCPtr> mns) {
+         CDataStream stream{SER_DISK, CLIENT_VERSION};
+         stream << H(42) << 42 << total;
+@@ -336,8 +405,10 @@
+     };
+     auto unsorted{write_raw(10, {MN(2, 2, MnType::Regular, ProTxVersion::LegacyBLS, 2),
+                                  MN(1, 1, MnType::Regular, ProTxVersion::LegacyBLS, 1)})};
++    RecordRead("unsorted", unsorted);
+     BOOST_CHECK_THROW(evo::UnserializeCanonicalMNList(unsorted), std::ios_base::failure);
+     auto bad_counter{write_raw(2, {MN(2, 1, MnType::Regular, ProTxVersion::LegacyBLS, 1)})};
++    RecordRead("bad_counter", bad_counter);
+     BOOST_CHECK_THROW(evo::UnserializeCanonicalMNList(bad_counter), std::ios_base::failure);
+ }
+ 
+@@ -354,6 +425,9 @@
+         target.UpdateMN(*dmn, state);
+     }
+     const auto diff{base.BuildDiff(target)};
++    RecordList("diff_chain_base", base);
++    RecordList("diff_chain_target", target);
++    RecordDiff("diff_chain", base, target, diff);
+     auto permuted{diff};
+     std::reverse(permuted.addedMNs.begin(), permuted.addedMNs.end());
+     std::vector<std::pair<uint64_t, CDeterministicMNStateDiff>> updates(permuted.updatedMNs.begin(),
+@@ -373,6 +447,7 @@
+     reconstructed.ApplyDiffForSnapshot(H(11), 99, target.GetTotalRegisteredCount(), decoded);
+     target.ApplyDiffForSnapshot(H(11), 99, target.GetTotalRegisteredCount(), CDeterministicMNListDiff{});
+     BOOST_CHECK(evo::CanonicalMNListHash(reconstructed) == evo::CanonicalMNListHash(target));
++    RecordList("diff_chain_reconstructed", reconstructed);
+     BOOST_CHECK(canonical.empty());
+ }
+ 
+@@ -538,6 +613,7 @@
+         list << H(42) << 500 << uint32_t{10};
+         WriteCompactSize(list, 1);
+         list.write(Span{lazy});
++        RecordRead(legacy ? "undecodable_operator_key_legacy" : "undecodable_operator_key_basic", list);
+         BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(list), std::ios_base::failure, noncanonical);
+ 
+         CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -606,6 +682,7 @@
+     base << H(42) << 500 << uint32_t{10};
+     WriteCompactSize(base, 1);
+     base.write(Span{malformed});
++    RecordRead("unset_internal_id", base);
+     BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(base), std::ios_base::failure, invalid_id);
+ 
+     CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -1051,6 +1128,7 @@
+         base << H(42) << 42 << uint32_t{10};
+         WriteCompactSize(base, 1);
+         base.write(Span{changed_mn});
++        RecordRead(duplicate ? "netinfo_duplicate_entry" : "netinfo_reversed_entries", base);
+         BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(base), std::ios_base::failure, is_noncanonical);
+ 
+         CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -1062,6 +1140,7 @@
+ 
+         const auto old_mn{MN(5, 1, MnType::Evo, ProTxVersion::ExtAddr, 6)};
+         const CDeterministicMNStateDiff state_diff{*old_mn->pdmnState, *mn->pdmnState};
++        if (!duplicate) RecordStateDiff("evo_extaddr_address_change", *old_mn->pdmnState, *mn->pdmnState, state_diff);
+         const auto changed_diff{replace_info(state_diff)};
+         CDataStream update{SER_DISK, CLIENT_VERSION};
+         WriteCompactSize(update, 0);
+@@ -1246,8 +1325,10 @@
+         return stream;
+     };
+     auto at_bound{write_list(evo::EVO_SNAPSHOT_MAX_HASH_PREFIX_RUN)};
++    RecordRead("prefix_run_at_bound", at_bound);
+     BOOST_CHECK_NO_THROW(evo::UnserializeCanonicalMNList(at_bound));
+     auto over_bound{write_list(evo::EVO_SNAPSHOT_MAX_HASH_PREFIX_RUN + 1)};
++    RecordRead("prefix_run_over_bound", over_bound);
+     BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(over_bound), std::ios_base::failure, [](const auto& e) {
+         return std::string{e.what()}.find("collision bound") != std::string::npos;
+     });

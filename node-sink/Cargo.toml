@@ -1,0 +1,18 @@
+[package]
+name = "node-sink"
+description = "Test infrastructure for the node program: the private sink for differential-test and fuzz artefacts, private corpus manifests and gate receipts (PLAN §7 handling). Never a runtime dependency."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "node_sink"
+path = "src/lib.rs"
+
+[dependencies]
+# SHA-256 for manifest digests and the sink's file names.
+dash-sha256 = { path = "../dash-sha256" }
