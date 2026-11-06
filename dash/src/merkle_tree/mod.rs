@@ -1,0 +1,149 @@
+// Rust Dash Library
+// Originally written in 2014 by
+//     Andrew Poelstra <apoelstra@wpsoftware.net>
+//     For Bitcoin
+// Updated for Dash in 2022 by
+//     The Dash Core Developers
+//
+// To the extent possible under law, the author(s) have dedicated all
+// copyright and related and neighboring rights to this software to
+// the public domain worldwide. This software is distributed without
+// any warranty.
+//
+// You should have received a copy of the CC0 Public Domain Dedication
+// along with this software.
+// If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+//
+
+//! Bitcoin merkle tree functions.
+//!
+//! # Examples
+//!
+//! ```
+//! # use dashcore::{merkle_tree, Txid};
+//! # let tx1 = Txid::all_zeros();  // Dummy hash values.
+//! # let tx2 = Txid::all_zeros();
+//! let tx_hashes = vec![tx1, tx2]; // All the hashes we wish to merkelize.
+//! let root = merkle_tree::calculate_root(tx_hashes.into_iter());
+//! ```
+
+mod block;
+
+use core::cmp::min;
+use core::iter;
+
+pub use block::{MerkleBlock, MerkleBlockError, PartialMerkleTree};
+use hashes::{Hash, HashEngine, sha256d};
+
+use crate::consensus::encode::Encodable;
+use crate::prelude::*;
+
+/// Calculates the merkle root of a list of *hashes*, inline (in place) in `hashes`.
+///
+/// Nodes are combined with double SHA256, so `T` must wrap a [`sha256d::Hash`].
+///
+/// In most cases, you'll want to use [`calculate_root`] instead. Please note, calling this function
+/// trashes the data in `hashes` (i.e. the `hashes` is left in an undefined state at conclusion of
+/// this method and should not be used again afterwards).
+///
+/// # Returns
+/// - `None` if `hashes` is empty. The merkle root of an empty tree of hashes is undefined.
+/// - `Some(hash)` if `hashes` contains one element. A single hash is by definition the merkle root.
+/// - `Some(merkle_root)` if length of `hashes` is greater than one.
+pub fn calculate_root_inline<T>(hashes: &mut [T]) -> Option<T>
+where
+    T: Hash + Encodable + From<sha256d::Hash>,
+{
+    match hashes.len() {
+        0 => None,
+        1 => Some(hashes[0]),
+        _ => Some(merkle_root_r(hashes)),
+    }
+}
+
+/// Calculates the merkle root of an iterator of *hashes*.
+///
+/// Nodes are combined with double SHA256, so `T` must wrap a [`sha256d::Hash`].
+///
+/// # Returns
+/// - `None` if `hashes` is empty. The merkle root of an empty tree of hashes is undefined.
+/// - `Some(hash)` if `hashes` contains one element. A single hash is by definition the merkle root.
+/// - `Some(merkle_root)` if length of `hashes` is greater than one.
+pub fn calculate_root<T, I>(mut hashes: I) -> Option<T>
+where
+    T: Hash + Encodable + From<sha256d::Hash>,
+    I: Iterator<Item = T>,
+{
+    let first = hashes.next()?;
+    let second = match hashes.next() {
+        Some(second) => second,
+        None => return Some(first),
+    };
+
+    let mut hashes = iter::once(first).chain(iter::once(second)).chain(hashes);
+
+    // We need a local copy to pass to `merkle_root_r`. It's more efficient to do the first loop of
+    // processing as we make the copy instead of copying the whole iterator.
+    let (min, max) = hashes.size_hint();
+    let mut alloc = Vec::with_capacity(max.unwrap_or(min) / 2 + 1);
+
+    while let Some(hash1) = hashes.next() {
+        // If the size is odd, use the last element twice.
+        let hash2 = hashes.next().unwrap_or(hash1);
+        let mut encoder = sha256d::Hash::engine();
+        hash1.consensus_encode(&mut encoder).expect("in-memory writers don't error");
+        hash2.consensus_encode(&mut encoder).expect("in-memory writers don't error");
+        alloc.push(T::from(encoder.finalize()));
+    }
+
+    Some(merkle_root_r(&mut alloc))
+}
+
+// `hashes` must contain at least one hash.
+fn merkle_root_r<T>(hashes: &mut [T]) -> T
+where
+    T: Hash + Encodable + From<sha256d::Hash>,
+{
+    if hashes.len() == 1 {
+        return hashes[0];
+    }
+
+    for idx in 0..hashes.len().div_ceil(2) {
+        let idx1 = 2 * idx;
+        let idx2 = min(idx1 + 1, hashes.len() - 1);
+        let mut encoder = sha256d::Hash::engine();
+        hashes[idx1].consensus_encode(&mut encoder).expect("in-memory writers don't error");
+        hashes[idx2].consensus_encode(&mut encoder).expect("in-memory writers don't error");
+        hashes[idx] = T::from(encoder.finalize());
+    }
+    let half_len = hashes.len() / 2 + hashes.len() % 2;
+
+    merkle_root_r(&mut hashes[0..half_len])
+}
+
+#[cfg(test)]
+mod tests {
+    use hashes::sha256d;
+
+    use super::*;
+    use crate::blockdata::block::Block;
+    use crate::consensus::encode::deserialize;
+
+    #[test]
+    fn both_merkle_root_functions_return_the_same_result() {
+        // Dash testnet block 000000230d699c59cacfeeb978940f1352f188b2f778f0168df45c5fa4e93dd2
+        let block_data = include_bytes!(
+            "../../tests/data/testnet_block_000000230d699c59cacfeeb978940f1352f188b2f778f0168df45c5fa4e93dd2.raw"
+        );
+        let block: Block = deserialize(&block_data[..]).expect("Failed to deserialize block");
+        assert!(block.check_merkle_root()); // Sanity check.
+
+        let hashes_iter = block.txdata.iter().map(|obj| obj.txid().to_raw_hash());
+
+        let mut hashes_vec: Vec<sha256d::Hash> = hashes_iter.clone().collect();
+
+        let from_iter = calculate_root(hashes_iter);
+        let from_array = calculate_root_inline(&mut hashes_vec);
+        assert_eq!(from_iter, from_array);
+    }
+}
