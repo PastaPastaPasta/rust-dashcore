@@ -1,0 +1,52 @@
+{
+ "name": "a29-i-p2p-lock-on-off-on",
+ "description": "P2P only: A100 locked while on; SPORK_19 off and observed off, a CLSIG for A95 is dropped unread; on again: a lock at 90 is accepted because ProcessNewChainLock's initial check sees off -> on and clears 100",
+ "rows": [
+  "A-29(i)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A95"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A90"
+  }
+ ]
+}
