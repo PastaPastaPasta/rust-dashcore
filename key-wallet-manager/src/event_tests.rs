@@ -940,10 +940,10 @@ async fn test_block_winner_emits_swept_event_naming_the_released_outpoints() {
                 wallet_id: wid,
                 txids,
                 superseded_by,
-                winner_mined_height,
+                winner_block,
                 released_outpoints,
                 ..
-            } => Some((wid, txids, superseded_by, winner_mined_height, released_outpoints)),
+            } => Some((wid, txids, superseded_by, winner_block, released_outpoints)),
             _ => None,
         })
         .unwrap_or_else(|| panic!("a sweep must be emitted, got {:?}", events));
@@ -951,18 +951,27 @@ async fn test_block_winner_emits_swept_event_naming_the_released_outpoints() {
     assert_eq!(swept.0, &wallet_id);
     assert_eq!(swept.1, &vec![loser.txid()], "the beaten transaction is named");
     assert_eq!(swept.2, &winner.txid(), "attributed to the transaction that beat it");
-    assert_eq!(
-        swept.3,
-        &Some(101),
-        "a block-context sweep must carry the winner's mined height — the height of \
-         the block whose processing triggered the sweep, not None and not any other \
-         height the manager has seen"
+    let block = swept.3.expect(
+        "a block-context sweep must carry the winner's block — the block whose \
+         processing triggered the sweep, not None",
     );
+    assert_eq!(
+        block.height(),
+        101,
+        "the winner's mined height, not any other the manager has seen"
+    );
+    assert_eq!(
+        block.block_hash(),
+        winner_block.block_hash(),
+        "the hash of the processed block: the height alone cannot tell the branch that mined \
+         the winner from one that replaced it"
+    );
+    assert_eq!(block.position(), Some(0), "the winner's index in that block");
     assert_eq!(swept.4, &vec![coin_b], "only the coin the winner did not take is released");
 }
 
 /// The mempool emission site's counterpart to the block test above, pinning
-/// the other half of `winner_mined_height`'s contract: a sweep triggered by
+/// the other half of `winner_block`'s contract: a sweep triggered by
 /// an InstantSend-locked winner that has not been mined carries `None`. This
 /// is the distinction the field exists to make — a consumer retiring durable
 /// records of the swept spends can anchor a block-context sweep to the
@@ -1050,10 +1059,10 @@ async fn test_is_locked_mempool_winner_sweeps_with_no_mined_height() {
                 wallet_id: wid,
                 txids,
                 superseded_by,
-                winner_mined_height,
+                winner_block,
                 released_outpoints,
                 ..
-            } => Some((wid, txids, superseded_by, winner_mined_height, released_outpoints)),
+            } => Some((wid, txids, superseded_by, winner_block, released_outpoints)),
             _ => None,
         })
         .unwrap_or_else(|| panic!("a sweep must be emitted, got {:?}", events));

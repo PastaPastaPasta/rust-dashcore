@@ -810,7 +810,7 @@ impl FFIOutPoint {
 /// with a zero count when the removal released nothing.
 ///
 /// The Rust `WalletEvent::TransactionsSwept` additionally carries
-/// `winner_mined_height` (the winner's block height, `None` for an
+/// `winner_block` (the winner's block height and hash, `None` for an
 /// InstantSend-locked winner not yet mined). It is deliberately not
 /// forwarded here: this signature has no safely-degrading insertion point
 /// for hand-declared C consumers (see the released-outpoints addition),
@@ -1154,7 +1154,7 @@ impl FFIWalletEventCallbacks {
                 // surface stays byte-for-byte identical until a consumer
                 // needs it there, at which point the addition must be a
                 // flagged breaking change like #962's.
-                winner_mined_height: _,
+                winner_block: _,
                 released_outpoints,
                 balance,
                 account_balances,
@@ -1525,7 +1525,11 @@ mod tests {
             wallet_id: [7u8; 32],
             txids: vec![Txid::from_byte_array([1u8; 32])],
             superseded_by: Txid::from_byte_array([2u8; 32]),
-            winner_mined_height: Some(1_000),
+            winner_block: Some(key_wallet::transaction_checking::BlockInfo::new(
+                1_000,
+                BlockHash::from_byte_array([3u8; 32]),
+                0,
+            )),
             released_outpoints: Vec::new(),
             balance: WalletCoreBalance::default(),
             account_balances: BTreeMap::new(),
@@ -1573,7 +1577,7 @@ mod tests {
             wallet_id: [7u8; 32],
             txids: vec![Txid::from_byte_array([1u8; 32])],
             superseded_by: Txid::from_byte_array([2u8; 32]),
-            winner_mined_height: None,
+            winner_block: None,
             released_outpoints: vec![
                 dashcore::OutPoint {
                     txid: parent,
