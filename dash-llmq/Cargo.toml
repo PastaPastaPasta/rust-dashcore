@@ -1,0 +1,47 @@
+[package]
+name = "dash-llmq"
+description = "Dash Core's LLMQ distributed key generation for the Rust Dash node: the DKG session, its message checks and its phase arithmetic. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_llmq"
+path = "src/lib.rs"
+
+[features]
+# The in-process DKG harness and the replaying RNG (`dkg::reference`), for tests, harnesses and
+# comparators only (dash-evo's `reference` precedent; LQ4 §3.1).
+reference = []
+
+[dependencies]
+# The canonical serializer (`CoreWrite`, `HashWriter`) the DKG's message and session hashes go
+# through, as LQ2's commitment hash does (A1 §1.3; DEC-623 Q-1).
+dash-consensus = { path = "../dash-consensus" }
+# Member views, operator keys and the BLS scheme context.
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true, features = ["std"] }
+# BS9a's DKG wire messages (`p2p_core::msg::dkg`), named only by `dkg::wire`.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# `bls`: Core's serial BLS operations (`dash_pkc::bls::core`, DEC-79).
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+# `CryptoRng`, the bound of dash-pkc's `make_new_key` and IES encryption (dash-pkc's major).
+rand_core = "0.10"
+
+[dev-dependencies]
+# benches/dkg.rs: PF0's DKG rows (LQ4a-1 C-11).
+criterion = "0.8.1"
+# The Core corpora under test-vectors/lq4 (T2, T3-C): JSON5 whose only extension is `//` lines.
+serde_json = "1.0"
+
+[[bench]]
+name = "dkg"
+harness = false
