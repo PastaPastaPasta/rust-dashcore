@@ -1,0 +1,10 @@
+# CRASH planted bug X6 (CH2 §6.4), minimised in 85 replays.
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=- planted=X6
+workload c20;f
+crash 82 process-kill
+adversary realistic
+granularity write
+expect R12
+minimality verified
