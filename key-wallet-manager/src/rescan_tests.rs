@@ -58,16 +58,19 @@ fn external_address(manager: &WalletManager, wallet_id: &WalletId, index: u32) -
     pool.address_at_index(index).expect("derived")
 }
 
-fn transaction(previous_output: OutPoint, output: Vec<TxOut>) -> Transaction {
+fn transaction(inputs: impl IntoIterator<Item = OutPoint>, output: Vec<TxOut>) -> Transaction {
     Transaction {
         version: 2,
         lock_time: 0,
-        input: vec![TxIn {
-            previous_output,
-            script_sig: ScriptBuf::new(),
-            sequence: u32::MAX,
-            witness: Default::default(),
-        }],
+        input: inputs
+            .into_iter()
+            .map(|previous_output| TxIn {
+                previous_output,
+                script_sig: ScriptBuf::new(),
+                sequence: u32::MAX,
+                witness: Default::default(),
+            })
+            .collect(),
         output,
         special_transaction_payload: None,
     }
@@ -86,15 +89,15 @@ fn paying_external(
             script_pubkey: external_address(manager, wallet_id, index).script_pubkey(),
         })
         .collect();
-    transaction(OutPoint::new(Txid::from_byte_array([input_seed; 32]), 0), output)
+    transaction([OutPoint::new(Txid::from_byte_array([input_seed; 32]), 0)], output)
 }
 
-fn spending_to_nobody(outpoint: OutPoint) -> Transaction {
+fn spending_to_nobody(outpoints: impl IntoIterator<Item = OutPoint>) -> Transaction {
     let output = TxOut {
         value: VALUE / 2,
         script_pubkey: ScriptBuf::new_op_return(&[0x57]),
     };
-    transaction(outpoint, vec![output])
+    transaction(outpoints, vec![output])
 }
 
 fn block_at(height: CoreBlockHeight, txdata: Vec<Transaction>) -> Block {
@@ -147,6 +150,31 @@ async fn process_with_rescans(
         derived = pass(manager, wallet_id, block, HEIGHT).await;
     }
     panic!("the rescan passes did not settle");
+}
+
+/// The rescan re-delivers the funding block and the block after it in height
+/// order, as the filters of the newly derived scripts match both, until no
+/// pass derives new scripts.
+async fn rescan_in_height_order(
+    manager: &mut WalletManager,
+    wallet_id: WalletId,
+    funding: &Block,
+    spends: &Block,
+) {
+    for _ in 0..MAX_PASSES {
+        let derived = pass(manager, wallet_id, funding, HEIGHT).await;
+        let derived_next = pass(manager, wallet_id, spends, HEIGHT + 1).await;
+        if !derived && !derived_next {
+            return;
+        }
+    }
+    panic!("the rescan passes did not settle");
+}
+
+fn assert_no_observed_spends(manager: &WalletManager, wallet_id: &WalletId) {
+    let info = manager.get_wallet_info(wallet_id).expect("wallet info");
+    let observed = info.observed_spent_outpoints();
+    assert!(observed.is_empty(), "the checkpoint left observed spends {observed:?}");
 }
 
 fn held_vouts(manager: &WalletManager, wallet_id: &WalletId, txid: &Txid) -> BTreeSet<u32> {
@@ -293,8 +321,8 @@ async fn spent_outputs_stay_spent(chain_lock_at: ChainLockAt) {
     let spends = block_at(
         HEIGHT + 1,
         vec![
-            spending_to_nobody(OutPoint::new(late.txid(), 0)),
-            spending_to_nobody(OutPoint::new(late.txid(), 1)),
+            spending_to_nobody([OutPoint::new(late.txid(), 0)]),
+            spending_to_nobody([OutPoint::new(late.txid(), 1)]),
         ],
     );
     if matches!(chain_lock_at, ChainLockAt::BeforeFirstPass) {
@@ -307,19 +335,9 @@ async fn spent_outputs_stay_spent(chain_lock_at: ChainLockAt) {
         // The committed checkpoint lifts the finality boundary over both
         // blocks, which prunes the spends observed in them.
         manager.update_wallet_synced_height(&wallet_id, HEIGHT + 1);
+        assert_no_observed_spends(&manager, &wallet_id);
     }
-    // The rescan re-delivers both blocks in height order, as the filters of
-    // the newly derived scripts match them.
-    let mut settled = false;
-    for _ in 0..MAX_PASSES {
-        let derived = pass(&mut manager, wallet_id, &funding, HEIGHT).await;
-        let derived_next = pass(&mut manager, wallet_id, &spends, HEIGHT + 1).await;
-        if !derived && !derived_next {
-            settled = true;
-            break;
-        }
-    }
-    assert!(settled, "the rescan passes did not settle");
+    rescan_in_height_order(&mut manager, wallet_id, &funding, &spends).await;
 
     let late_coins = held_vouts(&manager, &wallet_id, &late.txid());
     assert!(late_coins.is_empty(), "{chain_lock_at:?}: late coins {late_coins:?}");
@@ -341,4 +359,36 @@ async fn test_chain_locked_rescan_keeps_late_outputs_spent() {
 #[tokio::test]
 async fn test_unchainlocked_rescan_keeps_late_outputs_spent() {
     spent_outputs_stay_spent(ChainLockAt::Never).await;
+}
+
+/// One spender in the next block spends both the output the first pass held
+/// and the late one. The account is reloaded through serde after the
+/// checkpoint prunes the observed spends, so its spent marks are rebuilt from
+/// the records it retained, which a ChainLock pruned. The rescan must still
+/// end with both coins spent.
+#[tokio::test]
+async fn test_rescan_after_an_account_reload_keeps_late_outputs_spent() {
+    let (mut manager, wallet_id, _) = setup_manager_with_wallet();
+    let (late, extending) = late_and_extending(&manager, &wallet_id);
+    let funding = block_at(HEIGHT, vec![late.clone(), extending.clone()]);
+    let both = [OutPoint::new(late.txid(), 0), OutPoint::new(late.txid(), 1)];
+    let spends = block_at(HEIGHT + 1, vec![spending_to_nobody(both)]);
+    manager.apply_chain_lock(ChainLock::dummy(HEIGHT + 10));
+    pass(&mut manager, wallet_id, &funding, HEIGHT).await;
+    pass(&mut manager, wallet_id, &spends, HEIGHT + 1).await;
+    manager.update_wallet_synced_height(&wallet_id, HEIGHT + 1);
+    assert_no_observed_spends(&manager, &wallet_id);
+
+    let info = manager.get_wallet_info_mut(&wallet_id).expect("wallet info");
+    let account = info.first_bip44_managed_account_mut().expect("BIP44 account 0");
+    let config = bincode::config::standard();
+    let bytes = bincode::serde::encode_to_vec(&*account, config).expect("encodes");
+    *account = bincode::serde::decode_from_slice(&bytes, config).expect("decodes").0;
+
+    rescan_in_height_order(&mut manager, wallet_id, &funding, &spends).await;
+
+    let late_coins = held_vouts(&manager, &wallet_id, &late.txid());
+    assert!(late_coins.is_empty(), "late coins {late_coins:?}");
+    assert_eq!(held_vouts(&manager, &wallet_id, &extending.txid()), BTreeSet::from([0]));
+    assert_balance(&manager, &wallet_id, VALUE, ChainLockAt::BeforeFirstPass);
 }
