@@ -1,0 +1,2 @@
+# Resolved afresh per run; the repository workspace pins the versions that ship.
+Cargo.lock

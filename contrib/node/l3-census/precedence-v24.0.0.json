@@ -1,0 +1,2041 @@
+{
+ "provenance": {
+  "tag": "v24.0.0",
+  "commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "blobs": {
+   "src/validation.cpp": "71a55d70615b310f50de263985b42facc7105d91",
+   "src/consensus/tx_check.cpp": "86b0e80479a8a423bf1ca36df9ccd5f5e4067772",
+   "src/consensus/tx_verify.cpp": "ce179ec2192e38c9f217b130ced4d4f41f9e5499",
+   "src/evo/specialtxman.cpp": "8cbceb5d618097e2cd245fdb300d88a7dc4905a7",
+   "src/rpc/mining.cpp": "1e0dedae76fe2af05ea12962d9f6f192ac9a39af"
+  },
+  "calltree_version": 1,
+  "inventory_sha256": "12d7543c91cc2137c9c0767d67b4092194f2dd6e8239256046df57f97f8e8f10",
+  "note": "l3-census.py calltree (O10 plan §4.2): per mode, the RPC roots over a10's 16 functions; each node's position is its index among its parent's children; node-l1's l3::precedence walks it (§4.3)"
+ },
+ "attrs": {
+  "fCheckPOW": {
+   "kind": "mode",
+   "values": {
+    "Submit": true,
+    "Proposal": false,
+    "Header": true
+   },
+   "cite": "vh:367 default true (PNB v:4885, AB v:4830, ABH v:4634); TBV with false (mi:722)"
+  },
+  "fCheckMerkleRoot": {
+   "kind": "mode",
+   "values": {
+    "Submit": true,
+    "Proposal": true,
+    "Header": true
+   },
+   "cite": "vh:367 default true; TBV with true (mi:722)"
+  },
+  "fJustCheck": {
+   "kind": "mode",
+   "values": {
+    "Submit": false,
+    "Proposal": true,
+    "Header": false
+   },
+   "cite": "TBV calls ConnectBlock with true (v:4979); ConnectTip with false"
+  },
+  "fRequested": {
+   "kind": "mode",
+   "values": {
+    "Submit": true,
+    "Proposal": true,
+    "Header": true
+   },
+   "cite": "submitblock passes force_processing=true (mi:1055)"
+  },
+  "par": {
+   "kind": "par",
+   "cite": "pvChecks = parallel_script_checks ? &vChecks : nullptr (v:2763); HasThreads iff -par > 1 (in:1544-1555)"
+  },
+  "pass": {
+   "kind": "pass",
+   "cite": "PNB's `if (ret)` after CheckBlock (v:4886)"
+  },
+  "fChecked": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4386 block.fChecked (a fresh block)"
+  },
+  "merkle_checked": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4337 m_checked_merkle_root"
+  },
+  "not_genesis": {
+   "kind": "fact",
+   "default": true,
+   "cite": "v:4618 hash != hashGenesisBlock"
+  },
+  "known_header": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4619 miSelf found"
+  },
+  "prev_not_valid_scripts": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4688 !pindexPrev->IsValid(BLOCK_VALID_SCRIPTS)"
+  },
+  "already_have": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4815 BLOCK_HAVE_DATA"
+  },
+  "prior_pruned": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4817"
+  },
+  "less_work": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4818"
+  },
+  "too_far_ahead": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4819; fTooFarAhead (v:4805, BLOCKS_NEAR_TIP) is read only inside !fRequested (v:4816), which L3's routes never reach: submitblock passes force_processing=true (mi:1055) and a proposal runs TestBlockValidity"
+  },
+  "below_min_work": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:4825"
+  },
+  "genesis": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:2547"
+  },
+  "bip30": {
+   "kind": "fact",
+   "default": true,
+   "cite": "v:2601-2614 fEnforceBIP30"
+  },
+  "v24": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:2698 fV24Active_context; st:916 rules.v24"
+  },
+  "fScriptChecks": {
+   "kind": "fact",
+   "default": true,
+   "cite": "v:2553-2582 (assumevalid off: true)"
+  },
+  "not_ibd": {
+   "kind": "fact",
+   "default": true,
+   "cite": "v:2812 (a10's legs leave IBD)"
+  },
+  "script_cached": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:2185 g_scriptExecutionCache"
+  },
+  "dip3": {
+   "kind": "fact",
+   "default": false,
+   "cite": "v:357/v:361 fDIP0003Active_context (DIP3 at 2000, D49)"
+  },
+  "heightincb": {
+   "kind": "fact",
+   "default": true,
+   "cite": "v:4591 DeploymentActiveAfter(HEIGHTINCB) (chainparams.cpp:819 regtest BIP34Height 1, consensus/params.h:212)"
+  },
+  "cb_type5": {
+   "kind": "fact",
+   "default": false,
+   "cite": "st:876 vtx[0]->nType == TRANSACTION_COINBASE"
+  },
+  "cbtx_decoded": {
+   "kind": "fact",
+   "default": false,
+   "cite": "st:984 opt_cbTx.has_value()"
+  },
+  "exception": {
+   "kind": "fact",
+   "default": false,
+   "cite": "a catch clause (st:268, st:1053)"
+  },
+  "coinbase": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [
+    0
+   ],
+   "cite": "tx.IsCoinBase() (v:2705, v:2757, tc:60, v:2170)"
+  },
+  "special_version": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [],
+   "cite": "v:358 tx.IsSpecialTxVersion()"
+  },
+  "asset_unlock": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [],
+   "cite": "tv:166 an asset unlock"
+  },
+  "has_lock_inputs": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [],
+   "cite": "v:2816 instantsend::HasLockInputs"
+  },
+  "cb_type5_at": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [],
+   "cite": "st:925 i == 0 && nType == TRANSACTION_COINBASE"
+  },
+  "has_payload": {
+   "kind": "iter",
+   "domain": "block.vtx",
+   "default": [],
+   "cite": "st:224 HasExtraPayloadField()"
+  }
+ },
+ "modes": {
+  "Submit": [
+   {
+    "n": "row",
+    "line": 1033,
+    "key": "mining.cpp:submitblock@pre1033:Block does not start with a coinbase",
+    "kind": "pre"
+   },
+   {
+    "n": "row",
+    "line": 1043,
+    "key": "mining.cpp:submitblock@pre1043:duplicate",
+    "kind": "pre"
+   },
+   {
+    "n": "row",
+    "line": 1046,
+    "key": "mining.cpp:submitblock@pre1046:duplicate-invalid",
+    "kind": "pre"
+   },
+   {
+    "n": "call",
+    "line": 1055,
+    "callee": "ProcessNewBlock"
+   }
+  ],
+  "Proposal": [
+   {
+    "n": "row",
+    "line": 710,
+    "key": "mining.cpp:getblocktemplate@pre710:duplicate",
+    "kind": "pre"
+   },
+   {
+    "n": "row",
+    "line": 712,
+    "key": "mining.cpp:getblocktemplate@pre712:duplicate-invalid",
+    "kind": "pre"
+   },
+   {
+    "n": "row",
+    "line": 714,
+    "key": "mining.cpp:getblocktemplate@pre714:duplicate-inconclusive",
+    "kind": "pre"
+   },
+   {
+    "n": "row",
+    "line": 719,
+    "key": "mining.cpp:getblocktemplate@pre719:inconclusive-not-best-prevblk",
+    "kind": "pre"
+   },
+   {
+    "n": "call",
+    "line": 722,
+    "callee": "TestBlockValidity"
+   }
+  ],
+  "Header": [
+   {
+    "n": "row",
+    "line": 1091,
+    "key": "mining.cpp:submitheader@pre1091:Must submit previous header",
+    "kind": "pre"
+   },
+   {
+    "n": "call",
+    "line": 1097,
+    "callee": "AcceptBlockHeader"
+   }
+  ]
+ },
+ "functions": {
+  "CheckBlockHeader": {
+   "file": "validation.cpp",
+   "line": 4319,
+   "body": [
+    {
+     "n": "row",
+     "line": 4322,
+     "key": "validation.cpp:CheckBlockHeader#1:high-hash",
+     "kind": "R",
+     "guards": [
+      [
+       "fCheckPOW",
+       true
+      ]
+     ]
+    },
+    {
+     "n": "row",
+     "line": 4329,
+     "key": "validation.cpp:CheckBlockHeader#2:devnet-genesis",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 4332
+    }
+   ]
+  },
+  "CheckMerkleRoot": {
+   "file": "validation.cpp",
+   "line": 4336,
+   "body": [
+    {
+     "n": "block",
+     "line": 4337,
+     "guards": [
+      [
+       "merkle_checked",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 4337
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 4342,
+     "key": "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4352,
+     "key": "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4366,
+     "key": "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 4374
+    }
+   ]
+  },
+  "CheckBlock": {
+   "file": "validation.cpp",
+   "line": 4378,
+   "body": [
+    {
+     "n": "block",
+     "line": 4385,
+     "guards": [
+      [
+       "fChecked",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 4386
+      }
+     ]
+    },
+    {
+     "n": "call",
+     "line": 4391,
+     "callee": "CheckBlockHeader"
+    },
+    {
+     "n": "call",
+     "line": 4395,
+     "callee": "CheckMerkleRoot",
+     "guards": [
+      [
+       "fCheckMerkleRoot",
+       true
+      ]
+     ]
+    },
+    {
+     "n": "row",
+     "line": 4405,
+     "key": "validation.cpp:CheckBlock#1:bad-blk-length",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4409,
+     "key": "validation.cpp:CheckBlock#2:bad-cb-missing",
+     "kind": "R"
+    },
+    {
+     "n": "loop",
+     "line": 4410,
+     "domain": "block.vtx",
+     "start": 1,
+     "body": [
+      {
+       "n": "row",
+       "line": 4412,
+       "key": "validation.cpp:CheckBlock#3:bad-cb-multiple",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "loop",
+     "line": 4416,
+     "domain": "block.vtx",
+     "body": [
+      {
+       "n": "call",
+       "line": 4418,
+       "callee": "CheckTransaction"
+      },
+      {
+       "n": "row",
+       "line": 4422,
+       "key": "validation.cpp:CheckBlock@W:CheckTransaction",
+       "kind": "W"
+      }
+     ]
+    },
+    {
+     "n": "loop",
+     "line": 4427,
+     "domain": "block.vtx",
+     "body": []
+    },
+    {
+     "n": "row",
+     "line": 4433,
+     "key": "validation.cpp:CheckBlock#4:bad-blk-sigops",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 4442
+    }
+   ]
+  },
+  "ContextualCheckBlockHeader": {
+   "file": "validation.cpp",
+   "line": 4481,
+   "body": [
+    {
+     "n": "row",
+     "line": 4495,
+     "key": "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4499,
+     "key": "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4511,
+     "key": "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4517,
+     "key": "validation.cpp:ContextualCheckBlockHeader#4:time-too-old",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4521,
+     "key": "validation.cpp:ContextualCheckBlockHeader#5:time-too-new",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 4528,
+     "key": "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 4532
+    }
+   ]
+  },
+  "ContextualCheckBlock": {
+   "file": "validation.cpp",
+   "line": 4542,
+   "body": [
+    {
+     "n": "row",
+     "line": 4564,
+     "key": "validation.cpp:ContextualCheckBlock#1:bad-blk-length",
+     "kind": "R"
+    },
+    {
+     "n": "loop",
+     "line": 4569,
+     "domain": "block.vtx",
+     "body": [
+      {
+       "n": "row",
+       "line": 4571,
+       "key": "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal",
+       "kind": "R"
+      },
+      {
+       "n": "call",
+       "line": 4574,
+       "callee": "ContextualCheckTransaction"
+      },
+      {
+       "n": "row",
+       "line": 4578,
+       "key": "validation.cpp:ContextualCheckBlock@W:ContextualCheckTransaction",
+       "kind": "W"
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 4586,
+     "key": "validation.cpp:ContextualCheckBlock#3:bad-blk-sigops",
+     "kind": "R"
+    },
+    {
+     "n": "block",
+     "line": 4591,
+     "guards": [
+      [
+       "heightincb",
+       true
+      ],
+      [
+       "dip3",
+       false
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 4596,
+       "key": "validation.cpp:ContextualCheckBlock#4:bad-cb-height",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 4600,
+     "guards": [
+      [
+       "dip3",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 4602,
+       "key": "validation.cpp:ContextualCheckBlock#5:bad-cb-type",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 4606
+    }
+   ]
+  },
+  "ContextualCheckTransaction": {
+   "file": "validation.cpp",
+   "line": 352,
+   "body": [
+    {
+     "n": "block",
+     "line": 356,
+     "guards": [
+      [
+       "dip3",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "block",
+       "line": 358,
+       "guards": [
+        [
+         "special_version",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "row",
+         "line": 372,
+         "key": "validation.cpp:ContextualCheckTransaction#1:bad-txns-type",
+         "kind": "R"
+        },
+        {
+         "n": "row",
+         "line": 375,
+         "key": "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type",
+         "kind": "R"
+        }
+       ]
+      },
+      {
+       "n": "block",
+       "line": 376,
+       "guards": [
+        [
+         "special_version",
+         false
+        ]
+       ],
+       "body": [
+        {
+         "n": "row",
+         "line": 377,
+         "key": "validation.cpp:ContextualCheckTransaction#3:bad-txns-type",
+         "kind": "R"
+        }
+       ]
+      },
+      {
+       "n": "row",
+       "line": 382,
+       "key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-version",
+       "kind": "R",
+       "guards": [
+        [
+         "special_version",
+         false
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 388,
+     "key": "validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 390
+    }
+   ]
+  },
+  "AcceptBlockHeader": {
+   "file": "validation.cpp",
+   "line": 4610,
+   "body": [
+    {
+     "n": "block",
+     "line": 4617,
+     "guards": [
+      [
+       "not_genesis",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "block",
+       "line": 4618,
+       "guards": [
+        [
+         "known_header",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "row",
+         "line": 4625,
+         "key": "validation.cpp:AcceptBlockHeader#1:duplicate",
+         "kind": "R"
+        },
+        {
+         "n": "row",
+         "line": 4629,
+         "key": "validation.cpp:AcceptBlockHeader#2:duplicate",
+         "kind": "R"
+        },
+        {
+         "n": "return",
+         "line": 4631
+        }
+       ]
+      },
+      {
+       "n": "call",
+       "line": 4634,
+       "callee": "CheckBlockHeader"
+      },
+      {
+       "n": "row",
+       "line": 4644,
+       "key": "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 4651,
+       "key": "validation.cpp:AcceptBlockHeader#4:bad-prevblk",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 4657,
+       "key": "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock",
+       "kind": "R"
+      },
+      {
+       "n": "call",
+       "line": 4660,
+       "callee": "ContextualCheckBlockHeader"
+      },
+      {
+       "n": "block",
+       "line": 4684,
+       "guards": [
+        [
+         "prev_not_valid_scripts",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "loop",
+         "line": 4689,
+         "domain": "other",
+         "body": [
+          {
+           "n": "loop",
+           "line": 4693,
+           "domain": "other",
+           "body": []
+          },
+          {
+           "n": "row",
+           "line": 4699,
+           "key": "validation.cpp:AcceptBlockHeader#6:bad-prevblk",
+           "kind": "R"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "n": "row",
+       "line": 4709,
+       "key": "validation.cpp:AcceptBlockHeader#7:bad-chainlock",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 4736
+    }
+   ]
+  },
+  "AcceptBlock": {
+   "file": "validation.cpp",
+   "line": 4771,
+   "body": [
+    {
+     "n": "call",
+     "line": 4788,
+     "callee": "AcceptBlockHeader"
+    },
+    {
+     "n": "block",
+     "line": 4815,
+     "guards": [
+      [
+       "already_have",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 4815
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 4816,
+     "guards": [
+      [
+       "fRequested",
+       false
+      ]
+     ],
+     "body": [
+      {
+       "n": "block",
+       "line": 4817,
+       "guards": [
+        [
+         "prior_pruned",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "return",
+         "line": 4817
+        }
+       ]
+      },
+      {
+       "n": "block",
+       "line": 4818,
+       "guards": [
+        [
+         "less_work",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "return",
+         "line": 4818
+        }
+       ]
+      },
+      {
+       "n": "block",
+       "line": 4819,
+       "guards": [
+        [
+         "too_far_ahead",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "return",
+         "line": 4819
+        }
+       ]
+      },
+      {
+       "n": "block",
+       "line": 4825,
+       "guards": [
+        [
+         "below_min_work",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "return",
+         "line": 4825
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "call",
+     "line": 4830,
+     "callee": "CheckBlock",
+     "pruned": "X-unr re-call: fChecked (a10 E row AcceptBlock@E:CheckBlock, v:4830)"
+    },
+    {
+     "n": "call",
+     "line": 4831,
+     "callee": "ContextualCheckBlock"
+    },
+    {
+     "n": "return",
+     "line": 4875
+    }
+   ]
+  },
+  "ProcessNewBlock": {
+   "file": "validation.cpp",
+   "line": 4879,
+   "body": [
+    {
+     "n": "call",
+     "line": 4896,
+     "callee": "CheckBlock"
+    },
+    {
+     "n": "block",
+     "line": 4897,
+     "guards": [
+      [
+       "pass",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "call",
+       "line": 4899,
+       "callee": "AcceptBlock"
+      }
+     ]
+    },
+    {
+     "n": "call",
+     "line": 4911,
+     "callee": "ConnectBlock"
+    },
+    {
+     "n": "return",
+     "line": 4917
+    }
+   ]
+  },
+  "TestBlockValidity": {
+   "file": "validation.cpp",
+   "line": 4943,
+   "body": [
+    {
+     "n": "row",
+     "line": 4950,
+     "key": "validation.cpp:TestBlockValidity#1:bad-chainlock",
+     "kind": "R"
+    },
+    {
+     "n": "call",
+     "line": 4964,
+     "callee": "ContextualCheckBlockHeader"
+    },
+    {
+     "n": "call",
+     "line": 4969,
+     "callee": "CheckBlock"
+    },
+    {
+     "n": "call",
+     "line": 4974,
+     "callee": "ContextualCheckBlock"
+    },
+    {
+     "n": "call",
+     "line": 4979,
+     "callee": "ConnectBlock"
+    },
+    {
+     "n": "return",
+     "line": 4984
+    }
+   ]
+  },
+  "ConnectBlock": {
+   "file": "validation.cpp",
+   "line": 2482,
+   "body": [
+    {
+     "n": "call",
+     "line": 2516,
+     "callee": "CheckBlock",
+     "pruned": "X-unr re-call: already passed with the same flags (a10 E row ConnectBlock@E:CheckBlock, v:2516)"
+    },
+    {
+     "n": "row",
+     "line": 2529,
+     "key": "validation.cpp:ConnectBlock#1:bad-chainlock",
+     "kind": "R"
+    },
+    {
+     "n": "block",
+     "line": 2547,
+     "guards": [
+      [
+       "genesis",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 2550
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 2614,
+     "guards": [
+      [
+       "bip30",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "loop",
+       "line": 2615,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "loop",
+         "line": 2616,
+         "domain": "tx.vout",
+         "body": [
+          {
+           "n": "row",
+           "line": 2619,
+           "key": "validation.cpp:ConnectBlock#2:bad-txns-BIP30",
+           "kind": "R"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 2632,
+     "key": "validation.cpp:ConnectBlock#3:bad-sb-start",
+     "kind": "R"
+    },
+    {
+     "n": "call",
+     "line": 2674,
+     "callee": "ProcessSpecialTxsInBlock"
+    },
+    {
+     "n": "loop",
+     "line": 2699,
+     "domain": "block.vtx",
+     "body": [
+      {
+       "n": "block",
+       "line": 2705,
+       "guards": [
+        [
+         "coinbase",
+         false
+        ]
+       ],
+       "body": [
+        {
+         "n": "call",
+         "line": 2709,
+         "callee": "CheckTxInputs"
+        },
+        {
+         "n": "row",
+         "line": 2712,
+         "key": "validation.cpp:ConnectBlock@W:Consensus::CheckTxInputs",
+         "kind": "W"
+        },
+        {
+         "n": "block",
+         "line": 2719,
+         "guards": [
+          [
+           "v24",
+           true
+          ]
+         ],
+         "body": [
+          {
+           "n": "row",
+           "line": 2724,
+           "key": "validation.cpp:ConnectBlock@W:CheckSharedCollateralSpends",
+           "kind": "W"
+          }
+         ]
+        },
+        {
+         "n": "row",
+         "line": 2731,
+         "key": "validation.cpp:ConnectBlock#4:bad-txns-accumulated-fee-outofrange",
+         "kind": "R"
+        },
+        {
+         "n": "loop",
+         "line": 2738,
+         "domain": "tx.vin",
+         "body": []
+        },
+        {
+         "n": "row",
+         "line": 2744,
+         "key": "validation.cpp:ConnectBlock#5:bad-txns-nonfinal",
+         "kind": "R"
+        }
+       ]
+      },
+      {
+       "n": "row",
+       "line": 2754,
+       "key": "validation.cpp:ConnectBlock#6:bad-blk-sigops",
+       "kind": "R"
+      },
+      {
+       "n": "block",
+       "line": 2757,
+       "guards": [
+        [
+         "coinbase",
+         false
+        ]
+       ],
+       "body": [
+        {
+         "n": "call",
+         "line": 2763,
+         "callee": "CheckInputScripts",
+         "guards": [
+          [
+           "fScriptChecks",
+           true
+          ]
+         ]
+        },
+        {
+         "n": "row",
+         "line": 2765,
+         "key": "validation.cpp:ConnectBlock@W:CheckInputScripts",
+         "kind": "W"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 2791,
+     "key": "validation.cpp:ConnectBlock#7:block-validation-failed",
+     "kind": "wait"
+    },
+    {
+     "n": "block",
+     "line": 2812,
+     "guards": [
+      [
+       "not_ibd",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "loop",
+       "line": 2815,
+       "domain": "block.vtx",
+       "body": [
+        {
+         "n": "block",
+         "line": 2816,
+         "guards": [
+          [
+           "has_lock_inputs",
+           false
+          ]
+         ],
+         "body": [
+          {
+           "n": "skip",
+           "line": 2816
+          }
+         ]
+        },
+        {
+         "n": "loop",
+         "line": 2817,
+         "domain": "other",
+         "body": [
+          {
+           "n": "row",
+           "line": 2826,
+           "key": "validation.cpp:ConnectBlock#8:conflict-tx-lock",
+           "kind": "R"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 2860,
+     "key": "validation.cpp:ConnectBlock#9:bad-cb-amount",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 2875,
+     "key": "validation.cpp:ConnectBlock#10:bad-cb-payee",
+     "kind": "R"
+    },
+    {
+     "n": "block",
+     "line": 2894,
+     "guards": [
+      [
+       "fJustCheck",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 2895
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 2945
+    }
+   ]
+  },
+  "CheckInputScripts": {
+   "file": "validation.cpp",
+   "line": 2168,
+   "body": [
+    {
+     "n": "block",
+     "line": 2170,
+     "guards": [
+      [
+       "coinbase",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 2170
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 2185,
+     "guards": [
+      [
+       "script_cached",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 2186
+      }
+     ]
+    },
+    {
+     "n": "loop",
+     "line": 2193,
+     "domain": "tx.vin",
+     "body": [
+      {
+       "n": "block",
+       "line": 2206,
+       "guards": [
+        [
+         "par",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "defer",
+         "line": 2206,
+         "row": "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)",
+         "wait": "validation.cpp:ConnectBlock#7:block-validation-failed"
+        }
+       ]
+      },
+      {
+       "n": "block",
+       "line": 2208,
+       "guards": [
+        [
+         "par",
+         false
+        ]
+       ],
+       "body": [
+        {
+         "n": "row",
+         "line": 2223,
+         "key": "validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s)",
+         "kind": "R"
+        },
+        {
+         "n": "row",
+         "line": 2234,
+         "key": "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)",
+         "kind": "R"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 2247
+    }
+   ]
+  },
+  "CheckTransaction": {
+   "file": "tx_check.cpp",
+   "line": 15,
+   "body": [
+    {
+     "n": "row",
+     "line": 28,
+     "key": "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 30,
+     "key": "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 33,
+     "key": "tx_check.cpp:CheckTransaction#3:bad-txns-oversize",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 35,
+     "key": "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize",
+     "kind": "R"
+    },
+    {
+     "n": "loop",
+     "line": 39,
+     "domain": "tx.vout",
+     "body": [
+      {
+       "n": "row",
+       "line": 41,
+       "key": "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 43,
+       "key": "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 46,
+       "key": "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "loop",
+     "line": 55,
+     "domain": "tx.vin",
+     "body": [
+      {
+       "n": "row",
+       "line": 57,
+       "key": "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 60,
+     "guards": [
+      [
+       "coinbase",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 67,
+       "key": "tx_check.cpp:CheckTransaction#9:bad-cb-length",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 68,
+     "guards": [
+      [
+       "coinbase",
+       false
+      ]
+     ],
+     "body": [
+      {
+       "n": "loop",
+       "line": 69,
+       "domain": "tx.vin",
+       "body": [
+        {
+         "n": "row",
+         "line": 71,
+         "key": "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null",
+         "kind": "R"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 74
+    }
+   ]
+  },
+  "CheckTxInputs": {
+   "file": "tx_verify.cpp",
+   "line": 164,
+   "body": [
+    {
+     "n": "block",
+     "line": 165,
+     "guards": [
+      [
+       "asset_unlock",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 166
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 171,
+     "key": "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent",
+     "kind": "R"
+    },
+    {
+     "n": "loop",
+     "line": 176,
+     "domain": "tx.vin",
+     "body": [
+      {
+       "n": "row",
+       "line": 183,
+       "key": "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 190,
+       "key": "tx_verify.cpp:Consensus::CheckTxInputs#3:bad-txns-inputvalues-outofrange",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 196,
+     "key": "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout",
+     "kind": "R"
+    },
+    {
+     "n": "row",
+     "line": 203,
+     "key": "tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange",
+     "kind": "R"
+    },
+    {
+     "n": "return",
+     "line": 207
+    }
+   ]
+  },
+  "CheckSpecialTxInner": {
+   "file": "specialtxman.cpp",
+   "line": 221,
+   "body": [
+    {
+     "n": "block",
+     "line": 224,
+     "guards": [
+      [
+       "has_payload",
+       false
+      ]
+     ],
+     "body": [
+      {
+       "n": "return",
+       "line": 225
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 228,
+     "key": "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive",
+     "kind": "R"
+    },
+    {
+     "n": "block",
+     "line": 232,
+     "pruned": "E-evo:Validators: the validator arms past the DIP3 gate (st:228; a10 §6.1, Q-F)"
+    },
+    {
+     "n": "block",
+     "line": 268,
+     "guards": [
+      [
+       "exception",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 270,
+       "key": "specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 273,
+     "key": "specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check",
+     "kind": "R"
+    }
+   ]
+  },
+  "ProcessSpecialTxsInBlock": {
+   "file": "specialtxman.cpp",
+   "line": 862,
+   "body": [
+    {
+     "n": "block",
+     "line": 876,
+     "guards": [
+      [
+       "fScriptChecks",
+       true
+      ],
+      [
+       "cb_type5",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 879,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 886,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckCbTx",
+       "kind": "W"
+      },
+      {
+       "n": "row",
+       "line": 891,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "row",
+     "line": 897,
+     "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version",
+     "kind": "R"
+    },
+    {
+     "n": "loop",
+     "line": 913,
+     "domain": "block.vtx",
+     "body": [
+      {
+       "n": "row",
+       "line": 918,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSharedCollateralTemplateOutputs",
+       "kind": "W"
+      },
+      {
+       "n": "block",
+       "line": 925,
+       "guards": [
+        [
+         "cb_type5_at",
+         true
+        ]
+       ],
+       "body": [
+        {
+         "n": "skip",
+         "line": 925
+        }
+       ]
+      },
+      {
+       "n": "call",
+       "line": 931,
+       "callee": "CheckSpecialTxInner"
+      },
+      {
+       "n": "row",
+       "line": 933,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSpecialTxInner",
+       "kind": "W"
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 984,
+     "guards": [
+      [
+       "cbtx_decoded",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 995,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#4:bad-cbtx-mnmerkleroot",
+       "kind": "R"
+      },
+      {
+       "n": "row",
+       "line": 1010,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#5:bad-cbtx-quorummerkleroot",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "block",
+     "line": 1053,
+     "guards": [
+      [
+       "exception",
+       true
+      ]
+     ],
+     "body": [
+      {
+       "n": "row",
+       "line": 1055,
+       "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock",
+       "kind": "R"
+      }
+     ]
+    },
+    {
+     "n": "return",
+     "line": 1058
+    }
+   ]
+  }
+ },
+ "pruned": [
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#2:bad-cbtx-invalid",
+   "reason": "E-evo:Validators: the validator arms past the DIP3 gate (st:228; a10 §6.1, Q-F)"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#3:bad-cbtx-payload",
+   "reason": "E-evo:Validators: the validator arms past the DIP3 gate (st:228; a10 §6.1, Q-F)"
+  }
+ ],
+ "structural_reach": {
+  "mining.cpp:getblocktemplate@pre710:duplicate": [
+   "Proposal"
+  ],
+  "mining.cpp:getblocktemplate@pre712:duplicate-invalid": [
+   "Proposal"
+  ],
+  "mining.cpp:getblocktemplate@pre714:duplicate-inconclusive": [
+   "Proposal"
+  ],
+  "mining.cpp:getblocktemplate@pre719:inconclusive-not-best-prevblk": [
+   "Proposal"
+  ],
+  "mining.cpp:submitblock@pre1033:Block does not start with a coinbase": [
+   "Submit"
+  ],
+  "mining.cpp:submitblock@pre1043:duplicate": [
+   "Submit"
+  ],
+  "mining.cpp:submitblock@pre1046:duplicate-invalid": [
+   "Submit"
+  ],
+  "mining.cpp:submitheader@pre1091:Must submit previous header": [
+   "Header"
+  ],
+  "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#4:bad-cbtx-mnmerkleroot": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#5:bad-cbtx-quorummerkleroot": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckCbTx": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSharedCollateralTemplateOutputs": [
+   "Submit",
+   "Proposal"
+  ],
+  "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSpecialTxInner": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#3:bad-txns-oversize": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_check.cpp:CheckTransaction#9:bad-cb-length": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_verify.cpp:Consensus::CheckTxInputs#3:bad-txns-inputvalues-outofrange": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout": [
+   "Submit",
+   "Proposal"
+  ],
+  "tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:AcceptBlockHeader#1:duplicate": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#2:duplicate": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#4:bad-prevblk": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#6:bad-prevblk": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:AcceptBlockHeader#7:bad-chainlock": [
+   "Submit",
+   "Header"
+  ],
+  "validation.cpp:CheckBlock#1:bad-blk-length": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckBlock#2:bad-cb-missing": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckBlock#3:bad-cb-multiple": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckBlock#4:bad-blk-sigops": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckBlock@W:CheckTransaction": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckBlockHeader#1:high-hash": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:CheckBlockHeader#2:devnet-genesis": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s)": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#10:bad-cb-payee": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#1:bad-chainlock": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#2:bad-txns-BIP30": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#3:bad-sb-start": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#4:bad-txns-accumulated-fee-outofrange": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#5:bad-txns-nonfinal": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#6:bad-blk-sigops": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#7:block-validation-failed": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#8:conflict-tx-lock": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock#9:bad-cb-amount": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock@W:CheckInputScripts": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock@W:CheckSharedCollateralSpends": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ConnectBlock@W:Consensus::CheckTxInputs": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock#1:bad-blk-length": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock#3:bad-blk-sigops": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock#4:bad-cb-height": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock#5:bad-cb-type": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlock@W:ContextualCheckTransaction": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#4:time-too-old": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#5:time-too-new": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)": [
+   "Submit",
+   "Proposal",
+   "Header"
+  ],
+  "validation.cpp:ContextualCheckTransaction#1:bad-txns-type": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckTransaction#3:bad-txns-type": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckTransaction#4:bad-txns-version": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize": [
+   "Submit",
+   "Proposal"
+  ],
+  "validation.cpp:TestBlockValidity#1:bad-chainlock": [
+   "Proposal"
+  ]
+ }
+}
