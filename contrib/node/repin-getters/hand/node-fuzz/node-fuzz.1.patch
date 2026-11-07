@@ -1,0 +1,144 @@
+diff --git a/node-fuzz/src/models/netinfo.rs b/node-fuzz/src/models/netinfo.rs
+index 5ae9db6d632b7eb68cdd906c52c052373478bfef..e80f55227b5e754a5e496763b8133568307b2f19 100644
+--- a/node-fuzz/src/models/netinfo.rs
++++ b/node-fuzz/src/models/netinfo.rs
+@@ -49,6 +49,8 @@ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+ use node_l1::Divergence;
+ use node_l1::check_inputs::Network;
++use node_l1::protx_mirror::{self as mirror, ToBsdk};
++use node_l1::rebuild::Rebuild;
+ use node_l1::specialtx::{migration_case, serv_migration_case, verdicts};
+ use std::sync::OnceLock;
+ 
+@@ -323,7 +325,7 @@ fn ours(tx: &Tx, net: &Net) -> Result<(), TxValidationError> {
+                 p.net_info(),
+                 p.mn_type(),
+                 u16::from(p.version()),
+-                p.platform_node_id().as_ref(),
++                p.platform_node_id(),
+                 p.platform_p2p_port(),
+                 p.platform_http_port(),
+                 true,
+@@ -335,7 +337,7 @@ fn ours(tx: &Tx, net: &Net) -> Result<(), TxValidationError> {
+                 p.net_info(),
+                 p.mn_type(),
+                 u16::from(p.version()),
+-                p.platform_node_id().as_ref(),
++                p.platform_node_id(),
+                 p.platform_p2p_port(),
+                 p.platform_http_port(),
+                 false,
+@@ -350,7 +352,7 @@ fn ours(tx: &Tx, net: &Net) -> Result<(), TxValidationError> {
+         net_info,
+         mn_type,
+         version,
+-        platform_node_id: Some(node_id.unwrap_or(&null)),
++        platform_node_id: Some(node_id.as_ref().unwrap_or(&null)),
+         platform_p2p_port: p2p.unwrap_or(0),
+         platform_http_port: http.unwrap_or(0),
+     };
+@@ -388,19 +390,22 @@ fn tx_verdict(
+             });
+         };
+         let node_id = PlatformNodeId::from([u8::from(b0 & 0x80 == 0); 20]);
+-        let mut payload = Vec::new();
+-        match decoded.payload().clone() {
+-            SpecialPayload::ProviderRegister(mut p) => {
++        let payload;
++        // The fields are set in the payload's mirror (DEC-1066), which encodes as base-sdk does.
++        match decoded.payload() {
++            SpecialPayload::ProviderRegister(p) => {
++                let mut p = mirror::ProRegTx::from(p);
+                 p.net_info = net_info;
+                 platform(&mut p.platform_node_id, &mut p.platform_p2p_port, node_id, ports);
+                 platform_port(&mut p.platform_http_port, [ports[2], ports[3]]);
+-                p.encode(&mut payload);
++                payload = p.to_bytes();
+             }
+-            SpecialPayload::ProviderUpdateService(mut p) => {
++            SpecialPayload::ProviderUpdateService(p) => {
++                let mut p = mirror::ProUpServTx::from(p);
+                 p.net_info = net_info;
+                 platform(&mut p.platform_node_id, &mut p.platform_p2p_port, node_id, ports);
+                 platform_port(&mut p.platform_http_port, [ports[2], ports[3]]);
+-                p.encode(&mut payload);
++                payload = p.to_bytes();
+             }
+             _ => {
+                 return Err(Divergence {
+@@ -409,7 +414,7 @@ fn tx_verdict(
+             }
+         }
+         let mut tx: Transaction = template.to_mutable();
+-        tx.extra_payload = payload;
++        tx.edit(|t| t.extra_payload = payload);
+         let tx = Tx::new(tx);
+         let mut raw = Vec::new();
+         tx.raw().encode(&mut raw);
+diff --git a/node-fuzz/src/models/p2p_decode_model.rs b/node-fuzz/src/models/p2p_decode_model.rs
+index 8c9e0a4e0068faff8e599c52e2d7cf0f9d042078..ff8fc86e1106fe3bd15430366dcaae3bd09e1720 100644
+--- a/node-fuzz/src/models/p2p_decode_model.rs
++++ b/node-fuzz/src/models/p2p_decode_model.rs
+@@ -33,9 +33,7 @@ use dash_consensus::primitives::header_bytes;
+ use dash_p2p::policy::{
+     self, ALL_NET_MESSAGE_TYPES, GovSyncRead, ReadError, ReadPlan, Throw, ThrowOutcome, Trailing,
+ };
+-use dash_p2p_core::{
+-    CommandString, CompressedHeader, DecodedMsg, P2pDecodeError, P2pMsg, ProtoCtx, ProtocolVersion,
+-};
++use dash_p2p_core::{CommandString, DecodedMsg, P2pDecodeError, P2pMsg, ProtoCtx, ProtocolVersion};
+ use dash_pkc::bls::BlsCtx;
+ use dash_types::codec::{BaseCodec, DecodeError};
+ use dash_types::{CompactSize, Hashable};
+@@ -175,14 +173,48 @@ fn derived_hashes(payload: &[u8]) -> usize {
+     };
+     let mut n = 0;
+     for i in 0..u64::from(count) {
+-        let Ok(c) = CompressedHeader::decode(&mut data) else {
++        let Some(flags) = compressed_header_flags(&mut data) else {
+             break;
+         };
+-        n += usize::from(i > 0 && c.is_prev_hash_compressed());
++        n += usize::from(i > 0 && flags & H2_PREV_HASH == 0);
+     }
+     n
+ }
+ 
++/// `headers2` flags: bits 0 to 2 the version's place in the list (0: on the wire); the previous
++/// block hash, the full timestamp and `nBits` are on the wire.
++const H2_VERSION_OFFSET: u8 = 0b0000_0111;
++const H2_PREV_HASH: u8 = 0b0000_1000;
++const H2_TIMESTAMP: u8 = 0b0001_0000;
++const H2_NBITS: u8 = 0b0010_0000;
++
++/// Reads one compressed header's wire fields and returns its flags: base-sdk's
++/// `CompressedHeader` read until fda80b21 made it private (headers2.rs:66-91 at b6853466).
++fn compressed_header_flags(data: &mut &[u8]) -> Option<u8> {
++    let flags = u8::decode(data).ok()?;
++    let mut skip = |n: usize| -> Option<()> {
++        *data = data.get(n..)?;
++        Some(())
++    };
++    if flags & H2_VERSION_OFFSET == 0 {
++        skip(4)?;
++    }
++    if flags & H2_PREV_HASH != 0 {
++        skip(32)?;
++    }
++    skip(32)?;
++    skip(if flags & H2_TIMESTAMP != 0 {
++        4
++    } else {
++        2
++    })?;
++    if flags & H2_NBITS != 0 {
++        skip(4)?;
++    }
++    skip(4)?;
++    Some(flags)
++}
++
+ /// The typed readers a processor calls agree with the boundary: `read_headers2` (hash-once)
+ /// gives `decode`'s headers and bytes read, or refuses with it and leaves the payload as it was,
+ /// hashing exactly once per derived header (none over the limit); `read::<GovSyncRead>` reads
