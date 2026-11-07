@@ -1,0 +1,59 @@
+[package]
+name = "dash-coreimport"
+description = "Read-only readers for a Dash Core datadir (blk/rev files, undo data, Core's coin compression) and the UTXO churn trace extractor"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = ["full"]
+# Everything that needs `dash-dml`: the evodb masternode lists (`evodb`) and `governance.dat`'s
+# masternode list (`netstate::governance`, with the `netstate` format detection that names it).
+full = ["dep:dash-dml"]
+# The other readers and codecs, the onion and anchor keys among them (`keys`), always built: a
+# crate that takes only those (rdashd's Tor control, P8b) asks for this without the defaults,
+# so `dash-dml` stays out of its closure (DEC-546).
+keys = []
+
+[dependencies]
+bitcoin_hashes = { workspace = true, features = ["std"] }
+dash-args = { path = "../dash-args" }
+dash-dml = { path = "../dash-dml", optional = true }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-network = { path = "../dash-network" }
+dashd-store = { path = "../dashd-store", default-features = false }
+rs-x11-hash = "0.1.8"
+secp256k1 = { workspace = true, features = ["recovery"] }
+thiserror = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-evo = { path = "../dash-evo" }
+dashd-store = { path = "../dashd-store", default-features = false, features = ["raw-bytes"] }
+flate2 = "1"
+serde_json = "1.0"
+tempfile = "3"
+
+# Tests that touch a `full` reader (the key and conf tests are in the ungated `keyfiles`).
+[[test]]
+name = "evodb_serve"
+required-features = ["full"]
+
+[[test]]
+name = "flatfiles"
+required-features = ["full"]
+
+[[test]]
+name = "flatfiles_memory"
+required-features = ["full"]
+
+[[test]]
+name = "netstate"
+required-features = ["full"]
