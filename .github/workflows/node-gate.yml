@@ -599,6 +599,10 @@ jobs:
       - name: layers
         if: ${{ !cancelled() }}
         run: python3 contrib/node/check-layers.py
+      # O2b-4 D50: no shipping product resolves a test-only feature; the controls first.
+      - name: test-features
+        if: ${{ !cancelled() }}
+        run: python3 -I contrib/node/check-test-features.py --selftest && python3 -I contrib/node/check-test-features.py
       # verify-groups ends by comparing build-and-test.yml's group matrix with ci-groups.yml; the
       # export drops that upstream workflow, so a stand-in carrying ci-groups.yml's groups takes its
       # place (the crate assignment and layer checks run unchanged).
