@@ -1,0 +1,110 @@
+[package]
+name = "dash-consensus"
+description = "Dash Core's consensus layer for the Rust Dash node: Core's canonical serialization, the transaction, header and block wrappers, merkle roots, validation results, the consensus context, proof of work, the subsidy and masternode payments, and the script system. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_consensus"
+path = "src/lib.rs"
+
+[features]
+# Internal, test-only (the leading `__`): `hash::x11_calls`, a per-thread count of X11
+# computations, so a consumer's tests can show a header is hashed once (dash-spv's bridge,
+# SB12a). It compiles only with debug assertions, so a release build emits nothing for it even
+# with every feature on.
+__x11-count = []
+# X11 by `dash-x11` (XH1, DEC-51b), about a tenth of `dash-pow`'s instructions per header, for
+# builds that link `dash-x11` anyway: dash-spv's, through dashcore's `BlockHash` (BS15), so a
+# header its bridge hashes here costs what dash-spv paid before (SB12a D16, D23). Without it,
+# X11 is base-sdk's `dash-pow`, which any user of `dash-params`' `ChainParamsBuilder` links
+# already (it mines devnet genesis blocks with it), so a crate that doesn't ask for it links one
+# X11, not two. Both are
+# Core-exact; the choice is made for the whole build, as features are.
+dash-x11 = ["dep:dash-x11"]
+
+[dependencies]
+# SHA-1 and RIPEMD-160 for the script opcodes (OP_SHA1, OP_RIPEMD160, OP_HASH160).
+bitcoin_hashes = { version = "1.2.0", default-features = false, features = ["std"] }
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# BlsCtx (DEC-24 D2); dash-primitives depends on it already.
+dash-pkc = { workspace = true }
+# X11 unless the `dash-x11` feature is on.
+dash-pow = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# Dash Core's SHA-256 with its runtime dispatch (SH1, DEC-28).
+dash-sha256 = { path = "../dash-sha256" }
+dash-types = { workspace = true, features = ["codec", "std"] }
+# X11 with the `dash-x11` feature.
+dash-x11 = { path = "../dash-x11", optional = true }
+# Exact pins (CS1 §2, §3): the libsecp256k1 that `secp256k1-sys` vendors (0.8.0, rev 6e2c8bc4)
+# parses public keys and normalizes and verifies signatures for every script, and parses the
+# public keys of `ScriptCompression`'s P2PK forms (CS5a: `CPubKey::IsFullyValid`,
+# `CPubKey::Decompress`), so a routine `cargo update` must not move it. `secp256k1` itself asks
+# for `secp256k1-sys = "0.14.0"`, a caret requirement, so the `-sys` crate is pinned here
+# directly; nothing else uses it. Moving either is a consensus change: re-run quirk 7,
+# `diff_script_primitives` mode (b) and `diff_codec_primitives` at the full budget.
+secp256k1 = { version = "=0.33.1" }
+secp256k1-sys = { version = "=0.14.1" }
+
+# base-sdk's `dash-pow`, reached through `dash-primitives`, needs `portable` on targets without
+# the CPU features its accelerated X11 requires; enabling it here, as dashcore_hashes does,
+# keeps this crate building on its own.
+[target.'cfg(all(target_arch = "aarch64", not(all(target_feature = "neon", target_feature = "aes"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "x86_64", not(all(target_feature = "aes", target_feature = "avx", target_feature = "avx2", target_feature = "bmi1", target_feature = "bmi2", target_feature = "f16c", target_feature = "fma", target_feature = "lzcnt", target_feature = "movbe", target_feature = "xsave"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "wasm32", not(target_feature = "simd128")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(not(any(target_arch = "aarch64", target_arch = "x86_64", target_arch = "wasm32")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+# Likewise base-sdk's `dash-pkc`, whose BLS needs ADX on x86_64 unless built `portable`.
+[target.'cfg(all(target_arch = "x86_64", not(target_feature = "adx")))'.dependencies]
+dash-pkc = { workspace = true, features = ["portable"] }
+
+[dev-dependencies]
+criterion = "0.8.1"
+dash-core-vectors = { path = "../test-vectors" }
+node-sink = { path = "../node-sink" }
+# tests/fp_confinement.rs reads the source with Rust's lexer and parser
+proc-macro2 = { version = "1.0.95", default-features = false, features = ["span-locations"] }
+proptest = "1.7"
+quote = { version = "1.0.40", default-features = false }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = "1.0"
+syn = { version = "2.0.106", default-features = false, features = ["full", "parsing", "printing", "visit"] }
+
+[[bench]]
+name = "decode"
+harness = false
+
+[[bench]]
+name = "next_work"
+harness = false
+
+[[bench]]
+name = "script"
+harness = false
+
+[[bench]]
+name = "coins"
+harness = false
+
+[[bench]]
+name = "checks"
+harness = false
+
+[[bench]]
+name = "deployments"
+harness = false
