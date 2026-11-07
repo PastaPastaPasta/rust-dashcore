@@ -1,0 +1,145 @@
+{
+ "name": "a1a-pnbh-rules-genesis",
+ "description": "ContextualCheckBlockHeader/AcceptBlockHeader rules through full acceptance from genesis; then bad-chainlock",
+ "rows": [
+  "A-1a",
+  "A-28"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "pow": "fail"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "bits": "2000ffff"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "time": "mtp+0"
+  },
+  {
+   "op": "build",
+   "branch": "E",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "time": "now+7201"
+  },
+  {
+   "op": "build",
+   "branch": "F",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "time": "now+7200"
+  },
+  {
+   "op": "build",
+   "branch": "H",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "version": 1
+  },
+  {
+   "op": "build",
+   "branch": "I",
+   "parent": "A10",
+   "count": 1,
+   "submit": "headers",
+   "version": 3
+  },
+  {
+   "op": "build",
+   "branch": "J",
+   "parent": "A10",
+   "count": 1,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "K",
+   "parent": "J11",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "L",
+   "parent": "A10",
+   "count": 3,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "M",
+   "parent": "L13",
+   "count": 1,
+   "submit": "none",
+   "pow": "fail"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "L11..L13",
+    "M14"
+   ]
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "A1..A10"
+   ]
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A10"
+  },
+  {
+   "op": "build",
+   "branch": "P",
+   "parent": "A8",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "P9"
+   ]
+  }
+ ]
+}
