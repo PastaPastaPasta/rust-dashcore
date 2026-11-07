@@ -105,9 +105,8 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                     wallet_id,
                     txids,
                     superseded_by: tx.txid(),
-                    // The winner is a transaction of this very block, so its
-                    // mined height is the block's height.
-                    winner_mined_height: Some(height),
+                    // The winner is a transaction of this very block.
+                    winner_block: Some(tx_info),
                     released_outpoints,
                     balance: info.balance(),
                     account_balances: BTreeMap::new(),
@@ -255,7 +254,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                 // Off-chain arrival: only an InstantSend-locked winner sweeps
                 // from this path (an unlocked mempool arrival never does),
                 // and an IS-locked winner is by definition not mined yet.
-                winner_mined_height: None,
+                winner_block: None,
                 released_outpoints,
                 balance: info.balance(),
                 account_balances: per_wallet_account_diff
