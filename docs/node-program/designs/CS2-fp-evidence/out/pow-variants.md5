@@ -1,0 +1,7 @@
+c3130fc4085d305cbb24ab19318ad29a  out/pow-host-aarch64.txt
+c3130fc4085d305cbb24ab19318ad29a  out/pow-host-x86_64-fma.txt
+d113487771190313ec37e6f90a2e372f  out/pow-host-x86_64-sse2.txt
+c3130fc4085d305cbb24ab19318ad29a  out/pow-python_3.11-slim-bullseye-fma.txt
+d113487771190313ec37e6f90a2e372f  out/pow-python_3.11-slim-bullseye-sse2.txt
+c3130fc4085d305cbb24ab19318ad29a  out/pow-python_3.12-slim-bookworm-fma.txt
+d113487771190313ec37e6f90a2e372f  out/pow-python_3.12-slim-bookworm-sse2.txt
