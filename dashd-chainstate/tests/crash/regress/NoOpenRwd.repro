@@ -1,0 +1,10 @@
+# CRASH planted subscriber bug NoOpenRwd (CH2 §7.2 b3), minimised in 116 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=- presumed=- crash=- replay=- index=synced:0:96 planted=NoOpenRwd
+workload c20;f;D;x15;f
+crash 108 process-kill
+adversary realistic
+granularity write
+expect R11a
+minimality verified
