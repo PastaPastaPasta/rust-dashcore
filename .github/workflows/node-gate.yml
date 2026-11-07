@@ -14,8 +14,10 @@
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
 #            `features` shard runs the test targets whose required features the workspace resolve
 #            leaves off, BL-608), the `gate-lib` shard (each crate's lib tests behind its
-#            [package.metadata.gate] test-features, BL-608 phase 2), clippy (then rustdoc -D warnings,
-#            BL-731), or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
+#            [package.metadata.gate] test-features, BL-608 phase 2), clippy (then rustdoc
+#            -D warnings with all features and default features: BL-731, BL-731b), or extras
+#            (no-libm, public-api, pure, planted, private tests skip cleanly); clippy and extras
+#            then split rustdoc of each crate alone (BL-731b).
 #   macos    BL-556: cargo check --all-targets of the node crates and an rdashd link on macOS arm64;
 #            its own third-party cache, saved by default-branch dispatches only.
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
@@ -866,6 +868,15 @@ jobs:
           jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rustdoc_rebuilt_third_party=\(length) rustdoc_rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/doc.json" | tee -a "$METRICS"
           exit "$rc"
 
+      # v21 (BL-731b): the same with default features. The workspace run unifies the members'
+      # features, so each crate also documents alone with its own defaults ('rustdoc each crate',
+      # after extras' steps): 7 of BL-731b's 17 sites showed only that way.
+      - name: rustdoc default features
+        if: ${{ matrix.kind == 'clippy' && !cancelled() }}
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          /usr/bin/time -f 'rustdoc_default_s=%e' -a -o "$METRICS" cargo doc --locked --workspace --no-deps --keep-going
       - name: Extras setup
         if: matrix.kind == 'extras'
         run: |
@@ -952,6 +963,32 @@ jobs:
           cargo install --locked cargo-public-api --version "$version"
           contrib/node/check-public-api.sh
           echo "public_api_s=$((SECONDS - t0))" >> "$METRICS"
+
+      # v21 (BL-731b): every member with a lib (any crate type), bin or proc-macro target documents
+      # alone with its own default features, whatever the others do. clippy takes the even places in
+      # cargo metadata's member order and extras the odd ones: all of them in clippy made it the run's
+      # longest job (38 min against rdashd's 36).
+      - name: rustdoc each crate
+        if: ${{ (matrix.kind == 'clippy' || matrix.kind == 'extras') && !cancelled() }}
+        env:
+          RUSTDOCFLAGS: -D warnings
+          HALF: ${{ matrix.kind == 'extras' && '1' || '0' }}
+        run: |
+          mapfile -t members < <(cargo metadata --locked --no-deps --format-version 1 | jq -r '.workspace_members[] as $id | .packages[]
+            | select(.id == $id and any(.targets[]; .kind - ["test", "bench", "example", "custom-build"] | length > 0)) | .name')
+          [ "${#members[@]}" -gt 0 ] || { echo "::error::cargo metadata lists no documentable member"; exit 1; }
+          crates=()
+          for i in "${!members[@]}"; do
+            if [ $((i % 2)) -eq "$HALF" ]; then crates+=("${members[$i]}"); fi
+          done
+          bad=() t0=$SECONDS
+          for c in "${crates[@]}"; do
+            echo "::group::$c"
+            cargo doc --locked --no-deps -p "$c" || bad+=("$c")
+            echo "::endgroup::"
+          done
+          echo "rustdoc_crates_s=$((SECONDS - t0)) rustdoc_crates=${#crates[@]} rustdoc_members=${#members[@]} rustdoc_crates_failed=${#bad[@]}" | tee -a "$METRICS"
+          [ "${#bad[@]}" -eq 0 ] || { echo "::error::rustdoc with default features failed for: ${bad[*]}"; exit 1; }
 
       - name: Upload failed dashd test logs
         if: failure() && (matrix.kind == 'test' || matrix.kind == 'lib')
