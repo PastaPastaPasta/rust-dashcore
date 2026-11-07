@@ -1,0 +1,11 @@
+# CRASH planted subscriber bug T22 (CH2 §7.2 b3), minimised in 72 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=12,22 presumed=25:31 crash=- replay=- index=synced:0:96 planted=T22
+workload c10;f
+crash 59 power-loss
+decide 1:subscriber:b11=1
+adversary realistic
+granularity write
+expect R11c
+minimality verified

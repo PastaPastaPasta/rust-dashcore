@@ -1,0 +1,121 @@
+{
+ "provenance": {
+  "tag": "v24.0.0",
+  "commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "inventory": "inventory-v24.0.0.json",
+  "note": "O10's decisions for a10 keys (O10 plan rev2.1 §3.2, §3.5, §5.1; DEC-988 for bad-sb-start). Keys are a10 inventory keys; a10_decision is that row's a10 decision, checked; an a10 C row is never re-decided. a10's inventory is never edited."
+ },
+ "rows": [
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version",
+   "a10_decision": "X-reg",
+   "status": "proven-unreachable",
+   "modes": ["Submit", "Proposal"],
+   "proof": "st:894-897 fires only with DIP3 active at the block and no decoded CbTx (opt_cbTx is set only for a type-5 vtx[0] whose payload decodes, st:876-881). Both modes run ContextualCheckBlock first (Submit: AcceptBlock v:4831; Proposal: TestBlockValidity v:4974), whose bad-cb-type (v:4600-4602, DeploymentActiveAfter(pprev) == st:896's DeploymentActiveAt(*pindex)) refuses a non-type-5 coinbase; a type-5 coinbase whose payload fails to decode returns bad-cbtx-payload at st:891 first; with fCheckCbTxMerkleRoots false neither st:876 nor st:894 is entered.",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#5:bad-cb-type",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated (DIP3 at 2000 under D49); O10-5's leg (Q-2)",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#1:bad-txns-type",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#3:bad-txns-type",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-version",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)",
+   "source": "OD-L3-36, as CCT#1-#3 (O10 plan §3.2)"
+  },
+  {
+   "key": "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot",
+   "a10_decision": "X-evo",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": ["MN0-2a", "CH7a-4a", "P-1"],
+   "milestone": "M4",
+   "reason": "evo: a decoded CbTx at MERKLE_ROOT_ASSETUNLOCKS; O10-5's leg (Q-2)",
+   "source": "O10 plan §3.2"
+  },
+  {
+   "key": "validation.cpp:CheckBlockHeader#2:devnet-genesis",
+   "a10_decision": "X-reg",
+   "status": "pending",
+   "slice": "O10-11",
+   "milestone": "M3",
+   "target": "exercised",
+   "reason": "regime-excluded on regtest; a devnet witness and controls in O10-11, V checked in-process (P-4)",
+   "source": "O10 plan §3.5"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits",
+   "a10_decision": "X-reg",
+   "status": "pending",
+   "slice": "O10-11",
+   "milestone": "M3",
+   "target": "exercised",
+   "reason": "regime-excluded on regtest (mainnet, h <= 68589); a mainnet-params witness and the interior control in O10-11 over the DEC-988 header fixture, V checked in-process (P-4)",
+   "source": "O10 plan §3.5, DEC-988"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint",
+   "a10_decision": "X-reg",
+   "status": "pending",
+   "slice": "O10-11",
+   "milestone": "M3",
+   "target": "exercised",
+   "reason": "regime-excluded on regtest (checkpoint = genesis); a mainnet-params witness and the height-1500 and 1501 controls in O10-11 over the DEC-988 header fixture, V checked in-process (P-4)",
+   "source": "O10 plan §3.5, DEC-988"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#3:bad-sb-start",
+   "a10_decision": "X-reg",
+   "status": "unproven-exempt",
+   "dec": "DEC-988",
+   "owner": "L3",
+   "milestone": "M3",
+   "reason": "regime-excluded: a mainnet-only start-hash rule at a height that needs full chain data",
+   "core": "validation.cpp:2628-2632 (nSuperblockStartBlock and a non-null nSuperblockStartHash); chainparams.cpp:171-172 (mainnet 614820; testnet, devnet and regtest null at :384, :570, :813)",
+   "rdc": "dashd-chainstate/src/connect/serial.rs:764-767 (wrong_superblock_start, :330-335)",
+   "parity": "rejection parity unproven",
+   "source": "O10 plan §3.5, DEC-988 (Q-N2)"
+  }
+ ]
+}
