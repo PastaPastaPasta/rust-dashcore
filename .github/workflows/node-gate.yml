@@ -14,14 +14,15 @@
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
 #            `features` shard runs the test targets whose required features the workspace resolve
 #            leaves off, BL-608), the `gate-lib` shard (each crate's lib tests behind its
-#            [package.metadata.gate] test-features, BL-608 phase 2), clippy, or extras (no-libm,
-#            public-api, pure, planted, private tests skip cleanly).
+#            [package.metadata.gate] test-features, BL-608 phase 2), clippy (then rustdoc -D warnings,
+#            BL-731), or extras (no-libm, public-api, pure, planted, private tests skip cleanly).
 #   macos    BL-556: cargo check --all-targets of the node crates and an rdashd link on macOS arm64;
 #            its own third-party cache, saved by default-branch dispatches only.
 #   summary  one table: cache hit/miss, restore bytes and seconds, per-job build/test wall and CPU.
 #   nightly  instead of static, shard and summary, on the schedule (or a `nightly` dispatch): CH3b b4b's
 #            -dbcrashratio reorg loop (contrib/node/b4b-nightly.sh) on `nightly/integration`, the GREEN
 #            train snapshot CI-S0 moves it to at each merge. Never part of a verdict; saves no cache.
+#            A scheduled run skips it when a nightly of its UTC date already ran (v20).
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -116,13 +117,40 @@ jobs:
     timeout-minutes: 240
     permissions:
       contents: read
+      actions: read  # the day's earlier nightlies, for a scheduled run
     outputs:
       key: ${{ steps.key.outputs.key }}
       prefix: ${{ steps.key.outputs.prefix }}
       matrix: ${{ steps.plan.outputs.matrix }}
       hit: ${{ steps.lookup.outputs.cache-hit }}
       commit: ${{ steps.checkout.outputs.commit }}
+      nightly_ran: ${{ steps.once.outputs.ran }}
     steps:
+      # The fork's schedule fires hours late, often after the 06:47 UTC fallback dispatch from agentbox
+      # has run the day's nightly (CI-FORK.md). A scheduled run then skips the nightly job. A failed
+      # lookup runs it: a second nightly costs less than none.
+      - name: Once a day
+        id: once
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mine=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at) || { echo "::warning::own run lookup failed; running the nightly"; exit 0; }
+          day=${mine%%T*}
+          # A cancelled, skipped or never-started earlier run did not run the nightly; a failed one did.
+          earlier=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/node-gate.yml/runs?created=>=$day&per_page=100" \
+            --jq ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and (.created_at | startswith(\"$day\")) and .created_at < \"$mine\"
+                    and (.event == \"schedule\" or (.event == \"workflow_dispatch\" and (.display_title | startswith(\"node-gate nightly \"))))
+                    and ((.conclusion // \"\") | IN(\"cancelled\", \"skipped\", \"startup_failure\") | not))
+                  | \"\(.id) \(.event) \(.created_at) \(.conclusion // .status)\"") || { echo "::warning::run lookup failed; running the nightly"; exit 0; }
+          earlier=$(paste -sd ' ' <<< "$earlier")
+          if [ -n "$earlier" ]; then
+            echo "::notice::the nightly of $day already ran ($earlier); this scheduled run skips it"
+            echo "ran=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no earlier nightly on $day"
+          fi
+
       - name: Checkout
         id: checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -756,8 +784,9 @@ jobs:
           /usr/bin/time -f 'test_hooks_s=%e test_hooks_cpu_s=%U+%S' -a -o "$METRICS" \
             cargo test --locked --no-fail-fast ${{ matrix.packages }} ${{ matrix.features }} --features rdashd/test-hooks "${args[@]}"
 
-      # One `cargo test -p <crate> --lib` per crate the plan lists; a run that fails, or runs no test
-      # (a filter that no longer matches), fails the shard. Every run goes, whatever the others do.
+      # One `cargo test -p <crate> --lib` per crate the plan lists; a run that fails, runs no test, or
+      # has a test-filter entry that matches no passing test fails the shard. Every run goes, whatever
+      # the others do.
       - name: lib tests
         if: matrix.kind == 'lib'
         env:
@@ -780,14 +809,25 @@ jobs:
             rebuilt=$((rebuilt + ${#new[@]})); units+=("${new[@]}")
             if [ "$rc" -eq 0 ]; then
               # shellcheck disable=SC2086
-              cargo test --locked --no-fail-fast -p "$crate" --features "$feats" --lib -- $filter 2>&1 | tee "$RUNNER_TEMP/lib.log" || rc=$?
+              # libtest's lines alone (stdout): a child process's stderr could split a `test ... ok` line.
+              cargo test --locked --no-fail-fast -p "$crate" --features "$feats" --lib -- $filter | tee "$RUNNER_TEMP/lib.log" || rc=$?
             fi
             passed=$(awk '/^test result/ {p += $4} END {print p + 0}' "$RUNNER_TEMP/lib.log")
+            # BL-763: each test-filter entry must match a passing test, or a renamed module would drop
+            # its tests while the crate's other entries keep the run's count above 0.
+            unmatched=()
+            read -ra entries <<< "$filter"
+            for f in "${entries[@]}"; do
+              awk -v f="$f" '$1 == "test" && $NF == "ok" && index($2, f) { m = 1 } END { exit !m }' "$RUNNER_TEMP/lib.log" \
+                || unmatched+=("$f")
+            done
             echo "::endgroup::"
             if [ "$rc" -ne 0 ]; then
               echo "::error::gate-lib $crate failed (rc=$rc)"; bad=$((bad + 1))
             elif [ "$passed" -eq 0 ]; then
               echo "::error::gate-lib $crate ran no test${filter:+ (filter: $filter)}"; bad=$((bad + 1))
+            elif [ "${#unmatched[@]}" -gt 0 ]; then
+              echo "::error::gate-lib $crate: test-filter ${unmatched[*]} matched no passing test"; bad=$((bad + 1))
             fi
             echo "lib_${crate//-/_}_s=$((SECONDS - s)) lib_${crate//-/_}_passed=$passed" | tee -a "$METRICS"
             rm -f "$RUNNER_TEMP/lib.log"
@@ -806,6 +846,20 @@ jobs:
             cargo clippy --locked --workspace --all-features --all-targets --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy.json" || rc=$?
           # Third-party units the restored closure should have held (0 on a good hit), by name.
           jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/clippy.json" | tee -a "$METRICS"
+          exit "$rc"
+
+      # BL-731 (DEC-1327): the workspace's docs build with no rustdoc warning. After clippy, whose
+      # check units of the third-party crates it documents against. Its rebuilt units are its own
+      # metric, outside Summary's save rule: the closure holds no doc-only units.
+      - name: rustdoc
+        if: ${{ matrix.kind == 'clippy' && !cancelled() }}
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          rc=0
+          /usr/bin/time -f 'rustdoc_s=%e rustdoc_cpu_s=%U+%S rustdoc_peak_kb=%M' -a -o "$METRICS" \
+            cargo doc --locked --workspace --no-deps --all-features --keep-going --message-format=json-render-diagnostics > "$RUNNER_TEMP/doc.json" || rc=$?
+          jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rustdoc_rebuilt_third_party=\(length) rustdoc_rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/doc.json" | tee -a "$METRICS"
           exit "$rc"
 
       - name: Extras setup
@@ -1150,7 +1204,7 @@ jobs:
   nightly:
     name: b4b nightly
     needs: deps
-    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' && needs.deps.outputs.nightly_ran != 'true' }}
     runs-on: ubuntu-24.04
     # The build, then three components of at most 3600 s each.
     timeout-minutes: 200
@@ -1224,6 +1278,9 @@ jobs:
         run: |
           # The dashd components return early, and pass, when SKIP_DASHD_TESTS is set (BL-608).
           [ -z "${SKIP_DASHD_TESTS+x}" ] || { echo "::error::SKIP_DASHD_TESTS is set: the dashd components would pass without running"; exit 1; }
+          # The nightly runs both storage profiles. The script runs one when B4B_STORAGE names it (with
+          # B4B_CALIBRATE=1), which is for calibration, so this job never sets either.
+          [ -z "${B4B_STORAGE+x}" ] || { echo "::error::B4B_STORAGE is set: the nightly would not run both storage legs"; exit 1; }
           [ -z "$SEED" ] || export B4B_SEED=$SEED
           echo "open files: $(ulimit -Sn)"
           rc=0
