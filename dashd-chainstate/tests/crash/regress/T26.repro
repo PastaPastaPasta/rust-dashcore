@@ -1,0 +1,11 @@
+# CRASH planted bug T26 (CH2 §6.4), minimised in 89 replays.
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=- planted=T26
+workload c20;f
+crash 82 power-loss
+decide 1:chainstate:b4=1
+adversary realistic
+granularity write
+expect R3
+minimality verified
