@@ -1,0 +1,52 @@
+{
+ "name": "a38-deep-fork-time-too-old",
+ "description": "a stale branch forking 30 below the tip (A70 under tip A100): headers accepted, time-too-old at the MTP boundary (mtp+0), accepted at mtp+1",
+ "rows": [
+  "A-38"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A70",
+   "count": 5,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "B75",
+   "count": 1,
+   "submit": "headers",
+   "time": "mtp+0"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "B75",
+   "count": 1,
+   "submit": "headers",
+   "time": "mtp+1"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "B75",
+   "count": 5,
+   "submit": "headers"
+  }
+ ]
+}
