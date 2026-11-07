@@ -12,9 +12,11 @@
 //! sync derive-and-sign in `async {}` without meaningful overhead.
 
 use async_trait::async_trait;
+use dashcore::Transaction;
 use secp256k1::{ecdsa, PublicKey};
 
 use crate::bip32::{DerivationPath, ExtendedPubKey};
+use crate::Utxo;
 
 /// A signing method a [`Signer`] can perform.
 ///
@@ -78,6 +80,13 @@ pub enum TransactionCategory {
 /// implementor that doesn't satisfy both bounds would fail to compile at
 /// the call site with a cryptic "future is not `Send`/`Sync`" message.
 /// Putting the bounds on the trait surfaces the requirement up front.
+///
+/// A signer that only ever sees a sighash and a derivation path cannot tell
+/// which coins it is spending. One that needs to bind its consent to the exact
+/// inputs (for example to refuse an asset-lock drain whose coin selection no
+/// longer matches what the user approved) implements
+/// [`Signer::approve_inputs`], which the wallet's builders call once per
+/// signed build, before any signature is requested.
 #[async_trait]
 pub trait Signer: Send + Sync {
     /// Error produced by the underlying signing device or service.
@@ -118,6 +127,27 @@ pub trait Signer: Send + Sync {
         path: &DerivationPath,
         sighash: [u8; 32],
     ) -> Result<(ecdsa::Signature, PublicKey), Self::Error>;
+
+    /// Approve or refuse the inputs a build is about to sign.
+    ///
+    /// The wallet's signing builders call this exactly once per build, after
+    /// coin selection and payload finalization and before the first
+    /// [`Self::sign_ecdsa`] request. `tx` is the unsigned transaction exactly
+    /// as it will be signed (special payload finalized, empty scriptSigs), and
+    /// `inputs` holds exactly the coins to be signed, one per transaction
+    /// input and in the same order. The call happens inside the build that
+    /// selected those coins, so a caller holding its wallet lock across the
+    /// build gets an approval that is atomic with coin selection.
+    ///
+    /// Returning an error aborts the build: no signature is requested, the
+    /// build's input reservation is released, and the error is returned as a
+    /// signing failure.
+    ///
+    /// The default approves every build.
+    async fn approve_inputs(&self, tx: &Transaction, inputs: &[Utxo]) -> Result<(), Self::Error> {
+        let _ = (tx, inputs);
+        Ok(())
+    }
 
     /// Return the compressed public key at `path` without signing.
     ///
