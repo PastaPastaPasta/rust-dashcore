@@ -1,0 +1,12 @@
+# Block hashes the SB7 history acceptance (tests/cbtx_root_history.rs) anchors its dumps to, besides
+# Core's checkpoints, which it reads from dash-params. They cover the run ends and the dump files whose
+# ranges hold no checkpoint.
+#
+# Source: `getblockhash <height>` on the read-only Dash Core 24.0.0 reference nodes (mainnet "main",
+# testnet "test"), 2026-10-11. PLAN §7: no mainnet height above 2,090,000.
+#
+# network height hash (display order)
+mainnet 1900000 000000000000001b8187c744355da78857cca5b9aeb665c39d12f26a0e3a9af5
+mainnet 2000000 0000000000000009bd68b5e00976c3f7482d4cc12b6596614fbba5678ef13a59
+mainnet 2090000 0000000000000019f6242b4246bc6bde163a3b4eac87f13fc0a4868f4a8535d7
+testnet 1569775 000000b2bffc5aeb51a2bde42b8a2f6cf9daa5ff3223c2cec3d131eddf085a6a
