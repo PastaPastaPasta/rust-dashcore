@@ -9,6 +9,8 @@
 #            cache (DEC-699): third-party artifacts only, keyed on CACHE_GEN + toolchain + Cargo.lock +
 #            manifests (features) + ci-groups.yml. On a miss in a default-branch run it builds every
 #            selection cold, strips the workspace crates' units and saves; only macos saves otherwise.
+#            In default-branch runs it also saves ~/.rust-dashcore-test (the dashd releases and regtest
+#            data) under a key of their versions, which the shards and the nightly restore (DEC-1392).
 #   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
 #            protocol-tables (no build, no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
@@ -124,6 +126,7 @@ jobs:
       prefix: ${{ steps.key.outputs.prefix }}
       matrix: ${{ steps.plan.outputs.matrix }}
       hit: ${{ steps.lookup.outputs.cache-hit }}
+      dashd_key: ${{ steps.dashd.outputs.key }}
       commit: ${{ steps.checkout.outputs.commit }}
       nightly_ran: ${{ steps.once.outputs.ran }}
     steps:
@@ -230,6 +233,53 @@ jobs:
           else:
               print(f"::error::CACHE_GEN_BUILDS {pin} is not CACHE_GEN {gen}'s pin: set it to {want}")
           sys.exit(1)
+
+      # The dashd cache (DEC-1392, CI-FORK.md): outside the build list CACHE_GEN covers. An empty key
+      # (the versions moved out of these patterns) leaves every install downloading, which the shards'
+      # dashd_cache metric shows.
+      - name: dashd cache key
+        id: dashd
+        run: |
+          lanes=$(sed -n 's/^DASHVERSION = os.environ.get("DASHVERSION", "\(.*\)")$/\1/p' contrib/setup-dashd.py || true)
+          data=$(sed -n 's/^TEST_DATA_VERSION = os.environ.get("TEST_DATA_VERSION", "\(.*\)")$/\1/p' contrib/setup-dashd.py || true)
+          pin=$(sed -n 's/^pub const CORE_VERSION: &str = "v\(.*\)";$/\1/p' rdashd/tests/common/mod.rs || true)
+          # The shards' ST2_DASHD, read as gate-fast's oracle-diff reads it.
+          v24=$({ grep -oE 'DASHVERSION: *"?24\.[^"[:space:]]*' .github/workflows/node-gate.yml || true; } | sed -E 's/^DASHVERSION: *"?//' | sort -u)
+          if [ -z "$lanes" ] || [ -z "$data" ] || [ -z "$pin" ] || [ "$(grep -c . <<< "$v24")" != 1 ]; then
+            echo "::warning::no dashd cache: cannot read the versions (setup-dashd.py '$lanes' '$data', CORE_VERSION '$pin', DASHVERSION 24 '$v24')"
+            exit 0
+          fi
+          versions=$(printf '%s\n' "$lanes" "$v24" "$pin" | sort -uV | paste -sd ' ')
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+          echo "key=node-dashd-v1-$RUNNER_OS-${versions// /+}-$data" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Look up the dashd cache
+        id: dashd_lookup
+        if: steps.dashd.outputs.key != '' && (github.event_name == 'schedule' || github.ref_name == github.event.repository.default_branch)
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.dashd.outputs.key }}
+          path: ~/.rust-dashcore-test
+          lookup-only: true
+
+      # A failed fetch saves nothing and must not fail Deps: the shards would download on their own.
+      - name: Fetch dashd and the regtest data
+        id: dashd_fetch
+        if: steps.dashd_lookup.outcome == 'success' && steps.dashd_lookup.outputs.cache-hit != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIONS: ${{ steps.dashd.outputs.versions }}
+        run: |
+          for v in $VERSIONS; do DASHVERSION=$v python3 contrib/setup-dashd.py > /dev/null; done
+          du -sh ~/.rust-dashcore-test/*
+
+      - name: Save the dashd cache
+        if: steps.dashd_fetch.outcome == 'success'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ steps.dashd.outputs.key }}
+          path: ~/.rust-dashcore-test
 
       - name: Shard plan
         id: plan
@@ -710,15 +760,29 @@ jobs:
         if: matrix.kind == 'test' || matrix.kind == 'lib'
         run: /usr/bin/time -f 'fetch_s=%e' -a -o "$METRICS" cargo fetch --locked
 
+      - name: Restore dashd and the regtest data
+        id: dashd_cache
+        if: (matrix.kind == 'test' || matrix.kind == 'extras' || matrix.kind == 'lib') && needs.deps.outputs.dashd_key != ''
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.dashd_key }}
+          path: ~/.rust-dashcore-test
+
       - name: dashd 23.1.0 and the regtest data
         if: matrix.kind == 'test' || matrix.kind == 'extras' || matrix.kind == 'lib'
-        run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DASHD_CACHE: ${{ steps.dashd_cache.outputs.cache-hit == 'true' && 'hit' || 'miss' }}
+        run: |
+          echo "dashd_cache=$DASHD_CACHE" | tee -a "$METRICS"
+          python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
 
       # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
       - name: dashd 24.0.0
         if: matrix.kind == 'test' || matrix.kind == 'lib'
         env:
           DASHVERSION: 24.0.0
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
           v=$(python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
@@ -1286,7 +1350,16 @@ jobs:
             ~/.cargo/git/db
             target
 
+      - name: Restore dashd and the regtest data
+        if: needs.deps.outputs.dashd_key != ''
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.dashd_key }}
+          path: ~/.rust-dashcore-test
+
       - name: dashd at the tree's pin
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
           version=$(sed -n 's/^pub const CORE_VERSION: &str = "v\(.*\)";$/\1/p' rdashd/tests/common/mod.rs)
