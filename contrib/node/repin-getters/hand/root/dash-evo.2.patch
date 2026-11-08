@@ -1,0 +1,48 @@
+diff --git a/dash-evo/src/llmq/commitment_tests.rs b/dash-evo/src/llmq/commitment_tests.rs
+index 850465d4c3e36a39872945aef8ee9f796cc9912d..856a5823ac0923edda8a08976c75dbcc73f555c1 100644
+--- a/dash-evo/src/llmq/commitment_tests.rs
++++ b/dash-evo/src/llmq/commitment_tests.rs
+@@ -140,10 +140,7 @@ fn bits(size: usize, set: &[usize]) -> DynBitset {
+     for &i in set {
+         data[i / 8] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: size as u64,
+-        data,
+-    }
++    DynBitset::new(size as u64, data).expect("a bitset of `size` bits")
+ }
+ 
+ /// The commitment of LLMQ_TEST (size 3, minSize 2) at `BASE` with every member valid, signed by
+diff --git a/dash-evo/src/llmq/tests.rs b/dash-evo/src/llmq/tests.rs
+index 960f400eee0ed2f9fd4be050bdf4f4e6d1fd540b..df1ba5be71da47c8dcd1abdda2673cc122532363 100644
+--- a/dash-evo/src/llmq/tests.rs
++++ b/dash-evo/src/llmq/tests.rs
+@@ -1470,10 +1470,7 @@ struct Mined(Vec<(LlmqType, u32, Option<i16>)>, Vec<u32>);
+ impl Mined {
+     fn qc(t: LlmqType, base: u32, index: Option<i16>) -> LlmqCommitment {
+         use dash_pkc::bls::{BlsEagerPk, BlsEagerSig, BlsSchemeKind};
+-        let none = dash_primitives::DynBitset {
+-            num_bits: 0,
+-            data: Vec::new(),
+-        };
++        let none = dash_primitives::DynBitset::new(0, Vec::new()).expect("the empty bitset");
+         LlmqCommitment {
+             version: if index.is_some() {
+                 4
+diff --git a/dash-evo/tests/cbtx.rs b/dash-evo/tests/cbtx.rs
+index f1cdc2c60eb84a7aaad56bf6c1d9f75e216d1a9c..5a708f8acdb06a5a6531af85aecf4734cf7eb430 100644
+--- a/dash-evo/tests/cbtx.rs
++++ b/dash-evo/tests/cbtx.rs
+@@ -302,7 +302,10 @@ fn nonnull_coinbase_chainlock_cases() {
+ 
+     let (sig, diff) = chainlock(&facts, h).unwrap();
+     assert_eq!(diff, 0);
+-    assert_eq!(sig.to_bytes(BlsCtx::BASIC.scheme()), cbtx.best_cl_signature.unwrap().to_bytes());
++    assert_eq!(
++        sig.to_bytes(BlsCtx::BASIC.scheme()),
++        cbtx.best_cl_signature().as_ref().unwrap().to_bytes()
++    );
+     assert_eq!(
+         unhex(b["cbTx"]["bestCLSignature"].as_str().unwrap()),
+         sig.to_bytes(BlsCtx::BASIC.scheme())
