@@ -1,0 +1,125 @@
+# The classification table of contrib/node/ev1-census.py (EV1 §3.13).
+#
+# [[nonliteral]]: every `Invalid(` call in the census scopes whose reason is not a string literal,
+# with the class Core passes, the reason expression, and every reason it can forward (with the
+# Core lines that produce them). `"*"` stands for any reason of EV1's checks, which the block
+# path re-wraps.
+#
+# [[unreachable]]: census rows no input can reach, with the Core reason why. Census closure
+# accepts these in place of an L0 vector.
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:1427"
+class = "TX_BAD_SPECIAL"
+expression = "migration_state.GetRejectReason()"
+# ApplyProUpServTx -> SetStateVersion: specialtxman.cpp:38 (AddNetInfoEntries), :94.
+reasons = ["bad-protx-netinfo-version"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:1536"
+class = "TX_BAD_SPECIAL"
+expression = "migration_state.GetRejectReason()"
+# SetStateVersion: specialtxman.cpp:38 (AddNetInfoEntries), :94.
+reasons = ["bad-protx-netinfo-version"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:886"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# CheckCbTx on the block path (CH7a).
+reasons = ["*"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:918"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# the shared-collateral covenant on the block path (CH7a).
+reasons = ["*"]
+
+[[nonliteral]]
+site = "src/evo/specialtxman.cpp:933"
+class = "BLOCK_CONSENSUS"
+expression = "tx_state.GetRejectReason()"
+# CheckSpecialTxInner on the block path (CH7a).
+reasons = ["*"]
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:49"
+reason = "bad-protx-payee-dest"
+why = "IsValidPayoutScript (providertx.cpp:20-23) admits only P2PKH and P2SH, which ExtractDestination always decodes"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:105"
+reason = "bad-protx-shares-payee-dest"
+why = "IsValidPayoutScript (providertx.cpp:20-23) admits only P2PKH and P2SH, which ExtractDestination always decodes"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:304"
+reason = "bad-protx-operator-pubkey"
+why = "the ProRegTx reader sets the key's scheme from nVersion (providertx.h:180), so IsLegacy() == (nVersion == LegacyBLS) for every decoded payload"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:462"
+reason = "bad-protx-operator-pubkey"
+why = "the ProUpRegTx reader sets the key's scheme from nVersion (providertx.h:346), so IsLegacy() == (nVersion == LegacyBLS) for every decoded payload"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:573"
+reason = "bad-protx-operator-pubkey"
+why = "the ProUpSharedRegTx reader reads the key under the basic scheme (providertx.h:534), so IsLegacy() is false for every decoded payload"
+
+[[unreachable]]
+site = "src/evo/providertx.cpp:191"
+reason = "bad-protx-netinfo-addr"
+why = "Validate() never returns BadAddress: MnNetInfo checks IsTriviallyValid first (netinfo.cpp:353), which needs a valid CService (netinfo.cpp:209-234); ExtNetInfo validates only what GetAddrPort returns (netinfo.cpp:607-608), and an entry holds a CService only when it is valid (netinfo.h:212-216, :251; netinfo.cpp:175-182)"
+
+# [[v240]]: CE7-01's reject sites at Dash Core v24.0.0 (dashpay/dash#8018), which the census pin
+# predates. The census stays at its pin; ev1-census.py checks each entry against v24.0.0's own
+# source and appends it as a row keyed `v24.0.0:<file>:<line>`. A `literal` entry is an `Invalid(`
+# call with that class and reason. A `forward` entry is a line that contains `expression` and hands
+# a NetInfoStatus back; `via` is the `Invalid(` call (class and reason as given) that turns it into
+# the reason.
+
+[[v240]]
+site = "src/evo/providertx.cpp:237"
+scope = "ev1"
+form = "literal"
+class = "TX_BAD_SPECIAL"
+reason = "bad-protx-netinfo-addr-type"
+what = "CheckIPv4Primaries, before IPV4_OPTIONAL: the first core_p2p entry is not IPv4"
+
+[[v240]]
+site = "src/evo/providertx.cpp:245"
+scope = "ev1"
+form = "literal"
+class = "TX_BAD_SPECIAL"
+reason = "bad-protx-netinfo-addr-type"
+what = "CheckIPv4Primaries, before IPV4_OPTIONAL: the first platform_p2p or platform_https entry is not an IPv4 service"
+
+[[v240]]
+site = "src/evo/providertx.cpp:249"
+scope = "ev1"
+form = "literal"
+class = "TX_BAD_SPECIAL"
+reason = "bad-protx-netinfo-addr"
+what = "CheckIPv4Primaries, before IPV4_OPTIONAL: the first platform_p2p or platform_https entry is not on the first core_p2p address"
+
+[[v240]]
+site = "src/evo/netinfo.cpp:649"
+scope = "ev1"
+form = "forward"
+class = "TX_BAD_SPECIAL"
+reason = "bad-protx-netinfo-port"
+expression = "ValidateMainnetPrimaryPort(purpose, entries.front())"
+via = "src/evo/providertx.cpp:213"
+what = "ExtNetInfo::Validate on mainnet, every height: a purpose's first entry is off its standard port (ValidateMainnetPrimaryPort, netinfo.cpp:82-87), through CheckNetInfo"
+
+[[v240]]
+site = "src/evo/netinfo.cpp:452"
+scope = "other"
+form = "forward"
+class = "BLOCK_CONSENSUS"
+reason = "bad-protx-netinfo-version"
+expression = "ValidateMainnetPrimaryPort(purpose, candidate)"
+via = "src/evo/specialtxman.cpp:38"
+what = "ExtNetInfo::ProcessCandidate on mainnet: a purpose's first entry is off its standard port, through AddNetInfoEntries when the list builder converts a legacy netInfo (EV2b)"
