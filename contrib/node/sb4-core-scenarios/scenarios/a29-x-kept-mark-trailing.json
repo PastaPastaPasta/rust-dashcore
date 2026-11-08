@@ -1,0 +1,55 @@
+{
+ "name": "a29-x-kept-mark-trailing",
+ "description": "kept-mark trailing (rev7): A1..A95 active, B81..B110 header-only; lock B100 marks A81 and disconnects A81..A95 (tip A80); signed toggle off (observed) then on clears the floor but keeps the marks; lock A90 sits on the marked A path, so the tip trails at A80",
+ "rows": [
+  "A-29(x)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 95,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A80",
+   "count": 30,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "B100"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A90"
+  }
+ ]
+}
