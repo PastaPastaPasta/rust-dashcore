@@ -1,0 +1,8 @@
+# Each chain fuzz target's corpus encoding (O2b-4 §3a.3, D55): the decoder its input bytes are
+# read with. A byte string means something different under each encoding, so a target's corpus,
+# seeds and regressions belong to its encoding alone. node-l1's `CHAIN_TARGETS` is held equal to
+# this file by a unit test; `examples/chain_seeds.rs` writes each target's public seeds from it.
+diff_chain = "chain-v1"
+diff_chain_s0 = "chain-v2"
+diff_chain_par = "chain-v2"
+diff_chain_av = "chain-v2"
