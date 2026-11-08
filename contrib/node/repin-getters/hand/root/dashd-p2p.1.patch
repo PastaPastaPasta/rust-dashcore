@@ -1,0 +1,43 @@
+diff --git a/dashd-p2p/src/processing/blocks.rs b/dashd-p2p/src/processing/blocks.rs
+index 480e811e7d4395ef2b2957f63b33077350bf217c..2d5357b938567765b39038f8df62eecffc467826 100644
+--- a/dashd-p2p/src/processing/blocks.rs
++++ b/dashd-p2p/src/processing/blocks.rs
+@@ -375,7 +375,7 @@ impl PeerLogic {
+             return Ok(BlockStep::Done);
+         }
+         let resp: BlockTxn = cx.read(&mut &payload[..])?;
+-        let txn: Vec<TxRef> = resp.txs().into_iter().map(|tx| Arc::new(Tx::new(tx))).collect();
++        let txn: Vec<TxRef> = resp.txs().iter().cloned().map(|tx| Arc::new(Tx::new(tx))).collect();
+         Ok(self.process_compact_block_txns(cx, resp.block_hash(), txn))
+     }
+ 
+diff --git a/dashd-p2p/src/processing/serve.rs b/dashd-p2p/src/processing/serve.rs
+index 52ad58486e2c53e1108dac212cf204fa9512ddd0..3eae9eb6e867ac30126e6c390144d426ebc7e011 100644
+--- a/dashd-p2p/src/processing/serve.rs
++++ b/dashd-p2p/src/processing/serve.rs
+@@ -212,10 +212,10 @@ fn on_getheaders(cx: &mut HandlerCx<'_>, cmd: &CommandString, payload: &[u8]) ->
+     let compressed = *cmd == CommandString::GETHEADERS2;
+     let (locator, hash_stop) = if compressed {
+         let m: GetHeaders2 = cx.read(&mut data)?;
+-        (m.locator_hashes(), m.hash_stop())
++        (m.locator_hashes().clone(), m.hash_stop())
+     } else {
+         let m: GetHeaders = cx.read(&mut data)?;
+-        (m.locator_hashes(), m.hash_stop())
++        (m.locator_hashes().clone(), m.hash_stop())
+     };
+ 
+     if locator.len() > MAX_LOCATOR_SZ {
+diff --git a/dashd-p2p/src/sim/cmpct_reconstruct.rs b/dashd-p2p/src/sim/cmpct_reconstruct.rs
+index 894b81e2aa2f0559896c124281c555638cb03ef3..879120d5e746686ac1e44f341841c751c523d308 100644
+--- a/dashd-p2p/src/sim/cmpct_reconstruct.rs
++++ b/dashd-p2p/src/sim/cmpct_reconstruct.rs
+@@ -192,7 +192,7 @@ fn raw(mut input: Input<'_>) -> Result<(), &'static str> {
+         let Ok(msg) = BlockTxn::decode(&mut &input.chunk()[..]) else {
+             continue;
+         };
+-        let txn: Vec<TxRef> = msg.txs().into_iter().map(|t| Arc::new(Tx::new(t))).collect();
++        let txn: Vec<TxRef> = msg.txs().iter().cloned().map(|t| Arc::new(Tx::new(t))).collect();
+         let missing = (0..partial.tx_count()).filter(|&i| !partial.is_tx_available(i)).count();
+         let (status, block) = partial.fill_block(&txn);
+         filled(status, block.as_ref(), txn.len() != missing, None)?;
