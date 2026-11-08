@@ -1,0 +1,54 @@
+{
+ "name": "a29-v-marks-survive",
+ "description": "conflict marks set by enforcement survive on \u2192 off \u2192 on",
+ "rows": [
+  "A-29(v)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A90",
+   "count": 15,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}
