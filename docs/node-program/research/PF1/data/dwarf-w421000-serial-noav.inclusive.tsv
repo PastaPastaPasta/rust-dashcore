@@ -1,0 +1,18 @@
+ConnectBlock (whole)	8560000642	33.23
+llmq::* (any)	8400000630	32.61
+ProcessSpecialTxsInBlock	8200000615	31.83
+BLS (any bls::* / relic)	8160000612	31.68
+CheckInputScripts / script checks	7920000594	30.75
+ConnectTip	2760000207	10.71
+ActivateBestChain	1680000126	6.52
+VerifyScript	1640000123	6.37
+LoadBlockIndex / init	1520000114	5.90
+LevelDB (any)	320000024	1.24
+CDeterministicMNManager::ProcessBlock	320000024	1.24
+CheckSpecialTx	160000012	0.62
+CheckBlock (context-free)	120000009	0.47
+UpdatedBlockTip / notifications	120000009	0.47
+ReadBlockFromDisk	120000009	0.47
+CCoinsViewCache::FetchCoin	80000006	0.31
+LogPrintf	40000003	0.16
+CEvoDB	40000003	0.16
