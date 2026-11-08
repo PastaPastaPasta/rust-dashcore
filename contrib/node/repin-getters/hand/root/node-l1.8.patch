@@ -1,0 +1,58 @@
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index 19630e7c601a99112cda63d0a5697f826c8b4b8b..a188fbc99e468deabea024a9608a03515bf2536f 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -45,15 +45,14 @@
+ 
+ use std::sync::{Arc, OnceLock};
+ 
++use dash_consensus::hash::sha256d;
+ use dash_consensus::primitives::{Tx, decode_block};
+ use dash_consensus::subsidy::COIN;
+ use dash_consensus::{MAX_MONEY, decode_header};
+ use dash_dml::codec::core_disk;
+ use dash_dml::specialtx::SpecialTxRules;
+ use dash_dml::specialtx::reasons::*;
+-use dash_dml::specialtx::sig::{
+-    inputs_hash_of, make_sign_string, payload_sig_hash, pro_dis_sign_hash, shared_reg_consent_hash,
+-};
++use dash_dml::specialtx::sig::{inputs_hash_of, payload_sig_hash, pro_dis_sign_hash};
+ use dash_dml::testkit::replay::{Coins, Headers, ReplayCoin};
+ use dash_dml::testkit::{dmn_with, fresh, list_disk_bytes, operator_key, pro_tx};
+ use dash_dml::{Dmn, MnCold, MnList, OperatorKey};
+@@ -1067,13 +1066,8 @@ impl Case {
+         let collateral = collateral_key(self);
+         match &mut self.payload {
+             Payload::Reg(p) if !p.shares().is_empty() => {
+-                // base-sdk's reading of the mirror's bytes (DEC-1066): the same payload unless an
+-                // entry of its network info is one base-sdk's decode reads otherwise.
+-                let Some(consent) =
+-                    p.to_bsdk().and_then(|b| shared_reg_consent_hash(&b, &unsigned))
+-                else {
+-                    return;
+-                };
++                // The mirror's copy of base-sdk's consent bytes, over the payload as written.
++                let consent = sha256d(&p.shared_consent_bytes(unsigned.raw()));
+                 let shares = p.shares().clone();
+                 for (i, sig) in p.join_sigs.iter_mut().enumerate() {
+                     let key = owner(shares.get(i), forged && i == 0);
+@@ -1083,8 +1077,9 @@ impl Case {
+                 }
+             }
+             Payload::Reg(p) if !p.collateral_hash().is_null() => {
++                // The mirror's copy of base-sdk's sign string, over the payload as written.
+                 let Some(message) =
+-                    params.zip(p.to_bsdk()).and_then(|(params, b)| make_sign_string(&b, params))
++                    params.map(|params| p.sign_string(&params.base_sdk_addr_params()))
+                 else {
+                     return;
+                 };
+@@ -1126,6 +1121,8 @@ impl Case {
+             Payload::Dis(p) => {
+                 let shares = state(&p.pro_tx_hash()).map(|s| s.shares.clone()).unwrap_or_default();
+                 let count = p.sigs().len();
++                // base-sdk's reading of the mirror's bytes; a ProDisTx holds no field its decode
++                // reads otherwise (exact in all 3,232 signings of node-l1's tests).
+                 let Some(b) = p.to_bsdk() else {
+                     return;
+                 };
