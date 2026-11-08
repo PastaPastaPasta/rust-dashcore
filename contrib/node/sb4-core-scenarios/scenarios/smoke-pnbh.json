@@ -1,0 +1,28 @@
+{
+ "name": "smoke-pnbh",
+ "description": "one ProcessNewBlockHeaders batch from genesis, then the same batch again (all known)",
+ "rows": [
+  "A-1a"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 20,
+   "submit": "headers"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "A1..A20"
+   ]
+  }
+ ]
+}
