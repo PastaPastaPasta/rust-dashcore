@@ -1,0 +1,13 @@
+diff --git a/dashd-node/src/p2p/realv_peers.rs b/dashd-node/src/p2p/realv_peers.rs
+index b65239f7580f3472afda272a07f10bb8b73590d0..08bddb5a729aaeeb55716bf2d6412d7b7639e362 100644
+--- a/dashd-node/src/p2p/realv_peers.rs
++++ b/dashd-node/src/p2p/realv_peers.rs
+@@ -153,7 +153,7 @@ fn count(log: &Frames, cmd: &str) -> usize {
+ 
+ /// A `headers` payload's hashes.
+ fn header_hashes(payload: &[u8]) -> Vec<BlockHash> {
+-    let headers = Headers::decode(&mut &payload[..]).expect("a headers").headers();
++    let headers = Headers::decode(&mut &payload[..]).expect("a headers").headers().clone();
+     headers.into_iter().map(|h| Header::new(h).hash()).collect()
+ }
+ 
