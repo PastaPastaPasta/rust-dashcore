@@ -1,0 +1,22 @@
+diff --git a/dash-evo/src/cbtx/historical.rs b/dash-evo/src/cbtx/historical.rs
+index c94684c6d63556646720c68d9d42fb7cde0e8a3d..15ddf422d19d6267ec13649435cd2d0292724a51 100644
+--- a/dash-evo/src/cbtx/historical.rs
++++ b/dash-evo/src/cbtx/historical.rs
+@@ -10,6 +10,7 @@ use std::fmt;
+ use dash_consensus::{Block, BlockId};
+ use dash_pkc::bls::BlsGlobalSig;
+ use dash_primitives::{BlockHash, SpecialPayload, TxType};
++use dash_types::Numeric as _;
+ 
+ use super::CBTX_VERSION_CLSIG_AND_BALANCE;
+ use crate::bls::BlsCtx;
+@@ -96,7 +97,8 @@ pub fn load_carrier(
+             _ => None,
+         })
+         .filter(|cbtx| {
+-            cbtx.version() >= CBTX_VERSION_CLSIG_AND_BALANCE && cbtx.height() == carrier_height
++            cbtx.version().to_base() >= CBTX_VERSION_CLSIG_AND_BALANCE
++                && cbtx.height().to_u32().cast_signed() == carrier_height
+         })
+         .ok_or(HistoricalClError::InvalidCoinbase)?;
+     let (Some(diff), Some(signature)) = (cbtx.best_cl_height_diff(), cbtx.best_cl_signature())
