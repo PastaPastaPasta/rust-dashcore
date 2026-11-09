@@ -1,0 +1,12 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (ii): the same feature on a dev edge only.
+[dependencies]
+dashd-node = { path = "../dashd-node" }
+
+[dev-dependencies]
+dashd-node = { path = "../dashd-node", features = ["test-support"] }

@@ -1,0 +1,204 @@
+# KERNEL-AUDIT.md's raw search: upstream Linux v7.0 (linux-7.0.tar.xz, sha256
+# bb7f6d80b387c757b7d14bb93028fcb90f793c5c0d367736ee815a100b3891f0), run in the unpacked tree:
+#
+#   grep -rn --include=*.c --include=*.h -E '\bset_user_sigmask\(|\bset_restore_sigmask\(|\bset_current_blocked\(|__set_current_blocked\(|__set_task_blocked\(|->blocked\s*=[^=]|\bsigprocmask\(|\bsig\w*set\w*\(\s*&[^,)]*->(real_)?blocked\b|->real_blocked\s*=[^=]' . \
+#     | grep -v '^./tools/' | grep -v '^./Documentation/' | sort | sed 's|^\./||'
+#
+# The sigset-helper alternative (sigemptyset, sigfillset, sigdelset, sigandsets, siginitsetinv,
+# sigequalsets, ... on a task's ->blocked or ->real_blocked) matches reads too (sigequalsets,
+# signal.c:3217); KERNEL-AUDIT.md classifies each write.
+#
+arch/alpha/kernel/signal.c:216:	set_current_blocked(&set);
+arch/alpha/kernel/signal.c:244:	set_current_blocked(&set);
+arch/alpha/kernel/signal.c:42: * C sigprocmask() sequence..
+arch/alpha/kernel/signal.c:51:	res = sigprocmask(how, &mask, &oldmask);
+arch/arc/kernel/signal.c:160:	set_current_blocked(&set);
+arch/arm/kernel/signal.c:149:		set_current_blocked(&set);
+arch/arm64/kernel/signal.c:991:		set_current_blocked(&set);
+arch/arm64/kernel/signal32.c:195:		set_current_blocked(&set);
+arch/csky/kernel/signal.c:86:	set_current_blocked(&set);
+arch/hexagon/kernel/signal.c:238:	set_current_blocked(&blocked);
+arch/loongarch/kernel/signal.c:916:	set_current_blocked(&set);
+arch/m68k/kernel/signal.c:773:	set_current_blocked(&set);
+arch/m68k/kernel/signal.c:797:	set_current_blocked(&set);
+arch/microblaze/kernel/signal.c:98:	set_current_blocked(&set);
+arch/mips/kernel/signal.c:651:	set_current_blocked(&blocked);
+arch/mips/kernel/signal.c:688:	set_current_blocked(&set);
+arch/mips/kernel/signal_n32.c:65:	set_current_blocked(&set);
+arch/mips/kernel/signal_o32.c:169:	set_current_blocked(&set);
+arch/mips/kernel/signal_o32.c:271:	set_current_blocked(&blocked);
+arch/nios2/kernel/signal.c:116:	set_current_blocked(&set);
+arch/openrisc/kernel/signal.c:123:	set_current_blocked(&set);
+arch/parisc/kernel/signal.c:112:	set_current_blocked(&set);
+arch/powerpc/kernel/signal_32.c:1328:	set_current_blocked(&set);
+arch/powerpc/kernel/signal_32.c:941:	set_current_blocked(&set);
+arch/powerpc/kernel/signal_32.c:977:	set_current_blocked(&set);
+arch/powerpc/kernel/signal_64.c:718:	set_current_blocked(&set);
+arch/powerpc/kernel/signal_64.c:759:	set_current_blocked(&set);
+arch/riscv/kernel/compat_signal.c:137:	set_current_blocked(&set);
+arch/riscv/kernel/signal.c:329:	set_current_blocked(&set);
+arch/s390/kernel/signal.c:223:	set_current_blocked(&set);
+arch/s390/kernel/signal.c:245:	set_current_blocked(&set);
+arch/sh/kernel/signal_32.c:174:	set_current_blocked(&set);
+arch/sh/kernel/signal_32.c:201:	set_current_blocked(&set);
+arch/sparc/kernel/signal32.c:167:	set_current_blocked(&set);
+arch/sparc/kernel/signal32.c:254:	set_current_blocked(&set);
+arch/sparc/kernel/signal_32.c:134:	set_current_blocked(&set);
+arch/sparc/kernel/signal_32.c:194:	set_current_blocked(&set);
+arch/sparc/kernel/signal_64.c:319:	set_current_blocked(&set);
+arch/sparc/kernel/signal_64.c:72:		set_current_blocked(&set);
+arch/um/drivers/chan_user.c:119:		sigprocmask(SIG_SETMASK, &old, NULL);
+arch/um/drivers/chan_user.c:182:	if (sigprocmask(SIG_SETMASK, &sigs, NULL) < 0) {
+arch/um/drivers/chan_user.c:95:		if (sigprocmask(SIG_BLOCK, &no_sigio, &old))
+arch/um/os-Linux/helper.c:193:	if (sigprocmask(SIG_SETMASK, &sigset, &oset) < 0) {
+arch/um/os-Linux/helper.c:201:	if (sigprocmask(SIG_SETMASK, &oset, NULL) < 0)
+arch/um/os-Linux/signal.c:244:	if (sigprocmask(SIG_UNBLOCK, &sig_mask, NULL) < 0)
+arch/um/os-Linux/signal.c:259:	if (sigprocmask(on ? SIG_UNBLOCK : SIG_BLOCK, &sigset, NULL) < 0)
+arch/um/os-Linux/smp.c:106:	if (sigprocmask(enable ? SIG_UNBLOCK : SIG_BLOCK, &sigset, NULL) < 0)
+arch/um/os-Linux/smp.c:53:	if (sigprocmask(SIG_SETMASK, &sigset, &oset) < 0) {
+arch/um/os-Linux/smp.c:62:	if (sigprocmask(SIG_SETMASK, &oset, NULL) < 0)
+arch/um/os-Linux/smp.c:81:	if (sigprocmask(SIG_SETMASK, &data->sigset, NULL) < 0)
+arch/um/os-Linux/time.c:146:	sigprocmask(SIG_BLOCK, &set, NULL);
+arch/um/os-Linux/time.c:156:	sigprocmask(SIG_UNBLOCK, &set, NULL);
+arch/um/os-Linux/util.c:92:		sigprocmask(SIG_UNBLOCK, &sig, 0);
+arch/x86/kernel/signal_32.c:163:	set_current_blocked(&set);
+arch/x86/kernel/signal_32.c:189:	set_current_blocked(&set);
+arch/x86/kernel/signal_64.c:263:	set_current_blocked(&set);
+arch/x86/kernel/signal_64.c:382:	set_current_blocked(&set);
+arch/x86/um/signal.c:351:	set_current_blocked(&set);
+arch/x86/um/signal.c:458:	set_current_blocked(&set);
+arch/xtensa/kernel/signal.c:269:	set_current_blocked(&set);
+drivers/firewire/sbp2.c:708:		lu->blocked = true;
+drivers/firewire/sbp2.c:731:		lu->blocked = false;
+drivers/firewire/sbp2.c:988:	lu->blocked  = false;
+drivers/isdn/capi/kcapi.c:448:	ctr->blocked = 0;
+drivers/isdn/mISDN/stack.c:202:	sigfillset(&current->blocked);
+drivers/mfd/ab8500-sysctrl.c:85:	if (!sigprocmask(SIG_BLOCK, &all, &old)) {
+drivers/mfd/ab8500-sysctrl.c:89:		(void)sigprocmask(SIG_SETMASK, &old, NULL);
+drivers/misc/vmw_vmci/vmci_queue_pair.c:2741:			my_qpair->blocked = 0;
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c:212:	flow->rings[flowid]->blocked = blocked;
+drivers/net/wireless/mediatek/mt76/tx.c:826:	q->blocked = blocked;
+drivers/net/wireless/mediatek/mt76/tx.c:831:		q->blocked = blocked;
+drivers/net/wireless/mediatek/mt76/tx.c:836:		q->blocked = blocked;
+fs/aio.c:2294:	ret = set_user_sigmask(ksig.sigmask, ksig.sigsetsize);
+fs/aio.c:2330:	ret = set_user_sigmask(ksig.sigmask, ksig.sigsetsize);
+fs/ceph/addr.c:1936:	sigprocmask(SIG_BLOCK, &mask, oldset);
+fs/ceph/addr.c:1941:	sigprocmask(SIG_SETMASK, oldset, NULL);
+fs/coda/upcall.c:621:	sigfillset(&current->blocked);
+fs/coda/upcall.c:622:	sigdelset(&current->blocked, SIGKILL);
+fs/coda/upcall.c:623:	sigdelset(&current->blocked, SIGSTOP);
+fs/coda/upcall.c:624:	sigdelset(&current->blocked, SIGINT);
+fs/coda/upcall.c:633:	current->blocked = *old;
+fs/eventpoll.c:2492:	error = set_user_sigmask(sigmask, sigsetsize);
+fs/fuse/control.c:134:			fc->blocked = fc->num_background >= fc->max_background;
+fs/fuse/dev.c:2493:		fc->blocked = 0;
+fs/fuse/dev.c:484:			fc->blocked = 0;
+fs/fuse/dev.c:744:			fc->blocked = 1;
+fs/fuse/dev_uring.c:1335:		fc->blocked = 1;
+fs/fuse/inode.c:991:	fc->blocked = 0;
+fs/jffs2/background.c:152:		sigprocmask(SIG_BLOCK, &hupmask, NULL);
+fs/jffs2/background.c:92:		sigprocmask(SIG_UNBLOCK, &hupmask, NULL);
+fs/ocfs2/super.c:2557: * Void signal blockers, because in-kernel sigprocmask() only fails
+fs/ocfs2/super.c:2566:	rc = sigprocmask(SIG_BLOCK, &blocked, oldset);
+fs/ocfs2/super.c:2572:	int rc = sigprocmask(SIG_SETMASK, oldset, NULL);
+fs/ocfs2/super.h:28: * Void signal blockers, because in-kernel sigprocmask() only fails
+fs/select.c:1102:	ret = set_user_sigmask(sigmask, sigsetsize);
+fs/select.c:1128:	ret = set_user_sigmask(sigmask, sigsetsize);
+fs/select.c:755:	ret = set_user_sigmask(sigmask, sigsetsize);
+fs/smb/client/transport.c:287:	sigprocmask(SIG_BLOCK, &mask, &oldmask);
+fs/smb/client/transport.c:334:	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+include/linux/sched.h:1200:	/* Restored if set_restore_sigmask() was used: */
+include/linux/sched/signal.h:471: * set_restore_sigmask() - make sure saved_sigmask processing gets done
+include/linux/sched/signal.h:481:static inline void set_restore_sigmask(void)
+include/linux/sched/signal.h:511:static inline void set_restore_sigmask(void)
+include/linux/sched/signal.h:543:		__set_current_blocked(&current->saved_sigmask);
+include/linux/sched/signal.h:546:extern int set_user_sigmask(const sigset_t __user *umask, size_t sigsetsize);
+include/linux/signal.h:288:extern int sigprocmask(int, sigset_t *, sigset_t *);
+include/linux/signal.h:289:extern void set_current_blocked(sigset_t *);
+include/linux/signal.h:290:extern void __set_current_blocked(const sigset_t *);
+include/trace/events/bcache.h:482:		__entry->blocked	= atomic_read(&ca->set->prio_blocked);
+io_uring/wait.c:243:			ret = set_user_sigmask(ext_arg->sig, ext_arg->argsz);
+kernel/compat.c:70:		set_current_blocked(&new_blocked);
+kernel/fork.c:2062:		siginitsetinv(&p->blocked, sigmask(SIGKILL)|sigmask(SIGSTOP));
+kernel/ptrace.c:1222:		child->blocked = new_set;
+kernel/signal.c:1311:			sigdelset(&t->blocked, sig);
+kernel/signal.c:3070:	set_current_blocked(&blocked);
+kernel/signal.c:3184:static void __set_task_blocked(struct task_struct *tsk, const sigset_t *newset)
+kernel/signal.c:3192:	tsk->blocked = *newset;
+kernel/signal.c:3203:void set_current_blocked(sigset_t *newset)
+kernel/signal.c:3206:	__set_current_blocked(newset);
+kernel/signal.c:3209:void __set_current_blocked(const sigset_t *newset)
+kernel/signal.c:3217:	if (sigequalsets(&tsk->blocked, newset))
+kernel/signal.c:3221:	__set_task_blocked(tsk, newset);
+kernel/signal.c:3233:int sigprocmask(int how, sigset_t *set, sigset_t *oldset)
+kernel/signal.c:3256:	__set_current_blocked(&newset);
+kernel/signal.c:3267: * Note that it does set_restore_sigmask() in advance, so it must be always
+kernel/signal.c:3270:int set_user_sigmask(const sigset_t __user *umask, size_t sigsetsize)
+kernel/signal.c:3281:	set_restore_sigmask();
+kernel/signal.c:3283:	set_current_blocked(&kmask);
+kernel/signal.c:3301:	set_restore_sigmask();
+kernel/signal.c:3303:	set_current_blocked(&kmask);
+kernel/signal.c:3333:		error = sigprocmask(how, &new_set, NULL);
+kernel/signal.c:3363:		error = sigprocmask(how, &new_set, NULL);
+kernel/signal.c:3772:		 * set_current_blocked().
+kernel/signal.c:3774:		tsk->real_blocked = tsk->blocked;
+kernel/signal.c:3775:		sigandsets(&tsk->blocked, &tsk->blocked, &mask);
+kernel/signal.c:3783:		__set_task_blocked(tsk, &tsk->real_blocked);
+kernel/signal.c:3784:		sigemptyset(&tsk->real_blocked);
+kernel/signal.c:4607:		set_current_blocked(&new_blocked);
+kernel/signal.c:4793:	set_current_blocked(&newset);
+kernel/signal.c:4834:	set_current_blocked(set);
+kernel/signal.c:4840:	set_restore_sigmask();
+samples/bpf/xdp_sample_user.c:1249:	if (sigprocmask(SIG_BLOCK, &st, NULL) < 0)
+samples/seccomp/bpf-direct.c:104:	if (sigprocmask(SIG_UNBLOCK, &mask, NULL)) {
+security/selinux/hooks.c:2568:			sigemptyset(&current->blocked);
+tools/accounting/getdelays.c:531:			sigprocmask(SIG_BLOCK, &sigset, NULL);
+tools/perf/builtin-daemon.c:1238:	if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1)
+tools/perf/builtin-record.c:2338:	if (sigprocmask(SIG_SETMASK, &full, &mask)) {
+tools/perf/builtin-record.c:2379:	if (sigprocmask(SIG_SETMASK, &mask, NULL)) {
+tools/perf/builtin-stat.c:1126:	sigprocmask(SIG_BLOCK, &set, &oset);
+tools/perf/builtin-stat.c:1131:	sigprocmask(SIG_SETMASK, &oset, NULL);
+tools/power/x86/intel-speed-select/isst-daemon.c:163:	sigprocmask(SIG_BLOCK, &sig_set, NULL);
+tools/testing/selftests/arm64/bti/signal.c:34:int sigprocmask(int how, const sigset_t *mask, sigset_t *old)
+tools/testing/selftests/arm64/bti/signal.h:19:int sigprocmask(int how, const sigset_t *mask, sigset_t *old);
+tools/testing/selftests/arm64/bti/test.c:211:	sigprocmask(SIG_UNBLOCK, &sa.sa_mask, NULL);
+tools/testing/selftests/arm64/signal/test_signals_utils.c:64:	sigprocmask(SIG_UNBLOCK, &sset, NULL);
+tools/testing/selftests/filesystems/epoll/epoll_wakeup_test.c:3178:	sigprocmask(SIG_SETMASK, &sigmask, NULL);
+tools/testing/selftests/mm/protection_keys.c:427:	rs = sigprocmask(SIG_SETMASK, 0, &newact.sa_mask);
+tools/testing/selftests/net/af_unix/msg_oob.c:106:	ret = sigprocmask(SIG_BLOCK, &mask, NULL);
+tools/testing/selftests/powerpc/mm/exec_prot.c:122:	FAIL_IF(sigprocmask(SIG_SETMASK, 0, &segv_act.sa_mask) != 0);
+tools/testing/selftests/powerpc/mm/exec_prot.c:130:	FAIL_IF(sigprocmask(SIG_SETMASK, 0, &trap_act.sa_mask) != 0);
+tools/testing/selftests/powerpc/mm/pkey_exec_prot.c:115:	FAIL_IF(sigprocmask(SIG_SETMASK, 0, &segv_act.sa_mask) != 0);
+tools/testing/selftests/powerpc/mm/pkey_exec_prot.c:123:	FAIL_IF(sigprocmask(SIG_SETMASK, 0, &trap_act.sa_mask) != 0);
+tools/testing/selftests/powerpc/mm/pkey_siginfo.c:272:	FAIL_IF(sigprocmask(SIG_SETMASK, 0, &act.sa_mask) != 0);
+tools/testing/selftests/ptrace/peeksiginfo.c:161:	sigprocmask(SIG_BLOCK, &blockmask, NULL);
+tools/testing/selftests/seccomp/seccomp_bpf.c:1146:	ret = sigprocmask(SIG_UNBLOCK, &mask, NULL);
+tools/testing/selftests/signal/mangle_uc_sigmask.c:173:	/* Confirm USR2 blockage by sigprocmask() too */
+tools/testing/selftests/signal/mangle_uc_sigmask.c:177:	if (sigprocmask(SIG_BLOCK, &set, &oldset))
+tools/testing/selftests/timers/posix_timers.c:247:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:248:		fatal_error(NULL, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:253:	if (sigprocmask(SIG_UNBLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:254:		fatal_error(NULL, "sigprocmask(SIG_UNBLOCK)");
+tools/testing/selftests/timers/posix_timers.c:284:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:285:		fatal_error(NULL, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:329:	if (sigprocmask(SIG_UNBLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:330:		fatal_error(NULL, "sigprocmask(SIG_UNBLOCK)");
+tools/testing/selftests/timers/posix_timers.c:362:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:363:		fatal_error(NULL, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:391:	if (sigprocmask(SIG_UNBLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:392:		fatal_error(NULL, "sigprocmask(SIG_UNBLOCK)");
+tools/testing/selftests/timers/posix_timers.c:418:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:419:		fatal_error(NULL, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:442:	if (sigprocmask(SIG_UNBLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:443:		fatal_error(NULL, "sigprocmask(SIG_UNBLOCK)");
+tools/testing/selftests/timers/posix_timers.c:507:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:508:		fatal_error(name, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:567:	if (sigprocmask(SIG_BLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:568:		fatal_error(name, "sigprocmask(SIG_BLOCK)");
+tools/testing/selftests/timers/posix_timers.c:594:	if (sigprocmask(SIG_UNBLOCK, &set, NULL))
+tools/testing/selftests/timers/posix_timers.c:595:		fatal_error(name, "sigprocmask(SIG_UNBLOCK)");
+tools/testing/selftests/uevent/uevent_filtering.c:255:	ret = sigprocmask(SIG_BLOCK, &mask, &orig_mask);
+tools/thermal/thermometer/thermometer.c:502:	if (sigprocmask(SIG_BLOCK, &mask, NULL)) {
+virt/kvm/kvm_main.c:3574:	sigprocmask(SIG_SETMASK, &vcpu->sigset, &current->real_blocked);
+virt/kvm/kvm_main.c:3582:	sigprocmask(SIG_SETMASK, &current->real_blocked, NULL);
+virt/kvm/kvm_main.c:3583:	sigemptyset(&current->real_blocked);
