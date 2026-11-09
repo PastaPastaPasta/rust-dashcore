@@ -1,0 +1,491 @@
+// Dash Core's masternode payment at mainnet in the classic reward era,
+// GetMasternodePayment(height, 1000000000, Classic), around every block reward
+// reallocation period boundary, for dash-params' BRR table test (node program
+// BS5). Produced by the pinned oracle archives' oracle_mn_payment
+// (dash-oracle-sys example mn_payment_cases), commits v23.1 350ce242a59c19782dc9eebc8e23dead0a2e16ee, v24.0 23769258c239e69282569e9f9e219ce9e2c4ee2e.
+{
+ "realloc_start": 1379128,
+ "period_blocks": 49848,
+ "payments": [
+  {
+   "block_value": 1000000000,
+   "height": 1379127,
+   "payment": 500000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1379128,
+   "payment": 513000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1428975,
+   "payment": 513000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1428976,
+   "payment": 526000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1478823,
+   "payment": 526000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1478824,
+   "payment": 533000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1528671,
+   "payment": 533000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1528672,
+   "payment": 540000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1578519,
+   "payment": 540000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1578520,
+   "payment": 546000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1628367,
+   "payment": 546000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1628368,
+   "payment": 552000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1678215,
+   "payment": 552000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1678216,
+   "payment": 557000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1728063,
+   "payment": 557000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1728064,
+   "payment": 562000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1777911,
+   "payment": 562000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1777912,
+   "payment": 567000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1827759,
+   "payment": 567000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1827760,
+   "payment": 572000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1877607,
+   "payment": 572000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1877608,
+   "payment": 577000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1927455,
+   "payment": 577000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1927456,
+   "payment": 582000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1977303,
+   "payment": 582000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1977304,
+   "payment": 585000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2027151,
+   "payment": 585000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2027152,
+   "payment": 588000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2076999,
+   "payment": 588000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2077000,
+   "payment": 591000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2126847,
+   "payment": 591000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2126848,
+   "payment": 594000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2176695,
+   "payment": 594000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2176696,
+   "payment": 597000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2226543,
+   "payment": 597000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2226544,
+   "payment": 599000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2276391,
+   "payment": 599000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2276392,
+   "payment": 600000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2326239,
+   "payment": 600000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 3373048,
+   "payment": 600000000,
+   "pin": "v23.1"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1379127,
+   "payment": 500000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1379128,
+   "payment": 513000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1428975,
+   "payment": 513000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1428976,
+   "payment": 526000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1478823,
+   "payment": 526000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1478824,
+   "payment": 533000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1528671,
+   "payment": 533000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1528672,
+   "payment": 540000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1578519,
+   "payment": 540000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1578520,
+   "payment": 546000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1628367,
+   "payment": 546000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1628368,
+   "payment": 552000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1678215,
+   "payment": 552000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1678216,
+   "payment": 557000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1728063,
+   "payment": 557000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1728064,
+   "payment": 562000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1777911,
+   "payment": 562000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1777912,
+   "payment": 567000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1827759,
+   "payment": 567000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1827760,
+   "payment": 572000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1877607,
+   "payment": 572000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1877608,
+   "payment": 577000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1927455,
+   "payment": 577000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1927456,
+   "payment": 582000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1977303,
+   "payment": 582000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 1977304,
+   "payment": 585000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2027151,
+   "payment": 585000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2027152,
+   "payment": 588000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2076999,
+   "payment": 588000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2077000,
+   "payment": 591000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2126847,
+   "payment": 591000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2126848,
+   "payment": 594000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2176695,
+   "payment": 594000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2176696,
+   "payment": 597000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2226543,
+   "payment": 597000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2226544,
+   "payment": 599000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2276391,
+   "payment": 599000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2276392,
+   "payment": 600000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 2326239,
+   "payment": 600000000,
+   "pin": "v24.0"
+  },
+  {
+   "block_value": 1000000000,
+   "height": 3373048,
+   "payment": 600000000,
+   "pin": "v24.0"
+  }
+ ]
+}
