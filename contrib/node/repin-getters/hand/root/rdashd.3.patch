@@ -1,0 +1,74 @@
+diff --git a/rdashd/tests/rpc_diff.rs b/rdashd/tests/rpc_diff.rs
+index 3e866328a7f70947175eb99a91e177801907cdc0..e00699ef4dfb09343b44da1b070f921ecaa502ee 100644
+--- a/rdashd/tests/rpc_diff.rs
++++ b/rdashd/tests/rpc_diff.rs
+@@ -5775,24 +5775,27 @@ fn txtouniv_rows(service: bool) -> Vec<(String, String)> {
+ /// edited: only the core purpose, no `platform_https`, and an `ExtNetInfo` version Core does not
+ /// know. Each is named by its bucket and edit.
+ fn evo_net_info_edits(rows: &[(String, String)]) -> Vec<(String, String)> {
+-    use dash_primitives::{NIPurpose, NetInfo, ProRegTx, ProUpServTx, Transaction};
++    use dash_primitives::{NIPurpose, NetInfo, NetInfoV2, ProRegTx, ProUpServTx, Transaction};
+     use dash_types::codec::BaseCodec as _;
+     type Edit = fn(&mut NetInfo);
+     let edits: [(&str, Edit); 3] = [
+         ("core_only", |ni| {
+             if let NetInfo::Extended(v2) = ni {
+-                v2.entries.retain(|(p, _)| *p == NIPurpose::CoreP2p);
++                let mut groups = v2.groups().clone();
++                groups.retain(|(p, _)| *p == NIPurpose::CoreP2p);
++                *v2 = NetInfoV2::new(v2.version(), groups);
+             }
+         }),
+         ("no_https", |ni| {
+             if let NetInfo::Extended(v2) = ni {
+-                v2.entries.retain(|(p, _)| *p != NIPurpose::PlatformHttps);
++                let mut groups = v2.groups().clone();
++                groups.retain(|(p, _)| *p != NIPurpose::PlatformHttps);
++                *v2 = NetInfoV2::new(v2.version(), groups);
+             }
+         }),
+         ("unknown_version", |ni| {
+             if let NetInfo::Extended(v2) = ni {
+-                v2.version = 2;
+-                v2.entries.clear();
++                *v2 = NetInfoV2::new(2, Vec::new());
+             }
+         }),
+     ];
+@@ -5801,10 +5804,10 @@ fn evo_net_info_edits(rows: &[(String, String)]) -> Vec<(String, String)> {
+         (bucket.clone(), Transaction::decode(&mut parse_hex(tx).as_slice()).unwrap())
+     };
+     let (serv_bucket, serv_tx) = row("t2/pv3/mn1");
+-    let serv = ProUpServTx::decode(&mut serv_tx.extra_payload.as_slice()).unwrap();
++    let serv = ProUpServTx::decode(&mut serv_tx.extra_payload().as_slice()).unwrap();
+     // The registration row announces no address, so it takes the service update's entries.
+     let (reg_bucket, reg_tx) = row("t1/pv3/mn1");
+-    let mut reg = ProRegTx::decode(&mut reg_tx.extra_payload.as_slice()).unwrap();
++    let mut reg = ProRegTx::decode(&mut reg_tx.extra_payload().as_slice()).unwrap();
+     {
+         let rebuilt = dash_primitives::ProRegTx::new(
+             reg.version(),
+@@ -7071,11 +7074,19 @@ fn bls_candidate(prev: &str, time: u32) -> (String, String, usize) {
+     let mut txs = vec![cbtx_coinbase(10)];
+     for (_, sig) in bls_sig_kinds() {
+         for template in [&unlock, &signal] {
+-            let mut tx = template.clone();
+-            assert!(tx.version() > 0);
++            assert!(template.version() > 0);
+             // Both payloads end with their 96-byte signature.
+-            let at = tx.extra_payload().len() - 96;
+-            tx.extra_payload().splice(at.., parse_hex(&sig));
++            let mut payload = template.extra_payload().clone();
++            let at = payload.len() - 96;
++            payload.splice(at.., parse_hex(&sig));
++            let tx = Transaction::new(
++                template.version(),
++                template.tx_type(),
++                template.inputs().clone(),
++                template.outputs().clone(),
++                template.lock_time(),
++                payload,
++            );
+             let mut bytes = Vec::new();
+             tx.encode(&mut bytes);
+             txs.push(bytes);
