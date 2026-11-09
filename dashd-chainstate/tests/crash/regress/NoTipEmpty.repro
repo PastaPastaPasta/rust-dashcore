@@ -1,0 +1,10 @@
+# CRASH planted bug NoTipEmpty (CH2 §6.4), minimised in 33 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=5,12,22 presumed=25:31 crash=- replay=- planted=NoTipEmpty
+workload c10
+crash 23 process-kill
+adversary realistic
+granularity write
+expect R0
+minimality verified
