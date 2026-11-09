@@ -1,0 +1,41 @@
+{
+ "name": "hx1-enforce-fixed-point",
+ "description": "DEC-167: a lock on B3 (fork A1) while its parent B2 is invalidated off the active chain A1..A3. EnforceBlock(B3) #1 marks A2/A3 conflicting and disconnects them, but resets nothing since B3 itself is unflagged; the ActivateBestChain after it marks B3 FAILED_CHILD, so pass 1 ends at the transient tip A1. Pass #2 resets B2/B3 and connects them; the fixed point has B3 as the tip (found by regen.py --random, seed 1 sequence 371, minimized)",
+ "rows": [
+  "DEC-167"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 3,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A1",
+   "count": 2,
+   "submit": "connect"
+  },
+  {
+   "op": "invalidate",
+   "block": "B2"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "B3"
+  }
+ ]
+}
