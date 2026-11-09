@@ -1,0 +1,37 @@
+diff --git a/dash-dml/benches/qc_block.rs b/dash-dml/benches/qc_block.rs
+index 7dd5b2c91823cc270e80b3359c463f5b1cfc3499..98ecb70a5619dc14ac8414107ffd6c522028036d 100644
+--- a/dash-dml/benches/qc_block.rs
++++ b/dash-dml/benches/qc_block.rs
+@@ -172,7 +172,7 @@ fn other_types(
+                 null_commitment(llmq_type, params, hash, commitment_version(false, true), 0);
+             let all_set = |bits: &dash_primitives::DynBitset| {
+                 let mut data = vec![0xff; bits.data().len()];
+-                if bits.num_bits() % 8 != 0 {
++                if !bits.num_bits().is_multiple_of(8) {
+                     *data.last_mut().expect("a byte") >>= 8 - bits.num_bits() % 8;
+                 }
+                 dash_primitives::DynBitset::new(bits.num_bits(), data)
+diff --git a/dash-dml/src/specialtx/tests.rs b/dash-dml/src/specialtx/tests.rs
+index dcfb07fdd2e8df463ea04dfb53d82d496236615e..6de3a15fb424ecdefa79c38807e0821e6e68d542 100644
+--- a/dash-dml/src/specialtx/tests.rs
++++ b/dash-dml/src/specialtx/tests.rs
+@@ -113,16 +113,16 @@ fn type_5_dispatches_to_check_cbtx() {
+         special(TxType::CoinbaseCommitment, vec![txin([0; 32], u32::MAX)], vec![], cbtx)
+     };
+     let cbtx = |version: u16, height: i32| {
+-        CoinbaseCommitment::new(
++        dash_evo::cbtx::at_version(&CoinbaseCommitment::new(
+             dash_primitives::CbCommitmentVersion::new(version),
+             height.cast_unsigned().into(),
+             MerkleRoot::default(),
+-            (version >= 2).then(MerkleRoot::default),
+             None,
+             None,
+             None,
+             None,
+-        )
++            None,
++        ))
+     };
+     let at = i32::try_from(ENFORCED).expect("a Core height");
+     let mut seen = BTreeMap::new();
