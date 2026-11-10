@@ -1,0 +1,12 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (iii): a banned feature on a non-host normal edge.
+[dependencies]
+dashd-node = { path = "../dashd-node" }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
