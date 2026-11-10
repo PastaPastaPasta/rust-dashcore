@@ -1,0 +1,9 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (viii): the test-only node-l1 on a normal edge, no features.
+[dependencies]
+node-l1 = { path = "../node-l1" }
