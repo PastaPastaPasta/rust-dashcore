@@ -11,8 +11,9 @@
 #            selection cold, strips the workspace crates' units and saves; only macos saves otherwise.
 #            In default-branch runs it also saves ~/.rust-dashcore-test (the dashd releases and regtest
 #            data) under a key of their versions, which the shards and the nightly restore (DEC-1392).
-#   static   fmt, pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs,
-#            protocol-tables (no build, no cache).
+#   static   chainparams-upstream (builds and tests dash-chainparams on upstream base-sdk, v22), fmt,
+#            pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs, protocol-tables
+#            (no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
 #            `features` shard runs the test targets whose required features the workspace resolve
 #            leaves off, BL-608), the `gate-lib` shard (each crate's lib tests behind its
@@ -613,9 +614,17 @@ jobs:
       - name: PyYAML
         run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
+      # v22 (POL-3c-4b): dash-chainparams on upstream base-sdk at the script's CERTIFIED rev, not only on
+      # the fork the [patch] names. It builds in its own target and fetches upstream (~95 s cold on
+      # agentbox), on the tree as exported; the local-clone step and fmt below run whatever its result.
+      - name: chainparams-upstream
+        if: ${{ !cancelled() }}
+        run: contrib/node/check-chainparams-upstream.sh "$RUNNER_TEMP/chainparams-upstream"
+
       # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
       # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
       - name: Base SDK pin to a local clone
+        if: ${{ !cancelled() }}
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
           # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
@@ -637,6 +646,7 @@ jobs:
 
       # The same steps, in the same order, as gate-fast's static lane. r2 runs when its script exists.
       - name: fmt
+        if: ${{ !cancelled() }}
         run: cargo fmt --check
       - name: pins
         if: ${{ !cancelled() }}
