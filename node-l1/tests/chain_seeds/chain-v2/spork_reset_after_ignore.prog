@@ -1,0 +1,17 @@
+# An ignoring RECONSIDER while the lock is held clears the target's conflict mark and keeps the
+# mark of a disconnected main block with its data (validation.cpp:4190). Spork 19 off and on
+# resets the lock (chainlock/handler.cpp:209-222), and that mark outlives it: the held block on
+# it is bad-prevblk-chainlock (validation.cpp:4654). The header-only child keeps that block off
+# getchaintips' tips.
+extend main 2
+fork 0 1 headers hold
+fork 0 1 hold
+fork 2 2
+cl tip#2
+invalidate built#0
+reconsider built#0 ignore_cl
+spork off
+cl tip#2
+spork on
+cl tip#2
+deliver b2
