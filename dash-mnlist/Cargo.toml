@@ -1,0 +1,55 @@
+[package]
+name = "dash-mnlist"
+description = "SPV's masternode-list, quorum and lock engine (SB0 §5.3): the mnlistdiff/qrinfo trust chain, quorum verification over the simplified list, and lock selection over authenticated sets."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_mnlist"
+path = "src/lib.rs"
+
+[features]
+# Test only: the full testnet replay (D23), about 40 s unoptimised. Tier 1 runs its bounded
+# subset; the gate's feature step runs the replay alone (`cargo test -p dash-mnlist --features
+# testnet-replay -- testnet::full_replay`).
+testnet-replay = []
+# mnxcheck's surface (SB0 §5.4, D9, D40): the lists and reconstructed members the node compares
+# with its own projection. Node crates only; dash-spv never enables it.
+shadow = []
+
+[package.metadata.gate]
+test-features = ["shadow", "testnet-replay"]
+test-filter = ["testnet::full_replay", "tests::shadow::"]
+
+[dependencies]
+# `AnchoredAncestry`, `AncestryError`, `BlockRef` and the header chain `MnChain` reads (SB4).
+dash-chain = { path = "../dash-chain" }
+dash-consensus = { path = "../dash-consensus" }
+# The SML, the CbTx checks, LQ1's member and commitment code, SB8's lock checks.
+dash-evo = { path = "../dash-evo", features = ["reload"] }
+# `KvRead`, `KvBatch`, `Cf` and the VARINT codec of the engine's rows (D38).
+dash-kv = { path = "../dash-kv" }
+# `MnListDiff`, `QrInfo`, `ClSig`, `IsdLock`: the payloads the engine takes (D3).
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+thiserror = "2"
+
+[dev-dependencies]
+# The mock clock of the header chain step 7's composition test drives.
+dash-clock = { path = "../dash-clock" }
+# Decodes the evodb lists of the rotated captures (test-vectors/lq1-rot), projected to the SML.
+dash-dml = { path = "../dash-dml" }
+# `HeaderCtx`'s work and target types, for the captures' test chain.
+dash-num = { workspace = true }
+# The captures are gzipped JSON.
+flate2 = "1"
+serde_json = "1.0"
