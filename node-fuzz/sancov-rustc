@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# BL-812: run.sh's RUSTC_WRAPPER for its NODE_FUZZ_COVERAGE=under-test build; cargo runs it as
+# `sancov-rustc <rustc> <args>`. It appends $NODE_FUZZ_SANCOV_FLAGS to a compilation for the
+# build's --target (as RUSTFLAGS does: never a build script or proc macro, which cargo compiles for
+# the host) of a crate of this repository that is one of $NODE_FUZZ_SANCOV_CRATES (rustc crate
+# names, comma-separated) or a bin of node-fuzz. Every other compilation runs as cargo asked.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+rustc=$1
+shift
+name="" for_target=0 bin=0 prev=""
+for a in "$@"; do
+    case "$prev" in
+        --crate-name) name=$a ;;
+        --crate-type) [ "$a" != bin ] || bin=1 ;;
+    esac
+    case "$a" in
+        --target | --target=*) for_target=1 ;;
+        # Forms cargo does not pass today; read wrongly, a crate would build without coverage.
+        @* | --crate-name=* | --crate-type=*) echo "sancov-rustc: $a is not read" >&2; exit 2 ;;
+    esac
+    prev=$a
+done
+add=0
+manifest_dir="$(cd "${CARGO_MANIFEST_DIR:-/nonexistent}" 2>/dev/null && pwd -P)" || manifest_dir=""
+case "$manifest_dir/" in "$root"/*) ;; *) for_target=0 ;; esac
+if [ "$for_target" = 1 ] && [ -n "$name" ]; then
+    case ",${NODE_FUZZ_SANCOV_CRATES:-}," in *",$name,"*) add=1 ;; esac
+    [ "$bin" = 0 ] || [ "${CARGO_PKG_NAME:-}" != node-fuzz ] || add=1
+fi
+if [ "$add" = 1 ]; then
+    read -r -a flags <<<"${NODE_FUZZ_SANCOV_FLAGS:?NODE_FUZZ_SANCOV_FLAGS is unset}"
+    exec "$rustc" "$@" "${flags[@]}"
+fi
+exec "$rustc" "$@"
