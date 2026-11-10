@@ -1,0 +1,12 @@
+# ToyChain planted bug T23b (ST3a §6.2), minimised in 69 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=0 invalid=- effects=12,22 presumed=25:31 prune=- sub=synced:0:96 bug=T23b
+workload c10;f;c2
+crash 57 process-kill
+decide 2:fs:i1:u25^=1
+nested 0 power-loss
+adversary realistic
+granularity sector
+expect R1
+minimality verified
