@@ -1,0 +1,13 @@
+diff --git a/node-l1/examples/quorum_root_history.rs b/node-l1/examples/quorum_root_history.rs
+index 6479c12d7173a7b325d242c2be6c08be82a1825a..c53e57d97103c45027d819b44f3a52e00b780579 100644
+--- a/node-l1/examples/quorum_root_history.rs
++++ b/node-l1/examples/quorum_root_history.rs
+@@ -324,7 +324,7 @@ pub fn replay(params: &ChainSetup, dir: &Path, tip: Option<Hash256>) -> Result<R
+             report.no_cbtx += u32::from(height > 0);
+             continue;
+         };
+-        if cbtx.version() < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
++        if cbtx.version().to_base() < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
+             report.cbtx_v1 += 1;
+             continue;
+         }
