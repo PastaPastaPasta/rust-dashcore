@@ -1,0 +1,30 @@
+{
+ "provenance": "Coinbase special transactions (CbTx v1) on mainnet, as dashd v24.0.0-rc.3 (the mainnet reference oracle) returned them from `getblockhash <height>` and `getblock <hash> 2`: block 1028160 activates DIP3, block 1088639 is the last before DIP8 (CbTx v2).",
+ "chain": "main",
+ "payloads": [
+  {
+   "tx_type": 5,
+   "height": 1028160,
+   "blockhash": "000000000000002099caaf1a877911d99a5980ede9b981280eecb291afedf87b",
+   "txid": "71d6975e3b79b52baf26c3269896a34f3bedfb04561c692ffa31f64dada1f9c4",
+   "extraPayload": "010040b00f000000000000000000000000000000000000000000000000000000000000000000",
+   "core": {
+    "version": 1,
+    "height": 1028160,
+    "merkleRootMNList": "0000000000000000000000000000000000000000000000000000000000000000"
+   }
+  },
+  {
+   "tx_type": 5,
+   "height": 1088639,
+   "blockhash": "000000000000000973e03407eadd6a31914255b7af1997c7be14c8dfc231e00e",
+   "txid": "e3f9acf3f2b62c7b82bb3c71299aeb6b9053da93711a7d63258a4eb72fb78cc4",
+   "extraPayload": "01007f9c10006505259b04b79a8f9e8df8f6e664be27520ba3aec6b8f25eeef4a80d9956c59e",
+   "core": {
+    "version": 1,
+    "height": 1088639,
+    "merkleRootMNList": "9ec556990da8f4ee5ef2b8c6aea30b5227be64e6f6f88d9e8f9ab7049b250565"
+   }
+  }
+ ]
+}
