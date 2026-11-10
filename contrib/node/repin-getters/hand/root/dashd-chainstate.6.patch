@@ -1,0 +1,37 @@
+diff --git a/dashd-chainstate/src/evo/ev1_tests.rs b/dashd-chainstate/src/evo/ev1_tests.rs
+index 6649bbeba80b9c0e4836988c0eb8ba46160fa436..22a6eff16716fed3b9c1ecc78661fdec9a610c8a 100644
+--- a/dashd-chainstate/src/evo/ev1_tests.rs
++++ b/dashd-chainstate/src/evo/ev1_tests.rs
+@@ -879,7 +879,10 @@ fn revocation(signer: u8) -> Arc<Tx> {
+         );
+         p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.sig = operator_sig(signer, &payload_sig_hash(&p).expect("a preimage"));
++    p = dash_dml::testkit::WithSig::with_sig(
++        &p,
++        operator_sig(signer, &payload_sig_hash(&p).expect("a preimage")),
++    );
+     update_tx(TxType::ProviderUpdateRevoke, &p, Vec::new())
+ }
+ 
+@@ -968,7 +971,10 @@ fn ipv6_service_update() -> Arc<Tx> {
+         );
+         p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.sig = operator_sig(OPERATOR, &payload_sig_hash(&p).expect("a preimage"));
++    p = dash_dml::testkit::WithSig::with_sig(
++        &p,
++        operator_sig(OPERATOR, &payload_sig_hash(&p).expect("a preimage")),
++    );
+     update_tx(TxType::ProviderUpdateService, &p, Vec::new())
+ }
+ 
+@@ -1007,7 +1013,7 @@ fn ipv6_registration() -> Arc<Tx> {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    dash_types::Signable::reset_signature(&mut p);
+     {
+         let rebuilt = dash_primitives::ProRegTx::new(
+             p.version(),
