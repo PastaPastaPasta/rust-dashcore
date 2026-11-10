@@ -1,0 +1,10 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (v): no banned feature, but a dependency whose path cargo prints with parentheses, a
+# line the parser cannot read: it fails closed.
+[dependencies]
+dep = { path = "../dep(x)" }
