@@ -1,0 +1,10 @@
+# ToyChain planted bug T9 (ST3a §6.2), minimised in 5 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=- sub=synced:0:96 bug=T9
+workload f
+fault nth fs sync-data 0 io applied
+adversary realistic
+granularity write
+expect R8
+minimality verified
