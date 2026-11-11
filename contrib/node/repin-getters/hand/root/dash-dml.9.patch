@@ -1,0 +1,114 @@
+diff --git a/dash-dml/src/testkit.rs b/dash-dml/src/testkit.rs
+index 9540976ee333d573435902b6c91c5fad5eee1ea8..b3fa84317b41a8f180c3d79b4daa4521f3617fd8 100644
+--- a/dash-dml/src/testkit.rs
++++ b/dash-dml/src/testkit.rs
+@@ -269,12 +269,12 @@ pub fn state_diff_bytes(diff: &crate::MnStateDiff) -> Vec<u8> {
+     out
+ }
+ 
+-/// `value`'s encoding.
+-#[allow(clippy::disallowed_methods, reason = "test payloads re-encoded to splice a signature")]
+-fn wire_bytes<T: BaseCodec>(value: &T) -> Vec<u8> {
+-    let mut bytes = Vec::new();
+-    value.encode(&mut bytes);
+-    bytes
++/// Core's vector serialization of `bytes`: its compact size, then the bytes.
++fn vec_wire(bytes: &[u8]) -> Vec<u8> {
++    let mut out = Vec::new();
++    dash_consensus::primitives::write_compact_size(bytes.len() as u64, &mut out);
++    out.extend_from_slice(bytes);
++    out
+ }
+ 
+ /// A ProTx payload whose signature, its last encoded field, base-sdk keeps private: it is set by
+@@ -285,6 +285,9 @@ fn wire_bytes<T: BaseCodec>(value: &T) -> Vec<u8> {
+ pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+     type Sig: PartialEq + std::fmt::Debug;
+     fn sig_field(&self) -> &Self::Sig;
++    /// The payload's encoding up to its signature, its last field (base-sdk's `encode` is
++    /// `sig_hash_bytes` followed by the signature).
++    fn unsigned_wire(&self) -> Vec<u8>;
+     /// `sig` as this payload's encoding writes it.
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8>;
+ 
+@@ -296,8 +299,11 @@ pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+         if self.sig_field() == &sig {
+             return self.clone();
+         }
+-        let mut wire = wire_bytes(self);
+-        let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
++        let unsigned = self.unsigned_wire();
++        let wire = [&unsigned[..], &self.sig_wire(self.sig_field())].concat();
++        let mut cursor = &wire[..];
++        let back = Self::decode(&mut cursor).expect("the payload decodes");
++        assert!(cursor.is_empty(), "the payload is its unsigned bytes and its signature");
+         // `Debug`, not `PartialEq`: a lazy BLS key's decoded value and scheme are state the
+         // encoding does not carry, and `PartialEq` does not see. The signature, the last field,
+         // is left out: it is replaced.
+@@ -307,11 +313,10 @@ pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+             but_sig(format!("{self:?}")),
+             "the payload round-trips, its signature aside"
+         );
+-        let old = self.sig_wire(self.sig_field());
+-        assert!(wire.ends_with(&old), "the signature is the last field");
+-        wire.truncate(wire.len() - old.len());
+-        wire.extend(self.sig_wire(&sig));
+-        let out = Self::decode(&mut &wire[..]).expect("the payload decodes with the signature");
++        let wire = [&unsigned[..], &self.sig_wire(&sig)].concat();
++        let mut cursor = &wire[..];
++        let out = Self::decode(&mut cursor).expect("the payload decodes with the signature");
++        assert!(cursor.is_empty(), "the signature is the last field");
+         assert_eq!(out.sig_field(), &sig, "the signature decodes as set");
+         out
+     }
+@@ -322,8 +327,11 @@ impl WithSig for dash_primitives::ProRegTx {
+     fn sig_field(&self) -> &Self::Sig {
+         self.sig()
+     }
++    fn unsigned_wire(&self) -> Vec<u8> {
++        self.sig_hash_bytes()
++    }
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        wire_bytes(sig)
++        vec_wire(sig.as_slice())
+     }
+ }
+ 
+@@ -332,8 +340,11 @@ impl WithSig for dash_primitives::ProUpRegTx {
+     fn sig_field(&self) -> &Self::Sig {
+         self.sig()
+     }
++    fn unsigned_wire(&self) -> Vec<u8> {
++        self.sig_hash_bytes()
++    }
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        wire_bytes(sig)
++        vec_wire(sig.as_slice())
+     }
+ }
+ 
+@@ -342,8 +353,11 @@ impl WithSig for dash_primitives::ProUpServTx {
+     fn sig_field(&self) -> &Self::Sig {
+         self.sig()
+     }
++    fn unsigned_wire(&self) -> Vec<u8> {
++        self.sig_hash_bytes()
++    }
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        wire_bytes(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++        sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())).to_vec()
+     }
+ }
+ 
+@@ -352,7 +366,10 @@ impl WithSig for dash_primitives::ProUpRevTx {
+     fn sig_field(&self) -> &Self::Sig {
+         self.sig()
+     }
++    fn unsigned_wire(&self) -> Vec<u8> {
++        self.sig_hash_bytes()
++    }
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        wire_bytes(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++        sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())).to_vec()
+     }
+ }
