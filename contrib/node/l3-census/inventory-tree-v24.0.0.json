@@ -1,0 +1,3155 @@
+{
+ "provenance": {
+  "tag": "v24.0.0",
+  "commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "src_tree": "0c6f62cb567cf19fd704f9b77810f86a277b08ea",
+  "excluded": [
+   "src/test/",
+   "src/qt/",
+   "src/bench/"
+  ],
+  "tree_version": 1,
+  "note": "l3-census.py tree (O10 plan §5.1): every \"bad-...\" string of src/ at the tag; a bucket is lexical, not an obligation (the claim manifests are, §5.3)"
+ },
+ "summary": {
+  "templates": 206,
+  "occurrences": 339,
+  "buckets": {
+   "block": 39,
+   "evo": 165,
+   "atmp": 2
+  },
+  "per_file": {
+   "evo/specialtxman.cpp": 136,
+   "evo/providertx.cpp": 79,
+   "validation.cpp": 38,
+   "evo/assetlocktx.cpp": 27,
+   "llmq/blockprocessor.cpp": 14,
+   "evo/mnhftx.cpp": 12,
+   "consensus/tx_check.cpp": 10,
+   "llmq/commitment.cpp": 8,
+   "evo/cbtx.cpp": 7,
+   "consensus/tx_verify.cpp": 5,
+   "evo/deterministicmns.cpp": 1,
+   "evo/providertx.h": 1,
+   "txmempool.h": 1
+  },
+  "informational": 74
+ },
+ "templates": [
+  {
+   "template": "bad-assetlocktx-credit-outofrange",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 70
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-creditamount",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 85
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-emptycreditoutputs",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 64
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-multiple-return",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 45
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-no-return",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 49
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-non-empty-return",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 40
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-opreturn-outofrange",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 42
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 53
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-pubKeyHash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 80
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-script-pubkey",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 76
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 32
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 57
+    }
+   ]
+  },
+  {
+   "template": "bad-assetlocktx-version-2",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 60
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-duplicated-index",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 215
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-not-verified",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 152
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-quorum-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 219
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-quorum-internal-error",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 142
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-too-late",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 135
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlock-too-old-quorum",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 129
+    },
+    {
+     "file": "validation.cpp",
+     "line": 834,
+     "atmp": true
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-have-input",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 189
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 203
+    },
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 259
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-too-many-outs",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 193
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 185
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 208
+    }
+   ]
+  },
+  {
+   "template": "bad-assetunlocktx-version-2",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 211
+    }
+   ]
+  },
+  {
+   "template": "bad-blk-length",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4405,
+     "a10_key": "validation.cpp:CheckBlock#1:bad-blk-length"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4564,
+     "a10_key": "validation.cpp:ContextualCheckBlock#1:bad-blk-length"
+    }
+   ]
+  },
+  {
+   "template": "bad-blk-sigops",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2754,
+     "a10_key": "validation.cpp:ConnectBlock#6:bad-blk-sigops"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4433,
+     "a10_key": "validation.cpp:CheckBlock#4:bad-blk-sigops"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4586,
+     "a10_key": "validation.cpp:ContextualCheckBlock#3:bad-blk-sigops"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-amount",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2860,
+     "a10_key": "validation.cpp:ConnectBlock#9:bad-cb-amount"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-height",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4596,
+     "a10_key": "validation.cpp:ContextualCheckBlock#4:bad-cb-height"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-length",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 67,
+     "a10_key": "tx_check.cpp:CheckTransaction#9:bad-cb-length"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-missing",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4409,
+     "a10_key": "validation.cpp:CheckBlock#2:bad-cb-missing"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-multiple",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4412,
+     "a10_key": "validation.cpp:CheckBlock#3:bad-cb-multiple"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-payee",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2875,
+     "a10_key": "validation.cpp:ConnectBlock#10:bad-cb-payee"
+    }
+   ]
+  },
+  {
+   "template": "bad-cb-type",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4602,
+     "a10_key": "validation.cpp:ContextualCheckBlock#5:bad-cb-type"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-assetlocked-amount",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1114
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-assetunlockmerkleroot",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4368,
+     "a10_key": "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-cldiff",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 184
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 211
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-cldiff-ancestor",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 198
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-height",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 32
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-invalid",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 249,
+     "a10_key": "specialtxman.cpp:CheckSpecialTxInner#2:bad-cbtx-invalid"
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 879,
+     "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-invalid-clsig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 204
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-mnmerkleroot",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 995,
+     "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#4:bad-cbtx-mnmerkleroot"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-null-clsig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 173
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-older-clsig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 176
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 254,
+     "a10_key": "specialtxman.cpp:CheckSpecialTxInner#3:bad-cbtx-payload"
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 891,
+     "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-quorummerkleroot",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1010,
+     "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#5:bad-cbtx-quorummerkleroot"
+    }
+   ]
+  },
+  {
+   "template": "bad-cbtx-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 27
+    },
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 37
+    },
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 42
+    },
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 50
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 897,
+     "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version"
+    }
+   ]
+  },
+  {
+   "template": "bad-chainlock",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2529,
+     "a10_key": "validation.cpp:ConnectBlock#1:bad-chainlock"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4709,
+     "a10_key": "validation.cpp:AcceptBlockHeader#7:bad-chainlock"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4950,
+     "a10_key": "validation.cpp:TestBlockValidity#1:bad-chainlock"
+    }
+   ]
+  },
+  {
+   "template": "bad-diffbits",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4495,
+     "a10_key": "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4499,
+     "a10_key": "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits"
+    }
+   ]
+  },
+  {
+   "template": "bad-dip3-enf-block",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/deterministicmns.cpp",
+     "line": 777
+    }
+   ]
+  },
+  {
+   "template": "bad-fork-prior-to-checkpoint",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4511,
+     "a10_key": "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint"
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-duplicate",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 233
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-duplicates-in-block",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 202
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-invalid",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 153
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-missing-quorum",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 148
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-nbit-out-of-bounds",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 100
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-non-ehf",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 125
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-non-mn-fork",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 238
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 116
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-quorum-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 130
+    },
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 135
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 111
+    }
+   ]
+  },
+  {
+   "template": "bad-mnhf-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/mnhftx.cpp",
+     "line": 97
+    }
+   ]
+  },
+  {
+   "template": "bad-prevblk",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4651,
+     "a10_key": "validation.cpp:AcceptBlockHeader#4:bad-prevblk"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4699,
+     "a10_key": "validation.cpp:AcceptBlockHeader#6:bad-prevblk"
+    }
+   ]
+  },
+  {
+   "template": "bad-prevblk-chainlock",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4657,
+     "a10_key": "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock"
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-actor",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1757
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-actor-output-zero",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1806
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-bonus",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1828
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-fee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1825
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1743
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1872
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-input",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1754
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-not-shared",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1747
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-payee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1790
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1803
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-payee-count",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1776
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-penalty-floor",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1796
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-penalty-sum",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1812
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-sig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1837
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1843
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-sig-count",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 581
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1763
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-too-early",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1861
+    }
+   ]
+  },
+  {
+   "template": "bad-prodis-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 578
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-collateral",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 384
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1249
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1269
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1552
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-collateral-dest",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1253
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1278
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1558
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-collateral-index",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1266
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-collateral-pkh",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1260
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-collateral-reuse",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 172
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-dup-key",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 418
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 422
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 425
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 444
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 513
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 553
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 689
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1318
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1322
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1325
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1334
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1439
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1527
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1568
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1713
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-dup-netinfo-entry",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 225
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 405
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 409
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 466
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 471
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1300
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1305
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1447
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1452
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-dup-platformnodeid",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1340
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1463
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-evo-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 321
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 463
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 480
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 529
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 594
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 626
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 656
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1403
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1503
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1605
+    },
+    {
+     "file": "txmempool.h",
+     "line": 535,
+     "comment": true
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-inputs-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.h",
+     "line": 571
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-key-not-same",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1346
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1576
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-key-null",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 347
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 351
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 509
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 620
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-mode",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 327
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 505
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-addr",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 211
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 249
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-addr-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 215
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 237
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 245
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-addr-unroutable",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 217
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-bad",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 195
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 219
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-empty",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 190
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 201
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 267
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 472
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-entry",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 223
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 412
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 474
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1308
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1455
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-maxlimit",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 227
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-port",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 213
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-netinfo-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 263
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 366
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 469
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 38
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 94
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-operator-payee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1470
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1473
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-operator-pubkey",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 354
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 512
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 623
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-operator-reward",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 374
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 42
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payee-dest",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 50
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payee-dup",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 45
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payee-reuse",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 54
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 179
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 360
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 456
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 524
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 589
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 621
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 651
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1169
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payout-reward",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 37
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payout-reward-sum",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 59
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payouts-count",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 30
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-payouts-evo",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1228
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1546
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-platform-dup-ports",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 310
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-platform-http-port",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 288
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 298
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 305
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-platform-nodeid",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 281
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-platform-p2p-port",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 285
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 295
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 302
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-reason",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 535
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shared-mn",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 533
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1509
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-amount",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 88
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-amount-sum",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 93
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-collateral-script",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1275
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-count",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 82
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-dup-key",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 120
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-dup-refund",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 123
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-early-period",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 110
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-empty-fields",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 344
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-evo",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1225
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-external",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 333
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-key-null",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 117
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-owner-key",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 337
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-payee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 132
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-payee-dest",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 136
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-payee-reuse",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 139
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 143
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-payouts",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 340
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-penalty",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 68
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 74
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-shares-sig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1375
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-sig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1133
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1143
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1152
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1365
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 324
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 466
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 459
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1163
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-type-mismatch",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 483
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1411
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 318
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 460
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 502
+    },
+    {
+     "file": "evo/providertx.cpp",
+     "line": 529
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1174
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-version-disallowed",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1220
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1422
+    }
+   ]
+  },
+  {
+   "template": "bad-protx-version-downgrade",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1202
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1641
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-index",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 629
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1648
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-not-shared",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1645
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-payee",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 601
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-payee-dest",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1654
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-payee-reuse",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 639
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1657
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1661
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-sig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1674
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-sig-size",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 598
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-too-early",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1635
+    }
+   ]
+  },
+  {
+   "template": "bad-proupshare-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 595
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1698
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-not-shared",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 659
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1702
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-payee-reuse",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 692
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1718
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-sig",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1730
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-sig-count",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 626
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1707
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-too-early",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1692
+    }
+   ]
+  },
+  {
+   "template": "bad-proupsharedreg-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/providertx.cpp",
+     "line": 617
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-block",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 358
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 366
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-commitment-type",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 709
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 585
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 254
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-commitment-type-calc-cbtx-quorummerkleroot",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 101
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-dup",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 263
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 392
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 591
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-height",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 397
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 278
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-invalid",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 282
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 414
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 304
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-invalid-null",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 376
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 296
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-missing",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 248
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-not-allowed",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 244
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-payload",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 704
+    },
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 578
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 246
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-payload-calc-cbtx-quorummerkleroot",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/cbtx.cpp",
+     "line": 93
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-premature",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/blockprocessor.cpp",
+     "line": 600
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-quorum-hash",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 717
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 284
+    },
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 289
+    }
+   ]
+  },
+  {
+   "template": "bad-qc-version",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "llmq/commitment.cpp",
+     "line": 272
+    }
+   ]
+  },
+  {
+   "template": "bad-sb-start",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2632,
+     "a10_key": "validation.cpp:ConnectBlock#3:bad-sb-start"
+    }
+   ]
+  },
+  {
+   "template": "bad-shared-collateral-create",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1902
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1907
+    }
+   ]
+  },
+  {
+   "template": "bad-shared-collateral-spend",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 752
+    },
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 1888
+    }
+   ]
+  },
+  {
+   "template": "bad-tx-type-check",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 273,
+     "a10_key": "specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check"
+    }
+   ]
+  },
+  {
+   "template": "bad-tx-type-dip3-inactive",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/specialtxman.cpp",
+     "line": 228,
+     "a10_key": "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive"
+    }
+   ]
+  },
+  {
+   "template": "bad-txnmrklroot",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4344,
+     "a10_key": "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-BIP30",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2619,
+     "a10_key": "validation.cpp:ConnectBlock#2:bad-txns-BIP30"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-accumulated-fee-outofrange",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2731,
+     "a10_key": "validation.cpp:ConnectBlock#4:bad-txns-accumulated-fee-outofrange"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-assetunlock-fee-outofrange",
+   "bucket": "evo",
+   "occurrences": [
+    {
+     "file": "evo/assetlocktx.cpp",
+     "line": 263
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-cb-type",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 375,
+     "a10_key": "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-duplicate",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4354,
+     "a10_key": "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-fee-outofrange",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_verify.cpp",
+     "line": 203,
+     "a10_key": "tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-in-belowout",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_verify.cpp",
+     "line": 196,
+     "a10_key": "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-inputs-duplicate",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 57,
+     "a10_key": "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-inputs-missingorspent",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_verify.cpp",
+     "line": 171,
+     "a10_key": "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 990,
+     "atmp": true
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-inputvalues-outofrange",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_verify.cpp",
+     "line": 190,
+     "a10_key": "tx_verify.cpp:Consensus::CheckTxInputs#3:bad-txns-inputvalues-outofrange"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-nonfinal",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 2744,
+     "a10_key": "validation.cpp:ConnectBlock#5:bad-txns-nonfinal"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 4571,
+     "a10_key": "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-nonstandard-inputs",
+   "bucket": "atmp",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 1033,
+     "atmp": true
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-oversize",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 33,
+     "a10_key": "tx_check.cpp:CheckTransaction#3:bad-txns-oversize"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 388,
+     "a10_key": "validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-payload-oversize",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 35,
+     "a10_key": "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-premature-spend-of-coinbase",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_verify.cpp",
+     "line": 183,
+     "a10_key": "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-prevout-null",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 71,
+     "a10_key": "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-too-many-sigops",
+   "bucket": "atmp",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 1058,
+     "atmp": true
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-txouttotal-toolarge",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 46,
+     "a10_key": "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-type",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 372,
+     "a10_key": "validation.cpp:ContextualCheckTransaction#1:bad-txns-type"
+    },
+    {
+     "file": "validation.cpp",
+     "line": 377,
+     "a10_key": "validation.cpp:ContextualCheckTransaction#3:bad-txns-type"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-version",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 382,
+     "a10_key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-version"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-vin-empty",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 28,
+     "a10_key": "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-vout-empty",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 30,
+     "a10_key": "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-vout-negative",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 41,
+     "a10_key": "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative"
+    }
+   ]
+  },
+  {
+   "template": "bad-txns-vout-toolarge",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "consensus/tx_check.cpp",
+     "line": 43,
+     "a10_key": "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge"
+    }
+   ]
+  },
+  {
+   "template": "bad-version(0x%08x)",
+   "bucket": "block",
+   "occurrences": [
+    {
+     "file": "validation.cpp",
+     "line": 4528,
+     "a10_key": "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)"
+    }
+   ]
+  }
+ ],
+ "informational": [
+  {
+   "template": "commitment-not-found",
+   "file": "evo/cbtx.cpp",
+   "line": 77,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "excess-quorums-calc-cbtx-quorummerkleroot",
+   "file": "evo/cbtx.cpp",
+   "line": 135,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "mutated-calc-cbtx-quorummerkleroot",
+   "file": "evo/cbtx.cpp",
+   "line": 152,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-unlock-payload",
+   "file": "evo/creditpool.cpp",
+   "line": 37,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-unlock-txout-outofrange",
+   "file": "evo/creditpool.cpp",
+   "line": 44,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-unlock-overflow",
+   "file": "evo/creditpool.cpp",
+   "line": 48,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-lock-payload",
+   "file": "evo/creditpool.cpp",
+   "line": 310,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-lock-overflow",
+   "file": "evo/creditpool.cpp",
+   "line": 318,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-lock-invalid",
+   "file": "evo/creditpool.cpp",
+   "line": 324,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-unlock-too-much",
+   "file": "evo/creditpool.cpp",
+   "line": 338,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-creditpool-unlock-duplicated-index",
+   "file": "evo/creditpool.cpp",
+   "line": 342,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-procassetlocksinblock",
+   "file": "evo/creditpool.cpp",
+   "line": 367,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "failed-getcreditpooldiff",
+   "file": "evo/creditpool.cpp",
+   "line": 423,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "failed-dmn-block",
+   "file": "evo/deterministicmns.cpp",
+   "line": 756,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "failed-proc-mnhf-inblock",
+   "file": "evo/mnhftx.cpp",
+   "line": 259,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "mutated-cached-calc-cb-mnmerkleroot",
+   "file": "evo/simplifiedmns.cpp",
+   "line": 120,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "mutated-calc-cb-mnmerkleroot",
+   "file": "evo/simplifiedmns.cpp",
+   "line": 138,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "failed-calc-cb-mnmerkleroot",
+   "file": "evo/simplifiedmns.cpp",
+   "line": 144,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "failed-check-special-tx",
+   "file": "evo/specialtxman.cpp",
+   "line": 270,
+   "result": "TX_CONSENSUS",
+   "a10_key": "specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx"
+  },
+  {
+   "template": "failed-procspectxsinblock",
+   "file": "evo/specialtxman.cpp",
+   "line": 1055,
+   "result": "BLOCK_CONSENSUS",
+   "a10_key": "specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock"
+  },
+  {
+   "template": "failed-checkcreditpooldiff",
+   "file": "evo/specialtxman.cpp",
+   "line": 1123,
+   "result": "BLOCK_CONSENSUS"
+  },
+  {
+   "template": "package-too-many-transactions",
+   "file": "policy/packages.cpp",
+   "line": 23,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "package-too-large",
+   "file": "policy/packages.cpp",
+   "line": 30,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "package-not-sorted",
+   "file": "policy/packages.cpp",
+   "line": 44,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "conflict-in-package",
+   "file": "policy/packages.cpp",
+   "line": 56,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "mempool min fee not met",
+   "file": "validation.cpp",
+   "line": 792,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "min relay fee not met",
+   "file": "validation.cpp",
+   "line": 796,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "qc-not-allowed",
+   "file": "validation.cpp",
+   "line": 868,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "coinbase",
+   "file": "validation.cpp",
+   "line": 873,
+   "result": "TX_CONSENSUS"
+  },
+  {
+   "template": "tx-size-small",
+   "file": "validation.cpp",
+   "line": 887,
+   "result": "TX_NOT_STANDARD"
+  },
+  {
+   "template": "non-final",
+   "file": "validation.cpp",
+   "line": 893,
+   "result": "TX_PREMATURE_SPEND"
+  },
+  {
+   "template": "txn-already-in-mempool",
+   "file": "validation.cpp",
+   "line": 899,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "tx-txlock-conflict",
+   "file": "validation.cpp",
+   "line": 910,
+   "result": "TX_CONFLICT_LOCK"
+  },
+  {
+   "template": "txn-mempool-conflict",
+   "file": "validation.cpp",
+   "line": 925,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "txn-already-known",
+   "file": "validation.cpp",
+   "line": 943,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "failed-getcreditpool",
+   "file": "validation.cpp",
+   "line": 952,
+   "result": "TX_BAD_SPECIAL"
+  },
+  {
+   "template": "assetunlock-stale-instance",
+   "file": "validation.cpp",
+   "line": 967,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "txn-already-known",
+   "file": "validation.cpp",
+   "line": 986,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "non-BIP68-final",
+   "file": "validation.cpp",
+   "line": 1012,
+   "result": "TX_PREMATURE_SPEND"
+  },
+  {
+   "template": "min relay fee not met",
+   "file": "validation.cpp",
+   "line": 1070,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "too-long-mempool-chain",
+   "file": "validation.cpp",
+   "line": 1102,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "too-long-mempool-chain",
+   "file": "validation.cpp",
+   "line": 1105,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "protx-dup",
+   "file": "validation.cpp",
+   "line": 1117,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "protx-dup",
+   "file": "validation.cpp",
+   "line": 1135,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "package-mempool-limits",
+   "file": "validation.cpp",
+   "line": 1154,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "assetunlock-conflicting-package",
+   "file": "validation.cpp",
+   "line": 1180,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "mempool full",
+   "file": "validation.cpp",
+   "line": 1286,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "BUG! PolicyScriptChecks succeeded but ConsensusScriptChecks failed: %s",
+   "file": "validation.cpp",
+   "line": 1312,
+   "result": "PCKG_MEMPOOL_ERROR"
+  },
+  {
+   "template": "BUG! Mempool ancestors or descendants were underestimated: %s",
+   "file": "validation.cpp",
+   "line": 1326,
+   "result": "PCKG_MEMPOOL_ERROR"
+  },
+  {
+   "template": "BUG! Adding to mempool failed: %s",
+   "file": "validation.cpp",
+   "line": 1342,
+   "result": "PCKG_MEMPOOL_ERROR"
+  },
+  {
+   "template": "mempool full",
+   "file": "validation.cpp",
+   "line": 1368,
+   "result": "TX_MEMPOOL_POLICY"
+  },
+  {
+   "template": "transaction failed",
+   "file": "validation.cpp",
+   "line": 1369,
+   "result": "PCKG_TX"
+  },
+  {
+   "template": "txn-already-in-mempool",
+   "file": "validation.cpp",
+   "line": 1388,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "assetunlock-stale-instance",
+   "file": "validation.cpp",
+   "line": 1403,
+   "result": "TX_CONFLICT"
+  },
+  {
+   "template": "assetunlock-conflicting-package",
+   "file": "validation.cpp",
+   "line": 1476,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "transaction failed",
+   "file": "validation.cpp",
+   "line": 1503,
+   "result": "PCKG_TX"
+  },
+  {
+   "template": "package-fee-too-low",
+   "file": "validation.cpp",
+   "line": 1522,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "transaction failed",
+   "file": "validation.cpp",
+   "line": 1542,
+   "result": "PCKG_TX"
+  },
+  {
+   "template": "package-not-child-with-parents",
+   "file": "validation.cpp",
+   "line": 1581,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "package-not-child-with-unconfirmed-parents",
+   "file": "validation.cpp",
+   "line": 1614,
+   "result": "PCKG_POLICY"
+  },
+  {
+   "template": "transaction failed",
+   "file": "validation.cpp",
+   "line": 1661,
+   "result": "PCKG_TX"
+  },
+  {
+   "template": "transaction failed",
+   "file": "validation.cpp",
+   "line": 1693,
+   "result": "PCKG_TX"
+  },
+  {
+   "template": "non-mandatory-script-verify-flag (%s)",
+   "file": "validation.cpp",
+   "line": 2223,
+   "result": "TX_NOT_STANDARD",
+   "a10_key": "validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s)"
+  },
+  {
+   "template": "mandatory-script-verify-flag-failed (%s)",
+   "file": "validation.cpp",
+   "line": 2234,
+   "result": "TX_CONSENSUS",
+   "a10_key": "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)"
+  },
+  {
+   "template": "block-validation-failed",
+   "file": "validation.cpp",
+   "line": 2791,
+   "result": "BLOCK_CONSENSUS",
+   "a10_key": "validation.cpp:ConnectBlock#7:block-validation-failed"
+  },
+  {
+   "template": "conflict-tx-lock",
+   "file": "validation.cpp",
+   "line": 2826,
+   "result": "BLOCK_CHAINLOCK",
+   "a10_key": "validation.cpp:ConnectBlock#8:conflict-tx-lock"
+  },
+  {
+   "template": "high-hash",
+   "file": "validation.cpp",
+   "line": 4322,
+   "result": "BLOCK_INVALID_HEADER",
+   "a10_key": "validation.cpp:CheckBlockHeader#1:high-hash"
+  },
+  {
+   "template": "devnet-genesis",
+   "file": "validation.cpp",
+   "line": 4329,
+   "result": "BLOCK_CONSENSUS",
+   "a10_key": "validation.cpp:CheckBlockHeader#2:devnet-genesis"
+  },
+  {
+   "template": "time-too-old",
+   "file": "validation.cpp",
+   "line": 4517,
+   "result": "BLOCK_INVALID_HEADER",
+   "a10_key": "validation.cpp:ContextualCheckBlockHeader#4:time-too-old"
+  },
+  {
+   "template": "time-too-new",
+   "file": "validation.cpp",
+   "line": 4521,
+   "result": "BLOCK_TIME_FUTURE",
+   "a10_key": "validation.cpp:ContextualCheckBlockHeader#5:time-too-new"
+  },
+  {
+   "template": "duplicate",
+   "file": "validation.cpp",
+   "line": 4625,
+   "result": "BLOCK_CACHED_INVALID",
+   "a10_key": "validation.cpp:AcceptBlockHeader#1:duplicate"
+  },
+  {
+   "template": "duplicate",
+   "file": "validation.cpp",
+   "line": 4629,
+   "result": "BLOCK_CHAINLOCK",
+   "a10_key": "validation.cpp:AcceptBlockHeader#2:duplicate"
+  },
+  {
+   "template": "prev-blk-not-found",
+   "file": "validation.cpp",
+   "line": 4644,
+   "result": "BLOCK_MISSING_PREV",
+   "a10_key": "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found"
+  },
+  {
+   "template": "no-mempool",
+   "file": "validation.cpp",
+   "line": 4926,
+   "result": "TX_NO_MEMPOOL"
+  }
+ ]
+}
