@@ -1,0 +1,62 @@
+{
+ "name": "a29-x-prime-headers-only-kept-mark",
+ "description": "kept-mark headers-only (rev7 A-29 (x')): A1..A80 active, A81..A95 and B81..B110 header-only; lock B100 marks A81 while the tip stays A80; a signed toggle off (observed) and back on leaves the mark; lock A90 sits on the marked A path (A81 stays CONFLICT, B81 is marked), so the tip stays A80 and the best header B110",
+ "rows": [
+  "A-29(x')"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 80,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A80",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A80",
+   "count": 30,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "B100"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A90"
+  }
+ ]
+}
