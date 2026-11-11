@@ -1,0 +1,5 @@
+# OD-L3-167b: chain-v2-load-tie.txt's first input as it was before 4e1 filled the chain-v2 BANK.
+# Its intents 1, 13 and 15 (proposex x_bip30, mutatex x_sigops_check, proposex
+# se_checkdatasigverify) name bank slots 3, 1 and 17, unknown slots (dropped) until 7ece5c4e2
+# filled them; with them applied the run no longer reaches the restart tie and ends done.
+9f41f6c543d7840502f0a02added3be98cb1b81aa126de8af3e66ecfc176774bef11ba0946ae7ee71b1490ab3cef593372fddd80f9e31f43e43c78410d0f28a1936a3fc3ff9a02

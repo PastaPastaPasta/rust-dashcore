@@ -1,0 +1,94 @@
+# Core's 'Cache configuration' lines (init.cpp:1986-2023) from Dash Core version v24.0.0-rc.3
+# (dashd sha256 e204e3163185b1bffcd3bf3532c0957d8cc11019eaf8f3dbc3b2fc82a7ab5bb4), on regtest, timestamps stripped. Regenerate with contrib/node/cache-sizes/gen.py.
+
+## 
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 37.2 MiB for transaction index database
+* Using 8.0 MiB for chain state database
+* Using 252.8 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=4
+Cache configuration:
+* Using 0.5 MiB for block index database
+* Using 0.4 MiB for transaction index database
+* Using 1.5 MiB for chain state database
+* Using 1.5 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=7 -addressindex=1 -timestampindex=1 -spentindex=1 -blockfilterindex=1 -maxmempool=50
+Cache configuration:
+* Using 0.9 MiB for block index database
+* Using 0.8 MiB for transaction index database
+* Using 0.7 MiB for address index database
+* Using 0.1 MiB for timestamp index database
+* Using 0.6 MiB for spent index database
+* Using 0.5 MiB for basic block filter index database
+* Using 1.8 MiB for chain state database
+* Using 1.8 MiB for in-memory UTXO set (plus up to 47.7 MiB of unused mempool space)
+
+## -dbcache=300 -txindex=0
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 8.0 MiB for chain state database
+* Using 290.0 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=300 -blockfilterindex=basic -maxmempool=5
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 37.2 MiB for transaction index database
+* Using 32.6 MiB for basic block filter index database
+* Using 8.0 MiB for chain state database
+* Using 220.2 MiB for in-memory UTXO set (plus up to 4.8 MiB of unused mempool space)
+
+## -dbcache=100 -addressindex=1 -maxmempool=1000
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 12.2 MiB for transaction index database
+* Using 10.7 MiB for address index database
+* Using 8.0 MiB for chain state database
+* Using 67.0 MiB for in-memory UTXO set (plus up to 953.7 MiB of unused mempool space)
+
+## -dbcache=450 -spentindex=1 -timestampindex=1
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 56.0 MiB for transaction index database
+* Using 6.1 MiB for timestamp index database
+* Using 48.2 MiB for spent index database
+* Using 8.0 MiB for chain state database
+* Using 329.6 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=1024 -txindex=0 -addressindex=1 -maxmempool=12
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 127.8 MiB for address index database
+* Using 8.0 MiB for chain state database
+* Using 886.2 MiB for in-memory UTXO set (plus up to 11.4 MiB of unused mempool space)
+
+## -dbcache=16384 -maxmempool=300
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 1024.0 MiB for transaction index database
+* Using 8.0 MiB for chain state database
+* Using 15350.0 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=100000 -txindex=0 -blockfilterindex=1
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 1024.0 MiB for basic block filter index database
+* Using 8.0 MiB for chain state database
+* Using 15350.0 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=-5
+Cache configuration:
+* Using 0.5 MiB for block index database
+* Using 0.4 MiB for transaction index database
+* Using 1.5 MiB for chain state database
+* Using 1.5 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+
+## -dbcache=33 -timestampindex=1 -maxmempool=7
+Cache configuration:
+* Using 2.0 MiB for block index database
+* Using 3.9 MiB for transaction index database
+* Using 0.4 MiB for timestamp index database
+* Using 8.0 MiB for chain state database
+* Using 18.7 MiB for in-memory UTXO set (plus up to 6.7 MiB of unused mempool space)
