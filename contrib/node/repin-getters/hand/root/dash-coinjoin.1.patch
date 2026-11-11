@@ -1,0 +1,232 @@
+diff --git a/dash-coinjoin/src/inouts.rs b/dash-coinjoin/src/inouts.rs
+index 2508d31959aa4f8048d7a361b6b2dffcf55f4216..6ee2af7a20f4fcda0f4178aed383dfbb7bd108d8 100644
+--- a/dash-coinjoin/src/inouts.rs
++++ b/dash-coinjoin/src/inouts.rs
+@@ -300,8 +300,28 @@ pub fn bip69_output_cmp(a: &TxOut, b: &TxOut) -> std::cmp::Ordering {
+ /// Sorts a transaction's inputs and outputs in BIP69 order. Core's `std::sort` is unstable;
+ /// elements that compare equal here are byte-identical, so the order is the same (CJ0 notes D10).
+ pub fn sort_bip69(tx: &mut Transaction) {
+-    tx.inputs.sort_by(bip69_input_cmp);
+-    tx.outputs.sort_by(bip69_output_cmp);
++    let mut inputs = tx.inputs().clone();
++    inputs.sort_by(bip69_input_cmp);
++    let mut outputs = tx.outputs().clone();
++    outputs.sort_by(bip69_output_cmp);
++    *tx = with_in_outs(tx, inputs, outputs);
++}
++
++/// `tx` with `inputs` and `outputs` in place of its own: base-sdk's fields are read-only, so a
++/// changed transaction is rebuilt.
++pub(crate) fn with_in_outs(
++    tx: &Transaction,
++    inputs: Vec<TxIn>,
++    outputs: Vec<TxOut>,
++) -> Transaction {
++    Transaction::new(
++        tx.version(),
++        tx.tx_type(),
++        inputs,
++        outputs,
++        tx.lock_time(),
++        tx.extra_payload().clone(),
++    )
+ }
+ 
+ /// Whether a transaction is already in BIP69 order, that is, whether [`sort_bip69`] would leave
+diff --git a/dash-coinjoin/src/server.rs b/dash-coinjoin/src/server.rs
+index 8286b812b3bcf73939c39abf5c302d87caff0aff..6acf798f341b9a948503bfa930dba5bd2056744a 100644
+--- a/dash-coinjoin/src/server.rs
++++ b/dash-coinjoin/src/server.rs
+@@ -20,7 +20,7 @@ use dash_primitives::{OutPoint, Transaction, TxHash, TxIn, TxOut, TxType};
+ use crate::collateral::{MempoolAccept, is_collateral_valid};
+ use crate::denom::{self, MixShape, MixSideCounts};
+ use crate::dstx::PoolLimits;
+-use crate::inouts::{CoinView, InOutsKind, is_valid_in_outs, sort_bip69};
++use crate::inouts::{CoinView, InOutsKind, is_valid_in_outs, sort_bip69, with_in_outs};
+ use crate::pool::{
+     AcceptFlags, ENTRY_MAX_SIZE, PoolMessage, PoolState, PoolStatusUpdate, state_timeout,
+ };
+@@ -294,8 +294,7 @@ impl<P: Clone + Eq> ServerSession<P> {
+         self.session_id = 0;
+         self.session_denom = 0;
+         self.entries.clear();
+-        self.final_tx.inputs.clear();
+-        self.final_tx.outputs.clear();
++        self.final_tx = with_in_outs(&self.final_tx, Vec::new(), Vec::new());
+         self.time_last_successful_step = now;
+         self.queues.clear();
+     }
+@@ -389,20 +388,16 @@ impl<P: Clone + Eq> ServerSession<P> {
+         ready: bool,
+         fx: &mut Vec<ServerEffect<P>>,
+     ) {
+-        let mut dsq = DsQueue {
+-            denom: self.session_denom,
+-            pro_tx_hash: env.self_pro_tx_hash(),
+-            time: env.adjusted_time(),
+-            ready,
+-            sig: Vec::new(),
+-        };
+-        dsq = dash_p2p_core::DsQueue::new(
+-            dsq.denom(),
+-            dsq.pro_tx_hash(),
+-            dsq.time(),
+-            dsq.ready(),
+-            env.sign_basic(&dsq.signature_hash()),
+-        );
++        let (denom, pro_tx_hash, time) =
++            (self.session_denom, env.self_pro_tx_hash(), env.adjusted_time());
++        let unsigned = DsQueue::new(denom, pro_tx_hash, time, ready, Vec::new());
++        let dsq = DsQueue::new(
++            denom,
++            pro_tx_hash,
++            time,
++            ready,
++            env.sign_basic(&unsigned.signature_hash()),
++        );
+         fx.push(ServerEffect::RelayQueue(dsq.clone()));
+         self.queues.add(QueueEntry::new(dsq, env.self_outpoint()));
+     }
+@@ -618,7 +608,7 @@ impl<P: Clone + Eq> ServerSession<P> {
+             ENTRY_MAX_SIZE
+         };
+         if entry.inputs().len() > max_entry_size || entry.outputs().len() > max_entry_size {
+-            fx.push(ServerEffect::ConsumeCollateral(entry.collateral()));
++            fx.push(ServerEffect::ConsumeCollateral(entry.collateral().clone()));
+             return Err(PoolMessage::ErrMaximum);
+         }
+         if !is_collateral_valid(env, entry.collateral()) {
+@@ -626,12 +616,12 @@ impl<P: Clone + Eq> ServerSession<P> {
+         }
+         let shape = MixShape::of_entry(entry.inputs().len(), entry.outputs().len());
+         if shape == MixShape::Unknown {
+-            fx.push(ServerEffect::ConsumeCollateral(entry.collateral()));
++            fx.push(ServerEffect::ConsumeCollateral(entry.collateral().clone()));
+             return Err(PoolMessage::ErrSizeMismatch);
+         }
+         // Admission counted on the declared shapes, so deviating costs the collateral.
+         if self.rebalance_session && shape != declared {
+-            fx.push(ServerEffect::ConsumeCollateral(entry.collateral()));
++            fx.push(ServerEffect::ConsumeCollateral(entry.collateral().clone()));
+             return Err(PoolMessage::ErrSizeMismatch);
+         }
+         // The same input twice: can't tell who is malicious, so don't charge.
+@@ -650,7 +640,7 @@ impl<P: Clone + Eq> ServerSession<P> {
+             InOutsKind::Entry,
+         ) {
+             if rejection.consume_collateral {
+-                fx.push(ServerEffect::ConsumeCollateral(entry.collateral()));
++                fx.push(ServerEffect::ConsumeCollateral(entry.collateral().clone()));
+             }
+             return Err(rejection.message);
+         }
+@@ -658,15 +648,16 @@ impl<P: Clone + Eq> ServerSession<P> {
+         self.entries.push(ServerEntry {
+             inputs: entry
+                 .inputs()
+-                .into_iter()
++                .iter()
++                .cloned()
+                 .map(|txin| EntryInput {
+                     txin,
+                     prev_pub_key: Vec::new(),
+                     has_sig: false,
+                 })
+                 .collect(),
+-            outputs: entry.outputs(),
+-            collateral: entry.collateral(),
++            outputs: entry.outputs().clone(),
++            collateral: entry.collateral().clone(),
+             collateral_txid,
+             peer: peer.clone(),
+         });
+@@ -711,23 +702,25 @@ impl<P: Clone + Eq> ServerSession<P> {
+     /// from the wire `prevPubKey` is empty; Core checks it all the same (CJ0 notes D15; possible
+     /// security note: see manager).
+     fn is_input_script_sig_valid(&self, txin: &TxIn) -> bool {
+-        let mut tx = empty_transaction();
++        let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
+         let mut index = None;
+         let mut prev_pub_key: &[u8] = &[];
+         for entry in &self.entries {
+-            tx.outputs.extend(entry.outputs.iter().cloned());
++            outputs.extend(entry.outputs.iter().cloned());
+             for input in &entry.inputs {
+                 if input.txin.prevout() == txin.prevout() {
+-                    index = Some(tx.inputs().len());
++                    index = Some(inputs.len());
+                     prev_pub_key = &input.prev_pub_key;
+                 }
+-                tx.inputs.push(input.txin.clone());
++                inputs.push(input.txin.clone());
+             }
+         }
+         let Some(index) = index else {
+             return false;
+         };
+-        tx.inputs[index].script_sig = txin.script_sig().clone();
++        let signed: &TxIn = &inputs[index];
++        inputs[index] = TxIn::new(signed.prevout(), txin.script_sig().clone(), signed.sequence());
++        let tx = with_in_outs(&empty_transaction(), inputs, outputs);
+         let data = TxSigData::new(&tx);
+         let checker = TransactionSignatureChecker::new(&data, index, &DirectVerifier);
+         verify_script(
+@@ -748,11 +741,19 @@ impl<P: Clone + Eq> ServerSession<P> {
+         if seen || !self.is_input_script_sig_valid(txin) {
+             return false;
+         }
+-        for input in &mut self.final_tx.inputs {
+-            if input.prevout == txin.prevout() && input.sequence == txin.sequence() {
+-                input.script_sig = txin.script_sig().clone();
+-            }
+-        }
++        let inputs = self
++            .final_tx
++            .inputs()
++            .iter()
++            .map(|input| {
++                if input.prevout() == txin.prevout() && input.sequence() == txin.sequence() {
++                    TxIn::new(input.prevout(), txin.script_sig().clone(), input.sequence())
++                } else {
++                    input.clone()
++                }
++            })
++            .collect();
++        self.final_tx = with_in_outs(&self.final_tx, inputs, self.final_tx.outputs().clone());
+         self.entries.iter_mut().any(|e| e.add_script_sig(txin))
+     }
+ 
+@@ -804,11 +805,12 @@ impl<P: Clone + Eq> ServerSession<P> {
+         {
+             return;
+         }
+-        let mut tx = empty_transaction();
++        let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
+         for entry in &self.entries {
+-            tx.outputs.extend(entry.outputs.iter().cloned());
+-            tx.inputs.extend(entry.inputs.iter().map(|i| i.txin.clone()));
++            outputs.extend(entry.outputs.iter().cloned());
++            inputs.extend(entry.inputs.iter().map(|i| i.txin.clone()));
+         }
++        let mut tx = with_in_outs(&empty_transaction(), inputs, outputs);
+         sort_bip69(&mut tx);
+         self.final_tx = tx;
+         self.set_state(PoolState::Signing, env.now());
+@@ -830,13 +832,10 @@ impl<P: Clone + Eq> ServerSession<P> {
+             return;
+         }
+         if !env.has_dstx(&txid) {
+-            let mut dstx = DsTx {
+-                tx,
+-                pro_tx_hash: env.self_pro_tx_hash(),
+-                sig: Vec::new(),
+-                sig_time: env.adjusted_time(),
+-            };
+-            dstx.sig = env.sign_basic(&crate::dstx::dstx_signature_hash(&dstx));
++            let (pro_tx_hash, sig_time) = (env.self_pro_tx_hash(), env.adjusted_time());
++            let unsigned = DsTx::new(tx, pro_tx_hash, Vec::new(), sig_time);
++            let sig = env.sign_basic(&crate::dstx::dstx_signature_hash(&unsigned));
++            let dstx = DsTx::new(unsigned.tx().clone(), pro_tx_hash, sig, sig_time);
+             fx.push(ServerEffect::AddDstx {
+                 txid,
+                 dstx,
