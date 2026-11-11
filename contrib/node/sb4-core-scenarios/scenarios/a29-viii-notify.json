@@ -1,0 +1,62 @@
+{
+ "name": "a29-viii-notify",
+ "description": "MarkConflictingBlock notifies (tip, nullptr); UpdatedBlockTip schedules the check unless ibd or new == fork",
+ "rows": [
+  "A-29(viii)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A95",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "seed-cl",
+   "block": "A100"
+  },
+  {
+   "op": "mark-conflicting",
+   "block": "B96"
+  },
+  {
+   "op": "notify",
+   "new": "A100",
+   "fork": null,
+   "ibd": false
+  },
+  {
+   "op": "notify",
+   "new": "A100",
+   "fork": null,
+   "ibd": true
+  },
+  {
+   "op": "notify",
+   "new": "A100",
+   "fork": "A100",
+   "ibd": false
+  }
+ ]
+}
