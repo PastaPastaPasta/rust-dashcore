@@ -1,0 +1,41 @@
+{
+ "name": "hx1-r2-walk-new-parent-batch",
+ "rows": [],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "G",
+   "count": 3,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 5,
+   "submit": "connect"
+  },
+  {
+   "op": "invalidate",
+   "block": "B1"
+  },
+  {
+   "op": "invalidate",
+   "block": "B2"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "B3",
+   "count": 2,
+   "submit": "headers"
+  }
+ ]
+}
