@@ -1,0 +1,1552 @@
+diff --git a/node-l1/src/coinjoin.rs b/node-l1/src/coinjoin.rs
+index 7755c6697ae4b5e9429aae1219891a1e1671f91c..f330c32f19b9af0a1c7c48852323ee232ccee8d9 100644
+--- a/node-l1/src/coinjoin.rs
++++ b/node-l1/src/coinjoin.rs
+@@ -1084,14 +1084,9 @@ pub fn seed_dstx(inputs: u16, outputs: u16) -> DsTx {
+             .collect(),
+         0,
+     );
+-    let mut dstx = DsTx {
+-        tx,
+-        pro_tx_hash: TxHash::from_lendian(SEED_PRO_TX),
+-        sig: Vec::new(),
+-        sig_time: SEED_TIME,
+-    };
+-    dstx.sig = sign(&dstx_signature_hash(&dstx));
+-    dstx
++    let unsigned = DsTx::new(tx, TxHash::from_lendian(SEED_PRO_TX), Vec::new(), SEED_TIME);
++    let sig = sign(&dstx_signature_hash(&unsigned));
++    DsTx::new(unsigned.tx().clone(), unsigned.pro_tx_hash(), sig, unsigned.sig_time())
+ }
+ 
+ fn sign(hash: &dash_num::Hash256) -> Vec<u8> {
+diff --git a/node-l1/src/credit_pool.rs b/node-l1/src/credit_pool.rs
+index 871559e598a6fa96bf23585dabede1ff678115d6..3f4365d426a903c9569e4f6e73f52b064fc9734c 100644
+--- a/node-l1/src/credit_pool.rs
++++ b/node-l1/src/credit_pool.rs
+@@ -45,6 +45,7 @@ use serde_json::Value;
+ 
+ use crate::dml::unhex;
+ use crate::payments::{Net, fixture, nets};
++use crate::rebuild::Rebuild;
+ use crate::{Compared, Divergence, Outcome, check, divergence};
+ 
+ /// The most edits an input makes.
+@@ -431,9 +432,11 @@ fn unlock_index(tx: &Transaction) -> Option<u64> {
+ }
+ 
+ fn set_unlock_index(tx: &mut Transaction, index: u64) {
+-    if let Some(bytes) = tx.extra_payload.get_mut(1..9) {
+-        bytes.copy_from_slice(&index.to_le_bytes());
+-    }
++    tx.edit(|t| {
++        if let Some(bytes) = t.extra_payload.get_mut(1..9) {
++            bytes.copy_from_slice(&index.to_le_bytes());
++        }
++    });
+ }
+ 
+ /// Edits the CbTx's decoded payload; a coinbase without one is left as it is.
+@@ -448,7 +451,7 @@ fn edit_cbtx(case: &mut Case, f: impl FnOnce(&mut CoinbaseCommitment)) {
+     let mut bytes = Vec::new();
+     cbtx.encode(&mut bytes);
+     bytes.extend(rest);
+-    coinbase.extra_payload = bytes;
++    coinbase.edit(|t| t.extra_payload = bytes);
+ }
+ 
+ /// The script an asset lock's credit output and a crafted output pay to.
+@@ -508,7 +511,7 @@ fn rebalance(case: &mut Case) {
+     };
+     edit_cbtx(case, |cbtx| {
+         if cbtx.credit_pool_balance().is_some() {
+-            cbtx.credit_pool_balance = Some(total);
++            cbtx.edit(|f| f.credit_pool_balance = Some(total));
+         }
+     });
+ }
+@@ -581,10 +584,7 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+         7 if extreme => {
+             if let Some(i) = pick(&unlocks) {
+                 let tx = &mut case.txs[i];
+-                tx.outputs = vec![TxOut {
+-                    value: MAX_MONEY,
+-                    script_pubkey: P2PKH.to_vec().into(),
+-                }];
++                tx.edit(|t| t.outputs = vec![TxOut::from_duffs(MAX_MONEY, P2PKH.to_vec().into())]);
+                 let base = u64::MAX / 2;
+                 let copies: Vec<Transaction> = (0..MAX_MONEY_TXS - 1 + usize::from(b & 1))
+                     .map(|k| {
+@@ -606,10 +606,12 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+             };
+             if let Some(i) = pick(&list) {
+                 let mut tx = case.txs[i].clone();
+-                if b & 1 != 0
+-                    && let Some(byte) = tx.extra_payload.get_mut(17)
+-                {
+-                    *byte ^= 1;
++                if b & 1 != 0 {
++                    tx.edit(|t| {
++                        if let Some(byte) = t.extra_payload.get_mut(17) {
++                            *byte ^= 1;
++                        }
++                    });
+                 }
+                 case.txs.insert(i + 1, tx);
+             }
+@@ -627,57 +629,70 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+             }
+         }
+         9 => {
+-            if let Some(out) = pick(&unlocks).and_then(|i| case.txs[i].outputs.first_mut()) {
+-                out.value = if b & 1 == 0 {
+-                    out.value + delta
+-                } else {
+-                    out.value - delta
+-                };
++            if let Some(i) = pick(&unlocks) {
++                case.txs[i].edit(|t| {
++                    if let Some(out) = t.outputs.first_mut() {
++                        out.edit(|o| {
++                            o.value = if b & 1 == 0 {
++                                o.value + delta
++                            } else {
++                                o.value - delta
++                            }
++                        });
++                    }
++                });
+             }
+         }
+         10 => edit_cbtx(case, |cbtx| {
+-            if let Some(balance) = cbtx.credit_pool_balance.as_mut() {
+-                *balance = if b & 1 == 0 {
+-                    *balance + delta
+-                } else {
+-                    *balance - delta
+-                };
+-            }
++            cbtx.edit(|f| {
++                if let Some(balance) = f.credit_pool_balance.as_mut() {
++                    *balance = if b & 1 == 0 {
++                        *balance + delta
++                    } else {
++                        *balance - delta
++                    };
++                }
++            });
+         }),
+         11 => {
+             if let Some(i) = pick(&positions(case, Some(TxType::AssetLock))) {
+-                let outputs = &mut case.txs[i].outputs;
+-                let burn =
+-                    outputs.iter().position(|o| o.script_pubkey.as_bytes().first() == Some(&0x6a));
+-                match (burn, b % 3) {
+-                    (Some(j), 0) => outputs[j].value += delta,
+-                    (Some(j), 1) => {
+-                        outputs.remove(j);
++                case.txs[i].edit(|t| {
++                    let outputs = &mut t.outputs;
++                    let burn = outputs
++                        .iter()
++                        .position(|o| o.script_pubkey().as_bytes().first() == Some(&0x6a));
++                    match (burn, b % 3) {
++                        (Some(j), 0) => outputs[j].edit(|o| o.value += delta),
++                        (Some(j), 1) => {
++                            outputs.remove(j);
++                        }
++                        (Some(j), _) => outputs[j].edit(|o| o.script_pubkey = Vec::new().into()),
++                        (None, _) => {}
+                     }
+-                    (Some(j), _) => outputs[j].script_pubkey = Vec::new().into(),
+-                    (None, _) => {}
+-                }
++                });
+             }
+         }
+         // An unlock's fee, or its payload version 2: V24's stable txid, the same layout
+         // (`assetlocktx.h:79-83`), so the reject's text names another hash.
+         12 => {
+             if let Some(i) = pick(&unlocks) {
+-                let payload = &mut case.txs[i].extra_payload;
+-                let fee = match b % 4 {
+-                    0 => 0,
+-                    1 => u32::from(a),
+-                    2 => u32::MAX,
+-                    _ => {
+-                        if let Some(version) = payload.first_mut() {
+-                            *version = 2;
++                case.txs[i].edit(|t| {
++                    let payload = &mut t.extra_payload;
++                    let fee = match b % 4 {
++                        0 => 0,
++                        1 => u32::from(a),
++                        2 => u32::MAX,
++                        _ => {
++                            if let Some(version) = payload.first_mut() {
++                                *version = 2;
++                            }
++                            return;
+                         }
+-                        return;
++                    };
++                    if let Some(bytes) = payload.get_mut(9..13) {
++                        bytes.copy_from_slice(&fee.to_le_bytes());
+                     }
+-                };
+-                if let Some(bytes) = payload.get_mut(9..13) {
+-                    bytes.copy_from_slice(&fee.to_le_bytes());
+-                }
++                });
+             }
+         }
+         // A payload `GetTxPayload` refuses: a byte short or a byte over.
+@@ -687,46 +702,41 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+                 .filter(|&i| case.txs[i].version() >= 3 && !case.txs[i].extra_payload().is_empty())
+                 .collect();
+             if let Some(i) = pick(&specials) {
+-                let payload = &mut case.txs[i].extra_payload;
+-                if b & 1 == 0 {
+-                    payload.pop();
+-                } else {
+-                    payload.push(0);
+-                }
++                case.txs[i].edit(|t| {
++                    if b & 1 == 0 {
++                        t.extra_payload.pop();
++                    } else {
++                        t.extra_payload.push(0);
++                    }
++                });
+             }
+         }
+         // The coinbase without a CbTx: a plain coinbase, another special type with the CbTx's
+         // bytes (Core reads the balance of any special-version coinbase), a version-2 CbTx.
+         14 => match b % 3 {
+             0 => {
+-                let coinbase = &mut case.txs[0];
+-                coinbase.version = 2;
+-                coinbase.tx_type = TxType::new(0);
+-                coinbase.extra_payload.clear();
++                case.txs[0].edit(|t| {
++                    t.version = 2;
++                    t.tx_type = TxType::new(0);
++                    t.extra_payload.clear();
++                });
+             }
+-            1 => case.txs[0].tx_type = TxType::new(1),
++            1 => case.txs[0].edit(|t| t.tx_type = TxType::new(1)),
+             _ => edit_cbtx(case, |cbtx| {
+-                cbtx.version = 2;
+-                cbtx.best_cl_height_diff = None;
+-                *cbtx = dash_primitives::CoinbaseCommitment::new(
+-                    cbtx.version(),
+-                    cbtx.height(),
+-                    cbtx.merkle_root_mn_list(),
+-                    cbtx.merkle_root_quorums(),
+-                    cbtx.best_cl_height_diff(),
+-                    None,
+-                    cbtx.credit_pool_balance(),
+-                    cbtx.merkle_root_asset_unlocks(),
+-                );
+-                cbtx.credit_pool_balance = None;
+-                cbtx.merkle_root_asset_unlocks = None;
++                cbtx.edit(|f| {
++                    f.version = 2;
++                    f.best_cl_height_diff = None;
++                    f.best_cl_signature = None;
++                    f.credit_pool_balance = None;
++                    f.merkle_root_asset_unlocks = None;
++                });
+             }),
+         },
+         // Asset locks of `MAX_MONEY` (b odd: one more, whose sum overflows).
+         _ if extreme => {
+             for k in 0..MAX_MONEY_TXS + usize::from(b & 1) {
+                 let mut lock = asset_lock(MAX_MONEY, a);
+-                lock.inputs[0].prevout.index = k as u32;
++                lock.edit(|t| t.inputs[0].edit(|i| i.prevout.edit(|o| o.index = k as u32)));
+                 case.txs.push(lock);
+             }
+         }
+diff --git a/node-l1/src/dml_apply/checked.rs b/node-l1/src/dml_apply/checked.rs
+index 17ffb0778c59a4106c8ec97319fccf4a0ef51cc0..dc825f889ed93cd961c5c646974a21b27a68a8e1 100644
+--- a/node-l1/src/dml_apply/checked.rs
++++ b/node-l1/src/dml_apply/checked.rs
+@@ -46,10 +46,10 @@ use dash_pkc::bls::{
+     BlsEagerPk, BlsEagerSig, BlsScIetf, BlsSchemeKind, BlsSchemeSource, BlsSecretKey,
+ };
+ use dash_primitives::{
+-    AddrV1, AddrV2, COMPACT_SIG_LEN, CollateralSig, CompactSig, InputsHash, MnType, NIEntry,
+-    NetInfo, NetInfoV1, NetInfoV2, OutPoint, PayoutShare, PlatformNodeId, ProTxVersion,
+-    ProUpShareTx, ProUpSharedRegTx, QuorumVvecHash, RevocationReason, ServiceV1, ServiceV2,
+-    Transaction, TxHash, TxIn, TxOut, TxType,
++    AddrV1, AddrV2, COMPACT_SIG_LEN, CollateralSig, Commitment, CompactSig, DynBitset,
++    FinalCommitment, InputsHash, MnType, NIEntry, NetInfo, NetInfoV1, NetInfoV2, OutPoint,
++    PayoutShare, PlatformNodeId, ProTxVersion, ProUpShareTx, ProUpSharedRegTx, QuorumVvecHash,
++    RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -61,6 +61,7 @@ use super::input::{
+ use crate::dml::{extended, legacy, payout, spread, twenty};
+ // The payloads the walk builds and its probes rewrite (DEC-1066): base-sdk's, with public fields.
+ use crate::protx_mirror::{ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx};
++use crate::rebuild::Rebuild;
+ 
+ /// Input flags (byte 1) bit: `diff_dml_block` reads the input as a checked sequence.
+ pub const FLAG_CHECKED: u8 = 4;
+@@ -345,7 +346,9 @@ impl<'a> Walk<'a> {
+         let height = tip.height + 1;
+         let mut coinbase = self.coinbase.clone();
+         // The cbTx's `nHeight` follows its version (`bad-cbtx-height`).
+-        coinbase.extra_payload.get_mut(2..6)?.copy_from_slice(&height.to_le_bytes());
++        coinbase.edit(|t| {
++            t.extra_payload.get_mut(2..6).map(|b| b.copy_from_slice(&height.to_le_bytes()))
++        })?;
+         let coinbase = encoded(&coinbase);
+         let mut parts = vec![coinbase.as_slice()];
+         parts.extend(block.txs.iter().map(Vec::as_slice));
+@@ -414,25 +417,31 @@ impl<'a> Walk<'a> {
+             // after it, which `GetTxPayload` refuses (`bad-protx-payload`).
+             0 if provider => {
+                 let version: u16 = [0, 4, u16::MAX, 200][arm % 4];
+-                tx.extra_payload = version.to_le_bytes().to_vec();
+-                if arm % 4 == 3 {
+-                    tx.extra_payload.push(0);
+-                }
++                tx.edit(|t| {
++                    t.extra_payload = version.to_le_bytes().to_vec();
++                    if arm % 4 == 3 {
++                        t.extra_payload.push(0);
++                    }
++                });
+             }
+             // A type the dispatcher has no case for, or a coinbase's on a transaction that is
+             // none (`bad-tx-type-check`, `bad-cbtx-invalid`).
+             1 => {
+-                tx.tx_type = [TxType::from_base(13), TxType::CoinbaseCommitment][arm % 2];
++                tx.edit(|t| {
++                    t.tx_type = [TxType::from_base(13), TxType::CoinbaseCommitment][arm % 2]
++                });
+             }
+             // `CheckInputsHash`: an input the payload's hash does not cover.
+             2 if provider => {
+-                if let Some(input) = tx.inputs.first_mut() {
+-                    input.prevout.index ^= 1;
+-                }
++                tx.edit(|t| {
++                    if let Some(input) = t.inputs.first_mut() {
++                        input.edit(|i| i.prevout.edit(|o| o.index ^= 1));
++                    }
++                });
+             }
+             step => {
+                 if let Some(payload) = self.probe_payload(tip, tx, step, arm) {
+-                    tx.extra_payload = payload;
++                    tx.edit(|t| t.extra_payload = payload);
+                 }
+             }
+         }
+@@ -922,18 +931,14 @@ impl<'a> Walk<'a> {
+     /// quorum type's last base at or below the tip (`base % dkgInterval == quorumIndex`), with
+     /// members from the tip's list supplied, every one signing and some (but `minSize`) valid.
+     fn qc(&mut self, tip: &Tip) -> Option<Transaction> {
+-        let mut p = self.r.pick(&crafted().templates[usize::from(self.case.v24)].qc)?.clone();
+-        let c = &mut p.commitment;
++        let p = self.r.pick(&crafted().templates[usize::from(self.case.v24)].qc)?;
++        let c = p.commitment();
+         // The crafted commitments are invalid ones; Core's `Verify` wants valid keys (BasicBLS).
+-        if c.version < 3 {
++        if c.version() < 3 {
+             return None;
+         }
+         let (pk, sig) = quorum_keys();
+-        c.quorum_public_key = pk.clone();
+-        c.quorum_sig = sig.clone();
+-        c.members_sig = sig.clone();
+-        c.quorum_vvec_hash = QuorumVvecHash::from_lendian(spread(0, 0, 0x66));
+-        let llmq = self.case.params.consensus.llmq(c.llmq_type)?;
++        let llmq = self.case.params.consensus.llmq(c.llmq_type())?;
+         let interval = i32::from(llmq.dkg_interval).max(1);
+         let index = if llmq.use_rotation {
+             i32::from(self.r.next()) % i32::from(llmq.signing_active_quorum_count).max(1)
+@@ -960,7 +965,7 @@ impl<'a> Walk<'a> {
+         let start = usize::from(self.r.next());
+         let members: Vec<Vec<u8>> =
+             (0..count).map(|i| dmn_bytes(mns[(start + i) % mns.len()])).collect();
+-        let llmq_type = c.llmq_type.to_base();
++        let llmq_type = c.llmq_type().to_base();
+         if !self.ctx.quorums.iter().any(|q| q.llmq_type == llmq_type && q.quorum_hash == hash) {
+             self.ctx.quorums.push(QuorumMembers {
+                 llmq_type,
+@@ -983,12 +988,20 @@ impl<'a> Walk<'a> {
+         for i in 0..count {
+             signers[i / 8] |= 1 << (i % 8);
+         }
+-        c.quorum_hash = dash_primitives::QuorumHash::from_lendian(hash);
+-        c.quorum_index = matches!(c.version, 2 | 4).then_some(i16::try_from(index).ok()?);
+-        c.valid_members.num_bits = size as u64;
+-        c.valid_members.data = valid;
+-        c.signers.num_bits = size as u64;
+-        c.signers.data = signers;
++        let c = Commitment::new(
++            c.version(),
++            c.llmq_type(),
++            dash_primitives::QuorumHash::from_lendian(hash),
++            matches!(c.version(), 2 | 4).then_some(i16::try_from(index).ok()?),
++            // Both bitsets are `size` bits, a bit set only below `count`: `new` takes them.
++            DynBitset::new(size as u64, signers).ok()?,
++            DynBitset::new(size as u64, valid).ok()?,
++            pk.clone(),
++            QuorumVvecHash::from_lendian(spread(0, 0, 0x66)),
++            sig.clone(),
++            sig.clone(),
++        );
++        let p = FinalCommitment::new(p.version(), p.height(), c);
+         let mut payload = encoded(&p);
+         payload.get_mut(2..6)?.copy_from_slice(&(tip.height + 1).to_le_bytes());
+         Some(special(TxType::QuorumCommitment, vec![], vec![], payload))
+diff --git a/node-l1/src/dml_apply/input.rs b/node-l1/src/dml_apply/input.rs
+index 70275cb7a7da9e91421145fca8991f0172d64a88..d1ee81c721a8468617a0e11f9442206a79b19765 100644
+--- a/node-l1/src/dml_apply/input.rs
++++ b/node-l1/src/dml_apply/input.rs
+@@ -35,13 +35,13 @@ use dash_oracle_sys::{
+ use dash_params::{ChainParamsBuilder, ChainSetup, LlmqParams, LlmqType, Network, Release};
+ use dash_pkc::bls::BlsSchemeKind;
+ use dash_primitives::{
+-    COMPACT_SIG_LEN, CollateralShare, CompactSig, FinalCommitment, MnType, NetInfo, OutPoint,
+-    PlatformNodeId, ProRegTx, ProTxVersion, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx,
+-    ProUpSharedRegTx, QuorumHash, RevocationReason, SpecialPayload, Transaction, TxHash, TxIn,
+-    TxType,
++    COMPACT_SIG_LEN, CollateralShare, Commitment, CompactSig, DynBitset, FinalCommitment, MnType,
++    NetInfo, OutPoint, PlatformNodeId, ProRegTx, ProTxVersion, ProUpRegTx, ProUpRevTx, ProUpServTx,
++    ProUpShareTx, ProUpSharedRegTx, QuorumHash, RevocationReason, SpecialPayload, Transaction,
++    TxHash, TxIn, TxType,
+ };
+-use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
++use dash_types::{CompactSize, Numeric};
+ use serde::Deserialize;
+ 
+ use super::DEPLOYMENT_V24;
+@@ -765,23 +765,69 @@ fn qc(
+     } else {
+         *case.hashes.get(quorum_base)?
+     };
+-    let c = &mut p.commitment;
+-    c.llmq_type = llmq_type;
+-    c.quorum_hash = QuorumHash::from_lendian(hash);
+-    c.quorum_index = matches!(c.version, 2 | 4).then_some(index as i16);
++    let c = p.commitment();
++    let quorum_index = matches!(c.version(), 2 | 4).then_some(index as i16);
+     let size = u64::from(llmq.size);
+     let bytes = usize::try_from(size.div_ceil(8)).ok()?;
+-    c.valid_members.num_bits = size;
+-    c.valid_members.data = r.take(bytes);
+-    c.signers.num_bits = size;
+-    c.signers.data = vec![0xff; bytes];
++    let valid = r.take(bytes);
++    let signers = vec![0xff; bytes];
++    let empty = DynBitset::new(0, Vec::new()).ok()?;
++    let c = Commitment::new(
++        c.version(),
++        llmq_type,
++        QuorumHash::from_lendian(hash),
++        quorum_index,
++        empty.clone(),
++        empty,
++        c.quorum_public_key().clone(),
++        c.quorum_vvec_hash(),
++        c.quorum_sig().clone(),
++        c.members_sig().clone(),
++    );
++    let p = FinalCommitment::new(p.version(), p.height(), c);
+     supply_members(r, case, llmq_type, llmq, hash, quorums)?;
+     // The payload's `nHeight` follows its version (`FinalCommitment::encode`).
+-    let mut payload = encoded(&p);
++    let mut payload = with_raw_bitsets(&p, size, &signers, &valid)?;
+     payload[2..6].copy_from_slice(&height.to_le_bytes());
+     Some(special(TxType::QuorumCommitment, vec![], payload))
+ }
+ 
++/// `p` encoded with `signers` and `valid` as its bitsets of `num_bits` bits, as given: base-sdk's
++/// `DynBitset` refuses a short image or a set padding bit, which these inputs make on purpose
++/// (Core's decode refuses them too). `p`'s own bitsets are empty; the two follow the commitment's
++/// head in Core's layout (`nVersion`, `nHeight`, `nVersion`, `llmqType`, `quorumHash`,
++/// `quorumIndex` when indexed), each its bit count then its bytes.
++// Core: llmq/commitment.h (CFinalCommitment SERIALIZE_METHODS)
++fn with_raw_bitsets(
++    p: &FinalCommitment,
++    num_bits: u64,
++    signers: &[u8],
++    valid: &[u8],
++) -> Option<Vec<u8>> {
++    let bytes = encoded(p);
++    let head = 2
++        + 4
++        + 2
++        + 1
++        + 32
++        + if p.commitment().quorum_index().is_some() {
++            2
++        } else {
++            0
++        };
++    let empty = &[0u8, 0];
++    if bytes.get(head..head + 2)? != empty {
++        return None;
++    }
++    let mut out = bytes[..head].to_vec();
++    for bits in [signers, valid] {
++        CompactSize::from(num_bits).encode(&mut out);
++        out.extend_from_slice(bits);
++    }
++    out.extend_from_slice(&bytes[head + 2..]);
++    Some(out)
++}
++
+ /// `ctx` with V24 active for the block after its tip (EV2b D22), as `-vbparams=v24:-1:…` makes
+ /// it on the V24 chain.
+ pub(super) fn force_v24(ctx: &mut Context) {
+diff --git a/node-l1/src/gov_superblock.rs b/node-l1/src/gov_superblock.rs
+index b371aa7494f3aca13b4390ae7d6047f825d3a64f..efe1bb9437e064943a4edaad7af1d1c47dc93b6d 100644
+--- a/node-l1/src/gov_superblock.rs
++++ b/node-l1/src/gov_superblock.rs
+@@ -23,6 +23,7 @@ use dash_primitives::{GovObject, TxOut};
+ use dash_types::codec::BaseCodec;
+ 
+ use crate::payments::{Case, Payments, samples, superblock_case};
++use crate::rebuild::Rebuild;
+ use crate::{Divergence, check, divergence};
+ 
+ /// One coinbase around one trigger.
+@@ -110,7 +111,7 @@ fn variants(
+         return out;
+     };
+     let mut missing = base.clone();
+-    missing.outputs.remove(j0);
++    missing.edit(|t| t.outputs.remove(j0));
+     push("missing", missing, payments.clone(), h);
+ 
+     // Two distinct payments to reorder: a second one to the first payment's script when the
+@@ -119,11 +120,11 @@ fn variants(
+     let second = match outs.get(1) {
+         Some(second) => second.clone(),
+         None => {
+-            let extra = TxOut {
+-                value: outs[0].value() + dash_consensus::subsidy::COIN,
+-                ..outs[0].clone()
+-            };
+-            two.outputs.push(extra.clone());
++            let extra = TxOut::from_duffs(
++                outs[0].value() + dash_consensus::subsidy::COIN,
++                outs[0].script_pubkey().clone(),
++            );
++            two.edit(|t| t.outputs.push(extra.clone()));
+             two_payments.push((payments[0].0.clone(), extra.value()));
+             extra
+         }
+@@ -133,7 +134,7 @@ fn variants(
+         && let Some(j1) = output_of(&two, &second)
+     {
+         let mut reordered = two.clone();
+-        reordered.outputs.swap(j0, j1);
++        reordered.edit(|t| t.outputs.swap(j0, j1));
+         push("reordered", reordered, two_payments, h);
+     }
+ 
+@@ -147,7 +148,7 @@ fn variants(
+         dup.insert(k + 1, payments[k].clone());
+         push("duplicate, one output", base.clone(), dup.clone(), h);
+         let mut both = base.clone();
+-        both.outputs.insert(jk + 1, base.outputs()[jk].clone());
++        both.edit(|t| t.outputs.insert(jk + 1, base.outputs()[jk].clone()));
+         push("duplicate, two outputs", both, dup, h);
+     }
+ 
+@@ -155,7 +156,7 @@ fn variants(
+     // alone: before V24 a single output serves every repeat, so only the output count rejects.
+     if let Some(k) = smallest {
+         let mut alone = base.clone();
+-        alone.outputs.retain(|o| *o == outs[k] || !outs.contains(o));
++        alone.edit(|t| t.outputs.retain(|o| *o == outs[k] || !outs.contains(o)));
+         let n = alone.outputs().len();
+         for (name, repeats) in [("repeated per output", n), ("repeated past the outputs", n + 1)] {
+             if payments[k].1 * repeats as Amount <= limit {
+@@ -172,14 +173,16 @@ fn variants(
+         let mut coinbase = base.clone();
+         let mut raised = payments.clone();
+         raised[0].1 += raise;
+-        coinbase.outputs[j0].value += raise;
+-        coinbase.outputs[0].value -= miner_cut;
++        coinbase.edit(|t| {
++            t.outputs[j0].edit(|o| o.value += raise);
++            t.outputs[0].edit(|o| o.value -= miner_cut);
++        });
+         push(name, coinbase, raised, h);
+     }
+ 
+     // The miner takes one duff more than the block reward.
+     let mut over = base.clone();
+-    over.outputs[0].value += 1;
++    over.edit(|t| t.outputs[0].edit(|o| o.value += 1));
+     push("over the block value", over, payments.clone(), h);
+     out
+ }
+diff --git a/node-l1/src/lib.rs b/node-l1/src/lib.rs
+index bcf89b801998d00099528cbb262259683a33e573..173367604a051ded569e69cc7023e64461da2e65 100644
+--- a/node-l1/src/lib.rs
++++ b/node-l1/src/lib.rs
+@@ -59,6 +59,7 @@ pub mod payload;
+ pub mod payments;
+ /// Test and fuzz only: base-sdk's provider payloads with public fields (DEC-1066).
+ pub mod protx_mirror;
++pub mod rebuild;
+ pub mod specialtx;
+ pub mod versionbits;
+ 
+diff --git a/node-l1/src/payments.rs b/node-l1/src/payments.rs
+index 169b36f9eec38fd280ad7847e8d991a79519611f..889550907ec52630d3e51afda71880ebd7370b74 100644
+--- a/node-l1/src/payments.rs
++++ b/node-l1/src/payments.rs
+@@ -50,6 +50,7 @@ use dash_primitives::{CollateralShare, NetInfo, NetInfoV2, PayoutShare, Transact
+ use serde_json::Value;
+ 
+ use crate::dml::{mainnet, unhex};
++use crate::rebuild::Rebuild;
+ use crate::{Compared, Divergence, Outcome, check, divergence};
+ 
+ /// The most edits an input makes.
+@@ -284,10 +285,8 @@ pub fn superblock_case(index: usize) -> Option<(Case, Payments)> {
+         let miner = case.sample().addresses.first()?.clone()?;
+         let paid = case.coinbase.outputs().first()?.clone();
+         payments.push((miner, COIN));
+-        case.coinbase.outputs.push(TxOut {
+-            value: COIN,
+-            ..paid
+-        });
++        case.coinbase
++            .edit(|t| t.outputs.push(TxOut::from_duffs(COIN, paid.script_pubkey().clone())));
+     }
+     Some((case, payments))
+ }
+@@ -654,7 +653,7 @@ pub fn compare_case(case: &Case) -> Compared {
+ pub fn governance_probe(case: &Case) -> Result<Option<BlockValuePayee>, Divergence> {
+     let s = case.sample();
+     let mut unpaid = case.coinbase.clone();
+-    unpaid.outputs.iter_mut().for_each(|o| o.value = 0);
++    unpaid.edit(|t| t.outputs.iter_mut().for_each(|o| o.edit(|f| f.value = 0)));
+     let pay = PaymentsContext {
+         synced: false,
+         ..case.payments_context()
+@@ -800,29 +799,31 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+         trigger @ 12..=14 => return edit_trigger(case, trigger, a, b),
+         _ => {}
+     }
+-    let outs = &mut case.coinbase.outputs;
+-    let n = outs.len();
+-    let (i, j) = (usize::from(a) % n.max(1), usize::from(b) % n.max(1));
+-    let delta = Amount::from(b) + 1;
+-    match op % 15 {
+-        0 if n > 1 => {
+-            outs.remove(i);
+-        }
+-        1 if n > 0 => outs.push(outs[i].clone()),
+-        2 if n > 0 => outs.swap(i, j),
+-        3 if n > 0 => outs[i].value += delta,
+-        4 if n > 0 && outs[i].value >= delta => outs[i].value -= delta,
+-        5 if n > 1 && outs[i].value >= delta => {
+-            outs[i].value -= delta;
+-            outs[(i + 1) % n].value += delta;
++    case.coinbase.edit(|t| {
++        let outs = &mut t.outputs;
++        let n = outs.len();
++        let (i, j) = (usize::from(a) % n.max(1), usize::from(b) % n.max(1));
++        let delta = Amount::from(b) + 1;
++        match op % 15 {
++            0 if n > 1 => {
++                outs.remove(i);
++            }
++            1 if n > 0 => outs.push(outs[i].clone()),
++            2 if n > 0 => outs.swap(i, j),
++            3 if n > 0 => outs[i].edit(|o| o.value += delta),
++            4 if n > 0 && outs[i].value() >= delta => outs[i].edit(|o| o.value -= delta),
++            5 if n > 1 && outs[i].value() >= delta => {
++                outs[i].edit(|o| o.value -= delta);
++                outs[(i + 1) % n].edit(|o| o.value += delta);
++            }
++            6 if n > 0 => {
++                let script = outs[j].script_pubkey().clone();
++                outs[i].edit(|o| o.script_pubkey = script);
++            }
++            7 => outs.push(TxOut::from_duffs(Amount::from(b), vec![0x6a].into())),
++            _ => {}
+         }
+-        6 if n > 0 => outs[i].script_pubkey = outs[j].script_pubkey.clone(),
+-        7 => outs.push(TxOut {
+-            value: Amount::from(b),
+-            script_pubkey: vec![0x6a].into(),
+-        }),
+-        _ => {}
+-    }
++    });
+ }
+ 
+ /// The payee's operator reward and operator payout script (registration fields: the masternode
+diff --git a/node-l1/src/rebuild.rs b/node-l1/src/rebuild.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..fe6184b6670d17cc6ce80fb1fbd65a7672901102
+--- /dev/null
++++ b/node-l1/src/rebuild.rs
+@@ -0,0 +1,150 @@
++//! Field edits on base-sdk values whose fields are private (the getter port, DEC-1055): copy the
++//! fields out, edit the copy, rebuild the value through its plain constructor.
++//!
++//! Every constructor used here stores each argument as given and sets no other field (the port
++//! tool's "plain" constructors: `impl_new!`, `codec_type!`, `codec_payload!` and `TxOut::from_duffs`,
++//! `{ Self { value, script_pubkey } }`), so an edit gives the value the old in-place field write
++//! gave. The ProTx payloads are not here: their `new`s reset the signature (see
++//! [`crate::protx_mirror`]).
++
++use bitcoin_primitives::script::{ScriptPubKeyBuf, ScriptSigBuf};
++use dash_pkc::bls::{BlsEagerSig, BlsGlobalSig};
++use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
++use dash_primitives::{
++    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, MerkleRoot, MnHardFork, OutPoint,
++    PayoutShare, QuorumHash, Transaction, TxHash, TxIn, TxOut, TxType,
++};
++
++/// A base-sdk value rebuilt from its fields.
++pub trait Rebuild: Sized {
++    /// The value's fields, public, in the constructor's order.
++    type Fields;
++
++    /// The fields, read through base-sdk's getters.
++    fn fields(&self) -> Self::Fields;
++
++    /// The value, through its plain constructor.
++    fn rebuild(fields: Self::Fields) -> Self;
++
++    /// Applies `f` to the fields and rebuilds the value from them, as the in-place write did.
++    fn edit<R>(&mut self, f: impl FnOnce(&mut Self::Fields) -> R) -> R {
++        let mut fields = self.fields();
++        let r = f(&mut fields);
++        *self = Self::rebuild(fields);
++        r
++    }
++}
++
++macro_rules! rebuild {
++    (
++        $(#[$attr:meta])*
++        $ty:ident => $fields:ident via $ctor:ident { $($kind:ident $field:ident: $fty:ty),+ $(,)? }
++    ) => {
++        $(#[$attr])*
++        #[derive(Clone, Debug, PartialEq)]
++        pub struct $fields {
++            $(pub $field: $fty,)+
++        }
++
++        impl Rebuild for $ty {
++            type Fields = $fields;
++
++            fn fields(&self) -> $fields {
++                $fields { $($field: rebuild!(@read $kind self $field),)+ }
++            }
++
++            fn rebuild(f: $fields) -> Self {
++                $ty::$ctor($(f.$field),+)
++            }
++        }
++    };
++    (@read copy $s:ident $field:ident) => {
++        $s.$field()
++    };
++    (@read get $s:ident $field:ident) => {
++        $s.$field().clone()
++    };
++}
++
++rebuild! {
++    /// `TxOut`'s fields; `TxOut::from_duffs` (`TxOut::new` takes an `Amount`).
++    TxOut => TxOutFields via from_duffs { copy value: i64, get script_pubkey: ScriptPubKeyBuf }
++}
++
++rebuild! {
++    /// `OutPoint`'s fields.
++    OutPoint => OutPointFields via new { copy txid: TxHash, copy index: u32 }
++}
++
++rebuild! {
++    /// `TxIn`'s fields.
++    TxIn => TxInFields via new { copy prevout: OutPoint, get script_sig: ScriptSigBuf, copy sequence: u32 }
++}
++
++rebuild! {
++    /// `PayoutShare`'s fields.
++    PayoutShare => PayoutShareFields via new { get script_payout: ScriptPubKeyBuf, copy reward: u16 }
++}
++
++rebuild! {
++    /// `CollateralShare`'s fields.
++    CollateralShare => CollateralShareFields via new {
++        copy amount: i64,
++        get script_refund: ScriptPubKeyBuf,
++        get script_reward: ScriptPubKeyBuf,
++        copy key_id_owner: PubKeyHash,
++    }
++}
++
++rebuild! {
++    /// `Transaction`'s fields.
++    Transaction => TransactionFields via new {
++        copy version: i16,
++        copy tx_type: TxType,
++        get inputs: Vec<TxIn>,
++        get outputs: Vec<TxOut>,
++        copy lock_time: u32,
++        get extra_payload: Vec<u8>,
++    }
++}
++
++rebuild! {
++    /// `CoinbaseCommitment`'s fields.
++    CoinbaseCommitment => CoinbaseCommitmentFields via new {
++        copy version: u16,
++        copy height: i32,
++        copy merkle_root_mn_list: MerkleRoot,
++        copy merkle_root_quorums: Option<MerkleRoot>,
++        copy best_cl_height_diff: Option<u64>,
++        get best_cl_signature: Option<BlsGlobalSig>,
++        copy credit_pool_balance: Option<i64>,
++        copy merkle_root_asset_unlocks: Option<MerkleRoot>,
++    }
++}
++
++rebuild! {
++    /// `AssetLock`'s fields.
++    AssetLock => AssetLockFields via new { copy version: u8, get credit_outputs: Vec<TxOut> }
++}
++
++rebuild! {
++    /// `MnHardFork`'s fields.
++    MnHardFork => MnHardForkFields via new {
++        copy version: u8,
++        copy version_bit: u8,
++        copy quorum_hash: QuorumHash,
++        get sig: BlsEagerSig,
++    }
++}
++
++rebuild! {
++    /// `AssetUnlock`'s fields.
++    AssetUnlock => AssetUnlockFields via new {
++        copy version: u8,
++        copy index: u64,
++        copy fee: u32,
++        copy requested_height: u32,
++        copy quorum_hash: QuorumHash,
++        get quorum_sig: BlsGlobalSig,
++    }
++}
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index 4d2cd5b804243ba219420f01b8e748b9617f8785..c72d6561a689e25edf85fde8116d25f93501c163 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -83,6 +83,8 @@ use crate::dml_checks::CheckCtx;
+ use crate::protx_mirror::{
+     ProDisTx, ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, ToBsdk,
+ };
++// The other base-sdk values its mutators write: fields copied out, edited, rebuilt.
++use crate::rebuild::Rebuild;
+ 
+ pub mod quorum;
+ 
+@@ -2143,7 +2145,7 @@ fn set_payout_script(
+         Payouts::List(list) => {
+             let i = index(arg, list.len())?;
+             let s = script(i, list)?;
+-            list.get_mut(i)?.script_payout = s.into();
++            list.get_mut(i)?.edit(|f| f.script_payout = s.into());
+             entity(i)
+         }
+         Payouts::Script(mut s) => {
+@@ -2383,11 +2385,13 @@ const PAYOUT_LIST: &[Mutation] = &[
+     m("pl:2a", &[BAD_PROTX_PAYOUT_REWARD], |c, arg| match payouts(c)? {
+         Payouts::List(list) => {
+             let i = index(arg >> 1, list.len())?;
+-            list.get_mut(i)?.reward = if arg & 1 == 0 {
+-                99
+-            } else {
+-                10_001
+-            };
++            list.get_mut(i)?.edit(|f| {
++                f.reward = if arg & 1 == 0 {
++                    99
++                } else {
++                    10_001
++                }
++            });
+             entity(i)
+         }
+         Payouts::Script(_) => None,
+@@ -2399,7 +2403,7 @@ const PAYOUT_LIST: &[Mutation] = &[
+         Payouts::List(list) if list.len() >= 2 => {
+             let i = 1 + usize::from(arg) % (list.len() - 1);
+             let earlier = list.get(i - 1)?.script_payout().clone();
+-            list.get_mut(i)?.script_payout = earlier;
++            list.get_mut(i)?.edit(|f| f.script_payout = earlier);
+             entity(i)
+         }
+         _ => None,
+@@ -2412,7 +2416,7 @@ const PAYOUT_LIST: &[Mutation] = &[
+         let i = match payouts(c)? {
+             Payouts::List(list) => {
+                 let i = index(arg >> 1, list.len())?;
+-                list.get_mut(i)?.script_payout = p2pkh(key).into();
++                list.get_mut(i)?.edit(|f| f.script_payout = p2pkh(key).into());
+                 i
+             }
+             Payouts::Script(mut s) => {
+@@ -2430,11 +2434,13 @@ const PAYOUT_LIST: &[Mutation] = &[
+             }
+             let i = index(arg, list.len())?;
+             let p = list.get_mut(i)?;
+-            p.reward = if p.reward() > 100 {
+-                p.reward() - 1
+-            } else {
+-                p.reward() + 1
+-            };
++            p.edit(|f| {
++                f.reward = if f.reward > 100 {
++                    f.reward - 1
++                } else {
++                    f.reward + 1
++                }
++            });
+             DONE
+         }
+         Payouts::Script(_) => None,
+@@ -2470,37 +2476,41 @@ const SHARE_LIST: &[Mutation] = &[
+     m("sl:3a", &[BAD_PROTX_SHARES_AMOUNT], |c, arg| {
+         let required = collateral_amount(is_evo(c)?);
+         let (i, shares) = share_at(c, arg >> 1)?;
+-        shares.get_mut(i)?.amount = if arg & 1 == 0 {
+-            100 * COIN - 1
+-        } else {
+-            required + 1
+-        };
++        shares.get_mut(i)?.edit(|f| {
++            f.amount = if arg & 1 == 0 {
++                100 * COIN - 1
++            } else {
++                required + 1
++            }
++        });
+         entity(i)
+     }),
+     m("sl:3b", &[BAD_PROTX_SHARES_KEY_NULL], |c, arg| {
+         let (i, shares) = share_at(c, arg)?;
+-        shares.get_mut(i)?.key_id_owner = [0; 20].into();
++        shares.get_mut(i)?.edit(|f| f.key_id_owner = [0; 20].into());
+         entity(i)
+     }),
+     m("sl:3c", &[BAD_PROTX_SHARES_DUP_KEY], |c, arg| {
+         let (i, shares) = share_at(c, arg)?;
+         let i = i.max(1);
+-        shares.get_mut(i)?.key_id_owner = shares.get(i - 1)?.key_id_owner();
++        let owner = shares.get(i - 1)?.key_id_owner();
++        shares.get_mut(i)?.edit(|f| f.key_id_owner = owner);
+         entity(i)
+     }),
+     m("sl:3d", &[BAD_PROTX_SHARES_DUP_REFUND], |c, arg| {
+         let (i, shares) = share_at(c, arg)?;
+         let i = i.max(1);
+-        shares.get_mut(i)?.script_refund = shares.get(i - 1)?.script_refund().clone();
++        let refund = shares.get(i - 1)?.script_refund().clone();
++        shares.get_mut(i)?.edit(|f| f.script_refund = refund);
+         entity(i)
+     }),
+     m("sl:3e.i", &[BAD_PROTX_SHARES_PAYEE], |c, arg| {
+         let (i, shares) = share_at(c, arg >> 1)?;
+         let share = shares.get_mut(i)?;
+         if arg & 1 == 0 {
+-            share.script_refund = NO_DEST.to_vec().into();
++            share.edit(|f| f.script_refund = NO_DEST.to_vec().into());
+         } else {
+-            share.script_reward = NO_DEST.to_vec().into();
++            share.edit(|f| f.script_reward = NO_DEST.to_vec().into());
+         }
+         entity(i)
+     }),
+@@ -2509,9 +2519,9 @@ const SHARE_LIST: &[Mutation] = &[
+         let (i, shares) = share_at(c, arg >> 1)?;
+         let share = shares.get_mut(i)?;
+         if arg & 1 == 0 {
+-            share.script_refund = p2pkh(voting).into();
++            share.edit(|f| f.script_refund = p2pkh(voting).into());
+         } else {
+-            share.script_reward = p2pkh(voting).into();
++            share.edit(|f| f.script_reward = p2pkh(voting).into());
+         }
+         entity(i)
+     }),
+@@ -2522,20 +2532,22 @@ const SHARE_LIST: &[Mutation] = &[
+             *shares.get(usize::from(arg >> 1 & 1) * (shares.len() - 1))?.key_id_owner().as_bytes();
+         let share = shares.get_mut(i)?;
+         if arg & 1 == 0 {
+-            share.script_refund = p2pkh(owner).into();
++            share.edit(|f| f.script_refund = p2pkh(owner).into());
+         } else {
+-            share.script_reward = p2pkh(owner).into();
++            share.edit(|f| f.script_reward = p2pkh(owner).into());
+         }
+         entity(i)
+     }),
+     m("sl:4", &[BAD_PROTX_SHARES_AMOUNT_SUM], |c, arg| {
+         let shares = reg_shares(c)?;
+         let first = shares.first_mut()?;
+-        first.amount += if arg & 1 == 0 {
+-            -1
+-        } else {
+-            1
+-        };
++        first.edit(|f| {
++            f.amount += if arg & 1 == 0 {
++                -1
++            } else {
++                1
++            }
++        });
+         DONE
+     }),
+     m("sl:5", &[BAD_PROTX_SHARES_PENALTY], |c, arg| {
+@@ -2826,13 +2838,13 @@ const PRO_REG: &[Mutation] = &[
+         }
+         let shares = reg_shares(c)?;
+         for s in shares.iter_mut() {
+-            s.amount *= 4;
++            s.edit(|f| f.amount *= 4);
+         }
+         let p = c.reg()?;
+         p.mn_type = MnType::Evo;
+         p.platform_node_id = Some(PlatformNodeId::from(id(FRESH, 7)));
+         p.net_info = net_info(FRESH, 3, true);
+-        collateral_output(c)?.value = collateral_amount(true);
++        collateral_output(c)?.edit(|f| f.value = collateral_amount(true));
+         DONE
+     }),
+     m("1c:3b", &[BAD_PROTX_PAYOUTS_EVO], |c, _| {
+@@ -2878,16 +2890,18 @@ const PRO_REG: &[Mutation] = &[
+     }),
+     m("1c:6i2", &[BAD_PROTX_COLLATERAL], |c, arg| {
+         let o = collateral_output(c)?;
+-        o.value += if arg & 1 == 0 {
+-            -1
+-        } else {
+-            1
+-        };
++        o.edit(|f| {
++            f.value += if arg & 1 == 0 {
++                -1
++            } else {
++                1
++            }
++        });
+         DONE
+     }),
+     m("1c:6i3", &[BAD_PROTX_SHARES_COLLATERAL_SCRIPT], |c, _| {
+         reg_shares(c)?;
+-        collateral_output(c)?.script_pubkey = p2pkh(id(FRESH, 3)).into();
++        collateral_output(c)?.edit(|f| f.script_pubkey = p2pkh(id(FRESH, 3)).into());
+         DONE
+     }),
+     m("1c:6i4", &[BAD_PROTX_COLLATERAL_DEST], |c, arg| {
+@@ -2899,7 +2913,7 @@ const PRO_REG: &[Mutation] = &[
+         } else {
+             TEMPLATE.to_vec()
+         };
+-        collateral_output(c)?.script_pubkey = script.into();
++        collateral_output(c)?.edit(|f| f.script_pubkey = script.into());
+         DONE
+     }),
+     m("1c:7", &[BAD_PROTX_COLLATERAL_REUSE, BAD_PROTX_PAYEE_REUSE], |c, arg| {
+@@ -2926,7 +2940,7 @@ const PRO_REG: &[Mutation] = &[
+             if p.version() < ProTxVersion::ExtAddr {
+                 return None;
+             }
+-            p.payouts.first_mut()?.script_payout = script.into();
++            p.payouts.first_mut()?.edit(|f| f.script_payout = script.into());
+             return DONE;
+         }
+         let key = collateral_key(c)?;
+@@ -2938,7 +2952,7 @@ const PRO_REG: &[Mutation] = &[
+                 if p.version() < ProTxVersion::ExtAddr {
+                     return None;
+                 }
+-                p.payouts.first_mut()?.script_payout = p2pkh(key).into();
++                p.payouts.first_mut()?.edit(|f| f.script_payout = p2pkh(key).into());
+             }
+         }
+         DONE
+@@ -2954,7 +2968,7 @@ const PRO_REG: &[Mutation] = &[
+     }),
+     m("1c:9a", &[BAD_PROTX_DUP_KEY], |c, arg| {
+         let (i, shares) = share_at(c, arg)?;
+-        shares.get_mut(i)?.key_id_owner = id(REG, 1).into();
++        shares.get_mut(i)?.edit(|f| f.key_id_owner = id(REG, 1).into());
+         entity(i)
+     }),
+     m("1c:9b", &[BAD_PROTX_DUP_KEY], |c, _| {
+@@ -3164,7 +3178,7 @@ const PRO_UP_REG: &[Mutation] = &[
+         match payouts(c)? {
+             Payouts::List(list) => {
+                 let i = index(arg, list.len())?;
+-                list.get_mut(i)?.script_payout = p2pkh(key).into();
++                list.get_mut(i)?.edit(|f| f.script_payout = p2pkh(key).into());
+                 entity(i)
+             }
+             Payouts::Script(mut s) => {
+@@ -3207,7 +3221,7 @@ const PRO_UP_REG: &[Mutation] = &[
+         if arg & 1 == 0 {
+             p.key_id_voting = key.into();
+         } else {
+-            p.payouts.first_mut()?.script_payout = p2pkh(key).into();
++            p.payouts.first_mut()?.edit(|f| f.script_payout = p2pkh(key).into());
+         }
+         DONE
+     }),
+@@ -3363,7 +3377,7 @@ const PRO_DIS: &[Mutation] = &[
+                 } else {
+                     REG
+                 };
+-                c.inputs[0].prevout = member_collateral(n);
++                c.inputs[0].edit(|f| f.prevout = member_collateral(n));
+             }
+             _ => {
+                 c.inputs[0] = dash_primitives::TxIn::new(
+@@ -3402,7 +3416,7 @@ const PRO_DIS: &[Mutation] = &[
+     m("10l:8a", &[BAD_PRODIS_PAYEE], |c, arg| {
+         let (_, count, _) = dis_actor(c)?;
+         let k = usize::from(arg) % (count - 1);
+-        c.outputs.get_mut(k)?.script_pubkey = p2pkh(id(FRESH, 9)).into();
++        c.outputs.get_mut(k)?.edit(|f| f.script_pubkey = p2pkh(id(FRESH, 9)).into());
+         entity(k)
+     }),
+     m("10l:8b", &[BAD_PRODIS_PENALTY_FLOOR], |c, arg| {
+@@ -3412,17 +3426,17 @@ const PRO_DIS: &[Mutation] = &[
+         if floor == 0 {
+             return None;
+         }
+-        c.outputs.get_mut(k)?.value = amount + floor - 1;
++        c.outputs.get_mut(k)?.edit(|f| f.value = amount + floor - 1);
+         entity(k)
+     }),
+     m("10l:9a", &[BAD_PRODIS_PAYEE], |c, _| {
+         actor_output(c)?;
+-        c.outputs.last_mut()?.script_pubkey = p2pkh(id(FRESH, 9)).into();
++        c.outputs.last_mut()?.edit(|f| f.script_pubkey = p2pkh(id(FRESH, 9)).into());
+         DONE
+     }),
+     m("10l:9b", &[BAD_PRODIS_ACTOR_OUTPUT_ZERO], |c, _| {
+         actor_output(c)?;
+-        c.outputs.last_mut()?.value = 0;
++        c.outputs.last_mut()?.edit(|f| f.value = 0);
+         DONE
+     }),
+     m("10l:10", &[BAD_PRODIS_PENALTY_SUM], |c, _| {
+@@ -3432,13 +3446,13 @@ const PRO_DIS: &[Mutation] = &[
+             return None;
+         }
+         for (o, (amount, floor)) in c.outputs.iter_mut().zip(&floors) {
+-            o.value = amount + floor;
++            o.edit(|f| f.value = amount + floor);
+         }
+         DONE
+     }),
+     m("10l:11", &[BAD_PRODIS_FEE], |c, _| {
+         c.dis()?;
+-        c.outputs.last_mut()?.value -= MAX_FEE - DIS_FEE + 1;
++        c.outputs.last_mut()?.edit(|f| f.value -= MAX_FEE - DIS_FEE + 1);
+         DONE
+     }),
+     m("10l:12", &[BAD_PRODIS_BONUS], |c, _| {
+@@ -3446,8 +3460,8 @@ const PRO_DIS: &[Mutation] = &[
+         if unanimous || c.outputs.last()?.value() <= PENALTY + 1 {
+             return None;
+         }
+-        c.outputs.first_mut()?.value += PENALTY + 1;
+-        c.outputs.last_mut()?.value -= PENALTY + 1;
++        c.outputs.first_mut()?.edit(|f| f.value += PENALTY + 1);
++        c.outputs.last_mut()?.edit(|f| f.value -= PENALTY + 1);
+         DONE
+     }),
+     m("10l:13", &[BAD_PRODIS_SIG], |c, _| {
+@@ -3873,7 +3887,7 @@ const CB_TX: &[Mutation] = &[
+     m("5c:coinbase", &[BAD_CBTX_INVALID], |c, arg| {
+         c.cbtx()?;
+         if arg & 1 == 0 {
+-            c.inputs.first_mut()?.prevout = outpoint([0x7e; 32], 0);
++            c.inputs.first_mut()?.edit(|f| f.prevout = outpoint([0x7e; 32], 0));
+         } else if c.inputs.len() < 2 {
+             c.inputs.push(spend(outpoint([0x7f; 32], 0)));
+         }
+@@ -3884,27 +3898,31 @@ const CB_TX: &[Mutation] = &[
+         bad_bytes(c, arg)
+     }),
+     m("5c:1", &[BAD_CBTX_VERSION], |c, arg| {
+-        c.cbtx()?.version = if arg & 1 == 0 {
+-            0
+-        } else {
+-            5 + u16::from(arg >> 1)
+-        };
++        c.cbtx()?.edit(|f| {
++            f.version = if arg & 1 == 0 {
++                0
++            } else {
++                5 + u16::from(arg >> 1)
++            }
++        });
+         DONE
+     }),
+     m("5c:2", &[BAD_CBTX_HEIGHT], |c, arg| {
+-        c.cbtx()?.height = if arg & 1 == 0 {
+-            TIP as i32
+-        } else {
+-            TIP as i32 + 2 + i32::from(arg >> 1)
+-        };
++        c.cbtx()?.edit(|f| {
++            f.height = if arg & 1 == 0 {
++                TIP as i32
++            } else {
++                TIP as i32 + 2 + i32::from(arg >> 1)
++            }
++        });
+         DONE
+     }),
+     m("5c:3", &[BAD_CBTX_VERSION], |c, _| {
+-        c.cbtx()?.version = 1;
++        c.cbtx()?.edit(|f| f.version = 1);
+         DONE
+     }),
+     m("5c:4", &[BAD_CBTX_VERSION], |c, arg| {
+-        c.cbtx()?.version = 3 + u16::from(arg & 1);
++        c.cbtx()?.edit(|f| f.version = 3 + u16::from(arg & 1));
+         DONE
+     }),
+ ];
+@@ -3917,11 +3935,12 @@ fn lock_output(c: &mut Case, arg: u8) -> Option<(usize, &mut TxOut)> {
+ }
+ 
+ /// Credit output `arg % len` of an asset lock: an element of Core's loop over the credit
+-/// outputs.
+-fn credit_output(c: &mut Case, arg: u8) -> Option<(usize, &mut TxOut)> {
+-    let credits = &mut c.lock()?.credit_outputs();
+-    let k = index(arg, credits.len())?;
+-    Some((k, credits.get_mut(k)?))
++/// outputs, given to `edit`; the lock is rebuilt with the edited output.
++fn credit_output(c: &mut Case, arg: u8, edit: impl FnOnce(&mut TxOut)) -> Option<usize> {
++    let lock = c.lock()?;
++    let k = index(arg, lock.credit_outputs().len())?;
++    lock.edit(|l| l.credit_outputs.get_mut(k).map(edit))?;
++    Some(k)
+ }
+ 
+ /// `CheckAssetLockTx` (§3.12) past its type check, in Core's order. The output steps (2a–2c)
+@@ -3944,11 +3963,13 @@ const ASSET_LOCK: &[Mutation] = &[
+     m("8c:2b", &[BAD_ASSETLOCKTX_OPRETURN_OUTOFRANGE], |c, arg| {
+         let (i, o) = lock_output(c, arg >> 1)?;
+         *o = dash_primitives::TxOut::from_duffs(o.value(), EMPTY_RETURN.to_vec().into());
+-        o.value = if arg & 1 == 0 {
+-            0
+-        } else {
+-            MAX_MONEY + 1
+-        };
++        o.edit(|f| {
++            f.value = if arg & 1 == 0 {
++                0
++            } else {
++                MAX_MONEY + 1
++            }
++        });
+         entity(i)
+     }),
+     m("8c:2c", &[BAD_ASSETLOCKTX_MULTIPLE_RETURN], |c, arg| {
+@@ -3973,35 +3994,41 @@ const ASSET_LOCK: &[Mutation] = &[
+         bad_bytes(c, arg)
+     }),
+     m("8c:5", &[BAD_ASSETLOCKTX_VERSION], |c, arg| {
+-        c.lock()?.version = if arg & 1 == 0 {
+-            0
+-        } else {
+-            3 + (arg >> 1)
+-        };
++        c.lock()?.edit(|l| {
++            l.version = if arg & 1 == 0 {
++                0
++            } else {
++                3 + (arg >> 1)
++            }
++        });
+         DONE
+     }),
+     m("8c:6", &[BAD_ASSETLOCKTX_VERSION_2], |c, _| {
+-        c.lock()?.version = 2;
++        c.lock()?.edit(|l| l.version = 2);
+         c.world.v24 = false;
+         c.world.evo_shares = false;
+         DONE
+     }),
+     m("8c:7", &[BAD_ASSETLOCKTX_EMPTYCREDITOUTPUTS], |c, _| {
+-        c.lock()?.credit_outputs.clear();
++        c.lock()?.edit(|l| l.credit_outputs.clear());
+         DONE
+     }),
+     m("8c:8a.value", &[BAD_ASSETLOCKTX_CREDIT_OUTOFRANGE], |c, arg| {
+-        let (k, o) = credit_output(c, arg >> 1)?;
+-        o.value = if arg & 1 == 0 {
+-            0
+-        } else {
+-            MAX_MONEY + 1
+-        };
++        let k = credit_output(c, arg >> 1, |o| {
++            o.edit(|f| {
++                f.value = if arg & 1 == 0 {
++                    0
++                } else {
++                    MAX_MONEY + 1
++                }
++            })
++        })?;
+         entity(k)
+     }),
+     m("8c:8a.sum", &[BAD_ASSETLOCKTX_CREDIT_OUTOFRANGE], |c, arg| {
+         // A value in range that takes the running sum one duff past MAX_MONEY.
+-        let credits = &mut c.lock()?.credit_outputs();
++        let lock = c.lock()?;
++        let credits = lock.credit_outputs();
+         if credits.len() < 2 {
+             return None;
+         }
+@@ -4010,49 +4037,55 @@ const ASSET_LOCK: &[Mutation] = &[
+         if !(1..=MAX_MONEY).contains(&before) {
+             return None;
+         }
+-        credits.get_mut(k)?.value = MAX_MONEY - before + 1;
++        lock.edit(|l| {
++            l.credit_outputs.get_mut(k).map(|o| o.edit(|f| f.value = MAX_MONEY - before + 1))
++        })?;
+         entity(k)
+     }),
+     m("8c:8b", &[BAD_ASSETLOCKTX_SCRIPT_PUBKEY], |c, arg| {
+         if c.lock()?.version() < 2 {
+             return None;
+         }
+-        let (k, o) = credit_output(c, arg >> 1)?;
+-        *o = dash_primitives::TxOut::from_duffs(
+-            o.value(),
+-            if arg & 1 == 0 {
+-                NO_DEST.to_vec()
+-            } else {
+-                EMPTY_RETURN.to_vec()
+-            }
+-            .into(),
+-        );
++        let k = credit_output(c, arg >> 1, |o| {
++            *o = dash_primitives::TxOut::from_duffs(
++                o.value(),
++                if arg & 1 == 0 {
++                    NO_DEST.to_vec()
++                } else {
++                    EMPTY_RETURN.to_vec()
++                }
++                .into(),
++            );
++        })?;
+         entity(k)
+     }),
+     m("8c:8c", &[BAD_ASSETLOCKTX_PUBKEYHASH], |c, arg| {
+         if c.lock()?.version() >= 2 {
+             return None;
+         }
+-        let (k, o) = credit_output(c, arg >> 1)?;
+-        *o = dash_primitives::TxOut::from_duffs(
+-            o.value(),
+-            if arg & 1 == 0 {
+-                p2sh(id(8, 9))
+-            } else {
+-                NO_DEST.to_vec()
+-            }
+-            .into(),
+-        );
++        let k = credit_output(c, arg >> 1, |o| {
++            *o = dash_primitives::TxOut::from_duffs(
++                o.value(),
++                if arg & 1 == 0 {
++                    p2sh(id(8, 9))
++                } else {
++                    NO_DEST.to_vec()
++                }
++                .into(),
++            );
++        })?;
+         entity(k)
+     }),
+     m("8c:9", &[BAD_ASSETLOCKTX_CREDITAMOUNT], |c, arg| {
+         c.lock()?;
+         let o = c.outputs.iter_mut().find(|o| is_return(o.script_pubkey().as_bytes()))?;
+-        o.value += if arg & 1 == 0 {
+-            -1
+-        } else {
+-            1
+-        };
++        o.edit(|f| {
++            f.value += if arg & 1 == 0 {
++                -1
++            } else {
++                1
++            }
++        });
+         DONE
+     }),
+ ];
+@@ -4497,7 +4530,9 @@ pub fn block(txs: &[Tx]) -> Option<Vec<u8>> {
+     let crafted = crate::dml_apply::cases().first()?;
+     let (header, crafted_txs) = crate::dml_apply::split_block(&crafted.block)?;
+     let mut coinbase = Transaction::decode(&mut &crafted_txs.first()?[..]).ok()?;
+-    coinbase.extra_payload.get_mut(2..6)?.copy_from_slice(&(TIP as i32 + 1).to_le_bytes());
++    coinbase.edit(|t| {
++        t.extra_payload.get_mut(2..6).map(|b| b.copy_from_slice(&(TIP as i32 + 1).to_le_bytes()))
++    })?;
+     let mut header = header.to_vec();
+     header.get_mut(4..36)?.copy_from_slice(headers()?.1.as_bytes());
+     let mut encoded = vec![Vec::new()];
+diff --git a/node-l1/src/specialtx/quorum.rs b/node-l1/src/specialtx/quorum.rs
+index ff7f46c39de1325b8aef27e505708c331cfc3e98..89bdf4291ab73720526c72832bc66c447778d532 100644
+--- a/node-l1/src/specialtx/quorum.rs
++++ b/node-l1/src/specialtx/quorum.rs
+@@ -68,6 +68,7 @@ use dash_types::codec::BaseCodec;
+ use super::{Case, Payload, Reject, Verdicts, World};
+ use crate::dml::{CORE_NET_INFO, mainnet};
+ use crate::inputs::oracle_failure;
++use crate::rebuild::Rebuild;
+ use crate::{Divergence, check, divergence};
+ 
+ /// The world's tip: the checks are of block 65.
+@@ -1062,16 +1063,18 @@ use dash_dml::specialtx::reasons::*;
+ pub(super) const MNHF_TRIVIAL: &[Mutation] = &[
+     m("7t:1", &[BAD_MNHF_VERSION], |c, arg| {
+         let p = c.mnhf()?;
+-        p.version = match arg % 3 {
+-            0 => 0,
+-            1 => 2,
+-            _ => 2u8.saturating_add(arg),
+-        };
++        p.edit(|f| {
++            f.version = match arg % 3 {
++                0 => 0,
++                1 => 2,
++                _ => 2u8.saturating_add(arg),
++            }
++        });
+         DONE
+     }),
+     m("7t:2", &[BAD_MNHF_NBIT_OUT_OF_BOUNDS], |c, arg| {
+         let num_bits = u8::try_from(dash_consensus::deployments::VERSIONBITS_NUM_BITS).ok()?;
+-        c.mnhf()?.version_bit = num_bits.saturating_add(arg % 8);
++        c.mnhf()?.edit(|f| f.version_bit = num_bits.saturating_add(arg % 8));
+         DONE
+     }),
+ ];
+@@ -1085,16 +1088,16 @@ pub(super) const MNHF_CHECK: &[Mutation] = &[
+     }),
+     m("7c:4", &[BAD_MNHF_NON_EHF], |c, _| {
+         let bit = non_ehf_bit(c.quorum_world()?)?;
+-        c.mnhf()?.version_bit = bit;
++        c.mnhf()?.edit(|f| f.version_bit = bit);
+         DONE
+     }),
+     m("7c:5a", &[BAD_MNHF_QUORUM_HASH], |c, arg| {
+-        c.mnhf()?.quorum_hash = unknown_hash(arg);
++        c.mnhf()?.edit(|f| f.quorum_hash = unknown_hash(arg));
+         DONE
+     }),
+     m("7c:5b", &[BAD_MNHF_QUORUM_HASH], |c, arg| {
+         let hash = c.quorum_world()?.fork_hash(usize::from(arg & 1));
+-        c.mnhf()?.quorum_hash = hash;
++        c.mnhf()?.edit(|f| f.quorum_hash = hash);
+         DONE
+     }),
+     // Not mined, or a block on the chain with no MNHF quorum: a platform quorum's, which the node
+@@ -1105,7 +1108,7 @@ pub(super) const MNHF_CHECK: &[Mutation] = &[
+         if arg & 1 == 0 {
+             c.quorum.unmined |= 1 << MNHF;
+         } else {
+-            p.quorum_hash = hash;
++            p.edit(|f| f.quorum_hash = hash);
+             c.quorum.others = true;
+         }
+         DONE
+@@ -1139,18 +1142,20 @@ pub(super) const UNLOCK_CHECK: &[Mutation] = &[
+         short_or_long(c, arg)
+     }),
+     m("9c:5", &[BAD_ASSETUNLOCKTX_VERSION], |c, arg| {
+-        c.unlock()?.version = match arg % 3 {
+-            0 => 0,
+-            1 => 3,
+-            _ => 3u8.saturating_add(arg),
+-        };
++        c.unlock()?.edit(|f| {
++            f.version = match arg % 3 {
++                0 => 0,
++                1 => 3,
++                _ => 3u8.saturating_add(arg),
++            }
++        });
+         DONE
+     }),
+     m("9c:6", &[BAD_ASSETUNLOCKTX_VERSION_2], |c, _| {
+         if c.world.v24 {
+             return None;
+         }
+-        c.unlock()?.version = 2;
++        c.unlock()?.edit(|f| f.version = 2);
+         DONE
+     }),
+     // The block path only: the mempool path passes no indexes.
+@@ -1168,7 +1173,7 @@ pub(super) const UNLOCK_CHECK: &[Mutation] = &[
+         DONE
+     }),
+     m("9c:8", &[BAD_ASSETUNLOCK_QUORUM_HASH], |c, arg| {
+-        c.unlock()?.quorum_hash = unknown_hash(arg);
++        c.unlock()?.edit(|f| f.quorum_hash = unknown_hash(arg));
+         DONE
+     }),
+     // A known block whose platform quorum the scan does not return: off the chain, on it with
+@@ -1185,17 +1190,19 @@ pub(super) const UNLOCK_CHECK: &[Mutation] = &[
+                 return DONE;
+             }
+         };
+-        c.unlock()?.quorum_hash = hash;
++        c.unlock()?.edit(|f| f.quorum_hash = hash);
+         DONE
+     }),
+     // Requested above `pindexPrev`, or at least 48 blocks below it.
+     m("9c:12", &[BAD_ASSETUNLOCK_TOO_LATE], |c, arg| {
+         let expiring = dash_dml::specialtx::asset::HEIGHT_DIFF_EXPIRING;
+-        c.unlock()?.requested_height = if arg & 1 == 0 {
+-            TIP + 1 + u32::from(arg >> 1)
+-        } else {
+-            (TIP - expiring).saturating_sub(u32::from(arg >> 1))
+-        };
++        c.unlock()?.edit(|f| {
++            f.requested_height = if arg & 1 == 0 {
++                TIP + 1 + u32::from(arg >> 1)
++            } else {
++                (TIP - expiring).saturating_sub(u32::from(arg >> 1))
++            }
++        });
+         DONE
+     }),
+     m("9c:14", &[BAD_ASSETUNLOCK_NOT_VERIFIED], |c, _| {
