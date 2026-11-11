@@ -1,0 +1,21 @@
+diff --git a/dashd-chainstate/src/evo/cl.rs b/dashd-chainstate/src/evo/cl.rs
+index 0b9d335f6518a075c394d2a9f3f8b7aaeb0861f2..15de7cffe5a6a63c39d22645cae5b4211f706b6e 100644
+--- a/dashd-chainstate/src/evo/cl.rs
++++ b/dashd-chainstate/src/evo/cl.rs
+@@ -27,6 +27,7 @@ use dash_evo::locks::{
+ use dash_params::LlmqType;
+ use dash_pkc::bls::{BlsEagerSig, BlsGlobalSig};
+ use dash_primitives::{BlockHash, CoinbaseCommitment, QuorumHash};
++use dash_types::Numeric as _;
+ use parking_lot::Mutex;
+ 
+ use super::node::{AttemptBinding, store_failure};
+@@ -457,7 +458,7 @@ pub fn check_cbtx_best_chainlock(
+     cl_best: &mut ClBest<'_>,
+     verifier: &dyn ClVerifier,
+ ) -> Result<Result<ClPass, SpecialTxFailure>, Fatal> {
+-    if cbtx.version() < CBTX_VERSION_CLSIG_AND_BALANCE {
++    if cbtx.version().to_base() < CBTX_VERSION_CLSIG_AND_BALANCE {
+         return Ok(Ok(ClPass::BelowVersion));
+     }
+     let best = cl_best()?;
