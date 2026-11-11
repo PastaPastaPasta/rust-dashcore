@@ -1,0 +1,13 @@
+diff --git a/dash-consensus/src/block.rs b/dash-consensus/src/block.rs
+index ed19b05332fc423624db39c095c2a8fdf78eb736..0801bbc38b95e1adc2434567cfb6e8c10b94b655 100644
+--- a/dash-consensus/src/block.rs
++++ b/dash-consensus/src/block.rs
+@@ -56,7 +56,7 @@ fn check_merkle_root(block: &Block) -> Result<(), BlockValidationError> {
+     if let Some(Ok(decoded)) = coinbase.payload()
+         && decoded.is_complete()
+         && let SpecialPayload::CoinbaseCommitment(cbtx) = decoded.payload()
+-        && cbtx.version() >= CBTX_MERKLE_ROOT_ASSETUNLOCKS
++        && cbtx.version().to_base() >= CBTX_MERKLE_ROOT_ASSETUNLOCKS
+         && cbtx.merkle_root_asset_unlocks() != Some(asset_unlocks_merkle_root(block))
+     {
+         return Err(mutated(
