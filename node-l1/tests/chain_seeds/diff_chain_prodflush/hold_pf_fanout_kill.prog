@@ -1,0 +1,13 @@
+# S0p hold twin of pf_fanout_kill.prog (OD-L3-119 item 2): the same input under the hold W schedule,
+# header bit 1 only.
+start hold
+# S0p: fan-out blocks at -dbcache=4 until the node's own size or threshold causes flush, each
+# mirrored to Core under the node's label; then an explicit flush, matched, and a KILL.
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+flush always
+extend main 8 tx=fan
+restart kill
+extend main 2
