@@ -1,0 +1,10 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (iv): a banned feature on a normal edge to a proc-macro crate, whose `cargo tree`
+# line carries `(proc-macro)`.
+[dependencies]
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
