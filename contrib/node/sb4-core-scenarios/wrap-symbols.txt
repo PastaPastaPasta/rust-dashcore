@@ -1,0 +1,5 @@
+# One --wrap per line: mangled symbol, the only object allowed to reference it,
+# the function there whose call must reach the wrapper, and the demangled name.
+# Checked by build.sh (demangling) and check-seam.sh (callers, .text, calls).
+_ZN9chainlock15VerifyChainLockERKN9Consensus6ParamsERKN4llmq14CQuorumManagerERKNS_12ChainLockSigEPK11CBlockIndex	libbitcoin_node_a-handler.o	chainlock::ChainlockHandler::ProcessNewChainLock(	chainlock::VerifyChainLock(Consensus::Params const&, llmq::CQuorumManager const&, chainlock::ChainLockSig const&, CBlockIndex const*)
+_ZN10Chainstate12EnforceBlockER20BlockValidationStatePK11CBlockIndex	libbitcoin_node_a-handler.o	chainlock::ChainlockHandler::EnforceBestChainLock(	Chainstate::EnforceBlock(BlockValidationState&, CBlockIndex const*)
