@@ -1,0 +1,45 @@
+{
+ "note": "remap-cites hand decisions for v24.0.0-rc.4 -> v24.0.0-rc.5 (OD-L3-39)",
+ "rows": [
+  {
+   "path": "contrib/node/l3-census.py",
+   "anchor": "\"already_have\"",
+   "from": "v:4800",
+   "to": "v:4815",
+   "text": "if (fAlreadyHave) return true;",
+   "reason": "OD-L3-39: O10-1's fact table cited lines that were already wrong at rc.4; the fact's test line at rc.5"
+  },
+  {
+   "path": "contrib/node/l3-census.py",
+   "anchor": "\"prior_pruned\"",
+   "from": "v:4810",
+   "to": "v:4817",
+   "text": "if (pindex->nTx != 0) return true;    // This is a previously-processed block that was pruned",
+   "reason": "OD-L3-39: O10-1's fact table cited lines that were already wrong at rc.4; the fact's test line at rc.5"
+  },
+  {
+   "path": "contrib/node/l3-census.py",
+   "anchor": "\"less_work\"",
+   "from": "v:4811",
+   "to": "v:4818",
+   "text": "if (!fHasMoreOrSameWork) return true; // Don't process less-work chains",
+   "reason": "OD-L3-39: O10-1's fact table cited lines that were already wrong at rc.4; the fact's test line at rc.5"
+  },
+  {
+   "path": "contrib/node/l3-census.py",
+   "anchor": "\"too_far_ahead\"",
+   "from": "v:4812",
+   "to": "v:4819",
+   "text": "if (fTooFarAhead) return true;        // Block height is too high",
+   "reason": "OD-L3-39: O10-1's fact table cited lines that were already wrong at rc.4; the fact's test line at rc.5"
+  },
+  {
+   "path": "contrib/node/l3-census.py",
+   "anchor": "\"below_min_work\"",
+   "from": "v:4822",
+   "to": "v:4825",
+   "text": "if (pindex->nChainWork < MinimumChainWork()) return true;",
+   "reason": "OD-L3-39: O10-1's fact table cited lines that were already wrong at rc.4; the fact's test line at rc.5"
+  }
+ ]
+}
