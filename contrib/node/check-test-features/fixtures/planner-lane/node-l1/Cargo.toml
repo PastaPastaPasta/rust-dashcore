@@ -1,0 +1,42 @@
+[package]
+name = "node-l1"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (ix): the oracle turned on through `planted`, or through `dash-oracle-sys/oracle`, only fails;
+# naming a local-lane feature, `test = false` and a feature that never reaches the oracle pass.
+[dependencies]
+dash-oracle-sys = { path = "../dash-oracle-sys" }
+
+[features]
+oracle = []
+sut = ["oracle"]
+planted = ["sut"]
+shim = ["dash-oracle-sys/oracle"]
+extra = []
+
+[[test]]
+name = "planted_only"
+required-features = ["planted"]
+
+[[test]]
+name = "planted_sut"
+required-features = ["planted", "sut"]
+
+[[test]]
+name = "oracle_direct"
+required-features = ["oracle"]
+
+[[test]]
+name = "extra_only"
+required-features = ["extra"]
+
+[[test]]
+name = "shim_only"
+required-features = ["shim"]
+
+[[test]]
+name = "manual"
+test = false
+required-features = ["planted"]

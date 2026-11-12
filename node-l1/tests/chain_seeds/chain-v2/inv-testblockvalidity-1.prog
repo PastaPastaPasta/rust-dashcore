@@ -1,0 +1,5 @@
+# A ChainLock on a held block's header at the next height, then a new block proposed on the
+# tip at that height (TestBlockValidity#1).
+extend main 1 headers hold
+cl built#0
+propose main@-0
