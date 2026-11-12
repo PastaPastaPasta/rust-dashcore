@@ -1,0 +1,4 @@
+# tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge (bank slot 9, x_txouttotal).
+extend main 1 tx=spends
+mutatex x_txouttotal
+extend main 1

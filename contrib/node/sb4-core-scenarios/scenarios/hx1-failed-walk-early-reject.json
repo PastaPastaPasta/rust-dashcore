@@ -1,0 +1,45 @@
+{
+ "name": "hx1-failed-walk-early-reject",
+ "description": "Sol HX1 r1 R1-3: C4's parent B3 descends from two failed blocks (B1, B2), so AcceptBlockHeader's m_failed_blocks walk would mark by address; but C4's proof of work fails, CheckBlockHeader rejects it first (invalid-header/high-hash, nothing written); the run is marked possibly address-sensitive, but it is the same under every perturbed heap, so it is kept with Core's verdict (DEC-172)",
+ "rows": [
+  "HX1-X4"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 5,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "G",
+   "count": 3,
+   "submit": "headers"
+  },
+  {
+   "op": "invalidate",
+   "block": "B1"
+  },
+  {
+   "op": "invalidate",
+   "block": "B2"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "B3",
+   "count": 1,
+   "submit": "headers",
+   "pow": "fail"
+  }
+ ]
+}
