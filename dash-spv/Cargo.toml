@@ -24,6 +24,7 @@ dash-x11 = { path = "../dash-x11" }
 dash-consensus = { path = "../dash-consensus", features = ["dash-x11"] }
 dash-num = { workspace = true, features = ["std"] }
 dash-p2p-core = { workspace = true, features = ["std"] }
+dash-p2p = { path = "../dash-p2p", default-features = false }
 dash-pkc = { workspace = true }
 dash-primitives = { workspace = true, features = ["std"] }
 dash-types = { workspace = true, features = ["codec", "std"] }

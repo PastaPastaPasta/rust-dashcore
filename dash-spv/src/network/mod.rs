@@ -6,6 +6,7 @@ pub mod hub;
 mod manager;
 mod peer;
 mod peer_set;
+pub mod registry;
 mod transport;
 
 use crate::error::NetworkResult;

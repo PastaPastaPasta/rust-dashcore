@@ -147,9 +147,26 @@ pub enum MessageType {
     Tx,
     IsDLock,
     ChainLock,
+    MerkleBlock,
+    NotFound,
 }
 
 impl MessageType {
+    pub const ALL: [Self; 12] = [
+        Self::Headers,
+        Self::Inv,
+        Self::CfHeaders,
+        Self::CFilter,
+        Self::Block,
+        Self::MnListDiff,
+        Self::QrInfo,
+        Self::Tx,
+        Self::IsDLock,
+        Self::ChainLock,
+        Self::MerkleBlock,
+        Self::NotFound,
+    ];
+
     pub fn cmd(self) -> &'static str {
         match self {
             MessageType::Headers => "headers",
@@ -162,6 +179,8 @@ impl MessageType {
             MessageType::Tx => "tx",
             MessageType::IsDLock => "isdlock",
             MessageType::ChainLock => "clsig",
+            MessageType::MerkleBlock => "merkleblock",
+            MessageType::NotFound => "notfound",
         }
     }
 
@@ -177,6 +196,8 @@ impl MessageType {
             "tx" => MessageType::Tx,
             "isdlock" => MessageType::IsDLock,
             "clsig" => MessageType::ChainLock,
+            "merkleblock" => MessageType::MerkleBlock,
+            "notfound" => MessageType::NotFound,
             _ => return None,
         })
     }

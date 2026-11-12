@@ -134,6 +134,7 @@ struct Delivery<R, A, P> {
 pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     subscribers: BTreeMap<SubId, Subscriber<R, A, F, P>>,
     parked: BTreeMap<P, Delivery<R, A, P>>,
+    parked_order: VecDeque<P>,
     next_sub: u64,
     stall_report: Duration,
     clock: Arc<dyn Fn() -> Instant + Send + Sync>,
@@ -159,6 +160,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             clock,
             subscribers: BTreeMap::new(),
             parked: BTreeMap::new(),
+            parked_order: VecDeque::new(),
             next_sub: 0,
         }
     }
@@ -232,6 +234,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 });
                 stall.blocked_bytes = stall.blocked_bytes.max(delivery.bytes);
                 delivery.targets.push_front(id);
+                self.parked_order.push_back(delivery.peer);
                 self.parked.insert(delivery.peer, delivery);
                 return Offer::Parked;
             }
@@ -316,10 +319,11 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
 
     /// Retries pending fanout and returns the connections whose delivery is complete.
     pub fn on_space(&mut self, _sub: SubId) -> Vec<P> {
-        let pending = mem::take(&mut self.parked);
+        let pending = mem::take(&mut self.parked_order);
         let resumed = pending
             .into_iter()
-            .filter_map(|(peer, delivery)| {
+            .filter_map(|peer| {
+                let delivery = self.parked.remove(&peer)?;
                 (self.deliver(delivery) == Offer::Delivered).then_some(peer)
             })
             .collect();
@@ -356,6 +360,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
     /// Discards only the outstanding fanout for this closed connection.
     pub fn disconnect(&mut self, peer: P) {
         self.parked.remove(&peer);
+        self.parked_order.retain(|id| *id != peer);
         self.refresh_stalls();
     }
 
@@ -667,6 +672,24 @@ mod tests {
         assert_eq!(hub.offer(1, MessageType::Inv, msg(4), 10, None).unwrap(), Offer::Delivered);
         assert_eq!(take(&mut hub, fast), (1, 4));
         assert_eq!(take(&mut hub, slow), (1, 4));
+    }
+
+    #[test]
+    fn parked_peers_resume_in_arrival_order() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));
+        hub.offer(0, MessageType::Inv, msg(0), 1, None).unwrap();
+        hub.offer(2, MessageType::Inv, msg(2), 1, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        assert_eq!(take(&mut hub, sub), (0, 0));
+        assert_eq!(hub.on_space(sub), vec![2]);
+        hub.offer(2, MessageType::Inv, msg(3), 1, None).unwrap();
+        assert_eq!(take(&mut hub, sub), (2, 2));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert_eq!(hub.on_space(sub), vec![2]);
+        assert_eq!(take(&mut hub, sub), (2, 3));
+        assert!(hub.recv(sub).is_none());
     }
 
     #[test]

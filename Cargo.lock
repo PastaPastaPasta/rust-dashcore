@@ -1623,6 +1623,7 @@ dependencies = [
  "dash-kv-sqlite",
  "dash-network-seeds",
  "dash-num",
+ "dash-p2p",
  "dash-p2p-core",
  "dash-pkc",
  "dash-primitives",
