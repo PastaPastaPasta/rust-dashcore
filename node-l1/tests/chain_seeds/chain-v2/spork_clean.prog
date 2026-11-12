@@ -1,0 +1,9 @@
+# Spork 19 turned off, then a clean restart: the teardown stored it, so it loads off (O2b D34)
+# and a fork block at a lock's height is no conflict. The tip's INVALIDATE first keeps S2's
+# header line from tying with the load (G-T1: the input's own invalidation does not count).
+extend main 2
+invalidate main@-0
+spork off
+restart clean
+cl main@-0
+fork 1 1
