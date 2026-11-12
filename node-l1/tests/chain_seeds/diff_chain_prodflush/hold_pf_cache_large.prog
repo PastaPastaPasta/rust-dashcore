@@ -1,0 +1,14 @@
+# S0p hold twin of pf_cache_large.prog (OD-L3-119 item 2): the same input under the hold W schedule,
+# header bit 1 only.
+start hold
+# S0p: one input's whole block budget in fan-out blocks, so that the node's coins cache passes
+# its LARGE line (or THRESHOLD) and the flush is mirrored to Core; then a KILL.
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+extend main 8 tx=fan
+restart kill
