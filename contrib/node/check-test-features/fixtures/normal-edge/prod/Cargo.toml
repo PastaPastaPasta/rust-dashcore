@@ -1,0 +1,9 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (i): a banned feature on a normal edge.
+[dependencies]
+dashd-node = { path = "../dashd-node", features = ["test-support"] }

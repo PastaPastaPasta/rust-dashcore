@@ -1,0 +1,26 @@
+diff --git a/node-l1/src/credit_pool.rs b/node-l1/src/credit_pool.rs
+index 8630c830ebe2297c48cafe768e23c0200d4abe00..788bb9bd4e1ee4d8eabf01b79b06e4978efa8e2c 100644
+--- a/node-l1/src/credit_pool.rs
++++ b/node-l1/src/credit_pool.rs
+@@ -449,7 +449,7 @@ fn edit_cbtx(case: &mut Case, f: impl FnOnce(&mut CoinbaseCommitment)) {
+     let rest = payload.to_vec();
+     f(&mut cbtx);
+     let mut bytes = Vec::new();
+-    cbtx.encode(&mut bytes);
++    dash_evo::cbtx::at_version(&cbtx).encode(&mut bytes);
+     bytes.extend(rest);
+     coinbase.edit(|t| t.extra_payload = bytes);
+ }
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index 6f17bfc0cc891019fe42f03cec830421a5f3c3cc..a5cb0b90512b13fde27ca86eef2d164128bc12ae 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -1020,7 +1020,7 @@ impl Case {
+             Payload::Dis(p) => p.encode(&mut extra_payload),
+             Payload::Share(p) => p.encode(&mut extra_payload),
+             Payload::SharedReg(p) => p.encode(&mut extra_payload),
+-            Payload::CbTx(p) => p.encode(&mut extra_payload),
++            Payload::CbTx(p) => dash_evo::cbtx::at_version(p).encode(&mut extra_payload),
+             Payload::AssetLock(p) => p.encode(&mut extra_payload),
+             Payload::Mnhf(p) => p.encode(&mut extra_payload),
+             Payload::Unlock(p) => p.encode(&mut extra_payload),
