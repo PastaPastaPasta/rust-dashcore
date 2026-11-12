@@ -1,0 +1,155 @@
+diff --git a/dashd-p2p/src/processing/headers.rs b/dashd-p2p/src/processing/headers.rs
+index 09fd3cb71f78572f8a7758da31c46d0435f4811a..84b0e312518789ed25ca10eab5e6b1899f34c779 100644
+--- a/dashd-p2p/src/processing/headers.rs
++++ b/dashd-p2p/src/processing/headers.rs
+@@ -263,17 +263,50 @@ mod tests {
+         assert_eq!(hashed, vec![0, 1]);
+     }
+ 
+-    /// `headers` as a `getheaders2` reply, one encoded header per entry (flags byte first).
++    /// `headers` as a `getheaders2` reply, one encoded header per entry (flags byte first): the
++    /// message's own encoding, split after the count by each entry's flags (full version, prev
++    /// hash, merkle root, full time or a 2-byte offset, nbits, nonce).
+     fn wire2_parts(headers: &[BlockHeader]) -> Vec<Vec<u8>> {
+-        Headers2::reply(headers)
++        let msg = Headers2::reply(headers);
++        let mut bytes = Vec::new();
++        msg.encode(&mut bytes);
++        let mut rest = &bytes[..];
++        let count = CompactSize::decode(&mut rest).expect("the count").to_base();
++        assert_eq!(count, msg.headers().len() as u64);
++        let parts: Vec<Vec<u8>> = msg
+             .headers()
+             .iter()
+             .map(|c| {
+-                let mut buf = Vec::new();
+-                c.encode(&mut buf);
+-                buf
++                let flags = c.flags();
++                assert_eq!(rest[0], flags);
++                let len =
++                    1 + if flags & 0b111 == 0 {
++                        4
++                    } else {
++                        0
++                    } + if flags & 0b1000 != 0 {
++                        32
++                    } else {
++                        0
++                    } + 32
++                        + if flags & 0b1_0000 != 0 {
++                            4
++                        } else {
++                            2
++                        }
++                        + if flags & 0b10_0000 != 0 {
++                            4
++                        } else {
++                            0
++                        }
++                        + 4;
++                let (part, tail) = rest.split_at(len);
++                rest = tail;
++                part.to_vec()
+             })
+-            .collect()
++            .collect();
++        assert!(rest.is_empty());
++        parts
+     }
+ 
+     /// The decode and the continuity check of one batch: the headers, and the hashes both made.
+diff --git a/dashd-p2p/tests/sim_compact.rs b/dashd-p2p/tests/sim_compact.rs
+index 86231767aaf305df8f562cf3590026178d9f5136..cb3959137c69333bf544295c4f1bb172944d6e77 100644
+--- a/dashd-p2p/tests/sim_compact.rs
++++ b/dashd-p2p/tests/sim_compact.rs
+@@ -340,7 +340,8 @@ impl Conn {
+ 
+     /// The last `getdata`'s entries.
+     fn getdata(&self) -> Option<Vec<Inventory>> {
+-        self.last("getdata").map(|p| GetData::decode(&mut &p[..]).expect("a getdata").inventory())
++        self.last("getdata")
++            .map(|p| GetData::decode(&mut &p[..]).expect("a getdata").inventory().clone())
+     }
+ 
+     /// The last `getdata` is `MSG_BLOCK` for `hash` alone.
+diff --git a/dashd-p2p/tests/sim_m2.rs b/dashd-p2p/tests/sim_m2.rs
+index e3adec0bae79da64b19bafdd045913c8f47c2709..b656d0c2c6f8b413c28f56e79d682650b29d9da7 100644
+--- a/dashd-p2p/tests/sim_m2.rs
++++ b/dashd-p2p/tests/sim_m2.rs
+@@ -609,7 +609,7 @@ fn pending_getdata_is_more_work_without_polling() {
+     let hashes: Vec<_> = sim
+         .sent_at_least(&p, 3)
+         .iter()
+-        .flat_map(|(_, payload)| NotFound::decode(&mut &payload[..]).unwrap().inventory())
++        .flat_map(|(_, payload)| NotFound::decode(&mut &payload[..]).unwrap().inventory().clone())
+         .map(|i| i.inv_hash().as_bytes()[0])
+         .collect();
+     assert_eq!(hashes, [0xa, 0xd, 0xe]);
+@@ -627,7 +627,7 @@ fn getdata_unknown_type_ends_the_batch_silently() {
+     assert_eq!(sent.len(), 1);
+     let nf = NotFound::decode(&mut &sent[0].1[..]).unwrap();
+     assert_eq!(
+-        nf.inventory(),
++        *nf.inventory(),
+         vec![Inventory::new(InvType::new(MSG_SPORK), nf.inventory()[0].inv_hash(),)]
+     );
+ }
+@@ -1185,7 +1185,9 @@ fn a_paused_peer_keeps_its_next_getdata_entry() {
+         frames
+             .iter()
+             .filter(|(c, _)| *c == CommandString::NOTFOUND)
+-            .flat_map(|(_, payload)| NotFound::decode(&mut &payload[..]).unwrap().inventory())
++            .flat_map(|(_, payload)| {
++                NotFound::decode(&mut &payload[..]).unwrap().inventory().clone()
++            })
+             .map(|i| i.inv_hash().as_bytes()[0])
+             .collect()
+     };
+diff --git a/dashd-p2p/tests/sim_p5a.rs b/dashd-p2p/tests/sim_p5a.rs
+index 6be1aa24945ce24571f361f4345779e37b6d6496..f1e6758900bf3c8d600d4e686f6ed78b2fc108b6 100644
+--- a/dashd-p2p/tests/sim_p5a.rs
++++ b/dashd-p2p/tests/sim_p5a.rs
+@@ -102,9 +102,13 @@ fn got(sim: &Sim, p: &SimPeer, cmd: CommandString, n: usize) -> Vec<Inventory> {
+         .into_iter()
+         .filter(|(c, _)| *c == cmd)
+         .flat_map(|(c, payload)| match c {
+-            CommandString::GETDATA => GetData::decode(&mut &payload[..]).unwrap().inventory(),
+-            CommandString::NOTFOUND => NotFound::decode(&mut &payload[..]).unwrap().inventory(),
+-            _ => Inv::decode(&mut &payload[..]).unwrap().inventory(),
++            CommandString::GETDATA => {
++                GetData::decode(&mut &payload[..]).unwrap().inventory().clone()
++            }
++            CommandString::NOTFOUND => {
++                NotFound::decode(&mut &payload[..]).unwrap().inventory().clone()
++            }
++            _ => Inv::decode(&mut &payload[..]).unwrap().inventory().clone(),
+         })
+         .collect()
+ }
+diff --git a/dashd-p2p/tests/sim_serve_blocks.rs b/dashd-p2p/tests/sim_serve_blocks.rs
+index 870041d3ef839d65a4b304547cebdf66063453e5..454b69a9a36e060ba846017cccf283d07a254cfb 100644
+--- a/dashd-p2p/tests/sim_serve_blocks.rs
++++ b/dashd-p2p/tests/sim_serve_blocks.rs
+@@ -198,7 +198,7 @@ fn getblocks(locator: &[BlockHash], stop: BlockHash) -> Vec<u8> {
+ fn inv_blocks(sent: &[(CommandString, Vec<u8>)]) -> Vec<Hash256> {
+     sent.iter()
+         .filter(|(c, _)| *c == CommandString::INV)
+-        .flat_map(|(_, b)| Inv::decode(&mut &b[..]).unwrap().inventory())
++        .flat_map(|(_, b)| Inv::decode(&mut &b[..]).unwrap().inventory().clone())
+         .inspect(|i| assert_eq!(i.inv_type(), InvType::Block))
+         .map(|i| i.inv_hash())
+         .collect()
+diff --git a/dashd-p2p/tests/sim_sync.rs b/dashd-p2p/tests/sim_sync.rs
+index 2c5781438f184f0d5c64261e7549d93e012d7ee1..efa4ba8ee921e0ddd7a294a85c967ece5ca83adf 100644
+--- a/dashd-p2p/tests/sim_sync.rs
++++ b/dashd-p2p/tests/sim_sync.rs
+@@ -170,7 +170,7 @@ fn the_getheaders_locator_carries_the_common_version_and_a_null_stop() {
+     assert_eq!(cmd.as_str(), "getheaders");
+     let m = getheaders(payload);
+     assert_eq!(m.version().get(), 70242);
+-    assert_eq!(m.locator_hashes(), vec![sim.chain.genesis().hash]);
++    assert_eq!(*m.locator_hashes(), vec![sim.chain.genesis().hash]);
+     assert_eq!(m.hash_stop(), BlockHash::ZERO);
+ }
+ 
