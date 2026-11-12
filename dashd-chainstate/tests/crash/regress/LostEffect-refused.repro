@@ -1,0 +1,10 @@
+# CRASH planted bug LostEffect under DEC-196's refusal, minimised in 43 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=5 presumed=- crash=- replay=- planted=LostEffect
+workload c5;f;x3;i
+crash 36 process-kill
+adversary realistic
+granularity write
+expect R0
+minimality verified
