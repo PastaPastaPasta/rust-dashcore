@@ -1,0 +1,4 @@
+# The block operator tx_type_dip3's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate tx_type_dip3
+extend main 1
