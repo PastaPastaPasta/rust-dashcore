@@ -1,0 +1,312 @@
+diff --git a/node-l1/src/bsdk_decode.rs b/node-l1/src/bsdk_decode.rs
+index 77c9a80b8ec3f9aa67e28dfc79a676b2a8e2a7f6..752c3567ef2a51e1833edd1ae962bdf8705fe091 100644
+--- a/node-l1/src/bsdk_decode.rs
++++ b/node-l1/src/bsdk_decode.rs
+@@ -375,7 +375,7 @@ fn slots(payload: &SpecialPayload, ctx: BlsCtx, written: usize) -> Vec<Slot> {
+                 sig,
+                 ctx,
+                 written,
+-                if cbtx.version() >= 4 {
++                if cbtx.version().to_base() >= 4 {
+                     8 + 32
+                 } else {
+                     8
+diff --git a/node-l1/src/credit_pool.rs b/node-l1/src/credit_pool.rs
+index 3f4365d426a903c9569e4f6e73f52b064fc9734c..655858123a446ddfeca08343e8b4373dbc3ce26a 100644
+--- a/node-l1/src/credit_pool.rs
++++ b/node-l1/src/credit_pool.rs
+@@ -724,7 +724,7 @@ fn edit(case: &mut Case, op: u8, a: u8, b: u8) {
+             1 => case.txs[0].edit(|t| t.tx_type = TxType::new(1)),
+             _ => edit_cbtx(case, |cbtx| {
+                 cbtx.edit(|f| {
+-                    f.version = 2;
++                    f.version = dash_primitives::CbCommitmentVersion::new(2);
+                     f.best_cl_height_diff = None;
+                     f.best_cl_signature = None;
+                     f.credit_pool_balance = None;
+diff --git a/node-l1/src/dml_apply/checked.rs b/node-l1/src/dml_apply/checked.rs
+index 00d08de4cd6a455d0806221bc84e5709a27275c9..d737efe479e071c37a2cdc62f2fcf96b94eb1b59 100644
+--- a/node-l1/src/dml_apply/checked.rs
++++ b/node-l1/src/dml_apply/checked.rs
+@@ -45,11 +45,13 @@ use dash_params::ChainSetup;
+ use dash_pkc::bls::{
+     BlsEagerPk, BlsEagerSig, BlsScIetf, BlsSchemeKind, BlsSchemeSource, BlsSecretKey,
+ };
++use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_primitives::{
+-    AddrV1, AddrV2, COMPACT_SIG_LEN, CollateralSig, Commitment, CompactSig, DynBitset,
++    AddrV1, AddrV2, CollateralSig, Commitment, DynBitset,
+     FinalCommitment, InputsHash, MnType, NIEntry, NetInfo, NetInfoV1, NetInfoV2, OutPoint,
+     PayoutShare, PlatformNodeId, ProTxVersion, ProUpShareTx, ProUpSharedRegTx, QuorumVvecHash,
+-    RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut, TxType,
++    RevocationReason, ServiceV1, ServiceV2, SharedRegistrarSig, Transaction, TxHash, TxIn, TxOut,
++    TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -1025,7 +1027,7 @@ impl<'a> Walk<'a> {
+         let d = self.shared(tip)?;
+         let operator = self.operator(block, 2);
+         let inputs = vec![self.input()];
+-        let sig = CompactSig::decode(&mut &[0; COMPACT_SIG_LEN][..]).ok()?;
++        let sig = SharedRegistrarSig::decode(&mut &[0; ECDSA_REC_SIG_LEN][..]).ok()?;
+         let p = ProUpSharedRegTx {
+             version: 1,
+             pro_tx_hash: TxHash::from_lendian(*d.pro_tx_hash.as_bytes()),
+diff --git a/node-l1/src/dml_apply/input.rs b/node-l1/src/dml_apply/input.rs
+index c6863279993f19055d571f8d7c48c6a561cc8c93..ce09855e41466ca76476ea98dbee4a5d5a29ba98 100644
+--- a/node-l1/src/dml_apply/input.rs
++++ b/node-l1/src/dml_apply/input.rs
+@@ -34,8 +34,9 @@ use dash_oracle_sys::{
+ };
+ use dash_params::{ChainParamsBuilder, ChainSetup, LlmqParams, LlmqType, Network, Release};
+ use dash_pkc::bls::BlsSchemeKind;
++use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_primitives::{
+-    COMPACT_SIG_LEN, CollateralShare, Commitment, CompactSig, DynBitset, FinalCommitment, MnType,
++    CollateralShare, Commitment, DynBitset, FinalCommitment, JoinSig, MnType,
+     NetInfo, OutPoint, PlatformNodeId, ProRegTx, ProTxVersion, ProUpRegTx, ProUpRevTx, ProUpServTx,
+     ProUpShareTx, ProUpSharedRegTx, QuorumHash, RevocationReason, SpecialPayload, Transaction,
+     TxHash, TxIn, TxType,
+@@ -667,7 +668,7 @@ fn shares(r: &mut Bytes<'_>, pools: &Pools, p: &mut mirror::ProRegTx) -> Option<
+             key_id_owner: From::from(pools.key_id(r)),
+         })
+         .collect();
+-    let sig = CompactSig::decode(&mut &[0; COMPACT_SIG_LEN][..]).ok()?;
++    let sig = JoinSig::decode(&mut &[0; ECDSA_REC_SIG_LEN][..]).ok()?;
+     p.join_sigs = vec![sig; count];
+     p.early_period_blocks = u32::from(r.next());
+     p.early_penalty = i64::from(r.next());
+diff --git a/node-l1/src/payload.rs b/node-l1/src/payload.rs
+index d7a7c9a4f0d66aa0c02bd993eab34196f73fff5b..77597e6c92ac97525612575b0cd1c330b87a8967 100644
+--- a/node-l1/src/payload.rs
++++ b/node-l1/src/payload.rs
+@@ -14,6 +14,7 @@
+ use dash_oracle_sys::{Oracle, Pin};
+ use dash_pkc::bls::{BLS_SIG_LEN, BlsCtx, BlsLazyPk};
+ use dash_primitives::{NetInfo, SpecialPayload, TxType};
++use dash_types::Numeric as _;
+ use dash_types::codec::BaseCodec;
+ 
+ use crate::{Compared, Outcome, check, core_verdict, mismatched_verdicts};
+@@ -80,7 +81,7 @@ fn core_bytes(payload: &SpecialPayload, ctx: BlsCtx) -> Option<Vec<u8>> {
+             let mut out = encode(p);
+             if let Some(sig) = p.best_cl_signature() {
+                 let tail = CBTX_CREDIT_POOL_LEN
+-                    + if p.version() >= 4 {
++                    + if p.version().to_base() >= 4 {
+                         CBTX_ASSET_UNLOCK_ROOT_LEN
+                     } else {
+                         0
+diff --git a/node-l1/src/protx_mirror.rs b/node-l1/src/protx_mirror.rs
+index 437a81ba375c49db48e5761543f7376b5018f373..f0881f5580dce842c5907e6cb43d417e188bd431 100644
+--- a/node-l1/src/protx_mirror.rs
++++ b/node-l1/src/protx_mirror.rs
+@@ -34,7 +34,7 @@ use dash_pkc::bls::{BlsEagerSig, BlsLazyPk, BlsSchemeKind};
+ use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
+ use dash_primitives as bsdk;
+ use dash_primitives::{
+-    CollateralShare, CollateralSig, CompactSig, InputsHash, MnType, NetInfo, OwnerSig, PayoutShare,
++    CollateralShare, CollateralSig, DissolveSig, InputsHash, JoinSig, MnType, NetInfo, OwnerSig, PayoutShare, SharedRegistrarSig,
+     PlatformNodeId, ProTxVersion, RevocationReason, TxHash, protx_bls_scheme,
+ };
+ use dash_types::Numeric;
+@@ -150,7 +150,7 @@ mirror! {
+         get script_payout: ScriptPubKeyBuf,
+         get payouts: Vec<PayoutShare>,
+         get shares: Vec<CollateralShare>,
+-        get join_sigs: Vec<CompactSig>,
++        get join_sigs: Vec<JoinSig>,
+         copy early_period_blocks: u32,
+         copy early_penalty: i64,
+         copy inputs_hash: InputsHash,
+@@ -209,7 +209,7 @@ mirror! {
+         copy version: u16,
+         copy pro_tx_hash: TxHash,
+         copy actor_index: u16,
+-        get sigs: Vec<CompactSig>,
++        get sigs: Vec<DissolveSig>,
+     }
+ }
+ 
+@@ -233,7 +233,7 @@ mirror! {
+         get pub_key_operator: BlsLazyPk,
+         copy key_id_voting: PubKeyHash,
+         copy inputs_hash: InputsHash,
+-        get sigs: Vec<CompactSig>,
++        get sigs: Vec<SharedRegistrarSig>,
+     }
+ }
+ 
+diff --git a/node-l1/src/rebuild.rs b/node-l1/src/rebuild.rs
+index fe6184b6670d17cc6ce80fb1fbd65a7672901102..5472720c775bff1ac7f144c7fdeec8d65bba6e80 100644
+--- a/node-l1/src/rebuild.rs
++++ b/node-l1/src/rebuild.rs
+@@ -7,11 +7,12 @@
+ //! gave. The ProTx payloads are not here: their `new`s reset the signature (see
+ //! [`crate::protx_mirror`]).
+ 
++use bitcoin_primitives::BlockHeight;
+ use bitcoin_primitives::script::{ScriptPubKeyBuf, ScriptSigBuf};
+ use dash_pkc::bls::{BlsEagerSig, BlsGlobalSig};
+ use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
+ use dash_primitives::{
+-    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, MerkleRoot, MnHardFork, OutPoint,
++    AssetLock, AssetUnlock, CbCommitmentVersion, CoinbaseCommitment, CollateralShare, MerkleRoot, MnHardFork, OutPoint,
+     PayoutShare, QuorumHash, Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+ 
+@@ -111,8 +112,8 @@ rebuild! {
+ rebuild! {
+     /// `CoinbaseCommitment`'s fields.
+     CoinbaseCommitment => CoinbaseCommitmentFields via new {
+-        copy version: u16,
+-        copy height: i32,
++        copy version: CbCommitmentVersion,
++        copy height: BlockHeight,
+         copy merkle_root_mn_list: MerkleRoot,
+         copy merkle_root_quorums: Option<MerkleRoot>,
+         copy best_cl_height_diff: Option<u64>,
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index 16bdb6eee7c63f748ef7809d4796d7d7f1fbb3a3..87242bfc4fde5115114b1ceb0f17d74aa61010bb 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -63,13 +63,14 @@ use dash_oracle_sys::{
+     DEPLOYMENT_V24, MnList as CoreList, Oracle, Pin, ResultCode, ThresholdState, Verdict,
+ };
+ use dash_params::{ChainOption, ChainParamsBuilder, ChainSetup, Network, Release};
++use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_pkc::bls::{
+     BlsEagerSig, BlsLazyPk, BlsScChia, BlsScIetf, BlsSchemeKind, BlsSchemeSource, BlsSecretKey,
+     BlsSigId,
+ };
+ use dash_primitives::{
+-    AddrV1, AddrV2, AssetLock, AssetUnlock, BlockHash, COMPACT_SIG_LEN, CoinbaseCommitment,
+-    CollateralShare, CollateralSig, CompactSig, InputsHash, MerkleRoot, MnHardFork, MnType,
++    AddrV1, AddrV2, AssetLock, AssetUnlock, BlockHash, CbCommitmentVersion, CoinbaseCommitment,
++    CollateralShare, CollateralSig, InputsHash, MerkleRoot, MnHardFork, MnType,
+     NIEntry, NIPurpose, NetInfo, NetInfoV1, NetInfoV2, OutPoint, PayoutShare, PlatformNodeId,
+     ProTxVersion, RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+@@ -195,8 +196,8 @@ fn share_id(base: u8, i: usize, role: u8) -> [u8; 20] {
+ }
+ 
+ /// The compact signature of `hash` by `key`.
+-fn ecdsa_sig(hash: &[u8; 32], key: &SecretKey) -> Option<CompactSig> {
+-    CompactSig::decode(&mut &sign_compact(hash, key, true)[..]).ok()
++fn ecdsa_sig<T: BaseCodec>(hash: &[u8; 32], key: &SecretKey) -> Option<T> {
++    T::decode(&mut &sign_compact(hash, key, true)[..]).ok()
+ }
+ 
+ /// Pay-to-pubkey-hash of `key_id`.
+@@ -334,8 +335,8 @@ fn invalid_key() -> OperatorKey {
+     BlsLazyPk::from_bytes(&[0xff; 48], BlsSchemeSource::Version(BlsSchemeKind::Basic))
+ }
+ 
+-fn compact_sig() -> Option<CompactSig> {
+-    CompactSig::decode(&mut &[0; COMPACT_SIG_LEN][..]).ok()
++fn compact_sig<T: BaseCodec>() -> Option<T> {
++    T::decode(&mut &[0; ECDSA_REC_SIG_LEN][..]).ok()
+ }
+ 
+ fn outpoint(hash: [u8; 32], index: u32) -> OutPoint {
+@@ -1153,7 +1154,7 @@ impl Case {
+             }
+             Payload::Share(p) => {
+                 let shares = state(&p.pro_tx_hash()).map(|s| s.shares.clone()).unwrap_or_default();
+-                let Some(hash) = payload_sig_hash(p).filter(|_| p.sig().len() == COMPACT_SIG_LEN)
++                let Some(hash) = payload_sig_hash(p).filter(|_| p.sig().len() == ECDSA_REC_SIG_LEN)
+                 else {
+                     return;
+                 };
+@@ -1648,7 +1649,7 @@ fn seed_pro_up_share(world: World, variant: u8) -> Option<Case> {
+         share_index: (usize::from(variant) % count) as u16,
+         script_reward: p2pkh(id(FRESH, 6)).into(),
+         inputs_hash: InputsHash::from_lendian([0; 32]),
+-        sig: vec![0; COMPACT_SIG_LEN],
++        sig: vec![0; ECDSA_REC_SIG_LEN],
+     };
+     Some(Case::new(world, Payload::Share(p), funding(1), Vec::new()))
+ }
+@@ -1683,8 +1684,8 @@ fn seed_cbtx(world: World, variant: u8) -> Option<Case> {
+         })
+     };
+     let p = CoinbaseCommitment {
+-        version: CBTX_VERSION,
+-        height: TIP as i32 + 1,
++        version: CbCommitmentVersion::new(CBTX_VERSION),
++        height: (TIP as i32 + 1).cast_unsigned().into(),
+         merkle_root_mn_list: root(0x5a),
+         merkle_root_quorums: Some(root(0x5b)),
+         best_cl_height_diff: None,
+@@ -3902,11 +3903,11 @@ const CB_TX: &[Mutation] = &[
+     }),
+     m("5c:1", &[BAD_CBTX_VERSION], |c, arg| {
+         c.cbtx()?.edit(|f| {
+-            f.version = if arg & 1 == 0 {
++            f.version = CbCommitmentVersion::new(if arg & 1 == 0 {
+                 0
+             } else {
+                 5 + u16::from(arg >> 1)
+-            }
++            })
+         });
+         DONE
+     }),
+@@ -3917,15 +3918,17 @@ const CB_TX: &[Mutation] = &[
+             } else {
+                 TIP as i32 + 2 + i32::from(arg >> 1)
+             }
++            .cast_unsigned()
++            .into()
+         });
+         DONE
+     }),
+     m("5c:3", &[BAD_CBTX_VERSION], |c, _| {
+-        c.cbtx()?.edit(|f| f.version = 1);
++        c.cbtx()?.edit(|f| f.version = CbCommitmentVersion::new(1));
+         DONE
+     }),
+     m("5c:4", &[BAD_CBTX_VERSION], |c, arg| {
+-        c.cbtx()?.edit(|f| f.version = 3 + u16::from(arg & 1));
++        c.cbtx()?.edit(|f| f.version = CbCommitmentVersion::new(3 + u16::from(arg & 1)));
+         DONE
+     }),
+ ];
+diff --git a/node-l1/tests/l1_specialtx_sig.rs b/node-l1/tests/l1_specialtx_sig.rs
+index 679a220e2eeae43acd3900dd76389f43fe93d466..4fb9c259f79cfa77fecfc11e47b570de0c9b0589 100644
+--- a/node-l1/tests/l1_specialtx_sig.rs
++++ b/node-l1/tests/l1_specialtx_sig.rs
+@@ -16,7 +16,7 @@ use dash_oracle_sys::mnlist::SignHashes;
+ use dash_oracle_sys::{Chain, Oracle, Pin};
+ use dash_params::ChainSetup;
+ use dash_primitives::{
+-    CompactSig, InputsHash, MnType, NetInfo, NetInfoV2, ProRegTx, ProTxVersion, ProUpServTx,
++    EcdsaRecSigArray, InputsHash, MnType, NetInfo, NetInfoV2, ProRegTx, ProTxVersion, ProUpServTx,
+     SpecialPayload, TxHash,
+ };
+ use dash_types::codec::BaseCodec;
+@@ -101,7 +101,7 @@ fn check(r: &SignedTx, tx: &Tx, params: &ChainSetup, core: &SignHashes) -> usize
+         panic!("{txid}: payload")
+     };
+     let ids = key_ids(r);
+-    let all_signed = |hash: &[u8; 32], sigs: &[CompactSig]| {
++    let all_signed = |hash: &[u8; 32], sigs: &[EcdsaRecSigArray]| {
+         sigs.iter().all(|sig| signed_by(&ids, hash, sig.as_bytes()))
+     };
+     match &decoded.payload {
+@@ -136,12 +136,12 @@ fn check(r: &SignedTx, tx: &Tx, params: &ChainSetup, core: &SignHashes) -> usize
+             1
+         }
+         SpecialPayload::ProviderUpdateSharedRegistrar(p) => {
+-            assert!(all_signed(&core.payload_hash, &p.sigs), "{txid}");
++            assert!(all_signed(&core.payload_hash, &p.sigs.iter().map(|&s| s.into()).collect::<Vec<_>>()), "{txid}");
+             p.sigs.len()
+         }
+         SpecialPayload::ProviderDissolve(p) => {
+             let hash = core.consent_hash.expect("ProDisTx's sign hash");
+-            assert!(all_signed(&hash, &p.sigs), "{txid}");
++            assert!(all_signed(&hash, &p.sigs.iter().map(|&s| s.into()).collect::<Vec<_>>()), "{txid}");
+             p.sigs.len()
+         }
+         // BLS operator signatures: `dash-oracle-sys`'s own test verifies them.

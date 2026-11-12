@@ -1,0 +1,4 @@
+# A header whose parent was never sent (Must submit previous header), then its block
+# (AcceptBlockHeader#3).
+fork 0 1 hold
+extend b1 1 headers
