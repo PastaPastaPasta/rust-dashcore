@@ -1,0 +1,5 @@
+# Two headers with their data held, the first invalidated, then a header on the second: its
+# parent is unmarked and its grandparent failed (AcceptBlockHeader#6).
+extend main 2 headers hold
+invalidate built#0
+extend b1 1 headers

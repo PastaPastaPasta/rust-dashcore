@@ -1,0 +1,79 @@
+{
+ "name": "a1a-testnet-min-difficulty",
+ "description": "testnet's real headers to 5000, then mined forks. Below KGW/DGW (4002): a header more than 2x spacing (300 s) after its parent may have the minimum difficulty (T3501 +301 accepted, U3501 +300 bad-diffbits, V3501 +300 at the parent's bits accepted); after a minimum-difficulty block the last other bits apply (W3502 bad-diffbits, X3502 at R3500's bits accepted). DGW era: the minimum difficulty after more than 2 h (Y5001 +7201 accepted, Z5001 +7200 bad-diffbits)",
+ "rows": [
+  "A-1a/testnet"
+ ],
+ "network": "test",
+ "args": [],
+ "preload": {
+  "file": "testnet.bin",
+  "count": 5001
+ },
+ "check_block_index": false,
+ "ops": [
+  {
+   "op": "build",
+   "branch": "T",
+   "parent": "R3500",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+301",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "U",
+   "parent": "R3500",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+300",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "V",
+   "parent": "R3500",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+300",
+   "bits": "next"
+  },
+  {
+   "op": "build",
+   "branch": "W",
+   "parent": "T3501",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+300",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "X",
+   "parent": "T3501",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+300",
+   "bits": "next"
+  },
+  {
+   "op": "build",
+   "branch": "Y",
+   "parent": "R5000",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+7201",
+   "bits": "powlimit"
+  },
+  {
+   "op": "build",
+   "branch": "Z",
+   "parent": "R5000",
+   "count": 1,
+   "submit": "headers",
+   "time": "parent+7200",
+   "bits": "powlimit"
+  }
+ ]
+}
