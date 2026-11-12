@@ -1,0 +1,4 @@
+# validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize (bank slot 2, x_tx_size_100k).
+extend main 1 tx=spends
+mutatex x_tx_size_100k
+extend main 1

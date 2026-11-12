@@ -1,0 +1,106 @@
+{
+ "chain": "testnet",
+ "core": {
+  "binary_sha256": "d9a5301bd0582a8f8520e63d7adfec16b9f2c1a2f5daf2dfdbc62f3ef6ed980e",
+  "branch": "node/state-digest-v24.0",
+  "commit": "cc11b5d525"
+ },
+ "dec177": {
+  "heights": 34,
+  "pins": [
+   "v24.0"
+  ],
+  "verdicts": {
+   "match": 34
+  }
+ },
+ "decisions_sha256": "2eb872e82ce2a55a51575b7bf40342fab7c445da66e8cea8c22b11ebc013a5f8",
+ "deviations": [
+  "The frozen copy ran with LD_PRELOAD=nosync.so (fsync, fdatasync and sync_file_range return 0): it is a disposable copy that only answers read RPCs, and several of them call FlushStateToDisk, whose fdatasync of the block files took ~1 s each on a loaded disk. RPC answers are unchanged. Approved by the manager 2026-10-17."
+ ],
+ "digest_sha256": "403f69cbd9601e438ad0ef5cd8a797997b427929b195eacf6cb72bde357d952e",
+ "extractor": {
+  "binary": "target/release/dash-conformance",
+  "binary_built_from": "d06ca8561",
+  "binary_sha256": "f42741d3b910189dc861e4372943c35c3fdbe2ad26831591aa9e185816ef1433",
+  "command": "dash-conformance digest extract --rpc-url \u2026 --cookie \u2026 --digest <frozen>/testnet3/digest.jsonl --out golden.jsonl --blocks-dir <frozen>/testnet3/blocks --wait-secs 600 --summary summary.json (non-dense, no --boundary, no --other-params-run)",
+  "last_commit_touching_conformance_or_statedigest": "39012483b828e2898637ee9f2b097fab235ebc90",
+  "tree_head": "39012483b828e2898637ee9f2b097fab235ebc90"
+ },
+ "format": "StateDigest v1 golden (O8 spec \u00a79)",
+ "frozen_tip": {
+  "hash": "000000e6b5dae5604cd591f39d946457340ed66eedd5b9ecd302a5e9ec251402",
+  "height": 1574404
+ },
+ "golden": {
+  "bytes": 10617820377,
+  "contiguous": true,
+  "heights": [
+   0,
+   1574404
+  ],
+  "records": {
+   "C": 1574405,
+   "H": 1,
+   "S:assetunlockstatuses": 1577,
+   "S:canonical_mnlist": 2721,
+   "S:creditpool": 1162,
+   "S:deploymentinfo": 2750,
+   "S:mn_payments": 2721,
+   "S:protx_list": 2721,
+   "S:protx_listdiff": 2721,
+   "S:quorum_info": 216834,
+   "S:quorum_listextended": 65309,
+   "S:rotationinfo": 2750
+  },
+  "sha256": "789d8dcf89afcd5baa460972ecedc961ed682f57ea0cf9e1f13c5787cafa7f35",
+  "store": "/work/cache/statedigest/testnet-v24/789d8dcf89afcd5baa460972ecedc961ed682f57ea0cf9e1f13c5787cafa7f35/golden.jsonl.zst",
+  "zst_bytes": 415080378,
+  "zst_sha256": "392ccf3ddf399b05fe6ccc57108b1038fd2d8172fb8f9cb4e949a54687b03cca"
+ },
+ "mnl_counter_adjusted": 1224,
+ "oracle_pin": {
+  "commit": "5c9e9117a2fca4ef688fda61e0de29cbb92dad23",
+  "name": "v24.0",
+  "plain_sha256": "ea612e0bcf5ca1f1573d70c5d556a01c70d41d757d86587b5e07e9d3cc5cec74"
+ },
+ "runs": {
+  "byte_identical": true,
+  "run1_sha256": "789d8dcf89afcd5baa460972ecedc961ed682f57ea0cf9e1f13c5787cafa7f35",
+  "run2_sha256": "789d8dcf89afcd5baa460972ecedc961ed682f57ea0cf9e1f13c5787cafa7f35"
+ },
+ "sample": {
+  "file": "golden-sample.jsonl",
+  "omitted_s_records": {
+   "canonical_mnlist": 1,
+   "protx_list": 1,
+   "quorum_listextended": 11,
+   "rotationinfo": 1
+  },
+  "rule": "records at the 34 DEC-177 heights, every buried-deployment height, every 50000th height; S records over 2048 bytes omitted",
+  "sha256": "ec0f58e42a63f3c302a580f0fd5499bda8a1f6419627f1dca4a0bf34f0a36a7e"
+ },
+ "section_13_5": "every digest key checked by the extractor against the frozen copy; it exits non-zero on the first disagreement; both runs exited 0",
+ "snapshot_time_utc": "2026-10-17T21:04:45Z",
+ "summary": {
+  "bip9_unchecked": [],
+  "blocks": 1574405,
+  "chain": "test",
+  "mnl_counter_adjusted": 1224,
+  "run": "000000e6b5dae5604cd591f39d946457340ed66eedd5b9ecd302a5e9ec251402",
+  "skipped": [],
+  "sparse": {
+   "assetunlockstatuses": 1577,
+   "canonical_mnlist": 2721,
+   "creditpool": 1162,
+   "deploymentinfo": 2750,
+   "mn_payments": 2721,
+   "protx_list": 2721,
+   "protx_listdiff": 2721,
+   "quorum_info": 216834,
+   "quorum_listextended": 65309,
+   "rotationinfo": 2750
+  },
+  "tip": 1574404
+ }
+}
