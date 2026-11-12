@@ -1,0 +1,3499 @@
+{
+ "provenance": {
+  "tag": "v24.0.0",
+  "commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "claims_version": 1,
+  "inputs": {
+   "inventory-tree-v24.0.0.json": "d9b2e2fb5bd9242fadb3dd0db662efc48622104b79c3b280991ac2e4dea712e1",
+   "inventory-v24.0.0.json": "12d7543c91cc2137c9c0767d67b4092194f2dd6e8239256046df57f97f8e8f10",
+   "o10-overlay-v24.0.0.json": "219218fedacf0c6c360f45b6510a3246fb74b05ab59e56c801fa7d48a48a2802"
+  },
+  "note": "l3-census.py o10-check (O10 plan §5.3): every row and case M3 requires, and every row and string deferred past M3 (never covered)"
+ },
+ "milestone": "M3",
+ "inputs": {
+  "union": [
+   "av",
+   "full",
+   "o10_alt_smoke",
+   "o10_gen",
+   "o10_pairs",
+   "tier1",
+   "warn"
+  ],
+  "regime": [
+   "o10_regime"
+  ],
+  "refused": [
+   "devnet",
+   "o10_dip3",
+   "replay"
+  ]
+ },
+ "rows": [
+  {
+   "key": "validation.cpp:CheckBlockHeader#1:high-hash",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckBlockHeader#2:devnet-genesis",
+   "a10_decision": "X-reg",
+   "require": "exercised",
+   "or": "unproven-exempt(DEC)",
+   "slice": "O10-11",
+   "source": "o10 overlay"
+  },
+  {
+   "key": "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckBlock#1:bad-blk-length",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckBlock#2:bad-cb-missing",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckBlock#3:bad-cb-multiple",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckBlock#4:bad-blk-sigops",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#1:bad-diffbits",
+   "a10_decision": "X-reg",
+   "require": "exercised",
+   "or": "unproven-exempt(DEC)",
+   "slice": "O10-11",
+   "source": "o10 overlay"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#3:bad-fork-prior-to-checkpoint",
+   "a10_decision": "X-reg",
+   "require": "exercised",
+   "or": "unproven-exempt(DEC)",
+   "slice": "O10-11",
+   "source": "o10 overlay"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#4:time-too-old",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#5:time-too-new",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#1:bad-blk-length",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#3:bad-blk-sigops",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#4:bad-cb-height",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#1:duplicate",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#4:bad-prevblk",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#6:bad-prevblk",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#2:bad-txns-BIP30",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#3:bad-sb-start",
+   "a10_decision": "X-reg",
+   "require": "unproven-exempt",
+   "dec": "DEC-988",
+   "owner": "L3",
+   "source": "o10 overlay"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#4:bad-txns-accumulated-fee-outofrange",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#5:bad-txns-nonfinal",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#6:bad-blk-sigops",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#7:block-validation-failed",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#9:bad-cb-amount",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s)",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: validation.cpp:CheckInputScripts#1:non-mandatory-script-verify-flag (%s) (block flags carry no non-mandatory bits, so hasNonMandatoryFlags is false)"
+  },
+  {
+   "key": "validation.cpp:CheckInputScripts#2:mandatory-script-verify-flag-failed (%s)",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#3:bad-txns-oversize",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#9:bad-cb-length",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#3:bad-txns-inputvalues-outofrange",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: tx_verify.cpp:Consensus::CheckTxInputs#5:bad-txns-fee-outofrange (0 <= out <= in <= MAX_MONEY already enforced by :190/:196 and tc:41-46)"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#2:bad-cbtx-invalid",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:CheckSpecialTxInner#2:bad-cbtx-invalid (after the DIP3 gate at :228 (pre-DIP3 regime))"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#3:bad-cbtx-payload",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:CheckSpecialTxInner#3:bad-cbtx-payload (after the gate)"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:CheckSpecialTxInner#4:failed-check-special-tx (after the gate (exception catch))"
+  },
+  {
+   "key": "specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:CheckSpecialTxInner#5:bad-tx-type-check (after the gate)"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:ProcessSpecialTxsInBlock#1:bad-cbtx-invalid (vtx[0] is a coinbase (CheckBlock#2 runs first on every path))"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload",
+   "a10_decision": "C",
+   "require": "exercised"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version",
+   "a10_decision": "X-reg",
+   "require": "proven-unreachable",
+   "modes": [
+    "Submit",
+    "Proposal"
+   ],
+   "proof": "o10 overlay: specialtxman.cpp:ProcessSpecialTxsInBlock#3:bad-cbtx-version"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: specialtxman.cpp:ProcessSpecialTxsInBlock#6:failed-procspectxsinblock (the catch of a non-EvoDb exception; the pre-DIP3 path has no throwing callee)"
+  },
+  {
+   "key": "validation.cpp:AcceptBlock@E:CheckBlock",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: validation.cpp:AcceptBlock@E:CheckBlock (re-call: fChecked)"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock@E:CheckBlock",
+   "a10_decision": "X-unr",
+   "require": "proven-unreachable",
+   "proof": "a10 inventory: validation.cpp:ConnectBlock@E:CheckBlock (re-call: already passed with the same flags)"
+  }
+ ],
+ "cases": [
+  {
+   "id": "o10.pair.class1",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "cross-call within one tx iteration",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class1.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class2",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "same loop, different tx, both orders",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class2.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class3",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "same tx, different callee rows",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class3.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class4",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "input order within CheckTxInputs",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class4.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class5",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "mode-divergent (Submit != Proposal)",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class5.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class6",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "par-divergent, deduplicated against a10 group M",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class6.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class7",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "AcceptBlockHeader prev-state x header defect",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class7.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class8",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "header-only pairs in CCBH order",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class8.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class9",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "pre-loop row x loop-body row, at index 1 and the last index",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class9.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.pair.class10",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "class": "loop-body row x post-loop row, at index 1 and the last index",
+   "source": "§4.5"
+  },
+  {
+   "id": "o10.pair.class10.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.5, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W1",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W1.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W2",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W2.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W3",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W3.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W3b",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W3b.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W4",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W4.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W5",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W5.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.w.W6",
+   "slice": "O10-2",
+   "par": [
+    "par1",
+    "par4"
+   ],
+   "require": "exercised",
+   "source": "§4.4"
+  },
+  {
+   "id": "o10.w.W6.solos",
+   "slice": "O10-2",
+   "require": "exercised",
+   "source": "§4.4, M-1 solo controls"
+  },
+  {
+   "id": "o10.time_mtp_edge",
+   "slice": "O10-3",
+   "modes": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "require": "exercised",
+   "source": "§3.1 (accept twins)"
+  },
+  {
+   "id": "o10.time_future_edge",
+   "slice": "O10-3",
+   "modes": [
+    "Submit",
+    "Proposal",
+    "Header"
+   ],
+   "require": "exercised",
+   "source": "§3.1 (accept twins)"
+  },
+  {
+   "id": "o10.gen.minimums",
+   "slice": "O10-3",
+   "require": "exercised",
+   "n_per_par": 2000,
+   "families": [
+    "hdr.version",
+    "hdr.prev",
+    "hdr.merkle",
+    "hdr.time",
+    "hdr.bits",
+    "cb.scriptsig",
+    "cb.value",
+    "cb.outputs",
+    "tx.version",
+    "tx.locktime",
+    "tx.sequence",
+    "tx.prevout",
+    "tx.value",
+    "tx.script",
+    "blk.structure"
+   ],
+   "min_verified_per_family": 40,
+   "min_distinct_bound": 25,
+   "source": "§3.4 (a run below a minimum is incomplete)"
+  },
+  {
+   "id": "o10.base.controls",
+   "slice": "O10-4",
+   "require": "exercised",
+   "source": "§6.2 (two base controls at one parent and mocktime: distinct hashes, both pass)"
+  }
+ ],
+ "deferred": [
+  {
+   "key": "validation.cpp:CheckMerkleRoot#3:bad-cbtx-assetunlockmerkleroot",
+   "a10_decision": "X-evo",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "evo: a decoded CbTx at MERKLE_ROOT_ASSETUNLOCKS; O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckBlock#5:bad-cb-type",
+   "a10_decision": "X-reg",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated (DIP3 at 2000 under D49); O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#1:bad-txns-type",
+   "a10_decision": "X-reg",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#2:bad-txns-cb-type",
+   "a10_decision": "X-reg",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#3:bad-txns-type",
+   "a10_decision": "X-reg",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-version",
+   "a10_decision": "X-reg",
+   "source": "o10 overlay",
+   "status": "deferred",
+   "slice": "O10-5",
+   "dep": [
+    "MN0-2a",
+    "CH7a-4a",
+    "P-1"
+   ],
+   "milestone": "M4",
+   "reason": "regime-excluded: DIP3-gated; O10-5's leg (Q-2)"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#2:duplicate",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:AcceptBlockHeader#7:bad-chainlock",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:TestBlockValidity#1:bad-chainlock",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#1:bad-chainlock",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#8:conflict-tx-lock",
+   "a10_decision": "X-cl",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-3",
+    "LK1a"
+   ],
+   "milestone": "M4",
+   "reason": "ChainLock and InstantSend rows (§5.3: X-cl → O10-7a; §3.3 CbTx/CL deps)"
+  },
+  {
+   "key": "validation.cpp:ConnectBlock#10:bad-cb-payee",
+   "a10_decision": "X-reg",
+   "status": "deferred",
+   "slice": "O10-9",
+   "dep": [
+    "SP1",
+    "MN0-3"
+   ],
+   "milestone": "M5",
+   "reason": "regime-excluded: the synced leg (D49, mnsync not synced on the census legs; §5.3, §3.3)"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#4:bad-cbtx-mnmerkleroot",
+   "a10_decision": "X-evo",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "a decoded CbTx's merkle roots (§3.3 CbTx fields and QcTx)"
+  },
+  {
+   "key": "specialtxman.cpp:ProcessSpecialTxsInBlock#5:bad-cbtx-quorummerkleroot",
+   "a10_decision": "X-evo",
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "a decoded CbTx's merkle roots (§3.3 CbTx fields and QcTx)"
+  },
+  {
+   "template": "bad-assetlocktx-credit-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:70"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-creditamount",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:85"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-emptycreditoutputs",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:64"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-multiple-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:45"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-no-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:49"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-non-empty-return",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:40"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-opreturn-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:42"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:53"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-pubKeyHash",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:80"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-script-pubkey",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:76"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:32"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:57"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetlocktx-version-2",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:60"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-duplicated-index",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:215"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-not-verified",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:152"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-quorum-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:219"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-quorum-internal-error",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:142"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-too-late",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:135"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlock-too-old-quorum",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:129",
+    "validation.cpp:834"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-have-input",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:189"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:203",
+    "evo/assetlocktx.cpp:259"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-too-many-outs",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:193"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:185"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:208"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-assetunlocktx-version-2",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:211"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-cbtx-assetlocked-amount",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1114"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-cbtx-cldiff",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:184",
+    "evo/specialtxman.cpp:211"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-cldiff-ancestor",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:198"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-height",
+   "bucket": "evo",
+   "sites": [
+    "evo/cbtx.cpp:32"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-invalid-clsig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:204"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-null-clsig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:173"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-older-clsig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:176"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-cbtx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/cbtx.cpp:27",
+    "evo/cbtx.cpp:37",
+    "evo/cbtx.cpp:42",
+    "evo/cbtx.cpp:50"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-dip3-enf-block",
+   "bucket": "evo",
+   "sites": [
+    "evo/deterministicmns.cpp:777"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-mnhf-duplicate",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:233"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-duplicates-in-block",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:202"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-invalid",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:153"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-missing-quorum",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:148"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-nbit-out-of-bounds",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:100"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-non-ehf",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:125"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-non-mn-fork",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:238"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:116"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-quorum-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:130",
+    "evo/mnhftx.cpp:135"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:111"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-mnhf-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/mnhftx.cpp:97"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "MNHF (§3.3)"
+  },
+  {
+   "template": "bad-prodis-actor",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1757"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-actor-output-zero",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1806"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-bonus",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1828"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-fee",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1825"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1743",
+    "evo/specialtxman.cpp:1872"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-input",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1754"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-not-shared",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1747"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-payee",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1790",
+    "evo/specialtxman.cpp:1803"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-payee-count",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1776"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-penalty-floor",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1796"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-penalty-sum",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1812"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-sig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1837",
+    "evo/specialtxman.cpp:1843"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-sig-count",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:581",
+    "evo/specialtxman.cpp:1763"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-too-early",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1861"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-prodis-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:578"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-collateral",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:384",
+    "evo/specialtxman.cpp:1249",
+    "evo/specialtxman.cpp:1269",
+    "evo/specialtxman.cpp:1552"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-collateral-dest",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1253",
+    "evo/specialtxman.cpp:1278",
+    "evo/specialtxman.cpp:1558"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-collateral-index",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1266"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-collateral-pkh",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1260"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-collateral-reuse",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:172"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-dup-key",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:418",
+    "evo/specialtxman.cpp:422",
+    "evo/specialtxman.cpp:425",
+    "evo/specialtxman.cpp:444",
+    "evo/specialtxman.cpp:513",
+    "evo/specialtxman.cpp:553",
+    "evo/specialtxman.cpp:689",
+    "evo/specialtxman.cpp:1318",
+    "evo/specialtxman.cpp:1322",
+    "evo/specialtxman.cpp:1325",
+    "evo/specialtxman.cpp:1334",
+    "evo/specialtxman.cpp:1439",
+    "evo/specialtxman.cpp:1527",
+    "evo/specialtxman.cpp:1568",
+    "evo/specialtxman.cpp:1713"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-dup-netinfo-entry",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:225",
+    "evo/specialtxman.cpp:405",
+    "evo/specialtxman.cpp:409",
+    "evo/specialtxman.cpp:466",
+    "evo/specialtxman.cpp:471",
+    "evo/specialtxman.cpp:1300",
+    "evo/specialtxman.cpp:1305",
+    "evo/specialtxman.cpp:1447",
+    "evo/specialtxman.cpp:1452"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-dup-platformnodeid",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1340",
+    "evo/specialtxman.cpp:1463"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-evo-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:321",
+    "evo/providertx.cpp:463"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:480",
+    "evo/specialtxman.cpp:529",
+    "evo/specialtxman.cpp:594",
+    "evo/specialtxman.cpp:626",
+    "evo/specialtxman.cpp:656",
+    "evo/specialtxman.cpp:1403",
+    "evo/specialtxman.cpp:1503",
+    "evo/specialtxman.cpp:1605",
+    "txmempool.h:535"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-inputs-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.h:571"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-key-not-same",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1346",
+    "evo/specialtxman.cpp:1576"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-key-null",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:347",
+    "evo/providertx.cpp:351",
+    "evo/providertx.cpp:509",
+    "evo/providertx.cpp:620"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-mode",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:327",
+    "evo/providertx.cpp:505"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-addr",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:211",
+    "evo/providertx.cpp:249"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-addr-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:215",
+    "evo/providertx.cpp:237",
+    "evo/providertx.cpp:245"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-addr-unroutable",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:217"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-bad",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:195",
+    "evo/providertx.cpp:219"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-empty",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:190",
+    "evo/providertx.cpp:201",
+    "evo/providertx.cpp:267",
+    "evo/providertx.cpp:472"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-entry",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:223",
+    "evo/specialtxman.cpp:412",
+    "evo/specialtxman.cpp:474",
+    "evo/specialtxman.cpp:1308",
+    "evo/specialtxman.cpp:1455"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-maxlimit",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:227"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-port",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:213"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-netinfo-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:263",
+    "evo/providertx.cpp:366",
+    "evo/providertx.cpp:469",
+    "evo/specialtxman.cpp:38",
+    "evo/specialtxman.cpp:94"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-operator-payee",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1470",
+    "evo/specialtxman.cpp:1473"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-operator-pubkey",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:354",
+    "evo/providertx.cpp:512",
+    "evo/providertx.cpp:623"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-operator-reward",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:374"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payee",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:42"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payee-dest",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:50"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payee-dup",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:45"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payee-reuse",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:54",
+    "evo/providertx.cpp:179"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:360",
+    "evo/specialtxman.cpp:456",
+    "evo/specialtxman.cpp:524",
+    "evo/specialtxman.cpp:589",
+    "evo/specialtxman.cpp:621",
+    "evo/specialtxman.cpp:651",
+    "evo/specialtxman.cpp:1169"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payout-reward",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:37"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payout-reward-sum",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:59"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payouts-count",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:30"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-payouts-evo",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1228",
+    "evo/specialtxman.cpp:1546"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-platform-dup-ports",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:310"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-platform-http-port",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:288",
+    "evo/providertx.cpp:298",
+    "evo/providertx.cpp:305"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-platform-nodeid",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:281"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-platform-p2p-port",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:285",
+    "evo/providertx.cpp:295",
+    "evo/providertx.cpp:302"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-reason",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:535"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shared-mn",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:533",
+    "evo/specialtxman.cpp:1509"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-amount",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:88"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-amount-sum",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:93"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-collateral-script",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1275"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-count",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:82"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-dup-key",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:120"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-dup-refund",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:123"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-early-period",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:110"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-empty-fields",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:344"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-evo",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1225"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-external",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:333"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-key-null",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:117"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-owner-key",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:337"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-payee",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:132"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-payee-dest",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:136"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-payee-reuse",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:139",
+    "evo/providertx.cpp:143"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-payouts",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:340"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-penalty",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:68",
+    "evo/providertx.cpp:74"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-shares-sig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1375"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-sig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1133",
+    "evo/specialtxman.cpp:1143",
+    "evo/specialtxman.cpp:1152",
+    "evo/specialtxman.cpp:1365"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:324",
+    "evo/providertx.cpp:466",
+    "evo/specialtxman.cpp:459",
+    "evo/specialtxman.cpp:1163"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-type-mismatch",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:483",
+    "evo/specialtxman.cpp:1411"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:318",
+    "evo/providertx.cpp:460",
+    "evo/providertx.cpp:502",
+    "evo/providertx.cpp:529",
+    "evo/specialtxman.cpp:1174"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-version-disallowed",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1220",
+    "evo/specialtxman.cpp:1422"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-protx-version-downgrade",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1202"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1641"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-index",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:629",
+    "evo/specialtxman.cpp:1648"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-not-shared",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1645"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-payee",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:601"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-payee-dest",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1654"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-payee-reuse",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:639",
+    "evo/specialtxman.cpp:1657",
+    "evo/specialtxman.cpp:1661"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-sig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1674"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-sig-size",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:598"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-too-early",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1635"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupshare-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:595"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1698"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-not-shared",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:659",
+    "evo/specialtxman.cpp:1702"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-payee-reuse",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:692",
+    "evo/specialtxman.cpp:1718"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-sig",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1730"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-sig-count",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:626",
+    "evo/specialtxman.cpp:1707"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-too-early",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1692"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-proupsharedreg-version",
+   "bucket": "evo",
+   "sites": [
+    "evo/providertx.cpp:617"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-qc-block",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:358",
+    "llmq/blockprocessor.cpp:366"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-commitment-type",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:709",
+    "llmq/blockprocessor.cpp:585",
+    "llmq/commitment.cpp:254"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-commitment-type-calc-cbtx-quorummerkleroot",
+   "bucket": "evo",
+   "sites": [
+    "evo/cbtx.cpp:101"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-dup",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:263",
+    "llmq/blockprocessor.cpp:392",
+    "llmq/blockprocessor.cpp:591"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-height",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:397",
+    "llmq/commitment.cpp:278"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-invalid",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:282",
+    "llmq/blockprocessor.cpp:414",
+    "llmq/commitment.cpp:304"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-invalid-null",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:376",
+    "llmq/commitment.cpp:296"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-missing",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:248"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-not-allowed",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:244"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-payload",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:704",
+    "llmq/blockprocessor.cpp:578",
+    "llmq/commitment.cpp:246"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-payload-calc-cbtx-quorummerkleroot",
+   "bucket": "evo",
+   "sites": [
+    "evo/cbtx.cpp:93"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-premature",
+   "bucket": "evo",
+   "sites": [
+    "llmq/blockprocessor.cpp:600"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-quorum-hash",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:717",
+    "llmq/commitment.cpp:284",
+    "llmq/commitment.cpp:289"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-qc-version",
+   "bucket": "evo",
+   "sites": [
+    "llmq/commitment.cpp:272"
+   ],
+   "status": "deferred",
+   "slice": "O10-7a",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "CH7b-3"
+   ],
+   "milestone": "M4",
+   "reason": "CbTx fields and QcTx (§3.3)"
+  },
+  {
+   "template": "bad-shared-collateral-create",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:1902",
+    "evo/specialtxman.cpp:1907"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-shared-collateral-spend",
+   "bucket": "evo",
+   "sites": [
+    "evo/specialtxman.cpp:752",
+    "evo/specialtxman.cpp:1888"
+   ],
+   "status": "deferred",
+   "slice": "O10-7b",
+   "dep": [
+    "MN0-3",
+    "CH7b-2"
+   ],
+   "milestone": "M4",
+   "reason": "ProTx and the special-tx type checks (§3.3 ProTx)"
+  },
+  {
+   "template": "bad-txns-assetunlock-fee-outofrange",
+   "bucket": "evo",
+   "sites": [
+    "evo/assetlocktx.cpp:263"
+   ],
+   "status": "deferred",
+   "slice": "O10-7c",
+   "dep": [
+    "MN0-3",
+    "CH7b-2",
+    "EV3"
+   ],
+   "milestone": "M5",
+   "reason": "asset lock/unlock and credit pool (§3.3; §1.3 M4-M5, listed under M5 where it closes)"
+  },
+  {
+   "template": "bad-txns-inputs-missingorspent",
+   "bucket": "block",
+   "sites": [
+    "validation.cpp:990"
+   ],
+   "status": "deferred",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "template": "bad-txns-nonstandard-inputs",
+   "bucket": "atmp",
+   "sites": [
+    "validation.cpp:1033"
+   ],
+   "status": "deferred",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "template": "bad-txns-too-many-sigops",
+   "bucket": "atmp",
+   "sites": [
+    "validation.cpp:1058"
+   ],
+   "status": "deferred",
+   "slice": "O10-8",
+   "dep": [
+    "MP1a"
+   ],
+   "milestone": "M5",
+   "reason": "the mempool path (§3.3; ATMP-only occurrences)"
+  },
+  {
+   "plane": "peer-penalty",
+   "status": "deferred",
+   "slice": "O10-9",
+   "dep": [
+    "P4",
+    "P2b",
+    "SP1",
+    "GV1b"
+   ],
+   "milestone": "M5",
+   "reason": "Q-13: the P2P penalty plane (scores by result class, §3.3); every report states peer penalty untested/deferred until O10-9"
+  }
+ ]
+}
