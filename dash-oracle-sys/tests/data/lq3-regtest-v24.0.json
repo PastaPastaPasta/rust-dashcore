@@ -1,0 +1,140 @@
+{
+ "provenance": {
+  "dashd": "Dash Core version v24.0.0-rc.3",
+  "fixture_sha256": "536408f99e968052016cc5a12136508db8e78745945438ed2f809ae4f0d52dd4",
+  "pin": "v24.0",
+  "source": "contrib/node/lq3a-captures (--nocleanup), node0 restarted alone"
+ },
+ "quorums": [
+  {
+   "base_height": 144,
+   "members": [
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88",
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb",
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420",
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901"
+   ],
+   "mined_height": 155,
+   "quorum_hash": "24217a133a76ae777abb766c14533a37c6bd72d8eab7380ee8186b40da6fc27a",
+   "quorum_index": 0,
+   "type": 100
+  },
+  {
+   "base_height": 144,
+   "members": [
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420",
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901",
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb",
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88"
+   ],
+   "mined_height": 155,
+   "quorum_hash": "24217a133a76ae777abb766c14533a37c6bd72d8eab7380ee8186b40da6fc27a",
+   "quorum_index": 0,
+   "type": 104
+  },
+  {
+   "base_height": 168,
+   "members": [
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901",
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420",
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88",
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb"
+   ],
+   "mined_height": 179,
+   "quorum_hash": "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb",
+   "quorum_index": 0,
+   "type": 100
+  },
+  {
+   "base_height": 168,
+   "members": [
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb",
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901",
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420",
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88"
+   ],
+   "mined_height": 179,
+   "quorum_hash": "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb",
+   "quorum_index": 0,
+   "type": 104
+  },
+  {
+   "base_height": 192,
+   "members": [
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88",
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420",
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901",
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb"
+   ],
+   "mined_height": 203,
+   "quorum_hash": "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+   "quorum_index": 0,
+   "type": 100
+  },
+  {
+   "base_height": 192,
+   "members": [
+    "dc8de4dd2eab7bf2b509d7105235d52068b0838124466faae684e8a7a1489d88",
+    "6b5912ddf34c37e1bc47f7f66031d0a067958d90f2299b7f3888a4ac9048d901",
+    "63b5a193ef522956084e63d479b8d7ab23d04073b61c466c331a3366b1f9accb",
+    "4e4e7c190f1de416d1acc815b0d6a7a6160dda557eff73968ab352be63de3420"
+   ],
+   "mined_height": 203,
+   "quorum_hash": "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+   "quorum_index": 0,
+   "type": 104
+  }
+ ],
+ "rotation_snapshots": [],
+ "scans": [
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68"
+   ],
+   "count": 1,
+   "type": 100
+  },
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68"
+   ],
+   "count": 1,
+   "type": 104
+  },
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+    "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb"
+   ],
+   "count": 2,
+   "type": 100
+  },
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+    "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb"
+   ],
+   "count": 2,
+   "type": 104
+  },
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+    "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb",
+    "24217a133a76ae777abb766c14533a37c6bd72d8eab7380ee8186b40da6fc27a"
+   ],
+   "count": 4,
+   "type": 100
+  },
+  {
+   "bases": [
+    "579ced02751da20df658dc1ca55afe9ab2728bdb3700f6009debba3775a1ad68",
+    "2f2edbbeec91fcd46df6598fd1377769c415aa7a1e113119e76df14c42ebbdfb",
+    "24217a133a76ae777abb766c14533a37c6bd72d8eab7380ee8186b40da6fc27a"
+   ],
+   "count": 4,
+   "type": 104
+  }
+ ],
+ "tip": 214
+}
