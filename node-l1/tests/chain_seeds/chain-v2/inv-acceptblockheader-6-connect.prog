@@ -1,0 +1,6 @@
+# A block that fails ConnectBlock under its child's indexed header, then a header on that child
+# (AcceptBlockHeader#6 if the child stays unmarked).
+mutate cb_amount
+extend main 2 headers hold
+deliver b1
+extend b1 1 headers
