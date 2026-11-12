@@ -1,0 +1,28 @@
+# L7 (SB0 §2.3): the stripped size of the mobile library, which may grow by at
+# most min(2 %, 256 KiB) per PR without a recorded ruling. Written by
+# `contrib/node/check-mobile.sh --record`; a PR that grows the library within
+# the allowance records the new size, so the next PR gets its own allowance.
+# A PR is measured against this file as committed at its merge base with
+# node/integration, never against its own re-records; while the merge base
+# has no such file, against layers.toml's [size] (DEC-170). `ruling` names the
+# decision behind a larger total step or a change of profile, NDK or API (a
+# baseline migration); its row goes in contrib/node/gate-rulings.toml in the
+# same commit (DEC-987).
+# First record (SB1): node/integration 571e6a94, NDK 29.0.14206865, API 24,
+# rustc 1.98.1, workspace release profile (no profile.mobile then).
+# Re-recorded by SB2 (DEC-318) with `--profile mobile`, same toolchain: the
+# same head built with release is 13,206,000 B. The record was built from a
+# dirty tree, so it embeds 64 B of git-state's `-dirty` marker: the clean build
+# at that head is 9,504,560 B (SB2-notes.md D7).
+# Re-recorded by RDC-UP (DEC-1163) at node/integration d7c57648d, mobile
+# profile, same NDK and API: the sync-3 growth over DEC-318 (BL-665).
+# Re-recorded by TRAINS (DEC-1578; value DEC-1580) at node/integration
+# 8fc637455, mobile profile, same NDK and API: the growth since the DEC-1163
+# record, accumulated over the merges after 11-04 (DEC-1581).
+library = libdash_spv_ffi.so
+target = aarch64-linux-android
+profile = mobile
+ndk = 29.0.14206865
+api = 24
+bytes = 10279400
+ruling = DEC-1580
