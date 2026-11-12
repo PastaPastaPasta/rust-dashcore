@@ -1,0 +1,32 @@
+[package]
+name = "dashd-random"
+description = "The Rust Dash node's process RNG: Dash Core's RNGState and ProcRand, with the state in locked memory"
+publish = false
+# Ports Dash Core code (MIT): random.{h,cpp} (RNGState, ProcRand, the seeders, Strengthen,
+# Random_SanityCheck) and randomenv.cpp (the dynamic environment, and part of the static one).
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# The `RandSource` the node's draws go through, and its process hook.
+dash-p2p = { path = "../dash-p2p" }
+# The state's chunk of the locked pool (`Secure`).
+dashd-lockedpool = { path = "../dashd-lockedpool" }
+# `GetOSRand`.
+getrandom = { version = "0.3.4", default-features = false }
+parking_lot = "0.12"
+# SHA-512 for MixExtract and Strengthen; SHA-256's compression for the events hasher.
+sha2 = { version = "0.11", default-features = false, features = ["zeroize"] }
+tracing = "0.1"
+zeroize = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+# The environment: clock_gettime, gettimeofday, getrusage, open/fstat/read, uname, getauxval.
+libc = "0.2"
+
+[dev-dependencies]
+serde_json = "1"

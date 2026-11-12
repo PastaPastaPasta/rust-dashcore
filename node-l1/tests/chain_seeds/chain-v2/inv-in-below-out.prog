@@ -1,0 +1,4 @@
+# The block operator in_below_out's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate in_below_out
+extend main 1
