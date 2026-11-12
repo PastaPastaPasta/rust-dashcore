@@ -1,0 +1,4 @@
+# script error "Invalid OP_SPLIT range" (bank slot 31, se_split_range): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_split_range
+extend main 1
