@@ -1,0 +1,4 @@
+# The block operator version_3's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate version_3
+extend main 1
