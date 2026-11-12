@@ -1,0 +1,9 @@
+# S2: the line past its assumevalid block (height 230), then a script failure on a sibling of the
+# line's 232nd block, which Core checks and refuses (av_checked_above), then the line again.
+extend main 8
+extend main 8
+extend main 8
+extend main 7
+mutate script_false
+extend main 1
+extend main 1
