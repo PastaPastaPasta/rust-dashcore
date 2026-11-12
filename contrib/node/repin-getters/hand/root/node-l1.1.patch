@@ -1,0 +1,1371 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index a1f43a3e0090f92d21081a088c867f89f8631e83..08e33abae117e2212e23f81fea83ef26f9a84d36 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3344,6 +3344,7 @@ dependencies = [
+ name = "node-l1"
+ version = "0.46.0"
+ dependencies = [
++ "bitcoin-primitives",
+  "bitcoin_hashes 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+  "blst",
+  "dash-args",
+diff --git a/node-l1/Cargo.toml b/node-l1/Cargo.toml
+index 0e58307925069e6f611ea1aa6ef882164f467b16..3e350ba2a32ea94430665b511d8dcb9d3a9b2cac 100644
+--- a/node-l1/Cargo.toml
++++ b/node-l1/Cargo.toml
+@@ -34,6 +34,10 @@ l3 = ["sut", "dep:node-test-ports"]
+ 
+ [dependencies]
+ bitcoin_hashes = { version = "1.2.0", default-features = false, features = ["std"] }
++# `protx_mirror`'s script fields: base-sdk's `ScriptPubKeyBuf`, which it does not re-export. The
++# source and version of base-sdk's own (its workspace Cargo.toml, crates.io), so the build holds one
++# copy; move it with base-sdk's pin.
++bitcoin-primitives = { version = "0.104.0", default-features = false, features = ["alloc"] }
+ # `diff_bls_decode` builds its point classes with blst (dash-pkc's release).
+ blst = { version = "0.3.17", default-features = false }
+ # O2a-CJ1's CoinJoin rules (`diff_coinjoin`).
+diff --git a/node-l1/src/bsdk_decode.rs b/node-l1/src/bsdk_decode.rs
+index 47fa7b55fc465d1f204e0e1dc32960a8d2c8696a..424cb05d3506d47e7832df9986805093044595de 100644
+--- a/node-l1/src/bsdk_decode.rs
++++ b/node-l1/src/bsdk_decode.rs
+@@ -352,18 +352,22 @@ fn global<K: BlsWirePoint<N>, const N: usize>(
+ }
+ 
+ fn slots(payload: &SpecialPayload, ctx: BlsCtx, written: usize) -> Vec<Slot> {
++    // The key is set in the payload's mirror (DEC-1066), whose encoder is base-sdk's: base-sdk
++    // keeps the field private.
+     macro_rules! operator_key {
+-        ($p:expr) => {
++        ($p:expr, $mirror:ident) => {
+             vec![lazy(
+                 &$p.pub_key_operator(),
+-                locate_key($p, |copy, key| copy.pub_key_operator = key),
++                locate_key(&crate::protx_mirror::$mirror::from($p), |copy, key| {
++                    copy.pub_key_operator = key
++                }),
+             )]
+         };
+     }
+     match payload {
+-        SpecialPayload::ProviderRegister(p) => operator_key!(p),
+-        SpecialPayload::ProviderUpdateRegistrar(p) => operator_key!(p),
+-        SpecialPayload::ProviderUpdateSharedRegistrar(p) => operator_key!(p),
++        SpecialPayload::ProviderRegister(p) => operator_key!(p, ProRegTx),
++        SpecialPayload::ProviderUpdateRegistrar(p) => operator_key!(p, ProUpRegTx),
++        SpecialPayload::ProviderUpdateSharedRegistrar(p) => operator_key!(p, ProUpSharedRegTx),
+         // The signature is followed by the credit pool balance (an i64) and, from version 4, the
+         // asset unlocks root (32 bytes).
+         SpecialPayload::CoinbaseCommitment(CoinbaseCommitment {
+diff --git a/node-l1/src/dml.rs b/node-l1/src/dml.rs
+index 9a7626860eea72d5de1575a8ac4c959b3d87863e..38d09468f98f2c0b0d9a233377e01079acbe92d2 100644
+--- a/node-l1/src/dml.rs
++++ b/node-l1/src/dml.rs
+@@ -513,7 +513,7 @@ pub(crate) fn legacy(service: &ServiceV2) -> NetInfo {
+     let mut ip = [0u8; 16];
+     ip[10..12].copy_from_slice(&[0xff, 0xff]);
+     if let AddrV2::Ipv4(v4) = service.addr() {
+-        ip[12..].copy_from_slice(&v4);
++        ip[12..].copy_from_slice(v4);
+     }
+     NetInfo::Legacy(NetInfoV1::new(ServiceV1 {
+         addr: AddrV1::from_bytes(ip),
+diff --git a/node-l1/src/dml_apply/checked.rs b/node-l1/src/dml_apply/checked.rs
+index 9421a341bfc19967e5cfac3477ef5dc7f03644d4..17ffb0778c59a4106c8ec97319fccf4a0ef51cc0 100644
+--- a/node-l1/src/dml_apply/checked.rs
++++ b/node-l1/src/dml_apply/checked.rs
+@@ -47,9 +47,9 @@ use dash_pkc::bls::{
+ };
+ use dash_primitives::{
+     AddrV1, AddrV2, COMPACT_SIG_LEN, CollateralSig, CompactSig, InputsHash, MnType, NIEntry,
+-    NetInfo, NetInfoV1, NetInfoV2, OutPoint, PayoutShare, PlatformNodeId, ProRegTx, ProTxVersion,
+-    ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, QuorumVvecHash,
+-    RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut, TxType,
++    NetInfo, NetInfoV1, NetInfoV2, OutPoint, PayoutShare, PlatformNodeId, ProTxVersion,
++    ProUpShareTx, ProUpSharedRegTx, QuorumVvecHash, RevocationReason, ServiceV1, ServiceV2,
++    Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -59,6 +59,8 @@ use super::input::{
+     force_v24, p2pkh, spend_of, split_block, testnet_case,
+ };
+ use crate::dml::{extended, legacy, payout, spread, twenty};
++// The payloads the walk builds and its probes rewrite (DEC-1066): base-sdk's, with public fields.
++use crate::protx_mirror::{ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx};
+ 
+ /// Input flags (byte 1) bit: `diff_dml_block` reads the input as a checked sequence.
+ pub const FLAG_CHECKED: u8 = 4;
+@@ -492,7 +494,7 @@ impl<'a> Walk<'a> {
+             // An internal collateral's signature, which must be empty.
+             (8, TxType::ProviderRegister) => try_reencoded(bytes, |p: &mut ProRegTx| {
+                 (*p.collateral_hash().as_bytes() == [0; 32]).then_some(())?;
+-                p.vch_sig = CollateralSig::decode(&mut &[1, 1][..]).ok()?;
++                p.sig = CollateralSig::decode(&mut &[1, 1][..]).ok()?;
+                 Some(())
+             }),
+             // Under V24 a step down to the legacy scheme (the generator's states are BasicBLS
+@@ -807,7 +809,7 @@ impl<'a> Walk<'a> {
+             platform_node_id,
+             platform_p2p_port,
+             platform_http_port,
+-            vch_sig: CollateralSig::default(),
++            sig: CollateralSig::default(),
+         };
+         let tx = special(TxType::ProviderRegister, inputs, outputs, encoded(&p));
+         let txid = decode_tx(&mut &encoded(&tx)[..]).ok()?.into_value().txid();
+@@ -881,7 +883,7 @@ impl<'a> Walk<'a> {
+             script_payout: script_payout.into(),
+             payouts,
+             inputs_hash: inputs_hash(&inputs),
+-            vch_sig: Default::default(),
++            sig: Default::default(),
+         };
+         block.updated.push(*d.pro_tx_hash.as_bytes());
+         Some(special(TxType::ProviderUpdateRegistrar, inputs, vec![], encoded(&p)))
+@@ -1123,7 +1125,9 @@ fn invalid_entry(net_info: &mut NetInfo) -> Option<()> {
+     let NetInfo::Extended(v2) = net_info else {
+         return None;
+     };
+-    *v2.entries.iter_mut().flat_map(|(_, group)| group).next()? = NIEntry::Invalid;
++    let mut groups = v2.groups().clone();
++    *groups.iter_mut().flat_map(|(_, group)| group).next()? = NIEntry::Invalid;
++    *v2 = NetInfoV2::new(v2.version(), groups);
+     Some(())
+ }
+ 
+diff --git a/node-l1/src/dml_apply/input.rs b/node-l1/src/dml_apply/input.rs
+index 01bcd67a211c2589d1eb0706acf80efb818c1d97..70275cb7a7da9e91421145fca8991f0172d64a88 100644
+--- a/node-l1/src/dml_apply/input.rs
++++ b/node-l1/src/dml_apply/input.rs
+@@ -45,7 +45,9 @@ use dash_types::codec::BaseCodec;
+ use serde::Deserialize;
+ 
+ use super::DEPLOYMENT_V24;
++// The payloads the raw operation edits (DEC-1066): base-sdk's, with public fields.
+ use crate::dml::{extended, legacy, payout, service, spread, twenty, unhex};
++use crate::protx_mirror as mirror;
+ 
+ /// The crafted fixture (`dash-oracle-sys/tests/data/PROVENANCE.md`).
+ const CRAFTED: &str = include_str!("../../../dash-oracle-sys/tests/data/dml-crafted-v24.0.json");
+@@ -558,7 +560,7 @@ fn platform_fields(
+ }
+ 
+ fn pro_up_serv(r: &mut Bytes<'_>, t: &Templates, pools: &Pools, v24: bool) -> Option<Vec<u8>> {
+-    let mut p = r.pick(&t.pro_up_serv)?.clone();
++    let mut p = mirror::ProUpServTx::from(r.pick(&t.pro_up_serv)?);
+     p.pro_tx_hash = TxHash::from_lendian(*r.pick(&pools.targets)?);
+     p.version = version(r, p.version(), v24);
+     p.mn_type = mn_type(r.next());
+@@ -569,7 +571,7 @@ fn pro_up_serv(r: &mut Bytes<'_>, t: &Templates, pools: &Pools, v24: bool) -> Op
+ }
+ 
+ fn pro_up_rev(r: &mut Bytes<'_>, t: &Templates, pools: &Pools, v24: bool) -> Option<Vec<u8>> {
+-    let mut p = r.pick(&t.pro_up_rev)?.clone();
++    let mut p = mirror::ProUpRevTx::from(r.pick(&t.pro_up_rev)?);
+     p.pro_tx_hash = TxHash::from_lendian(*r.pick(&pools.targets)?);
+     p.set_version(version(r, p.version(), v24));
+     p.reason = RevocationReason::from_base(u16::from(r.next() % 5));
+@@ -592,7 +594,7 @@ fn pro_up_reg(r: &mut Bytes<'_>, pools: &Pools, v24: bool) -> Option<Vec<u8>> {
+     bytes.extend(&script);
+     bytes.extend([0u8; 32]);
+     bytes.push(0);
+-    let mut p = ProUpRegTx::decode(&mut &bytes[..]).ok()?;
++    let mut p = mirror::ProUpRegTx::decode(&mut &bytes[..]).ok()?;
+     p.pub_key_operator = r.pick(&pools.keys)?.clone();
+     if version >= ProTxVersion::ExtAddr {
+         p.set_version(version);
+@@ -602,7 +604,7 @@ fn pro_up_reg(r: &mut Bytes<'_>, pools: &Pools, v24: bool) -> Option<Vec<u8>> {
+ }
+ 
+ fn pro_reg(r: &mut Bytes<'_>, t: &Templates, pools: &Pools, v24: bool) -> Option<Vec<u8>> {
+-    let mut p = r.pick(&t.pro_reg)?.clone();
++    let mut p = mirror::ProRegTx::from(r.pick(&t.pro_reg)?);
+     let template_version = p.version();
+     p.version = version(r, p.version(), v24);
+     match r.next() % 3 {
+@@ -648,7 +650,7 @@ fn pro_reg(r: &mut Bytes<'_>, t: &Templates, pools: &Pools, v24: bool) -> Option
+ /// Makes an ExtAddr ProRegTx a shared registration, unless `r` says not (one in two): one to
+ /// three shares whose scripts and owner keys come from the pools, so a share script can pay a
+ /// voting key (`bad-pro*-payee-reuse`) and an owner key can be taken (`bad-protx-dup-key`).
+-fn shares(r: &mut Bytes<'_>, pools: &Pools, p: &mut ProRegTx) -> Option<()> {
++fn shares(r: &mut Bytes<'_>, pools: &Pools, p: &mut mirror::ProRegTx) -> Option<()> {
+     if r.next().is_multiple_of(2) {
+         return Some(());
+     }
+@@ -704,7 +706,7 @@ fn pro_up_shared_reg(r: &mut Bytes<'_>, pools: &Pools) -> Option<Vec<u8>> {
+     bytes.extend(pools.key_id(r));
+     bytes.extend([0u8; 32]);
+     bytes.push(0);
+-    let mut p = ProUpSharedRegTx::decode(&mut &bytes[..]).ok()?;
++    let mut p = mirror::ProUpSharedRegTx::decode(&mut &bytes[..]).ok()?;
+     p.pub_key_operator = r.pick(&pools.keys)?.clone();
+     Some(payload_tx(TxType::ProviderUpdateSharedRegistrar, &p))
+ }
+diff --git a/node-l1/src/lib.rs b/node-l1/src/lib.rs
+index d37a80c5ee91f2b82695f1635d73c3f339b936d7..bcf89b801998d00099528cbb262259683a33e573 100644
+--- a/node-l1/src/lib.rs
++++ b/node-l1/src/lib.rs
+@@ -57,6 +57,8 @@ pub mod p2p_node;
+ pub mod p2p_single;
+ pub mod payload;
+ pub mod payments;
++/// Test and fuzz only: base-sdk's provider payloads with public fields (DEC-1066).
++pub mod protx_mirror;
+ pub mod specialtx;
+ pub mod versionbits;
+ 
+diff --git a/node-l1/src/protx_mirror.rs b/node-l1/src/protx_mirror.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..bce74b38de9970d0abd2e91d194c232248192eaf
+--- /dev/null
++++ b/node-l1/src/protx_mirror.rs
+@@ -0,0 +1,479 @@
++//! A mirror of base-sdk's provider payloads (DEC-1066, BL-652): plain structs with public fields,
++//! the signature fields included, for the oracle comparisons and the structure-aware mutators
++//! that write payload fields, signed or not.
++//!
++//! base-sdk keeps these fields private behind getters. Its `new`s reset the signature of
++//! [`ProRegTx`], [`ProUpServTx`], [`ProUpRegTx`] and [`ProUpRevTx`], and it sets a signature only
++//! through the verifying `Signable::set_signature`, so a generated or mutated payload that keeps a
++//! signature it does not verify against cannot be built there. A mutator writes the mirror
++//! instead, and the mirror's bytes are what reach Core and the node.
++//!
++//! The rules (DEC-1066):
++//! - The mirror lives in node-l1 (test-only, never a runtime dependency) and its fuzz and test
++//!   support. No crate the node binary links uses it.
++//! - Each type has the same fields, in the same order and with the same field types, as the
++//!   base-sdk payload of its name at the pinned revision, and getters of the same names and return
++//!   types as base-sdk's (`get_copy` gives the value, `get` a reference), so code ported to the
++//!   getters reads either. [`ProUpRegTx::set_version`] and [`ProUpRevTx::set_version`] are base-sdk's
++//!   setters.
++//! - Its encoder is base-sdk's, field by field: each field through its own type's `BaseCodec` (or
++//!   the BLS serialization base-sdk's private helper calls), in the order and under the version
++//!   conditions of base-sdk's `encode`. Each `encode` names the base-sdk source it follows. The
++//!   round-trip test (`protx_mirror/tests.rs`) checks it byte for byte against base-sdk's encoder
++//!   on every valid payload of these types in the reachable vectors.
++//! - base-sdk to mirror: [`From`] through base-sdk's getters, or [`BaseCodec::decode`], which is
++//!   base-sdk's decode followed by that.
++//! - Mirror to base-sdk only through bytes: [`ToBsdk::to_bsdk`] encodes the mirror and decodes the
++//!   bytes with base-sdk. Nothing here, and nothing that uses it, builds a base-sdk payload from a
++//!   mirror's fields. To audit: `grep -rn 'protx_mirror' --include=*.rs` lists every user, all in
++//!   node-l1 and node-fuzz; inside this file, base-sdk payload values are made only by
++//!   `<bsdk>::decode` in [`ToBsdk::to_bsdk`] and [`BaseCodec::decode`].
++
++use bitcoin_primitives::script::ScriptPubKeyBuf;
++use dash_pkc::bls::{BlsEagerSig, BlsLazyPk, BlsSchemeKind};
++use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
++use dash_primitives as bsdk;
++use dash_primitives::{
++    CollateralShare, CollateralSig, CompactSig, InputsHash, MnType, NetInfo, OwnerSig, PayoutShare,
++    PlatformNodeId, ProTxVersion, RevocationReason, TxHash, protx_bls_scheme,
++};
++use dash_types::Numeric;
++use dash_types::codec::{BaseCodec, DecodeError, EncodeBuf};
++
++#[cfg(test)]
++mod tests;
++
++/// Declares a mirror struct: its public fields, base-sdk's getters for them (`copy` for a
++/// `get_copy` getter, `get` for a `get` one) and [`From`] the base-sdk payload of the same name,
++/// read through those getters.
++macro_rules! mirror {
++    (
++        $(#[$attr:meta])*
++        $name:ident { $($kind:ident $field:ident: $ty:ty),+ $(,)? }
++    ) => {
++        $(#[$attr])*
++        #[derive(Clone, Debug, PartialEq)]
++        pub struct $name {
++            $(pub $field: $ty,)+
++        }
++
++        impl $name {
++            $(mirror!(@getter $kind $field $ty);)+
++        }
++
++        impl From<&bsdk::$name> for $name {
++            fn from(p: &bsdk::$name) -> Self {
++                Self { $($field: mirror!(@read $kind p $field),)+ }
++            }
++        }
++
++        impl From<bsdk::$name> for $name {
++            fn from(p: bsdk::$name) -> Self {
++                Self::from(&p)
++            }
++        }
++
++        impl BaseCodec for $name {
++            /// base-sdk's decode, then [`From`].
++            fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
++                bsdk::$name::decode(data).map(Self::from)
++            }
++
++            fn encode(&self, buf: &mut impl EncodeBuf) {
++                self.encode_payload(buf);
++            }
++        }
++
++        impl ToBsdk for $name {
++            type Bsdk = bsdk::$name;
++        }
++    };
++    (@getter copy $field:ident $ty:ty) => {
++        #[must_use]
++        pub fn $field(&self) -> $ty {
++            self.$field
++        }
++    };
++    (@getter get $field:ident $ty:ty) => {
++        #[must_use]
++        pub fn $field(&self) -> &$ty {
++            &self.$field
++        }
++    };
++    (@read copy $p:ident $field:ident) => {
++        $p.$field()
++    };
++    (@read get $p:ident $field:ident) => {
++        $p.$field().clone()
++    };
++}
++
++/// The way back to base-sdk: the mirror's bytes, decoded by base-sdk.
++pub trait ToBsdk: BaseCodec {
++    /// The base-sdk payload this type mirrors.
++    type Bsdk: BaseCodec;
++
++    /// The mirror's encoding.
++    #[must_use]
++    fn to_bytes(&self) -> Vec<u8> {
++        let mut out = Vec::new();
++        self.encode(&mut out);
++        out
++    }
++
++    /// base-sdk's decode of [`ToBsdk::to_bytes`]; `None` when it fails or leaves bytes over.
++    /// base-sdk's decode reads some values as others (a domain entry with a bad name as an
++    /// invalid entry, for one), so the result can differ from the mirror; the caller decides
++    /// whether that matters.
++    #[must_use]
++    fn to_bsdk(&self) -> Option<Self::Bsdk> {
++        let bytes = self.to_bytes();
++        let mut data = bytes.as_slice();
++        let p = Self::Bsdk::decode(&mut data).ok()?;
++        data.is_empty().then_some(p)
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProRegTx` (type 1).
++    ProRegTx {
++        copy version: ProTxVersion,
++        copy mn_type: MnType,
++        copy mode: u16,
++        copy collateral_hash: TxHash,
++        copy collateral_index: u32,
++        get net_info: NetInfo,
++        copy key_id_owner: PubKeyHash,
++        get pub_key_operator: BlsLazyPk,
++        copy key_id_voting: PubKeyHash,
++        copy operator_reward: u16,
++        get script_payout: ScriptPubKeyBuf,
++        get payouts: Vec<PayoutShare>,
++        get shares: Vec<CollateralShare>,
++        get join_sigs: Vec<CompactSig>,
++        copy early_period_blocks: u32,
++        copy early_penalty: i64,
++        copy inputs_hash: InputsHash,
++        copy platform_node_id: Option<PlatformNodeId>,
++        copy platform_p2p_port: Option<u16>,
++        copy platform_http_port: Option<u16>,
++        get sig: CollateralSig,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProUpServTx` (type 2).
++    ProUpServTx {
++        copy version: ProTxVersion,
++        copy mn_type: MnType,
++        copy pro_tx_hash: TxHash,
++        get net_info: NetInfo,
++        get script_operator_payout: ScriptPubKeyBuf,
++        copy inputs_hash: InputsHash,
++        copy platform_node_id: Option<PlatformNodeId>,
++        copy platform_p2p_port: Option<u16>,
++        copy platform_http_port: Option<u16>,
++        get sig: BlsEagerSig,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProUpRegTx` (type 3).
++    ProUpRegTx {
++        copy version: ProTxVersion,
++        copy pro_tx_hash: TxHash,
++        copy mode: u16,
++        get pub_key_operator: BlsLazyPk,
++        copy key_id_voting: PubKeyHash,
++        get script_payout: ScriptPubKeyBuf,
++        get payouts: Vec<PayoutShare>,
++        copy inputs_hash: InputsHash,
++        get sig: OwnerSig,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProUpRevTx` (type 4).
++    ProUpRevTx {
++        copy version: ProTxVersion,
++        copy pro_tx_hash: TxHash,
++        copy reason: RevocationReason,
++        copy inputs_hash: InputsHash,
++        get sig: BlsEagerSig,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProDisTx` (type 10).
++    ProDisTx {
++        copy version: u16,
++        copy pro_tx_hash: TxHash,
++        copy actor_index: u16,
++        get sigs: Vec<CompactSig>,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProUpShareTx` (type 11).
++    ProUpShareTx {
++        copy version: u16,
++        copy pro_tx_hash: TxHash,
++        copy share_index: u16,
++        get script_reward: ScriptPubKeyBuf,
++        copy inputs_hash: InputsHash,
++        get sig: Vec<u8>,
++    }
++}
++
++mirror! {
++    /// base-sdk's `ProUpSharedRegTx` (type 12).
++    ProUpSharedRegTx {
++        copy version: u16,
++        copy pro_tx_hash: TxHash,
++        get pub_key_operator: BlsLazyPk,
++        copy key_id_voting: PubKeyHash,
++        copy inputs_hash: InputsHash,
++        get sigs: Vec<CompactSig>,
++    }
++}
++
++// The encoders. Each follows base-sdk's at fda80b21, file and function named; the private helpers
++// it calls are copied below with their sources.
++
++impl ProRegTx {
++    /// `pkgs/primitives/src/provider/proregtx.rs`: `encode` (`encode_unsigned`, then `sig`).
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        self.sig.encode(buf);
++    }
++
++    /// `proregtx.rs` `encode_unsigned`, base-sdk's `sig_hash_bytes`.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.mn_type.to_base().encode(buf);
++        self.mode.encode(buf);
++        self.collateral_hash.encode(buf);
++        self.collateral_index.encode(buf);
++        write_net_info(buf, &self.net_info, self.version);
++        self.key_id_owner.encode(buf);
++        write_lazy(&self.pub_key_operator, protx_bls_scheme(self.version), buf);
++        self.key_id_voting.encode(buf);
++        self.operator_reward.encode(buf);
++        if self.version >= ProTxVersion::ExtAddr {
++            write_list(&self.payouts, buf);
++            write_list(&self.shares, buf);
++            write_items(&self.join_sigs, buf);
++            self.early_period_blocks.encode(buf);
++            self.early_penalty.encode(buf);
++        } else {
++            self.script_payout.encode(buf);
++        }
++        self.inputs_hash.encode(buf);
++        write_platform_fields(
++            buf,
++            self.mn_type,
++            self.version,
++            &self.platform_node_id,
++            self.platform_p2p_port,
++            self.platform_http_port,
++        );
++    }
++}
++
++impl ProUpServTx {
++    /// `pkgs/primitives/src/provider/proupservtx.rs`: `encode` (`encode_unsigned`, then `sig`
++    /// under the version's scheme).
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        self.sig.to_bytes(protx_bls_scheme(self.version)).encode(buf);
++    }
++
++    /// `proupservtx.rs` `encode_unsigned`.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        if self.version >= ProTxVersion::BasicBls {
++            self.mn_type.to_base().encode(buf);
++        }
++        self.pro_tx_hash.encode(buf);
++        write_net_info(buf, &self.net_info, self.version);
++        self.script_operator_payout.encode(buf);
++        self.inputs_hash.encode(buf);
++        write_platform_fields(
++            buf,
++            self.mn_type,
++            self.version,
++            &self.platform_node_id,
++            self.platform_p2p_port,
++            self.platform_http_port,
++        );
++    }
++}
++
++impl ProUpRegTx {
++    /// base-sdk's setter (`#[getset(set = "pub")]`).
++    pub fn set_version(&mut self, version: ProTxVersion) -> &mut Self {
++        self.version = version;
++        self
++    }
++
++    /// `pkgs/primitives/src/provider/proupregtx.rs`: `encode` (`encode_unsigned`, then `sig`).
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        self.sig.encode(buf);
++    }
++
++    /// `proupregtx.rs` `encode_unsigned`.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.pro_tx_hash.encode(buf);
++        self.mode.encode(buf);
++        write_lazy(&self.pub_key_operator, protx_bls_scheme(self.version), buf);
++        self.key_id_voting.encode(buf);
++        if self.version >= ProTxVersion::ExtAddr {
++            write_list(&self.payouts, buf);
++        } else {
++            self.script_payout.encode(buf);
++        }
++        self.inputs_hash.encode(buf);
++    }
++}
++
++impl ProUpRevTx {
++    /// base-sdk's setter (`#[getset(set = "pub")]`).
++    pub fn set_version(&mut self, version: ProTxVersion) -> &mut Self {
++        self.version = version;
++        self
++    }
++
++    /// `pkgs/primitives/src/provider/prouprevtx.rs`: `encode` (`encode_unsigned`, then `sig`
++    /// under the version's scheme).
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        self.sig.to_bytes(protx_bls_scheme(self.version)).encode(buf);
++    }
++
++    /// `prouprevtx.rs` `encode_unsigned`.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.pro_tx_hash.encode(buf);
++        self.reason.encode(buf);
++        self.inputs_hash.encode(buf);
++    }
++}
++
++impl ProDisTx {
++    /// `pkgs/primitives/src/provider/prodistx.rs`: `encode`.
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.pro_tx_hash.encode(buf);
++        self.actor_index.encode(buf);
++        write_list(&self.sigs, buf);
++    }
++}
++
++impl ProUpShareTx {
++    /// `pkgs/primitives/src/provider/proupsharetx.rs`: `codec_type!`'s `encode`
++    /// (`pkgs/primitives/src/codec.rs` `codec_base!`), every field in declaration order.
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        self.sig.encode(buf);
++    }
++
++    /// `proupsharetx.rs` `sig_hash_bytes`: every field but `sig`.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.pro_tx_hash.encode(buf);
++        self.share_index.encode(buf);
++        self.script_reward.encode(buf);
++        self.inputs_hash.encode(buf);
++    }
++}
++
++impl ProUpSharedRegTx {
++    /// `pkgs/primitives/src/provider/proupsharedregtx.rs`: `encode` (`encode_unsigned`, then the
++    /// signature list).
++    fn encode_payload(&self, buf: &mut impl EncodeBuf) {
++        self.encode_unsigned(buf);
++        write_list(&self.sigs, buf);
++    }
++
++    /// `proupsharedregtx.rs` `encode_unsigned`: the operator key always under the basic scheme.
++    fn encode_unsigned(&self, buf: &mut impl EncodeBuf) {
++        self.version.encode(buf);
++        self.pro_tx_hash.encode(buf);
++        write_lazy(&self.pub_key_operator, BlsSchemeKind::Basic, buf);
++        self.key_id_voting.encode(buf);
++        self.inputs_hash.encode(buf);
++    }
++}
++
++/// `SER_GETHASH`, base-sdk's `sig_hash_bytes`: the payload without its signature, which
++/// dash-dml's `payload_sig_hash` hashes. The mirror's own encoding, so a signature over a payload
++/// base-sdk's decode would read differently still covers the payload's bytes.
++macro_rules! signed_payload {
++    ($($t:ty),+) => {
++        $(impl dash_dml::specialtx::sig::SignedPayload for $t {
++            fn sig_hash_bytes(&self) -> Option<Vec<u8>> {
++                let mut buf = Vec::new();
++                self.encode_unsigned(&mut buf);
++                Some(buf)
++            }
++        })+
++    };
++}
++
++signed_payload!(ProRegTx, ProUpServTx, ProUpRegTx, ProUpRevTx, ProUpShareTx, ProUpSharedRegTx);
++
++// base-sdk's private helpers, copied.
++
++/// `pkgs/primitives/src/provider/mod.rs` `write_net_info`: the network info the payload version
++/// selects; a variant the version does not select writes nothing.
++fn write_net_info(buf: &mut impl EncodeBuf, net_info: &NetInfo, version: ProTxVersion) {
++    if version >= ProTxVersion::ExtAddr {
++        if let NetInfo::Extended(ext) = net_info {
++            ext.encode(buf);
++        }
++    } else if let NetInfo::Legacy(svc) = net_info {
++        svc.encode(buf);
++    }
++}
++
++/// `pkgs/primitives/src/provider/mod.rs` `write_platform_fields`: an Evo node's node id, and its
++/// ports below ExtAddr, absent ones as their defaults.
++fn write_platform_fields(
++    buf: &mut impl EncodeBuf,
++    mn_type: MnType,
++    version: ProTxVersion,
++    platform_node_id: &Option<PlatformNodeId>,
++    platform_p2p_port: Option<u16>,
++    platform_http_port: Option<u16>,
++) {
++    if mn_type == MnType::Evo {
++        platform_node_id.unwrap_or_default().encode(buf);
++        if version < ProTxVersion::ExtAddr {
++            platform_p2p_port.unwrap_or(0).encode(buf);
++            platform_http_port.unwrap_or(0).encode(buf);
++        }
++    }
++}
++
++/// `pkgs/primitives/src/payload/bls.rs` `write_lazy` (`lazy_bytes`): the key's object under
++/// `scheme`, zeros when invalid, resolved on a copy so the field stays as it was.
++fn write_lazy(field: &BlsLazyPk, scheme: BlsSchemeKind, buf: &mut impl EncodeBuf) {
++    field.clone().get().to_bytes(scheme).encode(buf);
++}
++
++/// `pkgs/primitives/src/provider/shares.rs` `write_items`: the items with no count.
++fn write_items<T: BaseCodec>(items: &[T], buf: &mut impl EncodeBuf) {
++    for item in items {
++        item.encode(buf);
++    }
++}
++
++/// `shares.rs` `write_list`: a one-byte count, cast as Core casts it (a count above 255 wraps),
++/// and every item.
++#[allow(clippy::cast_possible_truncation)] // Core's `uint8_t` cast, as base-sdk's
++fn write_list<T: BaseCodec>(items: &[T], buf: &mut impl EncodeBuf) {
++    (items.len() as u8).encode(buf);
++    write_items(items, buf);
++}
+diff --git a/node-l1/src/protx_mirror/tests.rs b/node-l1/src/protx_mirror/tests.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..9c57a1f49d50b04c65db38ee0bec60c9f44e64de
+--- /dev/null
++++ b/node-l1/src/protx_mirror/tests.rs
+@@ -0,0 +1,188 @@
++//! The mirror's encoder against base-sdk's (DEC-1066 condition 2), on every valid provider payload
++//! of the mirrored types in the vectors node-l1 reaches: Core's fixtures (`trivially_valid.json`,
++//! `trivially_invalid.json`, the oracle's recorded transactions and blocks) and dash-dml's
++//! vector files. A payload is valid when base-sdk decodes it whole. For each one:
++//!
++//! 1. the mirror read from base-sdk's payload encodes to base-sdk's encoding, byte for byte, and
++//!    so does its signature hash (`SER_GETHASH`, dash-dml's `SignedPayload`);
++//! 2. base-sdk's decode of the mirror's bytes is the payload base-sdk's own encoding decodes to,
++//!    by `PartialEq` and by `Debug` (which also shows a lazy key's scheme), and the payload itself
++//!    whenever base-sdk's own round trip gives it back.
++//!
++//! The test fails if a (type, version) pair of [`EXPECTED`] finds no vector.
++
++use std::collections::BTreeMap;
++use std::fmt::Debug;
++
++use dash_dml::specialtx::sig::payload_sig_hash;
++use dash_primitives::{Block, Transaction};
++use dash_types::Numeric;
++use dash_types::codec::BaseCodec;
++
++use super::ToBsdk;
++
++/// Files holding transactions or blocks as hex, relative to the workspace root.
++const FILES: &[&str] = &[
++    "dash-oracle-sys/tests/data/special-tx-signatures.json",
++    "dash-oracle-sys/tests/data/dml-crafted-v24.0.json",
++    "dash-oracle-sys/tests/data/contextual-mainnet.json",
++    "dash-oracle-sys/tests/data/contextual-regtest-v24.0.json",
++    "dash-oracle-sys/tests/data/testnet.json",
++    "dash-dml/tests/data/core_signed_protx.txt",
++    "dash-dml/tests/data/ev2b-quirks.txt",
++    "node-l1/tests/data/proupserv-mainnet-1028257.json",
++    "node-l1/src/dml_apply/shared-case.json",
++];
++
++/// Core's own fixtures, under `src/test/data` of the vendored tree (`dash-core-vectors`).
++const CORE_FILES: &[&str] =
++    &["src/test/data/trivially_valid.json", "src/test/data/trivially_invalid.json"];
++
++/// Every (type, version) pair the files above hold, which the test must reach.
++const EXPECTED: &[(u16, u16)] = &[
++    (1, 1),
++    (1, 2),
++    (1, 3),
++    (2, 1),
++    (2, 2),
++    (2, 3),
++    (3, 1),
++    (3, 2),
++    (3, 3),
++    (4, 1),
++    (4, 2),
++    (4, 3),
++    (10, 1),
++    (11, 1),
++    (12, 1),
++];
++
++/// The runs of at least 120 hex digits of even length in `text`.
++fn hex_runs(text: &str) -> Vec<Vec<u8>> {
++    let mut out = Vec::new();
++    let mut run = String::new();
++    for c in text.chars().chain(std::iter::once(' ')) {
++        if c.is_ascii_hexdigit() {
++            run.push(c);
++            continue;
++        }
++        if run.len() >= 120 && run.len().is_multiple_of(2) {
++            let bytes = (0..run.len())
++                .step_by(2)
++                .map(|i| u8::from_str_radix(&run[i..i + 2], 16))
++                .collect::<Result<Vec<u8>, _>>();
++            out.extend(bytes.ok());
++        }
++        run.clear();
++    }
++    out
++}
++
++/// The special transactions in `bytes`: one transaction or one block, decoded whole by base-sdk.
++fn special_txs(bytes: &[u8]) -> Vec<Transaction> {
++    let mut data = bytes;
++    if let Ok(tx) = Transaction::decode(&mut data)
++        && data.is_empty()
++    {
++        return vec![tx];
++    }
++    let mut data = bytes;
++    match Block::decode(&mut data) {
++        Ok(block) if data.is_empty() => block.transactions().clone(),
++        _ => Vec::new(),
++    }
++}
++
++/// One payload's checks; `false` when base-sdk does not decode it whole (not a valid payload).
++#[allow(clippy::use_debug, clippy::expect_used)] // the comparison is of the Debug forms
++fn check<M>(
++    payload: &[u8],
++    signed: Option<fn(&M, &M::Bsdk) -> (Option<[u8; 32]>, Option<[u8; 32]>)>,
++) -> bool
++where
++    M: ToBsdk + for<'a> From<&'a M::Bsdk> + PartialEq + Debug,
++    M::Bsdk: PartialEq + Debug,
++{
++    let mut data = payload;
++    let Ok(p) = M::Bsdk::decode(&mut data) else {
++        return false;
++    };
++    if !data.is_empty() {
++        return false;
++    }
++    let mut want = Vec::new();
++    p.encode(&mut want);
++    let m = M::from(&p);
++    assert_eq!(m.to_bytes(), want, "mirror encoding of {p:?}");
++    if let Some(hashes) = signed {
++        let (ours, theirs) = hashes(&m, &p);
++        assert!(ours.is_some(), "a signature hash");
++        assert_eq!(ours, theirs, "signature hash of {p:?}");
++    }
++    let back = m.to_bsdk().expect("base-sdk decodes the mirror's bytes whole");
++    let own = M::Bsdk::decode(&mut want.as_slice()).expect("base-sdk decodes its own encoding");
++    assert_eq!(back, own, "round trip of {p:?}");
++    assert_eq!(format!("{back:?}"), format!("{own:?}"), "round trip of {p:?}");
++    if own == p && format!("{own:?}") == format!("{p:?}") {
++        assert_eq!(back, p);
++    }
++    assert_eq!(M::from(&back), M::from(&own));
++    true
++}
++
++macro_rules! sig_hash {
++    ($t:ident) => {
++        Some(|m: &super::$t, p: &dash_primitives::$t| (payload_sig_hash(m), payload_sig_hash(p)))
++    };
++}
++
++#[test]
++#[allow(clippy::expect_used)]
++fn mirror_encodes_as_base_sdk() {
++    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
++    let mut texts: Vec<(String, String)> = FILES
++        .iter()
++        .map(|f| {
++            let text = std::fs::read_to_string(format!("{root}/{f}")).expect("a vector file");
++            ((*f).to_owned(), text)
++        })
++        .collect();
++    texts
++        .extend(CORE_FILES.iter().map(|f| ((*f).to_owned(), dash_core_vectors::read_core_text(f))));
++
++    let mut seen: BTreeMap<(u16, u16), usize> = BTreeMap::new();
++    let mut files: BTreeMap<&str, usize> = BTreeMap::new();
++    for (file, text) in &texts {
++        for bytes in hex_runs(text) {
++            for tx in special_txs(&bytes) {
++                let payload = tx.extra_payload().as_slice();
++                let ty = tx.tx_type().to_base();
++                let ok = match ty {
++                    1 => check::<super::ProRegTx>(payload, sig_hash!(ProRegTx)),
++                    2 => check::<super::ProUpServTx>(payload, sig_hash!(ProUpServTx)),
++                    3 => check::<super::ProUpRegTx>(payload, sig_hash!(ProUpRegTx)),
++                    4 => check::<super::ProUpRevTx>(payload, sig_hash!(ProUpRevTx)),
++                    10 => check::<super::ProDisTx>(payload, None),
++                    11 => check::<super::ProUpShareTx>(payload, sig_hash!(ProUpShareTx)),
++                    12 => check::<super::ProUpSharedRegTx>(payload, sig_hash!(ProUpSharedRegTx)),
++                    _ => false,
++                };
++                if ok {
++                    let version = u16::from_le_bytes([payload[0], payload[1]]);
++                    *seen.entry((ty, version)).or_default() += 1;
++                    *files.entry(file.as_str()).or_default() += 1;
++                }
++            }
++        }
++    }
++    eprintln!("protx mirror round trip: {} cases", seen.values().sum::<usize>());
++    for ((ty, version), n) in &seen {
++        eprintln!("  type {ty} version {version}: {n}");
++    }
++    for (file, n) in &files {
++        eprintln!("  {file}: {n}");
++    }
++    for pair in EXPECTED {
++        assert!(seen.contains_key(pair), "no vector of (type, version) {pair:?}");
++    }
++}
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index 2d80fd80f1ceeb8065d41af9dd590b34a468cce0..4d2cd5b804243ba219420f01b8e748b9617f8785 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -71,9 +71,7 @@ use dash_primitives::{
+     AddrV1, AddrV2, AssetLock, AssetUnlock, BlockHash, COMPACT_SIG_LEN, CoinbaseCommitment,
+     CollateralShare, CollateralSig, CompactSig, InputsHash, MerkleRoot, MnHardFork, MnType,
+     NIEntry, NIPurpose, NetInfo, NetInfoV1, NetInfoV2, OutPoint, PayoutShare, PlatformNodeId,
+-    ProDisTx, ProRegTx, ProTxVersion, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx,
+-    ProUpSharedRegTx, RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut,
+-    TxType,
++    ProTxVersion, RevocationReason, ServiceV1, ServiceV2, Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -81,6 +79,10 @@ use secp256k1::{PublicKey, SecretKey};
+ 
+ use crate::dml::legacy;
+ use crate::dml_checks::CheckCtx;
++// The payloads a case carries and its mutators write (DEC-1066): base-sdk's, with public fields.
++use crate::protx_mirror::{
++    ProDisTx, ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, ToBsdk,
++};
+ 
+ pub mod quorum;
+ 
+@@ -976,23 +978,23 @@ impl Case {
+         let mut case = self.clone();
+         match (&mut case.payload, &other.payload) {
+             (Payload::Reg(p), Payload::Reg(q)) if p.join_sigs().len() == q.join_sigs().len() => {
+-                p.join_sigs().clone_from(q.join_sigs());
+-                p.vch_sig = q.sig().clone();
++                p.join_sigs.clone_from(q.join_sigs());
++                p.sig = q.sig().clone();
+             }
+             (Payload::UpServ(p), Payload::UpServ(q)) => p.sig = q.sig().clone(),
+-            (Payload::UpReg(p), Payload::UpReg(q)) => p.vch_sig = q.sig().clone(),
++            (Payload::UpReg(p), Payload::UpReg(q)) => p.sig = q.sig().clone(),
+             (Payload::UpRev(p), Payload::UpRev(q)) => p.sig = q.sig().clone(),
+             (Payload::Dis(p), Payload::Dis(q)) if p.sigs().len() == q.sigs().len() => {
+-                p.sigs().clone_from(q.sigs());
++                p.sigs.clone_from(q.sigs());
+             }
+-            (Payload::Share(p), Payload::Share(q)) => p.sig().clone_from(q.sig()),
++            (Payload::Share(p), Payload::Share(q)) => p.sig.clone_from(q.sig()),
+             (Payload::SharedReg(p), Payload::SharedReg(q)) if p.sigs().len() == q.sigs().len() => {
+-                p.sigs().clone_from(q.sigs());
++                p.sigs.clone_from(q.sigs());
+             }
+             (Payload::CbTx(_), Payload::CbTx(_))
+             | (Payload::AssetLock(_), Payload::AssetLock(_)) => {}
+             (Payload::Mnhf(p), Payload::Mnhf(q)) => {
+-                p = dash_primitives::MnHardFork::new(
++                *p = dash_primitives::MnHardFork::new(
+                     p.version(),
+                     p.version_bit(),
+                     p.quorum_hash(),
+@@ -1000,7 +1002,7 @@ impl Case {
+                 )
+             }
+             (Payload::Unlock(p), Payload::Unlock(q)) => {
+-                p = dash_primitives::AssetUnlock::new(
++                *p = dash_primitives::AssetUnlock::new(
+                     p.version(),
+                     p.index(),
+                     p.fee(),
+@@ -1071,7 +1073,11 @@ impl Case {
+         let collateral = collateral_key(self);
+         match &mut self.payload {
+             Payload::Reg(p) if !p.shares().is_empty() => {
+-                let Some(consent) = shared_reg_consent_hash(p, &unsigned) else {
++                // base-sdk's reading of the mirror's bytes (DEC-1066): the same payload unless an
++                // entry of its network info is one base-sdk's decode reads otherwise.
++                let Some(consent) =
++                    p.to_bsdk().and_then(|b| shared_reg_consent_hash(&b, &unsigned))
++                else {
+                     return;
+                 };
+                 let shares = p.shares().clone();
+@@ -1083,14 +1089,16 @@ impl Case {
+                 }
+             }
+             Payload::Reg(p) if !p.collateral_hash().is_null() => {
+-                let Some(message) = params.and_then(|params| make_sign_string(p, params)) else {
++                let Some(message) =
++                    params.zip(p.to_bsdk()).and_then(|(params, b)| make_sign_string(&b, params))
++                else {
+                     return;
+                 };
+                 let key = match collateral.filter(|_| !forged) {
+                     Some(key_id) => secret_of(&key_id),
+                     None => forger(),
+                 };
+-                p.vch_sig = sig_of(&sign_compact(&message_hash(&message), &key, true));
++                p.sig = sig_of(&sign_compact(&message_hash(&message), &key, true));
+             }
+             Payload::Reg(_) => {}
+             Payload::UpServ(p) => {
+@@ -1110,7 +1118,7 @@ impl Case {
+                     Some(s) => secret_of(s.key_id_owner.as_bytes()),
+                     None => forger(),
+                 };
+-                p.vch_sig = sig_of(&sign_compact(&hash, &key, true));
++                p.sig = sig_of(&sign_compact(&hash, &key, true));
+             }
+             Payload::UpRev(p) => {
+                 let (Some(state), Some(hash)) = (state(&p.pro_tx_hash()), payload_sig_hash(p))
+@@ -1124,7 +1132,10 @@ impl Case {
+             Payload::Dis(p) => {
+                 let shares = state(&p.pro_tx_hash()).map(|s| s.shares.clone()).unwrap_or_default();
+                 let count = p.sigs().len();
+-                let hash = pro_dis_sign_hash(p, &unsigned, count as u8);
++                let Some(b) = p.to_bsdk() else {
++                    return;
++                };
++                let hash = pro_dis_sign_hash(&b, &unsigned, count as u8);
+                 let actor = usize::from(p.actor_index());
+                 for (i, sig) in p.sigs.iter_mut().enumerate() {
+                     let signer = if count == 1 {
+@@ -1145,7 +1156,7 @@ impl Case {
+                     return;
+                 };
+                 let key = owner(shares.get(usize::from(p.share_index())), forged);
+-                p.vch_sig = sig_of(&sign_compact(&hash, &key, true));
++                p.sig = sig_of(&sign_compact(&hash, &key, true));
+             }
+             Payload::SharedReg(p) => {
+                 let shares = state(&p.pro_tx_hash()).map(|s| s.shares.clone()).unwrap_or_default();
+@@ -1205,7 +1216,7 @@ fn pro_reg_base(version: u16, evo: bool) -> ProRegTx {
+         platform_node_id: evo.then(|| PlatformNodeId::from(id(FRESH, 7))),
+         platform_p2p_port: (evo && version < 3).then_some(26_657),
+         platform_http_port: (evo && version < 3).then_some(1_444),
+-        vch_sig: CollateralSig::default(),
++        sig: CollateralSig::default(),
+     }
+ }
+ 
+@@ -1358,7 +1369,7 @@ fn pro_up_reg(n: u8, version: u16, key: OperatorKey) -> ProUpRegTx {
+             }]
+         },
+         inputs_hash: InputsHash::from_lendian([0; 32]),
+-        vch_sig: sig_of(&[0; 65]),
++        sig: sig_of(&[0; 65]),
+     }
+ }
+ 
+@@ -1629,14 +1640,14 @@ fn seed_pro_dis(world: World, variant: u8) -> Option<Case> {
+ /// A ProUpShareTx seed: `variant` picks the share.
+ fn seed_pro_up_share(world: World, variant: u8) -> Option<Case> {
+     let count = world.member(SHARED)?.cold.shares.len();
+-    let p = ProUpShareTx::new(
+-        1,
+-        TxHash::from(*pro_tx(SHARED).as_bytes()),
+-        (usize::from(variant) % count) as u16,
+-        p2pkh(id(FRESH, 6)).into(),
+-        InputsHash::from_lendian([0; 32]),
+-        vec![0; COMPACT_SIG_LEN],
+-    );
++    let p = ProUpShareTx {
++        version: 1,
++        pro_tx_hash: TxHash::from(*pro_tx(SHARED).as_bytes()),
++        share_index: (usize::from(variant) % count) as u16,
++        script_reward: p2pkh(id(FRESH, 6)).into(),
++        inputs_hash: InputsHash::from_lendian([0; 32]),
++        sig: vec![0; COMPACT_SIG_LEN],
++    };
+     Some(Case::new(world, Payload::Share(p), funding(1), Vec::new()))
+ }
+ 
+@@ -2196,40 +2207,123 @@ fn net_fields(case: &mut Case) -> Option<NetFields<'_>> {
+     })
+ }
+ 
+-/// The ProRegTx's or ProUpServTx's network info, as an ExtNetInfo's entries.
+-fn ext_entries(case: &mut Case) -> Option<&mut Vec<(NIPurpose, Vec<NIEntry>)>> {
+-    match net_fields(case)?.net_info {
+-        NetInfo::Extended(n) => Some(&mut n.entries),
+-        _ => None,
++/// The ProRegTx's or ProUpServTx's network info, as an ExtNetInfo's entries: an editable copy,
++/// written back when the guard goes. base-sdk keeps the entries private; `NetInfoV2::new` stores
++/// the version and the entries as given, so the write-back is the in-place edit the old code made.
++struct ExtEntries<'a> {
++    net_info: &'a mut NetInfo,
++    version: u8,
++    entries: Vec<(NIPurpose, Vec<NIEntry>)>,
++}
++
++impl std::ops::Deref for ExtEntries<'_> {
++    type Target = Vec<(NIPurpose, Vec<NIEntry>)>;
++
++    fn deref(&self) -> &Self::Target {
++        &self.entries
++    }
++}
++
++impl std::ops::DerefMut for ExtEntries<'_> {
++    fn deref_mut(&mut self) -> &mut Self::Target {
++        &mut self.entries
+     }
+ }
+ 
+-/// The core service of the ProRegTx's or ProUpServTx's network info.
+-fn core_service(case: &mut Case) -> Option<&mut ServiceV2> {
+-    let entries = ext_entries(case)?;
++impl Drop for ExtEntries<'_> {
++    fn drop(&mut self) {
++        let entries = std::mem::take(&mut self.entries);
++        *self.net_info = NetInfo::Extended(NetInfoV2::new(self.version, entries));
++    }
++}
++
++fn ext_entries(case: &mut Case) -> Option<ExtEntries<'_>> {
++    let net_info = net_fields(case)?.net_info;
++    let NetInfo::Extended(n) = &*net_info else {
++        return None;
++    };
++    let (version, entries) = (n.version(), n.groups().clone());
++    Some(ExtEntries {
++        net_info,
++        version,
++        entries,
++    })
++}
++
++/// The core service's address of the ProRegTx's or ProUpServTx's network info set to `addr`,
++/// its port kept.
++fn set_core_addr(case: &mut Case, addr: AddrV2) -> Option<()> {
++    let mut entries = ext_entries(case)?;
+     let (_, list) = entries.iter_mut().find(|(p, _)| *p == NIPurpose::CoreP2p)?;
+-    match list.first_mut()? {
+-        NIEntry::Service(s) => Some(s),
+-        _ => None,
++    let NIEntry::Service(s) = list.first_mut()? else {
++        return None;
++    };
++    *s = ServiceV2::new(addr, s.port());
++    Some(())
++}
++
++/// The entries of the ExtNetInfo's purpose `p` ([`ExtEntries`], written back when it goes).
++struct PurposeEntries<'a> {
++    ext: ExtEntries<'a>,
++    p: usize,
++}
++
++impl std::ops::Deref for PurposeEntries<'_> {
++    type Target = Vec<NIEntry>;
++
++    fn deref(&self) -> &Self::Target {
++        &self.ext[self.p].1
++    }
++}
++
++impl std::ops::DerefMut for PurposeEntries<'_> {
++    fn deref_mut(&mut self) -> &mut Self::Target {
++        &mut self.ext[self.p].1
+     }
+ }
+ 
+ /// The entries of the ExtNetInfo's purpose `arg % len`, and its index.
+-fn purpose_entries(case: &mut Case, arg: u8) -> Option<(usize, &mut Vec<NIEntry>)> {
+-    let entries = ext_entries(case)?;
+-    let p = index(arg, entries.len())?;
+-    Some((p, &mut entries.get_mut(p)?.1))
++fn purpose_entries(case: &mut Case, arg: u8) -> Option<(usize, PurposeEntries<'_>)> {
++    let ext = ext_entries(case)?;
++    let p = index(arg, ext.len())?;
++    Some((
++        p,
++        PurposeEntries {
++            ext,
++            p,
++        },
++    ))
+ }
+ 
+ /// A legacy network info's service port and address, for an old-version ProRegTx or
+-/// ProUpServTx.
+-fn legacy_service(case: &mut Case) -> Option<&mut ServiceV1> {
+-    match net_fields(case)?.net_info {
+-        NetInfo::Legacy(NetInfoV1(s)) => Some(s),
+-        _ => None,
++/// ProUpServTx: an editable copy, written back through `ServiceV1::new` (which stores both as
++/// given) when the guard goes.
++struct LegacyService<'a> {
++    net_info: &'a mut NetInfo,
++    addr: [u8; 16],
++    port: u16,
++}
++
++impl Drop for LegacyService<'_> {
++    fn drop(&mut self) {
++        let service = ServiceV1::new(AddrV1::from_bytes(self.addr), self.port);
++        *self.net_info = NetInfo::Legacy(NetInfoV1::new(service));
+     }
+ }
+ 
++fn legacy_service(case: &mut Case) -> Option<LegacyService<'_>> {
++    let net_info = net_fields(case)?.net_info;
++    let NetInfo::Legacy(v1) = &*net_info else {
++        return None;
++    };
++    let (addr, port) = (*v1.service().addr().as_bytes(), v1.service().port());
++    Some(LegacyService {
++        net_info,
++        addr,
++        port,
++    })
++}
++
+ fn is_evo(case: &mut Case) -> Option<bool> {
+     Some(net_fields(case)?.mn_type == MnType::Evo)
+ }
+@@ -2467,7 +2561,7 @@ const SHARE_LIST: &[Mutation] = &[
+ /// `NotRoutable` and `BadType` are left to EV1-1's NetInfo targets, which read mainnet's.
+ const NET_INFO: &[Mutation] = &[
+     m("nt:1", &[BAD_PROTX_NETINFO_EMPTY], |c, _| {
+-        let entries = ext_entries(c)?;
++        let mut entries = ext_entries(c)?;
+         entries.retain(|(p, _)| *p != NIPurpose::CoreP2p);
+         if entries.is_empty() {
+             entries.push((NIPurpose::PlatformP2p, vec![NIEntry::Service(service(FRESH, 26_656))]));
+@@ -2478,7 +2572,7 @@ const NET_INFO: &[Mutation] = &[
+         if is_evo(c)? {
+             return None;
+         }
+-        let entries = ext_entries(c)?;
++        let mut entries = ext_entries(c)?;
+         if !entries.iter().any(|(p, _)| *p == NIPurpose::PlatformHttps) {
+             entries.push((NIPurpose::PlatformHttps, vec![NIEntry::Service(service(FRESH, 1_443))]));
+         }
+@@ -2498,7 +2592,7 @@ const NET_INFO: &[Mutation] = &[
+     }),
+     m("ns:malformed", &[BAD_PROTX_NETINFO_BAD], |c, arg| {
+         // A second entry of a purpose, so that a step on the first one stays.
+-        let (p, list) = purpose_entries(c, arg)?;
++        let (p, mut list) = purpose_entries(c, arg)?;
+         let port = match list.first()? {
+             NIEntry::Service(s) => s.port(),
+             NIEntry::Domain {
+@@ -2517,7 +2611,7 @@ const NET_INFO: &[Mutation] = &[
+         entity(p)
+     }),
+     m("ns:dup", &[BAD_PROTX_DUP_NETINFO_ENTRY], |c, arg| {
+-        let (p, list) = purpose_entries(c, arg)?;
++        let (p, mut list) = purpose_entries(c, arg)?;
+         let first = list.first()?.clone();
+         if !list[1..].contains(&first) {
+             list.push(first);
+@@ -2525,7 +2619,7 @@ const NET_INFO: &[Mutation] = &[
+         entity(p)
+     }),
+     m("ns:maxlimit", &[BAD_PROTX_NETINFO_MAXLIMIT], |c, arg| {
+-        let (p, list) = purpose_entries(c, arg)?;
++        let (p, mut list) = purpose_entries(c, arg)?;
+         let NIEntry::Service(first) = list.first()?.clone() else {
+             return None;
+         };
+@@ -2545,6 +2639,8 @@ const NET_INFO: &[Mutation] = &[
+         // A domain where a purpose takes addresses only (all but platform HTTPS).
+         let (p, list) = purpose_entries(c, arg)?;
+         let first = list.first()?.clone();
++        // The guard writes the entries back unchanged before the next read of the case.
++        drop(list);
+         if ext_entries(c)?.get(p)?.0 == NIPurpose::PlatformHttps {
+             return None;
+         }
+@@ -2849,11 +2945,11 @@ const PRO_REG: &[Mutation] = &[
+     }),
+     m("1c:8a", &[BAD_PROTX_DUP_NETINFO_ENTRY], |c, _| {
+         // REG's address.
+-        if let Some(s) = legacy_service(c) {
+-            s.addr.0[15] = REG;
++        if let Some(mut s) = legacy_service(c) {
++            s.addr[15] = REG;
+             return DONE;
+         }
+-        core_service(c)?.addr = AddrV2::Ipv4([1, 2, 3, REG]);
++        set_core_addr(c, AddrV2::Ipv4([1, 2, 3, REG]))?;
+         DONE
+     }),
+     m("1c:9a", &[BAD_PROTX_DUP_KEY], |c, arg| {
+@@ -2914,7 +3010,7 @@ const PRO_REG: &[Mutation] = &[
+         if !p.collateral_hash().is_null() {
+             return None;
+         }
+-        p.vch_sig = sig_of(&[0; 65]);
++        p.sig = sig_of(&[0; 65]);
+         DONE
+     }),
+     m("1c:14e", &[BAD_PROTX_SIG], |c, _| {
+@@ -3231,19 +3327,14 @@ const PRO_DIS: &[Mutation] = &[
+     m("10t:2", &[BAD_PRODIS_SIG_COUNT], |c, arg| {
+         let p = c.dis()?;
+         let sig = compact_sig()?;
+-        *p = dash_primitives::ProDisTx::new(
+-            p.version(),
+-            p.pro_tx_hash(),
+-            p.actor_index(),
+-            vec![
+-                sig;
+-                if arg & 1 == 0 {
+-                    0
+-                } else {
+-                    9
+-                }
+-            ],
+-        );
++        p.sigs = vec![
++            sig;
++            if arg & 1 == 0 {
++                0
++            } else {
++                9
++            }
++        ];
+         DONE
+     }),
+     m("10c:2", &[BAD_PRODIS_TOO_EARLY], |c, _| {
+@@ -3382,7 +3473,7 @@ const PRO_UP_SHARE: &[Mutation] = &[
+         DONE
+     }),
+     m("11t:2", &[BAD_PROUPSHARE_SIG_SIZE], |c, arg| {
+-        c.share()?.vch_sig = vec![
++        c.share()?.sig = vec![
+             0;
+             if arg & 1 == 0 {
+                 64
+@@ -3584,15 +3675,13 @@ const PRO_UP_SERV: &[Mutation] = &[
+         DONE
+     }),
+     m("2t:5", &[BAD_PROTX_NETINFO_EMPTY], |c, _| {
+-        match &mut c.up_serv()?.net_info() {
+-            NetInfo::Legacy(NetInfoV1(s)) => {
+-                *s = ServiceV1 {
+-                    addr: AddrV1::from_bytes([0; 16]),
+-                    port: 0,
+-                };
++        let net_info = &mut c.up_serv()?.net_info;
++        *net_info = match net_info {
++            NetInfo::Legacy(_) => {
++                NetInfo::Legacy(NetInfoV1::new(ServiceV1::new(AddrV1::from_bytes([0; 16]), 0)))
+             }
+-            NetInfo::Extended(n) => n.entries.clear(),
+-        }
++            NetInfo::Extended(n) => NetInfo::Extended(NetInfoV2::new(n.version(), Vec::new())),
++        };
+         DONE
+     }),
+     m("2c:3", &[BAD_PROTX_HASH], |c, _| {
+@@ -3650,7 +3739,8 @@ const PRO_UP_SERV: &[Mutation] = &[
+         if c.world.named(&target)?.cold.version < 3 {
+             return None;
+         }
+-        legacy_service(c)?.port = 22;
++        let mut s = legacy_service(c)?;
++        s.port = 22;
+         DONE
+     }),
+     m("2c:8", &[BAD_PROTX_DUP_KEY], |c, _| {
+@@ -3672,11 +3762,11 @@ const PRO_UP_SERV: &[Mutation] = &[
+             Some(REG) => EVO,
+             _ => REG,
+         };
+-        if let Some(s) = legacy_service(c) {
+-            s.addr.0[15] = n;
++        if let Some(mut s) = legacy_service(c) {
++            s.addr[15] = n;
+             return DONE;
+         }
+-        core_service(c)?.addr = AddrV2::Ipv4([1, 2, 3, n]);
++        set_core_addr(c, AddrV2::Ipv4([1, 2, 3, n]))?;
+         DONE
+     }),
+     m("2c:11a", &[BAD_PROTX_OPERATOR_PAYEE], |c, _| {
