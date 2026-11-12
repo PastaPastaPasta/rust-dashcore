@@ -1,0 +1,7 @@
+# Spork 19 off and on again with no ChainLock op between: the handler never sees it off, so
+# nothing resets and a record below the held lock is stale.
+extend main 3
+cl main@-0
+spork off
+spork on
+cl main@-1
