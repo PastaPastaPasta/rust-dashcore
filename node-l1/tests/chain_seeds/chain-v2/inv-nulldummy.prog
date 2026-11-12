@@ -1,0 +1,4 @@
+# The block operator nulldummy's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate nulldummy
+extend main 1
