@@ -1,0 +1,13 @@
+diff --git a/crypto/Cargo.toml b/crypto/Cargo.toml
+index fb6c046b6227219b5860d6763d769f16bf34c6e7..454838784ff281006d659a2cda8a1a67ec4aacc7 100644
+--- a/crypto/Cargo.toml
++++ b/crypto/Cargo.toml
+@@ -25,7 +25,7 @@ bincode = { workspace = true, optional = true }
+ bincode_derive = { workspace = true, optional = true }
+ dash-network = { path = "../dash-network" }
+ dash-pkc = { workspace = true, features = ["ecdsa", "std"] }
+-dash-types = { workspace = true }
++dash-types = { workspace = true, features = ["codec"] }
+ delegate = "0.13"
+ dashcore_hashes = { path = "../hashes" }
+ # Must be the `ff` major `dash-pkc` builds `Fr` against
