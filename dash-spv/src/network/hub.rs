@@ -7,8 +7,10 @@ use std::mem;
 use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::time::Instant;
 
 use super::{InboundMessage, MessageType, RequestKey};
 
@@ -87,6 +89,18 @@ struct Queued<R, A, F, P> {
     bytes: usize,
 }
 
+/// One notification for a subscription's current stall episode.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SubscriberStalled {
+    pub kinds: Vec<MessageType>,
+}
+
+struct Stall {
+    since: Instant,
+    reported: bool,
+    blocked_bytes: usize,
+}
+
 struct Subscriber<R, A, F, P> {
     kinds: Vec<MessageType>,
     cap: SubCap,
@@ -95,6 +109,7 @@ struct Subscriber<R, A, F, P> {
     bytes: usize,
     // A queued failure keeps its reservation until it is received.
     requests: HashMap<R, bool>,
+    stall: Option<Stall>,
 }
 
 impl<R, A, F, P> Subscriber<R, A, F, P> {
@@ -120,6 +135,8 @@ pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     subscribers: BTreeMap<SubId, Subscriber<R, A, F, P>>,
     parked: BTreeMap<P, Delivery<R, A, P>>,
     next_sub: u64,
+    stall_report: Duration,
+    clock: Arc<dyn Fn() -> Instant + Send + Sync>,
 }
 
 impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Default for SubscriptionHub<R, A, F, P> {
@@ -130,7 +147,16 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Default for SubscriptionHub
 
 impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
     pub fn new() -> Self {
+        Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
+    }
+
+    pub fn with_clock(
+        stall_report: Duration,
+        clock: Arc<dyn Fn() -> Instant + Send + Sync>,
+    ) -> Self {
         Self {
+            stall_report,
+            clock,
             subscribers: BTreeMap::new(),
             parked: BTreeMap::new(),
             next_sub: 0,
@@ -155,6 +181,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 msgs: 0,
                 bytes: 0,
                 requests: HashMap::new(),
+                stall: None,
             },
         );
         sub
@@ -198,12 +225,25 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 continue;
             };
             if !sub.accepts(delivery.bytes) {
+                let stall = sub.stall.get_or_insert_with(|| Stall {
+                    since: (self.clock)(),
+                    reported: false,
+                    blocked_bytes: delivery.bytes,
+                });
+                stall.blocked_bytes = stall.blocked_bytes.max(delivery.bytes);
                 delivery.targets.push_front(id);
                 self.parked.insert(delivery.peer, delivery);
                 return Offer::Parked;
             }
             sub.msgs += 1;
             sub.bytes += delivery.bytes;
+            if sub.msgs >= sub.cap.msgs.get() || sub.bytes >= sub.cap.bytes.get() {
+                sub.stall.get_or_insert_with(|| Stall {
+                    since: (self.clock)(),
+                    reported: false,
+                    blocked_bytes: 0,
+                });
+            }
             if delivery.targets.is_empty() {
                 sub.queue.push_back(Queued {
                     inbound: Inbound::Message {
@@ -237,6 +277,9 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             } => {
                 sub.msgs -= 1;
                 sub.bytes -= queued.bytes;
+                if sub.stall.as_ref().is_some_and(|stall| sub.accepts(stall.blocked_bytes)) {
+                    sub.stall = None;
+                }
             }
             Inbound::RequestFailed {
                 id,
@@ -248,6 +291,25 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         Some(queued.inbound)
     }
 
+    pub fn stalled(&mut self, now: Instant) -> Vec<SubscriberStalled> {
+        self.subscribers
+            .values_mut()
+            .filter_map(|sub| {
+                let stall = sub.stall.as_mut()?;
+                if !stall.reported
+                    && now.saturating_duration_since(stall.since) >= self.stall_report
+                {
+                    stall.reported = true;
+                    Some(SubscriberStalled {
+                        kinds: sub.kinds.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn is_parked(&self, peer: P) -> bool {
         self.parked.contains_key(&peer)
     }
@@ -255,12 +317,35 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
     /// Retries pending fanout and returns the connections whose delivery is complete.
     pub fn on_space(&mut self, _sub: SubId) -> Vec<P> {
         let pending = mem::take(&mut self.parked);
-        pending
+        let resumed = pending
             .into_iter()
             .filter_map(|(peer, delivery)| {
                 (self.deliver(delivery) == Offer::Delivered).then_some(peer)
             })
-            .collect()
+            .collect();
+        self.refresh_stalls();
+        resumed
+    }
+
+    fn refresh_stalls(&mut self) {
+        for (id, sub) in &mut self.subscribers {
+            let blocked_bytes = self
+                .parked
+                .values()
+                .filter_map(|delivery| {
+                    (delivery.targets.front() == Some(id)).then_some(delivery.bytes)
+                })
+                .max()
+                .unwrap_or(0);
+            if sub.accepts(blocked_bytes)
+                && sub.msgs < sub.cap.msgs.get()
+                && sub.bytes < sub.cap.bytes.get()
+            {
+                sub.stall = None;
+            } else if let Some(stall) = &mut sub.stall {
+                stall.blocked_bytes = blocked_bytes;
+            }
+        }
     }
 
     pub fn remove(&mut self, sub: SubId) -> Vec<P> {
@@ -271,6 +356,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
     /// Discards only the outstanding fanout for this closed connection.
     pub fn disconnect(&mut self, peer: P) {
         self.parked.remove(&peer);
+        self.refresh_stalls();
     }
 
     /// Reserves one terminal notification slot for an open request.
@@ -368,9 +454,16 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Default for AsyncHub<R, A, 
 
 impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
     pub fn new() -> Self {
+        Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
+    }
+
+    pub fn with_clock(
+        stall_report: Duration,
+        clock: Arc<dyn Fn() -> Instant + Send + Sync>,
+    ) -> Self {
         Self {
             state: Arc::new(Mutex::new(AsyncState {
-                core: SubscriptionHub::new(),
+                core: SubscriptionHub::with_clock(stall_report, clock),
                 ready: BTreeMap::new(),
                 resumed: BTreeSet::new(),
             })),
@@ -444,6 +537,12 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
         mem::take(&mut state.resumed).into_iter().collect()
     }
 
+    pub async fn stalled(&self, now: Instant) -> Vec<SubscriberStalled> {
+        let mut state = self.state.lock().await;
+        state.maintain();
+        state.core.stalled(now)
+    }
+
     pub async fn disconnect(&self, peer: P) {
         let mut state = self.state.lock().await;
         state.core.disconnect(peer);
@@ -493,6 +592,9 @@ impl<R, A, F, P> Drop for Subscription<R, A, F, P> {
 mod tests {
     use std::num::NonZeroUsize;
     use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::time::{advance, Instant};
 
     use dashcore::network::message::NetworkMessage;
     use tokio::spawn;
@@ -709,6 +811,70 @@ mod tests {
         let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
         drop(hub);
         assert!(sub.recv().await.is_none());
+    }
+
+    #[test]
+    fn stalled_subscriber_parks_the_peer() {
+        let start = Instant::now();
+        let mut hub = Hub::with_clock(Duration::from_secs(10), Arc::new(move || start));
+        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 10));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
+        assert!(hub.is_parked(1));
+        assert!(hub.stalled(start + Duration::from_secs(9)).is_empty());
+        let events = hub.stalled(start + Duration::from_secs(10));
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kinds, vec![MessageType::Inv]);
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(take(&mut hub, sub), (1, 2));
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+        hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap();
+        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+    }
+
+    #[test]
+    fn byte_stall_survives_insufficient_space_and_failure_delivery() {
+        let start = Instant::now();
+        let mut hub = Hub::with_clock(Duration::from_secs(10), Arc::new(move || start));
+        let sub = hub.subscribe(&[MessageType::Block], cap(8, 10));
+        hub.offer(1, MessageType::Block, msg(1), 2, None).unwrap();
+        hub.offer(1, MessageType::Block, msg(2), 6, None).unwrap();
+        hub.offer(1, MessageType::Block, msg(3), 9, None).unwrap();
+        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+        assert!(hub.reserve_request(sub, 1));
+        assert!(hub.request_failed(sub, 1, RequestKey::CFilters(0), 3, "timeout"));
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert!(hub.on_space(sub).is_empty());
+        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
+        assert_eq!(take(&mut hub, sub), (1, 2));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert!(matches!(hub.recv(sub), Some(Inbound::RequestFailed { .. })));
+        assert_eq!(take(&mut hub, sub), (1, 3));
+        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
+        hub.offer(1, MessageType::Block, msg(4), 10, None).unwrap();
+        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+        assert_eq!(take(&mut hub, sub), (1, 4));
+        hub.offer(1, MessageType::Block, msg(5), 6, None).unwrap();
+        hub.offer(1, MessageType::Block, msg(6), 8, None).unwrap();
+        hub.disconnect(1);
+        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
+        hub.remove(sub);
+        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn async_shell_reports_stalls() {
+        let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).await.unwrap();
+        advance(Duration::from_secs(10)).await;
+        assert_eq!(hub.stalled(Instant::now()).await.len(), 1);
+        assert!(hub.stalled(Instant::now()).await.is_empty());
+        sub.recv().await.unwrap();
+        assert!(hub.stalled(Instant::now()).await.is_empty());
     }
 
     #[test]
