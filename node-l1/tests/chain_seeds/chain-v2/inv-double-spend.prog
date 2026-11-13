@@ -1,0 +1,4 @@
+# The block operator double_spend's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate double_spend
+extend main 1

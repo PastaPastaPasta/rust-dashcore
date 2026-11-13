@@ -1,0 +1,4 @@
+# script error "Stack size limit exceeded" (bank slot 22, se_stack_size): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_stack_size
+extend main 1
