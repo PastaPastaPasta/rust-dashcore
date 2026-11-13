@@ -1,0 +1,267 @@
+diff --git a/dash-mnlist/src/tests/edges.rs b/dash-mnlist/src/tests/edges.rs
+index 846f1800116b6120b9296d0b6ec42aab63e34bbe..d831d7cd21058dc61080bd4e22063ba59eb5c074 100644
+--- a/dash-mnlist/src/tests/edges.rs
++++ b/dash-mnlist/src/tests/edges.rs
+@@ -421,10 +421,24 @@ fn cores_extra_cycles_are_held() {
+     let chain = FixtureChain::full();
+     let mut engine = stepped(&chain);
+     let mut q = qrinfo(288, &[]);
+-    let h_4c = q.cycle_h_4c.take().expect("asked with extraShare");
++    let h_4c = q.cycle_h_4c().clone().expect("asked with extraShare");
++    q = dash_p2p_core::QrInfo::new(
++        q.snapshot_h_c().clone(),
++        q.snapshot_h_2c().clone(),
++        q.snapshot_h_3c().clone(),
++        q.diff_tip().clone(),
++        q.diff_h().clone(),
++        q.diff_h_c().clone(),
++        q.diff_h_2c().clone(),
++        q.diff_h_3c().clone(),
++        None,
++        q.last_commitment_per_index().clone(),
++        q.quorum_snapshot_list().clone(),
++        q.mn_list_diff_list().clone(),
++    );
+     {
+         let mut mn_list_diff_list = q.mn_list_diff_list().clone();
+-        mn_list_diff_list.insert(0, h_4c.diff);
++        mn_list_diff_list.insert(0, h_4c.diff().clone());
+         q = dash_p2p_core::QrInfo::new(
+             q.snapshot_h_c().clone(),
+             q.snapshot_h_2c().clone(),
+@@ -442,7 +456,7 @@ fn cores_extra_cycles_are_held() {
+     }
+     {
+         let mut quorum_snapshot_list = q.quorum_snapshot_list().clone();
+-        quorum_snapshot_list.insert(0, h_4c.snapshot);
++        quorum_snapshot_list.insert(0, h_4c.snapshot().clone());
+         q = dash_p2p_core::QrInfo::new(
+             q.snapshot_h_c().clone(),
+             q.snapshot_h_2c().clone(),
+@@ -551,11 +565,23 @@ fn a_row_off_hs_chain_is_refused() {
+         ..FixtureChain::full()
+     };
+     let mut q = qrinfo(288, &[]);
+-    for d in [&mut q.diff_h_3c, &mut q.diff_h_2c, &mut q.diff_h_c, &mut q.diff_h, &mut q.diff_tip] {
+-        *d = chain.on_fork(d.clone());
+-    }
+-    let h_4c = &mut q.cycle_h_4c.as_mut().expect("asked with extraShare").diff;
+-    *h_4c = chain.on_fork(h_4c.clone());
++    let h_4c = q.cycle_h_4c().clone().expect("asked with extraShare");
++    let h_4c =
++        dash_p2p_core::CycleInfo::new(h_4c.snapshot().clone(), chain.on_fork(h_4c.diff().clone()));
++    q = dash_p2p_core::QrInfo::new(
++        q.snapshot_h_c().clone(),
++        q.snapshot_h_2c().clone(),
++        q.snapshot_h_3c().clone(),
++        chain.on_fork(q.diff_tip().clone()),
++        chain.on_fork(q.diff_h().clone()),
++        chain.on_fork(q.diff_h_c().clone()),
++        chain.on_fork(q.diff_h_2c().clone()),
++        chain.on_fork(q.diff_h_3c().clone()),
++        Some(h_4c),
++        q.last_commitment_per_index().clone(),
++        q.quorum_snapshot_list().clone(),
++        q.mn_list_diff_list().clone(),
++    );
+     {
+         let mut mn_list_diff_list = q.mn_list_diff_list().clone();
+         mn_list_diff_list.insert(0, genesis_diff(160));
+@@ -611,9 +637,20 @@ fn a_qrinfo_on_another_branch_answers_no_request() {
+     let key = RequestKey::QrInfo(chain.hash(288));
+     assert!(engine.requests().iter().any(|r| r.key() == key));
+     let mut q = qrinfo(288, &[]);
+-    for d in [&mut q.diff_h, &mut q.diff_tip] {
+-        *d = chain.on_fork(d.clone());
+-    }
++    q = dash_p2p_core::QrInfo::new(
++        q.snapshot_h_c().clone(),
++        q.snapshot_h_2c().clone(),
++        q.snapshot_h_3c().clone(),
++        chain.on_fork(q.diff_tip().clone()),
++        chain.on_fork(q.diff_h().clone()),
++        q.diff_h_c().clone(),
++        q.diff_h_2c().clone(),
++        q.diff_h_3c().clone(),
++        q.cycle_h_4c().clone(),
++        q.last_commitment_per_index().clone(),
++        q.quorum_snapshot_list().clone(),
++        q.mn_list_diff_list().clone(),
++    );
+     engine.apply_qrinfo(&q, &chain, config()).expect("authenticated on its branch");
+     assert!(engine.has_authenticated_set(BlockId(FORK + 280)));
+     assert!(engine.requests().iter().any(|r| r.key() == key));
+diff --git a/dash-mnlist/src/tests/mod.rs b/dash-mnlist/src/tests/mod.rs
+index 625f12396f7a374740693609b792023153658cc4..53904e9d9be05c9559c2ab2714b38cadbedc52d2 100644
+--- a/dash-mnlist/src/tests/mod.rs
++++ b/dash-mnlist/src/tests/mod.rs
+@@ -226,11 +226,23 @@ impl FixtureChain {
+     /// `d` moved onto the fork's branch: its target and base above the fork renamed.
+     pub fn on_fork(&self, mut d: MnListDiff) -> MnListDiff {
+         let fork = self.fork.expect("a fork");
+-        for hash in [&mut d.block_hash, &mut d.base_block_hash] {
+-            if let Some(h) = self.ids.get(hash).copied().filter(|h| *h > fork) {
+-                *hash = self.fork_hash(h);
+-            }
+-        }
++        let renamed = |hash: BlockHash| match self.ids.get(&hash).copied().filter(|h| *h > fork) {
++            Some(h) => self.fork_hash(h),
++            None => hash,
++        };
++        d = dash_p2p_core::MnListDiff::new(
++            d.format(),
++            d.version(),
++            renamed(d.base_block_hash()),
++            renamed(d.block_hash()),
++            d.cb_tx_merkle_tree().clone(),
++            d.cb_tx().clone(),
++            d.deleted_mns().clone(),
++            d.mn_list().clone(),
++            d.deleted_quorums().clone(),
++            d.new_quorums().clone(),
++            d.quorum_cl_sigs().clone(),
++        );
+         d
+     }
+ 
+diff --git a/dash-mnlist/src/tests/regtest.rs b/dash-mnlist/src/tests/regtest.rs
+index 2aea683b0f7d89279765ba0f3776026a0cff81f2..9cc3e4a9881d43f7488a3fa365c3e8c78f52dd13 100644
+--- a/dash-mnlist/src/tests/regtest.rs
++++ b/dash-mnlist/src/tests/regtest.rs
+@@ -329,7 +329,11 @@ fn a_mutated_diff_is_refused_at_its_step() {
+         let mut cb_tx = d.cb_tx().clone();
+         {
+             let mut inputs = cb_tx.inputs().clone();
+-            inputs[0].prevout.index = 0;
++            inputs[0] = dash_primitives::TxIn::new(
++                dash_primitives::OutPoint::new(inputs[0].prevout().txid(), 0),
++                inputs[0].script_sig().clone(),
++                inputs[0].sequence(),
++            );
+             cb_tx = dash_primitives::Transaction::new(
+                 cb_tx.version(),
+                 cb_tx.tx_type(),
+@@ -511,14 +515,30 @@ fn nth_row(i: usize) -> QuorumSnapshot {
+ 
+ /// A reply with its H − C row changed in every bit.
+ fn wrong_h_c(mut q: QrInfo) -> QrInfo {
+-    let bits = &mut q.snapshot_h_c.active_quorum_members;
+-    for b in &mut bits.data {
+-        *b ^= 0xff;
+-    }
+-    let last = bits.num_bits % 8;
++    let row = q.snapshot_h_c();
++    let bits = row.active_quorum_members();
++    let mut data: Vec<u8> = bits.data().iter().map(|b| b ^ 0xff).collect();
++    let last = bits.num_bits() % 8;
+     if last != 0 {
+-        *bits.data.last_mut().expect("a byte") &= (1u8 << last) - 1;
+-    }
++        *data.last_mut().expect("a byte") &= (1u8 << last) - 1;
++    }
++    let bits = dash_primitives::DynBitset::new(bits.num_bits(), data).expect("the row's bits");
++    let row =
++        dash_p2p_core::QuorumSnapshot::new(row.skip_list_mode(), bits, row.skip_list().clone());
++    q = dash_p2p_core::QrInfo::new(
++        row,
++        q.snapshot_h_2c().clone(),
++        q.snapshot_h_3c().clone(),
++        q.diff_tip().clone(),
++        q.diff_h().clone(),
++        q.diff_h_c().clone(),
++        q.diff_h_2c().clone(),
++        q.diff_h_3c().clone(),
++        q.cycle_h_4c().clone(),
++        q.last_commitment_per_index().clone(),
++        q.quorum_snapshot_list().clone(),
++        q.mn_list_diff_list().clone(),
++    );
+     q
+ }
+ 
+@@ -743,8 +763,26 @@ fn a_storage_failure_while_confirming_a_row_stops() {
+     ));
+ }
+ 
+-fn oldest(q: &mut QrInfo) -> &mut MnListDiff {
+-    &mut q.cycle_h_4c.as_mut().expect("asked with extraShare").diff
++/// `q` with `f` applied to its oldest cycle's diff (base-sdk lends no `&mut` into a `QrInfo`).
++fn edit_oldest(q: &mut QrInfo, f: impl FnOnce(&mut MnListDiff)) {
++    let cycle = q.cycle_h_4c().clone().expect("asked with extraShare");
++    let mut diff = cycle.diff().clone();
++    f(&mut diff);
++    let cycle = Some(dash_p2p_core::CycleInfo::new(cycle.snapshot().clone(), diff));
++    *q = dash_p2p_core::QrInfo::new(
++        q.snapshot_h_c().clone(),
++        q.snapshot_h_2c().clone(),
++        q.snapshot_h_3c().clone(),
++        q.diff_tip().clone(),
++        q.diff_h().clone(),
++        q.diff_h_c().clone(),
++        q.diff_h_2c().clone(),
++        q.diff_h_3c().clone(),
++        cycle,
++        q.last_commitment_per_index().clone(),
++        q.quorum_snapshot_list().clone(),
++        q.mn_list_diff_list().clone(),
++    );
+ }
+ 
+ /// A mutated `qrinfo` is refused whole: a diff failing its step, or a row without its cycle.
+@@ -760,10 +798,54 @@ fn a_mutated_qrinfo_is_refused_whole() {
+     };
+     // Without bases, the oldest cycle's diff is from genesis: the whole list and set.
+     let mut q = good.clone();
+-    oldest(&mut q).mn_list[0].is_valid = !oldest(&mut q).mn_list()[0].is_valid();
++    edit_oldest(&mut q, |d| {
++        let mut mn_list = d.mn_list().clone();
++        let e = &mn_list[0];
++        mn_list[0] = dash_p2p_core::SimplifiedMnListEntry::new(
++            e.version(),
++            e.pro_reg_tx_hash(),
++            e.confirmed_hash(),
++            e.net_info().clone(),
++            e.operator_key(),
++            e.voting_key_id(),
++            !e.is_valid(),
++            e.mn_type(),
++            e.platform_http_port(),
++            e.platform_node_id(),
++        );
++        *d = dash_p2p_core::MnListDiff::new(
++            d.format(),
++            d.version(),
++            d.base_block_hash(),
++            d.block_hash(),
++            d.cb_tx_merkle_tree().clone(),
++            d.cb_tx().clone(),
++            d.deleted_mns().clone(),
++            mn_list,
++            d.deleted_quorums().clone(),
++            d.new_quorums().clone(),
++            d.quorum_cl_sigs().clone(),
++        );
++    });
+     assert_eq!(refuse(q), MnReject::MnListRoot);
+     let mut q = good.clone();
+-    oldest(&mut q).new_quorums.pop().expect("a quorum");
++    edit_oldest(&mut q, |d| {
++        let mut new_quorums = d.new_quorums().clone();
++        new_quorums.pop().expect("a quorum");
++        *d = dash_p2p_core::MnListDiff::new(
++            d.format(),
++            d.version(),
++            d.base_block_hash(),
++            d.block_hash(),
++            d.cb_tx_merkle_tree().clone(),
++            d.cb_tx().clone(),
++            d.deleted_mns().clone(),
++            d.mn_list().clone(),
++            d.deleted_quorums().clone(),
++            new_quorums,
++            d.quorum_cl_sigs().clone(),
++        );
++    });
+     assert_eq!(refuse(q), MnReject::QuorumsRoot);
+     let mut q = good.clone();
+     {
