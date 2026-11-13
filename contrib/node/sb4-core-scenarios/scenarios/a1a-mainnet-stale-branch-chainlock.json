@@ -1,0 +1,58 @@
+{
+ "name": "a1a-mainnet-stale-branch-chainlock",
+ "description": "mainnet's real headers to 300, SPORK_19 on (harness signer), lock R250 seeded: a mined stale branch at 201 is bad-chainlock and kept as CONFLICT, resubmitting it is a duplicate, its child is bad-prevblk-chainlock, a fork at the lock height 250 is bad-chainlock, and one above it (261) is accepted",
+ "rows": [
+  "A-1a/mainnet"
+ ],
+ "network": "main",
+ "args": [],
+ "preload": {
+  "file": "mainnet.bin",
+  "count": 301
+ },
+ "check_block_index": false,
+ "ops": [
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "seed-cl",
+   "block": "R250"
+  },
+  {
+   "op": "build",
+   "branch": "S",
+   "parent": "R200",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "S201"
+   ]
+  },
+  {
+   "op": "build",
+   "branch": "S",
+   "parent": "S201",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "L",
+   "parent": "R249",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "F",
+   "parent": "R260",
+   "count": 1,
+   "submit": "headers"
+  }
+ ]
+}

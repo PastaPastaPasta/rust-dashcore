@@ -1,0 +1,4 @@
+# The block operator locktime_mtp's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate locktime_mtp
+extend main 1
