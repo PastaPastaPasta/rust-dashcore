@@ -1,0 +1,4 @@
+# script error "Opcode missing or not understood" (bank slot 25, se_bad_opcode): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_bad_opcode
+extend main 1
