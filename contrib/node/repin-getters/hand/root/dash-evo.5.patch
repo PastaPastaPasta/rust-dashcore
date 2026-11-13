@@ -1,0 +1,123 @@
+diff --git a/dash-evo/src/cbtx.rs b/dash-evo/src/cbtx.rs
+index 725bb98bc7ef3af071c52afe89a7d27ddcde52e6..291a19d7298a73bcf8ba4418a3100d0d98cb179a 100644
+--- a/dash-evo/src/cbtx.rs
++++ b/dash-evo/src/cbtx.rs
+@@ -10,7 +10,7 @@ use dash_consensus::hash::sha256d;
+ use dash_consensus::primitives::{TxHash, TxRef};
+ use dash_consensus::tx::MAX_DIP0001_BLOCK_SIZE;
+ use dash_consensus::validation::{BlockValidationError, BlockValidationResult};
+-use dash_pkc::bls::BlsEagerSig;
++use dash_pkc::bls::{BlsEagerSig, BlsGlobalSig};
+ use dash_primitives::{CoinbaseCommitment, MerkleRoot, SpecialPayload, TxType};
+ use dash_types::Numeric;
+ 
+@@ -32,6 +32,36 @@ pub const CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS: u16 = 4;
+ /// `CCbTx::Version::UNKNOWN`: the first version Core does not know.
+ pub const CBTX_VERSION_UNKNOWN: u16 = 5;
+ 
++/// `cbtx` with the fields its version serializes and no others, which is what Core writes for a
++/// `CCbTx` (a field the version has and `cbtx` lacks takes `CCbTx`'s default: a zero height
++/// diff and balance, the null signature, null roots). base-sdk's encode writes the fields that
++/// are present whatever the version, so a value built or edited field by field goes through
++/// this before it is encoded as Core would.
++// Core: evo/cbtx.h:54-70 SERIALIZE_METHODS(CCbTx)
++pub fn at_version(cbtx: &CoinbaseCommitment) -> CoinbaseCommitment {
++    let version = cbtx.version().to_base();
++    let from = |first: u16| version >= first;
++    let with_cl = from(CBTX_VERSION_CLSIG_AND_BALANCE);
++    CoinbaseCommitment::new(
++        cbtx.version(),
++        cbtx.height(),
++        cbtx.merkle_root_mn_list(),
++        from(CBTX_VERSION_MERKLE_ROOT_QUORUMS)
++            .then(|| cbtx.merkle_root_quorums().unwrap_or_default()),
++        with_cl.then(|| cbtx.best_cl_height_diff().unwrap_or(0)),
++        with_cl.then(|| cbtx.best_cl_signature().clone().unwrap_or_else(null_signature)),
++        with_cl.then(|| cbtx.credit_pool_balance().unwrap_or(0)),
++        from(CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS)
++            .then(|| cbtx.merkle_root_asset_unlocks().unwrap_or_default()),
++    )
++}
++
++/// `CCbTx::bestCLSignature` left default: Core's `CBLSSignature()` is invalid, and
++/// `CBLSWrapper` writes an invalid object as zeros under either scheme.
++pub fn null_signature() -> BlsGlobalSig {
++    BlsGlobalSig::decode(&[0; 96]).expect("zeros decode under either scheme")
++}
++
+ /// The `merkleRootMNList` check of `ProcessSpecialTxsInBlock`: `calculated` is the root of the
+ /// list after the block ([`crate::sml::SmlList::merkle_root`]).
+ // Core: evo/specialtxman.cpp:930-936
+diff --git a/dash-evo/tests/cbtx.rs b/dash-evo/tests/cbtx.rs
+index fd95a81708b43399080ab39845fa0bf9232092d2..30687ef11e7f88e00bbd3c7b42d3540119d6fc16 100644
+--- a/dash-evo/tests/cbtx.rs
++++ b/dash-evo/tests/cbtx.rs
+@@ -33,16 +33,17 @@ use dash_consensus::primitives::{MerkleRoot, Tx, TxHash, TxRef, decode_tx_exact}
+ use dash_consensus::validation::BlockValidationError;
+ use dash_evo::bls::BlsCtx;
+ use dash_evo::cbtx::{
+-    CbTxProofError, CoinbaseFacts, PartialMerkleTree, check_mn_list_root, check_quorums_root,
+-    nonnull_coinbase_chainlock, verify_cbtx_proof,
++    CbTxProofError, CoinbaseFacts, PartialMerkleTree, at_version, check_mn_list_root,
++    check_quorums_root, nonnull_coinbase_chainlock, null_signature, verify_cbtx_proof,
+ };
+ use dash_evo::sml::{
+     BlockQc, QcHashes, QuorumRootParams, merkle_root_quorums, merkle_root_quorums_from_hashes,
+ };
+ use dash_params::LlmqType;
+ use dash_params::{ChainParamsBuilder, Network, Release};
+-use dash_primitives::{CoinbaseCommitment, SpecialPayload};
++use dash_primitives::{CbCommitmentVersion, CoinbaseCommitment, SpecialPayload};
+ use dash_types::Numeric;
++use dash_types::codec::BaseCodec as _;
+ use serde_json::Value;
+ 
+ fn fixtures() -> Value {
+@@ -397,6 +398,47 @@ fn cbtx_root_checks() {
+     assert_eq!(reason(check_quorums_root(&v2, || Ok(other))), "bad-cbtx-quorummerkleroot");
+ }
+ 
++/// [`at_version`] gives each version the fields `SERIALIZE_METHODS(CCbTx)` writes for it
++/// (`evo/cbtx.h:54-70`): a missing one at `CCbTx`'s default, one past the version dropped, so
++/// the encode is Core's and decodes back to the same value.
++#[test]
++#[expect(
++    clippy::disallowed_methods,
++    reason = "the test reads base-sdk's own encode of the payload"
++)]
++fn at_version_has_the_fields_its_version_serializes() {
++    let with = |version: u16, full: bool| {
++        CoinbaseCommitment::new(
++            CbCommitmentVersion::new(version),
++            432_u32.into(),
++            MerkleRoot::from_lendian([1; 32]),
++            full.then(|| MerkleRoot::from_lendian([2; 32])),
++            full.then_some(7),
++            full.then(null_signature),
++            full.then_some(9),
++            full.then(|| MerkleRoot::from_lendian([3; 32])),
++        )
++    };
++    let encoded = |cbtx: &CoinbaseCommitment| {
++        let mut bytes = Vec::new();
++        cbtx.encode(&mut bytes);
++        bytes
++    };
++    // nVersion + nHeight + merkleRootMNList, then 32, 1 + 96 + 8 and 32 bytes from 2, 3 and 4.
++    for (version, len) in [(0, 38), (1, 38), (2, 70), (3, 175), (4, 207), (5, 207)] {
++        for full in [false, true] {
++            let cbtx = at_version(&with(version, full));
++            let bytes = encoded(&cbtx);
++            assert_eq!(bytes.len(), len, "v{version} full {full}");
++            assert_eq!(CoinbaseCommitment::decode(&mut &bytes[..]), Ok(cbtx.clone()), "v{version}");
++            if !full {
++                assert!(bytes[38..].iter().all(|&b| b == 0), "v{version}: CCbTx's defaults");
++            }
++        }
++    }
++    assert_eq!(at_version(&with(4, true)), with(4, true));
++}
++
+ /// A block's type-6 transaction as `CalcCbTxMerkleRootQuorums` reads it, hashing the commitment
+ /// bytes as mined: `SerializeHash` of the payload after its version (2 bytes) and height (4).
+ fn block_qc(tx: &Tx) -> BlockQc {

@@ -1,0 +1,4 @@
+# The block operator premature_coinbase's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate premature_coinbase
+extend main 1
