@@ -1,0 +1,4 @@
+# validation.cpp:CheckBlock#1:bad-blk-length (bank slot 0, x_block_size).
+extend main 1 tx=spends
+mutatex x_block_size
+extend main 1

@@ -1,0 +1,9 @@
+# While spork 19 is off, a fork past the held lock is no ChainLock conflict
+# (chainlock/chainlock.cpp:73-82) and becomes the active chain. Back on, the lock conflicts with
+# it: the timer's enforcement, by a handler that never saw the spork off, walks back to the lock.
+extend main 2
+cl main@-0
+spork off
+fork 1 2
+spork on
+extend main 1
