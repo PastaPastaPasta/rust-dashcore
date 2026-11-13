@@ -1,0 +1,4 @@
+# script error "Attempted to use a disabled opcode" (bank slot 26, se_disabled_opcode): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_disabled_opcode
+extend main 1
