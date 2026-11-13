@@ -1,0 +1,8 @@
+# The tip invalidated, a fork on the active chain, the clock moved back past its time + 2 h:
+# the clean load is refused (the av line is failed first on S2, so the load is not a tie).
+extend main 2
+invalidate main@-0
+fork 0 2
+warp 100
+restart clean
+extend main 1

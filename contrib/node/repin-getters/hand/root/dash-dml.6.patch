@@ -1,0 +1,35 @@
+diff --git a/dash-dml/src/testkit.rs b/dash-dml/src/testkit.rs
+index 68a0b581b3caa0d238d9c69047052a108ccebd3e..8760ffa12b05a8560c86c501ad6c965221b81e4f 100644
+--- a/dash-dml/src/testkit.rs
++++ b/dash-dml/src/testkit.rs
+@@ -282,19 +282,25 @@ fn wire_bytes<T: BaseCodec>(value: &T) -> Vec<u8> {
+ /// signature (any bytes, or one made for another key or scheme) uses [`WithSig::with_sig`]. The
+ /// repin port (DEC-1055) also rebuilds signed payloads through `new`, which resets the signature,
+ /// and puts the old one back with it.
+-pub trait WithSig: BaseCodec + PartialEq + std::fmt::Debug + Sized {
++pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+     type Sig: PartialEq + std::fmt::Debug;
+     fn sig_field(&self) -> &Self::Sig;
+     /// `sig` as this payload's encoding writes it.
+     fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8>;
+ 
+-    /// The payload with `sig` in place of its signature: its encoding with the signature's bytes
+-    /// replaced, decoded. Asserts the payload round-trips and the signature decodes as `sig`, so
+-    /// the result equals the payload with only the signature changed.
++    /// The payload with `sig` in place of its signature: the payload itself when it holds `sig`
++    /// already, else its encoding with the signature's bytes replaced, decoded. Asserts the
++    /// payload round-trips, by its `Debug` form, and the signature decodes as `sig`, so the result
++    /// equals the payload with only the signature changed.
+     fn with_sig(&self, sig: Self::Sig) -> Self {
++        if self.sig_field() == &sig {
++            return self.clone();
++        }
+         let mut wire = wire_bytes(self);
+         let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
+-        assert_eq!(&back, self, "the payload round-trips");
++        // `Debug`, not `PartialEq`: a lazy BLS key's decoded value and scheme are state the
++        // encoding does not carry, and `PartialEq` does not see.
++        assert_eq!(format!("{back:?}"), format!("{self:?}"), "the payload round-trips");
+         let old = self.sig_wire(self.sig_field());
+         assert!(wire.ends_with(&old), "the signature is the last field");
+         wire.truncate(wire.len() - old.len());
