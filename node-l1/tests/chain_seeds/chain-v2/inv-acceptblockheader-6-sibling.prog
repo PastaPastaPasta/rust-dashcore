@@ -1,0 +1,9 @@
+# A sibling of the tip that fails ConnectBlock, stored below the main chain, then a header on
+# it; invalidating the main block under the sibling connects it and it fails, leaving the
+# header-only child unmarked: a header on that child (AcceptBlockHeader#6).
+extend main 2
+mutate cb_amount
+fork 2 1
+extend b1 1 headers hold
+invalidate main@-1
+extend b1 1 headers
