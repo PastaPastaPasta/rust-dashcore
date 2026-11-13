@@ -1,0 +1,82 @@
+diff --git a/dashd-p2p/src/processing/bloom.rs b/dashd-p2p/src/processing/bloom.rs
+index e94e8c8a068bae6fef26dd9aaf9b662ee098ce57..8009112c606742503cb683e158f8bdcc32ac3420 100644
+--- a/dashd-p2p/src/processing/bloom.rs
++++ b/dashd-p2p/src/processing/bloom.rs
+@@ -625,6 +625,21 @@ mod tests {
+             Tx::new(raw)
+         }
+ 
++        /// `rebuilt` with `old`'s signature. A ProTx `new` leaves the payload unsigned and
++        /// base-sdk sets a signature only through `Signable::set_signature`, which verifies it,
++        /// so `old`'s signature bytes (`sig_wire`) replace `rebuilt`'s at the end of its encoding.
++        fn keep_sig<P: BaseCodec>(old: &P, rebuilt: &P, sig_wire: impl Fn(&P) -> Vec<u8>) -> P {
++            let mut wire = Vec::new();
++            rebuilt.encode(&mut wire);
++            let unsigned = sig_wire(rebuilt);
++            assert!(wire.ends_with(&unsigned), "the signature is the last field");
++            wire.truncate(wire.len() - unsigned.len());
++            wire.extend(sig_wire(old));
++            let out = P::decode(&mut &wire[..]).expect("the payload decodes");
++            assert_eq!(sig_wire(&out), sig_wire(old), "the signature decodes as it was");
++            out
++        }
++
+         /// A 1 DASH output paying `script`.
+         fn txout(script: &[u8]) -> TxOut {
+             let mut bytes = 100_000_000i64.to_le_bytes().to_vec();
+@@ -639,7 +654,12 @@ mod tests {
+ 
+         /// A ProUpRevTx naming `hash`: it matches when the filter holds `hash`.
+         fn names(hash: &TxHash) -> Tx {
+-            with_payload::<ProUpRevTx>(fixture!("dip2-prouprevtx"), |p| p.pro_tx_hash = *hash)
++            with_payload::<ProUpRevTx>(fixture!("dip2-prouprevtx"), |p| {
++                let rebuilt = ProUpRevTx::new(p.version(), *hash, p.reason(), p.inputs_hash());
++                *p = keep_sig(p, &rebuilt, |q| {
++                    q.sig().to_bytes(dash_primitives::protx_bls_scheme(q.version())).to_vec()
++                });
++            })
+         }
+ 
+         /// A transaction spending `(hash, index)`: it matches when the filter holds that outpoint.
+@@ -739,7 +759,40 @@ mod tests {
+             let reward = [0x5e; 20];
+             let paid = with_payload::<ProRegTx>(fixture!("v24-proregtx-shares"), |p| {
+                 assert!(p.shares()[0].script_reward().is_empty());
+-                p.shares[0].script_reward = txout(&p2pkh(&reward)).script_pubkey();
++                let mut shares = p.shares().clone();
++                shares[0] = dash_primitives::CollateralShare::new(
++                    shares[0].amount(),
++                    shares[0].script_refund().clone(),
++                    txout(&p2pkh(&reward)).script_pubkey().clone(),
++                    shares[0].key_id_owner(),
++                );
++                let rebuilt = ProRegTx::new(
++                    p.version(),
++                    p.mn_type(),
++                    p.mode(),
++                    p.collateral_hash(),
++                    p.collateral_index(),
++                    p.net_info().clone(),
++                    p.key_id_owner(),
++                    p.pub_key_operator().clone(),
++                    p.key_id_voting(),
++                    p.operator_reward(),
++                    p.script_payout().clone(),
++                    p.payouts().clone(),
++                    shares,
++                    p.join_sigs().clone(),
++                    p.early_period_blocks(),
++                    p.early_penalty(),
++                    p.inputs_hash(),
++                    p.platform_node_id(),
++                    p.platform_p2p_port(),
++                    p.platform_http_port(),
++                );
++                *p = keep_sig(p, &rebuilt, |q| {
++                    let mut sig = Vec::new();
++                    q.sig().encode(&mut sig);
++                    sig
++                });
+             });
+             matches_and_inserts(&paid, &reward, &names(&paid.txid()));
+             let mut f = core_filter(BLOOM_UPDATE_ALL);
