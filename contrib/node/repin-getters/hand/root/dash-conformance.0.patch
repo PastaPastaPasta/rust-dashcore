@@ -1,0 +1,45 @@
+diff --git a/conformance/src/payload.rs b/conformance/src/payload.rs
+index b1f0879136ba4710ceac74fbda2caf2e68a31df3..1845f5cf7fcab04c1f53522f9c4c1ca9b5b2a0fe 100644
+--- a/conformance/src/payload.rs
++++ b/conformance/src/payload.rs
+@@ -8,9 +8,9 @@
+ 
+ use dash_pkc::bls::{BlsGlobal, BlsLazy, BlsSchemeKind, BlsWirePoint};
+ use dash_primitives::{
+-    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, CompactSig, FinalCommitment,
+-    MnHardFork, NetInfo, PayoutShare, ProDisTx, ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx,
+-    ProUpShareTx, ProUpSharedRegTx, SpecialPayload,
++    AssetLock, AssetUnlock, CoinbaseCommitment, CollateralShare, EcdsaRecSigArray,
++    FinalCommitment, MnHardFork, NetInfo, PayoutShare, ProDisTx, ProRegTx, ProUpRegTx, ProUpRevTx,
++    ProUpServTx, ProUpShareTx, ProUpSharedRegTx, SpecialPayload,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -371,8 +371,8 @@ fn pro_up_rev(a: &ProviderUpdateRevocationPayload, b: &ProUpRevTx) -> Vec<FieldD
+ 
+ fn cbtx(a: &CoinbasePayload, b: &CoinbaseCommitment) -> Vec<FieldDiff> {
+     let mut c = Cmp::new("CbTx");
+-    c.int("version", a.version.into(), b.version().into());
+-    c.int("height", a.height.into(), b.height().into());
++    c.int("version", a.version.into(), b.version().to_base().into());
++    c.int("height", a.height.into(), b.height().to_u32().cast_signed().into());
+     c.bytes(
+         "merkle_root_mn_list",
+         &dc_bytes(&a.merkle_root_masternode_list),
+@@ -556,8 +556,14 @@ fn sigs(v: &[EcdsaRecSignature]) -> String {
+     v.iter().map(|s| s.as_bytes().to_lower_hex_string()).collect::<Vec<_>>().join(",")
+ }
+ 
+-fn bs_sigs(v: &[CompactSig]) -> String {
+-    v.iter().map(|s| s.as_bytes().to_lower_hex_string()).collect::<Vec<_>>().join(",")
++fn bs_sigs<T: Copy>(v: &[T]) -> String
++where
++    EcdsaRecSigArray: From<T>,
++{
++    v.iter()
++        .map(|&s| EcdsaRecSigArray::from(s).as_bytes().to_lower_hex_string())
++        .collect::<Vec<_>>()
++        .join(",")
+ }
+ 
+ fn pro_dis(a: &ProviderDissolvePayload, b: &ProDisTx) -> Vec<FieldDiff> {
