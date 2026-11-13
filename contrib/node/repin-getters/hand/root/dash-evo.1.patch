@@ -1,0 +1,50 @@
+diff --git a/dash-evo/src/llmq/commitment_tests.rs b/dash-evo/src/llmq/commitment_tests.rs
+index e03f917c17568ff04be95008b63523e2879e9ea7..850465d4c3e36a39872945aef8ee9f796cc9912d 100644
+--- a/dash-evo/src/llmq/commitment_tests.rs
++++ b/dash-evo/src/llmq/commitment_tests.rs
+@@ -1037,13 +1037,11 @@ fn the_commitment_hash_follows_cores_serialization() {
+     assert_eq!(hash(BlsCtx::BASIC), dash_consensus::hash::sha256d(&basic));
+     assert_eq!(hash(BlsCtx::LEGACY), dash_consensus::hash::sha256d(&legacy));
+     assert_ne!(hash(BlsCtx::BASIC), hash(BlsCtx::LEGACY));
+-    // Padding bits a hand-built bitset holds are not serialized.
+-    let mut padded = valid.clone();
+-    padded.data[1] |= 0b1111_1100;
+-    assert_eq!(
+-        build_commitment_hash(TEST, &quorum_hash, &padded, &key, &vvec, BlsCtx::BASIC),
+-        hash(BlsCtx::BASIC)
+-    );
++    // Padding bits a hand-built bitset holds are not serialized. base-sdk's `DynBitset::new`
++    // refuses them since fda80b21 and nothing else builds a bitset, so none can be built.
++    let mut padded = valid.data().clone();
++    padded[1] |= 0b1111_1100;
++    assert!(DynBitset::new(valid.num_bits(), padded).is_err());
+ }
+ 
+ #[test]
+diff --git a/dash-evo/src/sml/entry.rs b/dash-evo/src/sml/entry.rs
+index 2c29920faabe3716e7cab7e26b880cc7beeb9a23..c63459d0d939bba7c2311f001b59a70610eb2d22 100644
+--- a/dash-evo/src/sml/entry.rs
++++ b/dash-evo/src/sml/entry.rs
+@@ -3,7 +3,7 @@
+ use dash_consensus::hash::HashWriter;
+ use dash_consensus::primitives::{BlockHash, CoreWrite, write_bytes, write_compact_size};
+ use dash_num::Hash256;
+-use dash_primitives::{NIEntry, NetInfo, NetInfoV1, NetInfoV2, PlatformNodeId};
++use dash_primitives::{NIEntry, NetInfo, NetInfoV2, PlatformNodeId};
+ use dash_types::Numeric;
+ 
+ use crate::types::{ProTxHash, RawMnType};
+@@ -86,9 +86,10 @@ impl SmlEntry {
+ // Core: evo/netinfo.h:327 MnNetInfo::Serialize, :412 ExtNetInfo::Serialize
+ pub fn write_net_info(net_info: &NetInfo, w: &mut impl CoreWrite) {
+     match net_info {
+-        NetInfo::Legacy(NetInfoV1(service)) => {
+-            w.write(&service.addr.0);
+-            w.write(&service.port.to_be_bytes());
++        NetInfo::Legacy(v1) => {
++            let service = v1.service();
++            w.write(service.addr().as_bytes());
++            w.write(&service.port().to_be_bytes());
+         }
+         NetInfo::Extended(v2) => write_ext_net_info(v2, w),
+     }
