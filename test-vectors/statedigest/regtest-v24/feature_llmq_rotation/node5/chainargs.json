@@ -1,0 +1,144 @@
+{
+ "network": "regtest",
+ "starts": [
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_llmq_rotation/run/node5"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "4:4"
+    ],
+    "llmqtestparams": [
+     "4:4"
+    ],
+    "llmqtestplatformparams": [
+     "4:4"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "masternodeblsprivkey": [
+     "<redacted>"
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode5"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:999999999999:999999999999"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "13689"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "23689"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.testactivationheight": [
+     "v20@300",
+     "mn_rr@300"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  }
+ ]
+}
