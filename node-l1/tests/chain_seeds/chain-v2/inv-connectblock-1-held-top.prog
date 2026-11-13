@@ -1,0 +1,7 @@
+# A fork header at the tip height, a lock on the tip, then the fork child held and the branch
+# delivered child first: the fork block connects into the lock (ConnectBlock#1).
+extend main 1
+fork 1 1 headers hold
+cl main@-0
+extend b1 1 hold
+deliver b1 rev

@@ -1,0 +1,9 @@
+# The input invalidates a fork, a ChainLock on the other side conflicts with it, and
+# RECONSIDER(ignore_cl) undoes the invalidation across the conflict.
+extend main 2
+fork 1 2
+invalidate built#2
+cl built#1
+cl_enforce
+reconsider built#2 ignore_cl
+cl_enforce
