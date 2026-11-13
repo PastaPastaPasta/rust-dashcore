@@ -1,0 +1,4 @@
+# script error "Invalid OP_IF construction" (bank slot 30, se_unbalanced_conditional): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_unbalanced_conditional
+extend main 1

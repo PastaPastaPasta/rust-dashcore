@@ -1,0 +1,10 @@
+# CRASH planted bug NoRoll (CH2 §6.4), minimised in 78 replays.
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=3 planted=NoRoll
+workload c20;f
+crash 74 process-kill
+adversary realistic
+granularity write
+expect Model
+minimality verified

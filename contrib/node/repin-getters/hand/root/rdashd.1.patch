@@ -1,0 +1,12 @@
+diff --git a/rdashd/tests/common/peer.rs b/rdashd/tests/common/peer.rs
+index 105f12cced0c2580fc4bf67047f7f51308aefc72..3295492f25f04fdbdfef0ce328acb7f36d9374d6 100644
+--- a/rdashd/tests/common/peer.rs
++++ b/rdashd/tests/common/peer.rs
+@@ -289,6 +289,7 @@ impl Peer {
+                     .inventory()
+                     .into_iter()
+                     .filter(|i| i.inv_type() != InvType::Error)
++                    .cloned()
+                     .collect();
+                 if !want.is_empty() {
+                     self.send(
