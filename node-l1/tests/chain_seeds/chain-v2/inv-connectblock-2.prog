@@ -1,0 +1,4 @@
+# validation.cpp:ConnectBlock#2:bad-txns-BIP30 (bank slot 3, x_bip30).
+extend main 1 tx=spends
+mutatex x_bip30
+extend main 1
