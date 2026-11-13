@@ -1,0 +1,34 @@
+diff --git a/dash-dml/src/blockprocessor/pool.rs b/dash-dml/src/blockprocessor/pool.rs
+index 9c82a6d2f8984588f81c18130821bb531f77b51c..03a17e44b7e0e5f94f965cf4e52118c7a9041863 100644
+--- a/dash-dml/src/blockprocessor/pool.rs
++++ b/dash-dml/src/blockprocessor/pool.rs
+@@ -226,9 +226,9 @@ pub fn null_commitment(
+     quorum_index: i16,
+ ) -> LlmqCommitment {
+     let size = u64::from(params.size);
+-    let bitset = || DynBitset {
+-        num_bits: size,
+-        data: vec![0; usize::try_from(size.div_ceil(8)).unwrap_or(0)],
++    let bitset = || {
++        DynBitset::new(size, vec![0; usize::try_from(size.div_ceil(8)).unwrap_or(0)])
++            .expect("zeroed bits of the quorum's size")
+     };
+     let scheme = commitment_bls_scheme(version);
+     LlmqCommitment::new(
+diff --git a/dash-dml/src/snapshot/codec.rs b/dash-dml/src/snapshot/codec.rs
+index 7ee81c7a76685b596a032cddf86c024e65c2a859..2660399e88e414505837fa91c68e4e0d3d82d3ab 100644
+--- a/dash-dml/src/snapshot/codec.rs
++++ b/dash-dml/src/snapshot/codec.rs
+@@ -244,9 +244,9 @@ pub(super) fn read_mined_commitment(
+     {
+         return Err(CodecError::new("noncanonical evo snapshot commitment encoding"));
+     }
+-    let bitset = |data: Vec<u8>| DynBitset {
+-        num_bits: signers_size as u64,
+-        data,
++    // `read_fixed_bitset` already refused a wrong length and set padding bits.
++    let bitset = |data: Vec<u8>| {
++        DynBitset::new(signers_size as u64, data).expect("read_fixed_bitset checked the bits")
+     };
+     Ok(MinedQuorumCommitment {
+         quorum_base_block_hash,

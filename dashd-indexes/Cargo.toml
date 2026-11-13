@@ -1,0 +1,32 @@
+[package]
+name = "dashd-indexes"
+description = "Read interfaces and host inputs for the Rust Dash node's transaction, block filter and coin statistics indexes"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+testing = []
+
+[dependencies]
+dash-chain = { path = "../dash-chain" }
+dash-consensus = { path = "../dash-consensus" }
+dash-filters = { path = "../dash-filters" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+dash-core-vectors = { path = "../test-vectors" }
+dash-num = { workspace = true, features = ["std"] }
+dashd-store = { path = "../dashd-store", default-features = false }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

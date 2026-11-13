@@ -1,0 +1,5 @@
+# A ChainLock recorded twice (seen) and one below the best (stale).
+extend main 2
+cl main@-0
+cl main@-0
+cl main@-1
