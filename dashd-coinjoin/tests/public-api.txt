@@ -1,0 +1,84 @@
+pub mod dashd_coinjoin
+pub mod dashd_coinjoin::dsq
+pub struct dashd_coinjoin::dsq::DsqMaintenance<C>
+impl<C: dashd_coinjoin::env::ChainView> dashd_coinjoin::dsq::DsqMaintenance<C>
+pub fn dashd_coinjoin::dsq::DsqMaintenance<C>::tick(&mut self, std::time::Instant, i64, bool) -> bool
+pub struct dashd_coinjoin::dsq::DsqRuntime<C, M>
+impl<C: dashd_coinjoin::env::ChainView, M: dashd_coinjoin::env::MnLists> dashd_coinjoin::dsq::DsqRuntime<C, M>
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::get(&self, &dash_num::hash::Hash256) -> core::option::Option<dash_p2p_core::msg::coinjoin::DsQueue>
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::is_empty(&self) -> bool
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::len(&self) -> usize
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::new(bool, alloc::sync::Arc<C>, alloc::sync::Arc<M>, alloc::sync::Arc<std::sync::poison::mutex::Mutex<dash_coinjoin::queue::MixingCounters>>) -> Self
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::schedule(&self, std::time::Instant) -> core::option::Option<dashd_coinjoin::dsq::DsqMaintenance<C>>
+impl<C, M> core::clone::Clone for dashd_coinjoin::dsq::DsqRuntime<C, M>
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::clone(&self) -> Self
+impl<C: dashd_coinjoin::env::ChainView + core::marker::Send + core::marker::Sync, M: dashd_coinjoin::env::MnLists + core::marker::Send + core::marker::Sync> dashd_p2p::processing::registry::NetHandler for dashd_coinjoin::dsq::DsqRuntime<C, M>
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::already_have(&self, &dash_p2p_core::msg::inv::Inventory) -> bool
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::commands(&self) -> &'static [dash_p2p_core::command::CommandString]
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::extension(&self) -> core::option::Option<dashd_p2p::processing::registry::Extension>
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::process_getdata(&mut self, &mut dashd_p2p::processing::registry::HandlerCx<'_>, &dash_p2p_core::msg::inv::Inventory) -> bool
+pub fn dashd_coinjoin::dsq::DsqRuntime<C, M>::process_message(&mut self, &mut dashd_p2p::processing::registry::HandlerCx<'_>, &dash_p2p_core::command::CommandString, &[u8]) -> core::result::Result<(), dash_p2p::policy::Throw>
+pub fn dashd_coinjoin::dsq::already_have_queue(&dash_coinjoin::queue::QueueManager, &dash_p2p_core::msg::inv::Inventory) -> bool
+pub fn dashd_coinjoin::dsq::process_queue_getdata(&dash_coinjoin::queue::QueueManager, &dashd_p2p::processing::registry::HandlerCx<'_>, &dash_p2p_core::msg::inv::Inventory) -> bool
+pub mod dashd_coinjoin::dstx
+pub struct dashd_coinjoin::dstx::DstxRuntime
+impl dashd_coinjoin::dstx::DstxRuntime
+pub fn dashd_coinjoin::dstx::DstxRuntime::announce_kind(&self, &dash_primitives::transaction::TxHash, dash_p2p_core::version::ProtocolVersion) -> dash_coinjoin::relay::TxInvKind
+pub fn dashd_coinjoin::dstx::DstxRuntime::block_connected(&self, &[dash_primitives::transaction::Transaction], i32)
+pub fn dashd_coinjoin::dstx::DstxRuntime::block_disconnected(&self, &[dash_primitives::transaction::Transaction])
+pub fn dashd_coinjoin::dstx::DstxRuntime::contains(&self, &dash_primitives::transaction::TxHash) -> bool
+pub fn dashd_coinjoin::dstx::DstxRuntime::get(&self, &dash_primitives::transaction::TxHash) -> core::option::Option<dash_coinjoin::dstx::StoredDstx>
+pub fn dashd_coinjoin::dstx::DstxRuntime::new(dash_coinjoin::dstx::PoolLimits) -> Self
+pub fn dashd_coinjoin::dstx::DstxRuntime::notify_chain_lock<C: dashd_coinjoin::env::ChainView + ?core::marker::Sized>(&self, core::option::Option<(i32, dash_primitives::block::BlockHash)>, &C)
+pub fn dashd_coinjoin::dstx::DstxRuntime::on_accepted(&self, dash_p2p_core::msg::coinjoin::DsTx)
+pub fn dashd_coinjoin::dstx::DstxRuntime::updated_block_tip<C: dashd_coinjoin::env::ChainView + ?core::marker::Sized>(&self, core::option::Option<(i32, dash_primitives::block::BlockHash)>, core::option::Option<(i32, dash_primitives::block::BlockHash)>, bool, &C)
+pub fn dashd_coinjoin::dstx::DstxRuntime::validate<C, M, T>(&self, &dash_p2p_core::msg::coinjoin::DsTx, &dash_primitives::transaction::TxHash, &mut T, &C, &mut M) -> core::result::Result<(), i32> where C: dash_coinjoin::dstx::DstxChain + ?core::marker::Sized, M: dashd_coinjoin::env::Mempool + ?core::marker::Sized, T: core::borrow::BorrowMut<dash_coinjoin::queue::MixingCounters>
+impl core::fmt::Debug for dashd_coinjoin::dstx::DstxRuntime
+pub fn dashd_coinjoin::dstx::DstxRuntime::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl dashd_coinjoin::env::MempoolListener for dashd_coinjoin::dstx::DstxRuntime
+pub fn dashd_coinjoin::dstx::DstxRuntime::transaction_added_to_mempool(&self, &dash_primitives::transaction::Transaction)
+pub mod dashd_coinjoin::env
+pub struct dashd_coinjoin::env::DstxChainAdapter<'a, C: ?core::marker::Sized, M: ?core::marker::Sized>
+pub dashd_coinjoin::env::DstxChainAdapter::chain: &'a C
+pub dashd_coinjoin::env::DstxChainAdapter::mns: &'a M
+impl<C: dashd_coinjoin::env::ChainView + ?core::marker::Sized, M: dashd_coinjoin::env::MnLists + ?core::marker::Sized> dash_coinjoin::dstx::DstxChain for dashd_coinjoin::env::DstxChainAdapter<'_, C, M>
+pub fn dashd_coinjoin::env::DstxChainAdapter<'_, C, M>::mn_at_depth(&self, i32, &dash_primitives::transaction::TxHash) -> core::option::Option<dash_coinjoin::queue::MixingMasternode>
+pub fn dashd_coinjoin::env::DstxChainAdapter<'_, C, M>::tip_height(&self) -> core::option::Option<i32>
+pub fn dashd_coinjoin::env::DstxChainAdapter<'_, C, M>::v24_active_after_tip(&self) -> bool
+pub fn dashd_coinjoin::env::DstxChainAdapter<'_, C, M>::v24_active_at_tip(&self) -> bool
+pub trait dashd_coinjoin::env::ActiveMn
+pub fn dashd_coinjoin::env::ActiveMn::outpoint(&self) -> dash_primitives::transaction::OutPoint
+pub fn dashd_coinjoin::env::ActiveMn::pro_tx_hash(&self) -> dash_primitives::transaction::TxHash
+pub fn dashd_coinjoin::env::ActiveMn::sign_basic(&mut self, &dash_num::hash::Hash256) -> alloc::vec::Vec<u8>
+pub trait dashd_coinjoin::env::ChainView
+pub fn dashd_coinjoin::env::ChainView::blockchain_synced(&self) -> bool
+pub fn dashd_coinjoin::env::ChainView::has_chain_lock(&self, i32, &dash_primitives::block::BlockHash) -> bool
+pub fn dashd_coinjoin::env::ChainView::tip(&self) -> core::option::Option<(i32, dash_primitives::block::BlockHash)>
+pub fn dashd_coinjoin::env::ChainView::v24_active_after_tip(&self) -> bool
+pub fn dashd_coinjoin::env::ChainView::v24_active_at_tip(&self) -> bool
+pub trait dashd_coinjoin::env::IsLocks
+pub fn dashd_coinjoin::env::IsLocks::is_locked(&self, &dash_primitives::transaction::TxHash) -> bool
+impl<T: dash_coinjoin::inouts::CoinView + ?core::marker::Sized> dashd_coinjoin::env::IsLocks for T
+pub fn T::is_locked(&self, &dash_primitives::transaction::TxHash) -> bool
+pub trait dashd_coinjoin::env::Mempool: dash_coinjoin::collateral::MempoolAccept + dash_coinjoin::inouts::CoinView
+pub fn dashd_coinjoin::env::Mempool::prioritise(&mut self, &dash_primitives::transaction::TxHash, i64)
+pub fn dashd_coinjoin::env::Mempool::submit(&mut self, &dash_primitives::transaction::Transaction) -> bool
+pub trait dashd_coinjoin::env::MempoolListener
+pub fn dashd_coinjoin::env::MempoolListener::transaction_added_to_mempool(&self, &dash_primitives::transaction::Transaction)
+impl dashd_coinjoin::env::MempoolListener for dashd_coinjoin::dstx::DstxRuntime
+pub fn dashd_coinjoin::dstx::DstxRuntime::transaction_added_to_mempool(&self, &dash_primitives::transaction::Transaction)
+pub trait dashd_coinjoin::env::MnLists: dash_coinjoin::queue::TipMasternodes
+pub fn dashd_coinjoin::env::MnLists::mn_at_depth(&self, i32, &dash_primitives::transaction::TxHash) -> core::option::Option<dash_coinjoin::queue::MixingMasternode>
+pub fn dashd_coinjoin::env::MnLists::valid_by_collateral(&self, &dash_primitives::transaction::OutPoint) -> core::option::Option<dash_coinjoin::queue::MixingMasternode>
+pub trait dashd_coinjoin::env::PeerSink
+pub fn dashd_coinjoin::env::PeerSink::erase_object_request(&mut self, dash_p2p::conn::PeerId, dash_p2p_core::msg::inv::Inventory)
+pub fn dashd_coinjoin::env::PeerSink::forget_object_request(&mut self, dash_p2p_core::msg::inv::Inventory)
+pub fn dashd_coinjoin::env::PeerSink::is_connected(&self, &dash_netaddr::netaddr::Service) -> bool
+pub fn dashd_coinjoin::env::PeerSink::misbehaving(&mut self, dash_p2p::conn::PeerId, i32, &str)
+pub fn dashd_coinjoin::env::PeerSink::push_to(&mut self, dash_p2p::conn::PeerId, dash_p2p_transport::message::OutMsg)
+pub fn dashd_coinjoin::env::PeerSink::push_to_addr(&mut self, &dash_netaddr::netaddr::Service, dash_p2p_transport::message::OutMsg) -> bool
+pub fn dashd_coinjoin::env::PeerSink::relay_dsq(&mut self, &dash_p2p_core::msg::coinjoin::DsQueue)
+pub fn dashd_coinjoin::env::PeerSink::relay_inv(&mut self, dash_p2p_core::msg::inv::Inventory)
+pub fn dashd_coinjoin::env::PeerSink::relay_transaction(&mut self, &dash_primitives::transaction::TxHash)
+pub fn dashd_coinjoin::env::PeerSink::relay_tx_inv(&mut self, dash_p2p_core::msg::inv::Inventory)
+pub mod dashd_coinjoin::server
