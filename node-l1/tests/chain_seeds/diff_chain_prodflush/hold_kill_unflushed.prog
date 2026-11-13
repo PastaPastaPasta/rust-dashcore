@@ -1,0 +1,10 @@
+# S0p hold twin of kill_unflushed.prog (OD-L3-119 item 2): the same input under the hold W schedule,
+# header bit 1 only.
+start hold
+# Index entries that were never flushed are lost by KILL; a flushed extension survives one.
+extend main 3
+restart kill
+extend main 2
+flush always
+restart kill
+extend main 1
