@@ -1,0 +1,43 @@
+# Standalone tool, not a workspace member: BS9's differential of base-sdk's
+# DKG, signature share, CoinJoin and governance messages against Dash
+# Core's reads, from the Core-linked judge (../bs9-judge, built by ../bs8-judge/build.sh). It
+# links the base-sdk fork pinned by the root through the [patch] below, which
+# repeats the root's table as in ../bs8, and takes the chain setup and LLMQ
+# templates from the node's dash-chainparams, which links the same base-sdk.
+[package]
+name = "bs9-tool"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+hex = "0.4"
+serde_json = "1"
+dash-p2p-core = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["std", "serde"] }
+# The node's chain parameters under the path name `dash_params` (DEC-1043).
+dash-params = { package = "dash-chainparams", path = "../../../../dash-chainparams", features = ["std"] }
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["std", "bls"] }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["std", "serde"] }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["std", "serde"] }
+
+# On x86_64 hosts without the CPU features they need, dash-pkc's BLS (ADX) and dash-pow's X11
+# (x86-64-v3 and AES), reached through dash-primitives, build only `portable`, as in the root's
+# crates. This tool runs on x86_64 hosts only, beside the Core oracle.
+[target.'cfg(all(target_arch = "x86_64", not(target_feature = "adx")))'.dependencies]
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["portable"] }
+
+[target.'cfg(all(target_arch = "x86_64", not(all(target_feature = "aes", target_feature = "avx", target_feature = "avx2", target_feature = "bmi1", target_feature = "bmi2", target_feature = "f16c", target_feature = "fma", target_feature = "lzcnt", target_feature = "movbe", target_feature = "xsave"))))'.dependencies]
+dash-pow = { git = "https://github.com/dashpay/base-sdk", rev = "90952f89364a40def61de66c602c0eee9c6594a5", features = ["portable"] }
+
+# The root Cargo.toml's table (which has dash-p2p-core too); keep them equal.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-script = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "c6468f218289767feb48dc9c62c71bff30d6d87d" }
