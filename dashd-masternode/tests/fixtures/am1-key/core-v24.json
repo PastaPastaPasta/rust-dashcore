@@ -1,0 +1,606 @@
+{
+  "version": "Dash Core version v24.0.0",
+  "core_commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "binary_sha256": "2ad05ccb0951bc127d1048bf0bfea0956a968482644ed130f8f59fbfcd732223",
+  "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+  "rows": [
+    {
+      "name": "null",
+      "source": "settings",
+      "value_json": "null",
+      "outcome": "inactive",
+      "exit_code": 1
+    },
+    {
+      "name": "false",
+      "source": "settings",
+      "value_json": "false",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "true",
+      "source": "settings",
+      "value_json": "true",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "integer",
+      "source": "settings",
+      "value_json": "1234",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "number-text",
+      "source": "settings",
+      "value_json": "1.50",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "number-valid-scalar",
+      "source": "settings",
+      "value_json": "1111111111111111111111111111111111111111111111111111111111111111",
+      "outcome": "key",
+      "legacy": "17248533cef0908a5ebe52c3b487471301bf6369010e6167f63dd74feddac2dfb5336a59a331d38eb0e454d6f6fcb1a4",
+      "basic": "97248533cef0908a5ebe52c3b487471301bf6369010e6167f63dd74feddac2dfb5336a59a331d38eb0e454d6f6fcb1a4",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 17248533cef0908a5ebe52c3b487471301bf6369010e6167f63dd74feddac2dfb5336a59a331d38eb0e454d6f6fcb1a4\n  blsPubKeyOperator basic: 97248533cef0908a5ebe52c3b487471301bf6369010e6167f63dd74feddac2dfb5336a59a331d38eb0e454d6f6fcb1a4\n",
+      "exit_code": 1
+    },
+    {
+      "name": "array",
+      "source": "settings",
+      "value_json": "[]",
+      "outcome": "exception",
+      "diagnostic": "JSON value of type array is not of expected type string",
+      "exit_code": 1
+    },
+    {
+      "name": "object",
+      "source": "settings",
+      "value_json": "{}",
+      "outcome": "exception",
+      "diagnostic": "JSON value of type object is not of expected type string",
+      "exit_code": 1
+    },
+    {
+      "name": "empty",
+      "source": "settings",
+      "value_json": "\"\"",
+      "outcome": "inactive",
+      "exit_code": 1
+    },
+    {
+      "name": "empty",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey="
+      ],
+      "outcome": "inactive",
+      "exit_code": 0
+    },
+    {
+      "name": "odd",
+      "source": "settings",
+      "value_json": "\"123\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "odd",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=123"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "single-zero-byte",
+      "source": "settings",
+      "value_json": "\"00\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "single-zero-byte",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=00"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "zero-key",
+      "source": "settings",
+      "value_json": "\"0000000000000000000000000000000000000000000000000000000000000000\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "zero-key",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "short-key",
+      "source": "settings",
+      "value_json": "\"01010101010101010101010101010101010101010101010101010101010101\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "short-key",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=01010101010101010101010101010101010101010101010101010101010101"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "long-key",
+      "source": "settings",
+      "value_json": "\"010101010101010101010101010101010101010101010101010101010101010101\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "long-key",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=010101010101010101010101010101010101010101010101010101010101010101"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "group-order",
+      "source": "settings",
+      "value_json": "\"73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001\"",
+      "outcome": "key",
+      "legacy": "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "basic": "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\n  blsPubKeyOperator basic: c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\n",
+      "exit_code": 1
+    },
+    {
+      "name": "group-order",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
+      ],
+      "outcome": "key",
+      "legacy": "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "basic": "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\n  blsPubKeyOperator basic: c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\n",
+      "exit_code": 0
+    },
+    {
+      "name": "order-plus-one",
+      "source": "settings",
+      "value_json": "\"73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000002\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "order-plus-one",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000002"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "above-order",
+      "source": "settings",
+      "value_json": "\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "above-order",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "order-minus-one",
+      "source": "settings",
+      "value_json": "\"73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000\"",
+      "outcome": "key",
+      "legacy": "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+      "basic": "b7f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb\n  blsPubKeyOperator basic: b7f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb\n",
+      "exit_code": 1
+    },
+    {
+      "name": "order-minus-one",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000"
+      ],
+      "outcome": "key",
+      "legacy": "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+      "basic": "b7f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb\n  blsPubKeyOperator basic: b7f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb\n",
+      "exit_code": 1
+    },
+    {
+      "name": "valid",
+      "source": "settings",
+      "value_json": "\"0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"",
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 0
+    },
+    {
+      "name": "valid",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "uppercase",
+      "source": "settings",
+      "value_json": "\"0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20\"",
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "uppercase",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20"
+      ],
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "whitespace",
+      "source": "settings",
+      "value_json": "\" \\t01 \\n02 \\n03 \\n04 \\n05 \\n06 \\n07 \\n08 \\n09 \\n0a \\n0b \\n0c \\n0d \\n0e \\n0f \\n10 \\n11 \\n12 \\n13 \\n14 \\n15 \\n16 \\n17 \\n18 \\n19 \\n1a \\n1b \\n1c \\n1d \\n1e \\n1f \\n20\\r\\u000b\\f\"",
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "whitespace",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey= \t01 \n02 \n03 \n04 \n05 \n06 \n07 \n08 \n09 \n0a \n0b \n0c \n0d \n0e \n0f \n10 \n11 \n12 \n13 \n14 \n15 \n16 \n17 \n18 \n19 \n1a \n1b \n1c \n1d \n1e \n1f \n20\r\u000b\f"
+      ],
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "whitespace-only",
+      "source": "settings",
+      "value_json": "\" \\t\\n\\r\\u000b\\f\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "whitespace-only",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey= \t\n\r\u000b\f"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "split-nibble",
+      "source": "settings",
+      "value_json": "\"0 102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "split-nibble",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0 102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "odd-after-valid",
+      "source": "settings",
+      "value_json": "\"0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f200\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "odd-after-valid",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f200"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "bad-after-valid",
+      "source": "settings",
+      "value_json": "\"0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20zz\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "bad-after-valid",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20zz"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "hex-prefix",
+      "source": "settings",
+      "value_json": "\"0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "hex-prefix",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "non-ascii-space",
+      "source": "settings",
+      "value_json": "\"\\u00a00102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "non-ascii-space",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=\u00a00102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "absent",
+      "source": "command-line",
+      "argv": [],
+      "outcome": "inactive",
+      "exit_code": 1
+    },
+    {
+      "name": "elided",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey"
+      ],
+      "outcome": "inactive",
+      "exit_code": 1
+    },
+    {
+      "name": "negated",
+      "source": "command-line",
+      "argv": [
+        "-nomasternodeblsprivkey"
+      ],
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    },
+    {
+      "name": "last-empty",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+        "-masternodeblsprivkey="
+      ],
+      "outcome": "inactive",
+      "exit_code": 0
+    },
+    {
+      "name": "last-valid",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=",
+        "-masternodeblsprivkey=0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+      ],
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "valid",
+      "source": "config",
+      "value": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "outcome": "key",
+      "legacy": "16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "basic": "96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 16a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n  blsPubKeyOperator basic: 96a20bb9485ff6d8950955a629e8043a43775968ac133eb7b19c5f0389a2253676abdd6c86c7b68d38a1b7f6af8650e7\n",
+      "exit_code": 1
+    },
+    {
+      "name": "empty",
+      "source": "config",
+      "value": "",
+      "outcome": "inactive",
+      "exit_code": 0
+    },
+    {
+      "name": "invalid",
+      "source": "config",
+      "value": "00",
+      "outcome": "invalid",
+      "diagnostic": "Invalid masternodeblsprivkey. Please see documentation.",
+      "exit_code": 1
+    }
+  ],
+  "network_keys": [
+    {
+      "name": "network-mn-0",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=6fa2f4c370d6603b6e850babbcca53f4f8af3289a20189ba4ff274defebdf1bb"
+      ],
+      "outcome": "key",
+      "legacy": "8a0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "basic": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 8a0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e\n  blsPubKeyOperator basic: aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e\n",
+      "exit_code": 1,
+      "index": 0,
+      "secret": "6fa2f4c370d6603b6e850babbcca53f4f8af3289a20189ba4ff274defebdf1bb",
+      "network_public": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e"
+    },
+    {
+      "name": "network-mn-1",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=4f0729bf086d7a01b2df502dfff4fbc2b63a30c084c6925d323bd84d3c237014"
+      ],
+      "outcome": "key",
+      "legacy": "823cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+      "basic": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 823cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af\n  blsPubKeyOperator basic: a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af\n",
+      "exit_code": 1,
+      "index": 1,
+      "secret": "4f0729bf086d7a01b2df502dfff4fbc2b63a30c084c6925d323bd84d3c237014",
+      "network_public": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af"
+    },
+    {
+      "name": "network-mn-2",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=41f26ef9d9e77f792730c09a184380c4a9f0d721d53c3e3e6a88f7ae322d32a3"
+      ],
+      "outcome": "key",
+      "legacy": "10569986de75535e680379c8d3099c1cde355e961f339daca4c321f50d38131a1f302b21976bbc240f4b637b56a702bf",
+      "basic": "90569986de75535e680379c8d3099c1cde355e961f339daca4c321f50d38131a1f302b21976bbc240f4b637b56a702bf",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 10569986de75535e680379c8d3099c1cde355e961f339daca4c321f50d38131a1f302b21976bbc240f4b637b56a702bf\n  blsPubKeyOperator basic: 90569986de75535e680379c8d3099c1cde355e961f339daca4c321f50d38131a1f302b21976bbc240f4b637b56a702bf\n",
+      "exit_code": 1,
+      "index": 2,
+      "secret": "41f26ef9d9e77f792730c09a184380c4a9f0d721d53c3e3e6a88f7ae322d32a3",
+      "network_public": "90569986de75535e680379c8d3099c1cde355e961f339daca4c321f50d38131a1f302b21976bbc240f4b637b56a702bf"
+    },
+    {
+      "name": "network-mn-3",
+      "source": "command-line",
+      "argv": [
+        "-masternodeblsprivkey=6e818e6d37954c53d83bfac46effff3e2180466102132817903c55a369b3bcd5"
+      ],
+      "outcome": "key",
+      "legacy": "8c15ff51441231f9630fd3ac51835c77d296465a7559941c98b92dc4bc249b0da021477186bdccdf9407a1f6990e50a1",
+      "basic": "ac15ff51441231f9630fd3ac51835c77d296465a7559941c98b92dc4bc249b0da021477186bdccdf9407a1f6990e50a1",
+      "log": "MASTERNODE:\n  blsPubKeyOperator legacy: 8c15ff51441231f9630fd3ac51835c77d296465a7559941c98b92dc4bc249b0da021477186bdccdf9407a1f6990e50a1\n  blsPubKeyOperator basic: ac15ff51441231f9630fd3ac51835c77d296465a7559941c98b92dc4bc249b0da021477186bdccdf9407a1f6990e50a1\n",
+      "exit_code": 0,
+      "index": 3,
+      "secret": "6e818e6d37954c53d83bfac46effff3e2180466102132817903c55a369b3bcd5",
+      "network_public": "ac15ff51441231f9630fd3ac51835c77d296465a7559941c98b92dc4bc249b0da021477186bdccdf9407a1f6990e50a1"
+    }
+  ],
+  "signatures": {
+    "core_commit": "938fba502824b9d850b7c710601456dc3d71603e",
+    "helper_source_sha256": "0e10634cbb70af64e572feed143e8f261e80f7c337437e5c675029f9b47ba357",
+    "helper_binary_sha256": "db677306ffbc3fcdeba751e56113e9b3fffb4cc4984b259ad6f0c83ab1d59c4a",
+    "dashbls_archive_sha256": "8b76f2fb95b7a1b6fb2bdcd9d7948f881efdbe60817d7746e7e5f993bd269ba8",
+    "compiler": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+    "rows": [
+      {
+        "network_index": 0,
+        "hash_bytes": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "legacy": "0d49b5005b9b8c6115b822c958df178f7e9933364e09a8b05dc9a42c938f74227db9697fdb8312dd4f05516099c425dd14441a565987d4ca8a9d352b3eda1ed96ff3ebb2c6658be09e642f7ea89afbc8f63fe9e713a80f78d8993b8ef44d969c",
+        "basic": "89243b52aa0a87d84a0b9fd704d4b34a52f6a554857beb8aa6d88f3f20722929f92422a354f141c705baac5dcbc8039810689acefee8859eb54b9987159eb45d74747adfb7d31da0b86e22f67236a3360dabdcce9c1eac85e6b2b2f2f5193c19",
+        "sign_basic": "89243b52aa0a87d84a0b9fd704d4b34a52f6a554857beb8aa6d88f3f20722929f92422a354f141c705baac5dcbc8039810689acefee8859eb54b9987159eb45d74747adfb7d31da0b86e22f67236a3360dabdcce9c1eac85e6b2b2f2f5193c19"
+      },
+      {
+        "network_index": 0,
+        "hash_bytes": "4242424242424242424242424242424242424242424242424242424242424242",
+        "legacy": "19c8ce2364e8e180684e6ee11920d113db92d76708639605bea338d54d06a4837e4f3dd315a9394626f5190e1d5e1ccc0e40e5b95b3bbe35c60f7c3525fb9eb7147860403cee9a28a3b02505efd363836d7cda710635a8aeca6651cfb08b9975",
+        "basic": "93430c38f62d770e64d092ba8cf671d1f3fe8a532c691dddce42f26132376ee848e47c606afd245e712e78d6be1b2fdd0ff9157aa29781094809aaa61b87fd3f90fe999efbdedbff4ac2f3b9b7ad65143cf828cba62cdb058ae025c764ca73c9",
+        "sign_basic": "93430c38f62d770e64d092ba8cf671d1f3fe8a532c691dddce42f26132376ee848e47c606afd245e712e78d6be1b2fdd0ff9157aa29781094809aaa61b87fd3f90fe999efbdedbff4ac2f3b9b7ad65143cf828cba62cdb058ae025c764ca73c9"
+      },
+      {
+        "network_index": 1,
+        "hash_bytes": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "legacy": "884b43ed2a9dd7a09cf1b9e83a8168962540bbc89ba1a21f9df729758c1d5f49797850bdfaef2f9116df33ac00852c0d1014b13d2c6d740f95a15a90af5a612bba55020a2875d74a04b68de776684c0248eb2575e569d14bc9bad63c9899808f",
+        "basic": "a384ea2171b1930f3d5d753814e3ee86dacb6f4b48fa0da74f7a8ce890e67bb7879be343e22ab055daa547a1fc82f5df0e31ca854d30c2ecc2a286308b602a29c4759a138af81e46824c1bf3ce71216a92362460beec176b21a3e66c805e3c30",
+        "sign_basic": "a384ea2171b1930f3d5d753814e3ee86dacb6f4b48fa0da74f7a8ce890e67bb7879be343e22ab055daa547a1fc82f5df0e31ca854d30c2ecc2a286308b602a29c4759a138af81e46824c1bf3ce71216a92362460beec176b21a3e66c805e3c30"
+      },
+      {
+        "network_index": 1,
+        "hash_bytes": "4242424242424242424242424242424242424242424242424242424242424242",
+        "legacy": "0b65dabd9d0c0fc873b0775101c7993ac2449698f7d5a89dc9520f7b7b58162f699ec2066cfaf1e188f79322007eb932176b5b1dcf63a9cf5c595c5f53092560f24bd39e40beda4385bf9f51568f70c42ed9a64c7707d6c8bf51e0b167d827a3",
+        "basic": "90e14bce85ea6f07627a3ee7b5724e8adb7ff15ad1e9dc081777f62c52a86af78e1ea438e8433eb201ec2431738428d80eb64596c91fcb9dda5395d9411854b84a511e5a785ad44d8d5e6cbe4e7cb0f14de532d5b175f9435731908e84cff179",
+        "sign_basic": "90e14bce85ea6f07627a3ee7b5724e8adb7ff15ad1e9dc081777f62c52a86af78e1ea438e8433eb201ec2431738428d80eb64596c91fcb9dda5395d9411854b84a511e5a785ad44d8d5e6cbe4e7cb0f14de532d5b175f9435731908e84cff179"
+      }
+    ]
+  }
+}
