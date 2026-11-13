@@ -1,0 +1,7 @@
+# The tip invalidated and flushed, then a fork never flushed: KILL loses it.
+extend main 2
+invalidate main@-0
+flush always
+fork 0 2
+restart kill
+extend main 1
