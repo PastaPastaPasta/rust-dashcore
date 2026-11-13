@@ -1,0 +1,4 @@
+# The block operator cb_multiple's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate cb_multiple
+extend main 1
