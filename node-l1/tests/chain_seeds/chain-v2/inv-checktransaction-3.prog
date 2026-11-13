@@ -1,0 +1,4 @@
+# tx_check.cpp:CheckTransaction#3:bad-txns-oversize (bank slot 7, x_tx_size_1m).
+extend main 1 tx=spends
+mutatex x_tx_size_1m
+extend main 1
