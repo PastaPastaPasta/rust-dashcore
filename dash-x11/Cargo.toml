@@ -1,0 +1,32 @@
+[package]
+name = "dash-x11"
+description = "Dash's X11 proof-of-work hash, bit-exact with Dash Core: a portable port of Core's sph code plus SSE2, AES-NI and AVX2 backends with runtime dispatch."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core's X11 code (MIT; the sph functions are Projet RNRT SAPHIR's, MIT). See LICENSE.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/dash-x11"
+categories = ["cryptography", "no-std"]
+keywords = ["x11", "dash", "hash", "pow", "simd"]
+
+[lib]
+name = "dash_x11"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+# A registry crate, so the packaged tests build: a path-only dev-dependency (`dash-sha256`, which
+# is unpublished) is dropped from the published manifest and `tests/core.rs` would not compile.
+bitcoin_hashes = { workspace = true }
+proptest = "1.11"
+serde_json = "1.0"
+criterion = "0.5"
+
+[[bench]]
+name = "x11"
+harness = false

@@ -1,0 +1,14 @@
+[
+  {
+    "scheme": "legacy",
+    "version": 1,
+    "pubkey": "8a1a1c26055a329817a5759d877a2795f9499b97d6056edde0eea39512f24e8bc874b4471f0501127abb1ea0d9f68ac1",
+    "pubkey_hash": "0a8b98b28a7d6cc00c36649392255cca4d9e88cd3aae134d18ba6280d9dcf379"
+  },
+  {
+    "scheme": "basic",
+    "version": 2,
+    "pubkey": "aa1a1c26055a329817a5759d877a2795f9499b97d6056edde0eea39512f24e8bc874b4471f0501127abb1ea0d9f68ac1",
+    "pubkey_hash": "9a4a9be66c097884c7ab6536b45e1332991a644f5916106d4bc7ac44e3b648c0"
+  }
+]

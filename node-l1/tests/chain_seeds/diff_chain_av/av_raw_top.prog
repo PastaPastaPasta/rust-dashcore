@@ -1,0 +1,8 @@
+# S2 (av_best_unknown): a coinbase-only block on the line's top (height 8301), its coinbase not the
+# CbTx DIP3 requires. Core indexes its header first, which makes it Core's best header, then
+# refuses the block bad-cb-type (ContextualCheckBlock) and marks it failed, leaving the best header
+# there; the model knows no such header. The line's first defect then connects under a best header
+# the model does not know.
+# Core: src/validation.cpp:4712, :4600-4602, :4830-4834 at v24.0.0
+raw 000000303ea8d2241db6903853d190d2f7608c8e25a6b2bada39f157b8468660ad3df72a78aaecc14d0e42ed8948f1c4a096c6cf57d85dfb71d71120e2bd9f44edca922c470e8154ffff7f20000000000102000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0c026d20086d20000000000000ffffffff01f8f1ee0d00000000015100000000
+extend main 5

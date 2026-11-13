@@ -1,0 +1,21 @@
+BLS (any bls::* / relic)	33840002538	36.78
+llmq::* (any)	31640002373	34.39
+ProcessSpecialTxsInBlock	30280002271	32.91
+ConnectBlock (whole)	25520001914	27.74
+CheckInputScripts / script checks	17800001335	19.35
+CheckCbTx	5480000411	5.96
+CChainLocks / VerifyChainLock	5480000411	5.96
+ConnectTip	2760000207	3.00
+ActivateBestChain	1920000144	2.09
+CheckSpecialTx	1000000075	1.09
+LoadBlockIndex / init	960000072	1.04
+LevelDB (any)	880000066	0.96
+CheckBlock (context-free)	880000066	0.96
+CCreditPoolManager	600000045	0.65
+VerifyScript	600000045	0.65
+CDeterministicMNManager::ProcessBlock	480000036	0.52
+ReadBlockFromDisk	320000024	0.35
+CDeterministicMNList::AddMN / UpdateMN / ApplyDiff	280000021	0.30
+UpdatedBlockTip / notifications	160000012	0.17
+CEvoDB	80000006	0.09
+IsBlockValueValid / payee	40000003	0.04
