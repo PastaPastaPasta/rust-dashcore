@@ -1,0 +1,4 @@
+# validation.cpp:ConnectBlock#6:bad-blk-sigops (bank slot 4, x_sigops_connect).
+extend main 1 tx=spends
+mutatex x_sigops_connect
+extend main 1
