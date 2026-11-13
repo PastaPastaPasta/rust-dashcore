@@ -1,0 +1,46 @@
+diff --git a/dashd-mining/src/evo/tests.rs b/dashd-mining/src/evo/tests.rs
+index bbbfc64de65a46fd969c5cc978631967bb4d0796..1b0c8f291e677c1be02ca2d16e92f2bc92da741a 100644
+--- a/dashd-mining/src/evo/tests.rs
++++ b/dashd-mining/src/evo/tests.rs
+@@ -29,8 +29,8 @@ fn null_chainlock_is_dashds() {
+     assert_eq!(signature.to_bytes(), null_signature().to_bytes());
+ 
+     let ours = CoinbaseCommitment {
+-        version: 3,
+-        height: 432,
++        version: dash_primitives::CbCommitmentVersion::new(3),
++        height: 432_u32.into(),
+         merkle_root_mn_list: MerkleRoot::default(),
+         merkle_root_quorums: Some(MerkleRoot::default()),
+         best_cl_height_diff: Some(0),
+diff --git a/dashd-mining/tests/evo_dashd.rs b/dashd-mining/tests/evo_dashd.rs
+index 147acf7937ccd3a2f7f72be0a44d8b99f9f68908..4e0fd7f4c102298e9432ef92c049aafd6e45e108 100644
+--- a/dashd-mining/tests/evo_dashd.rs
++++ b/dashd-mining/tests/evo_dashd.rs
+@@ -218,7 +218,25 @@ fn replay(chain: &Value) -> (String, BTreeMap<u16, u32>, u64) {
+         })
+         .expect("a mining window");
+     let mut real = first;
+-    real.signers.data[0] |= 1;
++    {
++        let signers = real.signers();
++        let mut data = signers.data().clone();
++        data[0] |= 1;
++        let signers = dash_primitives::DynBitset::new(signers.num_bits(), data)
++            .expect("member 0 is in range");
++        real = dash_primitives::Commitment::new(
++            real.version(),
++            real.llmq_type(),
++            real.quorum_hash(),
++            real.quorum_index(),
++            signers,
++            real.valid_members().clone(),
++            real.quorum_public_key().clone(),
++            real.quorum_vvec_hash(),
++            real.quorum_sig().clone(),
++            real.members_sig().clone(),
++        );
++    }
+     assert!(!real.is_null());
+     let fence = |height, qc: &QcCtx<'_>, pool: &MineablePool| {
+         let chain = EvoChain {

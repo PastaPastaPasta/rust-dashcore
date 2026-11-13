@@ -1,0 +1,4 @@
+# The block operator p2sh_false's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate p2sh_false
+extend main 1
