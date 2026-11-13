@@ -1,0 +1,4 @@
+# The block operator duplicate_tx's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate duplicate_tx
+extend main 1
