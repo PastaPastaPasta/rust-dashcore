@@ -1,0 +1,4 @@
+# The block operator time_too_new's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate time_too_new
+extend main 1
