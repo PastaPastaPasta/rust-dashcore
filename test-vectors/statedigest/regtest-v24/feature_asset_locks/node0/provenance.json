@@ -1,0 +1,60 @@
+{
+ "build_tree": "/work/scratch/o8/build-final",
+ "core": {
+  "branch": "node/state-digest-v24.0",
+  "commit": "0a36fab32cb57c8854f3585c88f35fbaf0759f8b",
+  "compiler": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "configure": "--enable-ccache --without-gui --disable-zmq --without-miniupnpc --without-natpmp --disable-bench --disable-fuzz-binary --disable-man",
+  "depends": "NO_QT=1 NO_ZMQ=1 NO_UPNP=1 NO_NATPMP=1 NO_USDT=1",
+  "depends_id": "6d59b8793ff4d2919aeb420a9e4e0e235696f2b2",
+  "describe": "v24.0.0-rc.3-8-g0a36fab32cb5",
+  "flags": "-O2 -g1",
+  "host": "x86_64-pc-linux-gnu",
+  "modified_files": "0",
+  "sha256": {
+   "dash-cli": "f94a0bb5745b69edfa8e9d3d37d78157e242a50375f4d2b716d409adbbc29200",
+   "dash-tx": "c3ca032fb7b1dac7ca495a6652e8f184a7b8855b4aec3e1d37167ddecfd24588",
+   "dash-wallet": "e1fc9b731c6402d083f51660393d8d6ced241908319d0cf2ffd227e592219df2",
+   "dashd": "b7f7ebad7f2dbe38d8c5334586b59facf652e686be3ee2afba6aa8c71f87943a",
+   "test_dash": "513307235502e631315ae23a566e515c535c75ff418325ffd89e1b6b4eae36c0"
+  }
+ },
+ "network": "regtest",
+ "node": "node0",
+ "prng_seed": 426286115780213360,
+ "records": {
+  "decisions": {
+   "A": 1594,
+   "H": 4
+  },
+  "digest": {
+   "C": 1068,
+   "D": 107,
+   "H": 4,
+   "R": 526
+  }
+ },
+ "rig": {
+  "files": {
+   "build.sh": "4d0c82adfe58e613282ec5bdf49fba1d8581f602976123ce1c3f8609a9fea58f",
+   "common.py": "834f7351bdfdea1f11f5154884fe023f470e1826ce7797f15b12e4367a9c9dcf",
+   "dashd-wrapper": "d262d2f4a05ddc7b520ba9b2c4f26c24b6095881141a16af2183ce1bb25702f1",
+   "extract.py": "9aef6f61515b5acd492ac230183a641e2a7cb4b9063d3518b7b04f44e6302998",
+   "overhead.py": "d55d7e7afc64af6e732db4160871c597fad2f26baa39c85cd5fae7047b2cf1a1",
+   "record-ft.py": "c0fc6476a1ae930078ad143f470bd3cbebc0366513c61df4bf1694850fa5a73d"
+  },
+  "rdc_commit": "9e1b196d6f8ce9f9e0be24946756eea25863d0a4",
+  "rig_dirty": false
+ },
+ "started": "2026-10-12T05:15:32Z",
+ "stopped": "2026-10-12T05:20:08Z",
+ "test": "feature_asset_locks.py",
+ "test_args": [],
+ "test_sha256": "820cfbc5776c963253e1ee75f1c5a8cecf0361c1c6374273ea1a2b4f7e7ebfb7",
+ "timeout_factor": "4",
+ "tip_heights": [
+  0,
+  978
+ ],
+ "unstarted_nodes": []
+}
