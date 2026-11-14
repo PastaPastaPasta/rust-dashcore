@@ -1,0 +1,11 @@
+# ToyChain planted bug T38 (ST3a §6.2), minimised in 356 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=0 invalid=- effects=- presumed=-:- prune=8:2:1073741824 sub=synced:2:96 bug=T38
+workload f;c97;c1
+crash 342 power-loss
+decide 1:subscriber:b5=1
+adversary realistic
+granularity write
+expect R11c
+minimality verified

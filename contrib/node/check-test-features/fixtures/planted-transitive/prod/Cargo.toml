@@ -1,0 +1,9 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (vii): dashd-chainstate's planted bugs reached through dashd-node's, on a normal edge.
+[dependencies]
+dashd-node = { path = "../dashd-node", features = ["planted-bugs"] }
