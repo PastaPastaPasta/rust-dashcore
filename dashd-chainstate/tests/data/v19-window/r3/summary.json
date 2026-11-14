@@ -1,0 +1,319 @@
+{
+ "chain_args": [
+  "-dip3params=2:2",
+  "-testactivationheight=v20@1000000",
+  "-testactivationheight=mn_rr@1000000",
+  "-testactivationheight=dip0024@1000000",
+  "-vbparams=testdummy:-2:0",
+  "-testactivationheight=v19@150"
+ ],
+ "core_tag": "v24.0.0",
+ "cycles": [],
+ "dashd_version": "Dash Core version v24.0.0",
+ "events": {
+  "revoke_c": {
+   "height": 151,
+   "proTxHash": "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6",
+   "reason": 2,
+   "txid": "e9d7290da847fd2d19775c1938eedfc67ce57aa80d82e5c0db9ff8658437be85",
+   "version": 1
+  },
+  "upserv_a": {
+   "height": 150,
+   "proTxHash": "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92",
+   "service": "127.0.0.1:11039",
+   "txid": "3cd32329f5dc3bd1d155bd68731111e2803165e2737bd980adca7a30ca164588",
+   "version": 1
+  }
+ },
+ "finished_utc": "2026-11-10T15:21:18Z",
+ "generateblock": {
+  "149": {
+   "upserv_a/legacy": "TestBlockValidity failed: bad-protx-sig (-25)"
+  },
+  "150": {
+   "revoke_c/legacy": "TestBlockValidity failed: bad-protx-sig (-25)"
+  }
+ },
+ "masternodes": [
+  {
+   "legacy_at_registration": true,
+   "node": 1,
+   "proTxHash": "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 2,
+   "proTxHash": "78d50c2fe66edfc1e151c96c8bf5f578a52aa42fa7d90bec17ae177d887e5a51"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 3,
+   "proTxHash": "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 4,
+   "proTxHash": "fd792b556ada06ac77b9938027bf7a53e0b3414605e3bbfade96ebc4df179c00"
+  }
+ ],
+ "mempool": {
+  "148": {
+   "revoke_c/basic": "bad-protx-sig",
+   "revoke_c/legacy": "allowed",
+   "upserv_a/basic": "bad-protx-sig",
+   "upserv_a/legacy": "allowed"
+  },
+  "149": {
+   "revoke_c/basic": "allowed",
+   "revoke_c/legacy": "bad-protx-sig",
+   "upserv_a/basic": "allowed",
+   "upserv_a/legacy": "bad-protx-sig"
+  }
+ },
+ "mode": "v1-above",
+ "node_args": [
+  "-testactivationheight=dip0024@1000000",
+  "-vbparams=testdummy:-2:0",
+  "-testactivationheight=v19@150",
+  "-deprecatedrpc=legacy_mn"
+ ],
+ "platform": {
+  "llmq_test_platform": 106
+ },
+ "refused": {
+  "rev-refused.txt": {
+   "as_mined": "75ff6f30b961de6b2cb7bcf29c63e0e624e7b36b5fed0a0b54734bc98ad3b5a0",
+   "hash": "022654d509926f9a851f68aff015654a1079e3095b604ed8800dc34b3d3d7a70",
+   "height": 151,
+   "index": 1,
+   "mined_txid": "e9d7290da847fd2d19775c1938eedfc67ce57aa80d82e5c0db9ff8658437be85",
+   "parent": "6a5e3000949d7b4a461ea2adb55d668e9067760fdeabc69b6733f991447227ff",
+   "txid": "eb2a1dcdaed0d8d0af1c82381e9c34c79ffa65a8170e8cc9801feb2ee1f33e47"
+  },
+  "serv-refused.txt": {
+   "as_mined": "6a5e3000949d7b4a461ea2adb55d668e9067760fdeabc69b6733f991447227ff",
+   "hash": "626a3b5caecbcd616f78795a86f23411ee1d3d462c2fec7d62c7363fcb8b4fe5",
+   "height": 150,
+   "index": 1,
+   "mined_txid": "3cd32329f5dc3bd1d155bd68731111e2803165e2737bd980adca7a30ca164588",
+   "parent": "383795a89705421df480c3294946f5b33c1ffd061c306648e5af352081ba46f5",
+   "txid": "9fb2b0940e82ba20798510d8c6fb0c5c890d863cf25f573ce2730cf9b7718554"
+  }
+ },
+ "revoked": [
+  "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6"
+ ],
+ "scheme_lines_node0": [
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0"
+ ],
+ "setup_tip": 135,
+ "sporks": {
+  "SPORK_17_QUORUM_DKG_ENABLED": 4070908800,
+  "SPORK_19_CHAINLOCKS_ENABLED": 4070908800,
+  "SPORK_21_QUORUM_ALL_CONNECTED": 4070908800,
+  "SPORK_23_QUORUM_POSE": 4070908800,
+  "SPORK_2_INSTANTSEND_ENABLED": 4070908800
+ },
+ "started_utc": "2026-11-10T15:20:45Z",
+ "state_versions": {
+  "149": {
+   "78d50c2fe66edfc1e151c96c8bf5f578a52aa42fa7d90bec17ae177d887e5a51": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11021"
+     ]
+    },
+    "pubKeyOperator": "9324dc5c6fbc4f198c21449cf4a6fe6a8fab717eece15ad7786fe916526f54bd903a027d5018f6fb5305cb610e74e847",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11022"
+     ]
+    },
+    "pubKeyOperator": "157c3e1b421b5b479e673a08cd6ecc29d691e44a3fd84b2eb9481a627c36708eb6833cccb783e2b0df602b0f209cd8c0",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11020"
+     ]
+    },
+    "pubKeyOperator": "9285585a0f90210a7a67f43accc4eeaed83b032edae11ee9ca8db8fd3a7f63f5ecbde8bdb67c4247cd4c4df77b58e6b8",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "fd792b556ada06ac77b9938027bf7a53e0b3414605e3bbfade96ebc4df179c00": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11023"
+     ]
+    },
+    "pubKeyOperator": "8b817e8456858d582161fa7446a89c2a7452e8710baac827ced322781ed07e3b2415bce6d648049c1f1deadf94d53a98",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "150": {
+   "78d50c2fe66edfc1e151c96c8bf5f578a52aa42fa7d90bec17ae177d887e5a51": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11021"
+     ]
+    },
+    "pubKeyOperator": "9324dc5c6fbc4f198c21449cf4a6fe6a8fab717eece15ad7786fe916526f54bd903a027d5018f6fb5305cb610e74e847",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11022"
+     ]
+    },
+    "pubKeyOperator": "157c3e1b421b5b479e673a08cd6ecc29d691e44a3fd84b2eb9481a627c36708eb6833cccb783e2b0df602b0f209cd8c0",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11039"
+     ]
+    },
+    "pubKeyOperator": "9285585a0f90210a7a67f43accc4eeaed83b032edae11ee9ca8db8fd3a7f63f5ecbde8bdb67c4247cd4c4df77b58e6b8",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "fd792b556ada06ac77b9938027bf7a53e0b3414605e3bbfade96ebc4df179c00": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11023"
+     ]
+    },
+    "pubKeyOperator": "8b817e8456858d582161fa7446a89c2a7452e8710baac827ced322781ed07e3b2415bce6d648049c1f1deadf94d53a98",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "151": {
+   "78d50c2fe66edfc1e151c96c8bf5f578a52aa42fa7d90bec17ae177d887e5a51": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11021"
+     ]
+    },
+    "pubKeyOperator": "9324dc5c6fbc4f198c21449cf4a6fe6a8fab717eece15ad7786fe916526f54bd903a027d5018f6fb5305cb610e74e847",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6": {
+    "PoSeBanHeight": 151,
+    "addresses": {},
+    "pubKeyOperator": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "revocationReason": 2,
+    "version": 1
+   },
+   "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11039"
+     ]
+    },
+    "pubKeyOperator": "9285585a0f90210a7a67f43accc4eeaed83b032edae11ee9ca8db8fd3a7f63f5ecbde8bdb67c4247cd4c4df77b58e6b8",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "fd792b556ada06ac77b9938027bf7a53e0b3414605e3bbfade96ebc4df179c00": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11023"
+     ]
+    },
+    "pubKeyOperator": "8b817e8456858d582161fa7446a89c2a7452e8710baac827ced322781ed07e3b2415bce6d648049c1f1deadf94d53a98",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "160": {
+   "78d50c2fe66edfc1e151c96c8bf5f578a52aa42fa7d90bec17ae177d887e5a51": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11021"
+     ]
+    },
+    "pubKeyOperator": "9324dc5c6fbc4f198c21449cf4a6fe6a8fab717eece15ad7786fe916526f54bd903a027d5018f6fb5305cb610e74e847",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "aa4f8d49e932f1d289e1ab4b21528efd15d3fdbc06e086a1603368286819e4b6": {
+    "PoSeBanHeight": 151,
+    "addresses": {},
+    "pubKeyOperator": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "revocationReason": 2,
+    "version": 1
+   },
+   "f459510f304313b49db79290c757e44629d0d4e6391addb59c8f8b319e48dc92": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11039"
+     ]
+    },
+    "pubKeyOperator": "9285585a0f90210a7a67f43accc4eeaed83b032edae11ee9ca8db8fd3a7f63f5ecbde8bdb67c4247cd4c4df77b58e6b8",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "fd792b556ada06ac77b9938027bf7a53e0b3414605e3bbfade96ebc4df179c00": {
+    "PoSeBanHeight": -1,
+    "addresses": {
+     "core_p2p": [
+      "127.0.0.1:11023"
+     ]
+    },
+    "pubKeyOperator": "8b817e8456858d582161fa7446a89c2a7452e8710baac827ced322781ed07e3b2415bce6d648049c1f1deadf94d53a98",
+    "revocationReason": 0,
+    "version": 1
+   }
+  }
+ },
+ "tip": 160,
+ "tip_hash": "4932c7ce57f0a806e43acad1cf17ee97823ed59fd3ff2d1565120d8bdfae5194",
+ "types": {
+  "llmq_test": 100,
+  "llmq_test_instantsend": 104
+ },
+ "v19_height": 150,
+ "v20_height": 1000000,
+ "variants": {
+  "revoke_c": {
+   "basic": "0300040001a7c56ac92165f4025d76b4da683b9ab653df11d291b8068f8cd5bb53a8041754000000006a47304402206007cab83f5d18c3b42319967efbf6c9214d384922f8cb49f2b828fd640210a302204fed24147292c5c16dd07907590b85b7130d5f90136ee4c4116ab3a318164d760121025c771ccd0379d5f0e0e23fa03cc66ee6721b464e5324d760c340f75e4201084dfeffffff0192dff505000000001976a91479ce5caf78fb6b168bf39c2e3b5c2fd924242c8d88ac00000000a40100b6e4196828683360a186e006bcfdd315fd8e52214babe189d2f132e9498d4faa020042107e7b6b2262f9332ecc94e0bf5fcf57516f35c1f4ee66b13c4ff3cda20c4b05006e0fd5b25b0de23dff7c1211d862a575ab90a3c555fbee4009e203a7762fd3653552083aaf999b91d4b8a57817df12760905bf32a6813554b9a84fc3d8add4ce9e775df058973e661fc2b6cfd8e408cf1ec84bd9f33819a4afbed4b3b15c",
+   "legacy": "0300040001a7c56ac92165f4025d76b4da683b9ab653df11d291b8068f8cd5bb53a8041754000000006a47304402206ef5dc5066797ef2640ed51bf814e09e26fd9ad9eb9bb412bf548a5efd1c1b0002206682b4994eeddab3e93bdbf12ec8ff7fb1c1ce2aa8c4f8d81fab0752bac09df90121025c771ccd0379d5f0e0e23fa03cc66ee6721b464e5324d760c340f75e4201084dfeffffff0192dff505000000001976a91479ce5caf78fb6b168bf39c2e3b5c2fd924242c8d88ac00000000a40100b6e4196828683360a186e006bcfdd315fd8e52214babe189d2f132e9498d4faa020042107e7b6b2262f9332ecc94e0bf5fcf57516f35c1f4ee66b13c4ff3cda20c4b175ac373c5e4b26956fb52f77ad3fca413ac1c7bccd66410bab437a1110100cd5abc9b70ecfa5161d0227aa73cac5c9619ab8f641d3cbd8d0c8daa99846cf58b88dae81d8b43ba104cea3b8b729d2144075ea457470128640b63936d6b669008"
+  },
+  "upserv_a": {
+   "basic": "0300020001a7c56ac92165f4025d76b4da683b9ab653df11d291b8068f8cd5bb53a8041754010000006a4730440220757e8c27fb455f5b6815ed891348cecc33616a75267bc85ca36a3d485217e92102200787d78efd58adc2511ccdc1f4bf2c305253abaf47b3f990f00cf36642b6c243012102278abbe991360f3fdc5e1508ec68094a637331d07c7b7d7b45ba651da76298adfeffffff0181dff505000000001976a914a85e38010f9f1308e4b2c1f7ca2b387d78c9ca0588ac00000000b5010092dc489e318b8f9cb5dd1a39e6d4d02946e457c79092b79db41343300f5159f400000000000000000000ffff7f0000012b1f005075d63109d74b507c7cf7c7e1d762f8a9120a20e34774f68e514a298a0068e2026d447780832b81f69b69fed41773d378bda1163d7c77024ee5c42494f985c3e58fa8163d033079cbd7e5b72b4e928c053bb2a9cdc6dce7cf511432f739ce0b6b06df60ef789414e970b31aa163ad696467f6323329085f1cde08029eadb5cb",
+   "legacy": "0300020001a7c56ac92165f4025d76b4da683b9ab653df11d291b8068f8cd5bb53a8041754010000006a47304402205e80f2ea4cbb69ce95bf2bbf333474fb93a247e6e07f2033226592d8920dba88022040003afb26d1d24ba13ca0ca6e66c33af6f1be9f6ced4269648c1ff1cd702810012102278abbe991360f3fdc5e1508ec68094a637331d07c7b7d7b45ba651da76298adfeffffff0181dff505000000001976a914a85e38010f9f1308e4b2c1f7ca2b387d78c9ca0588ac00000000b5010092dc489e318b8f9cb5dd1a39e6d4d02946e457c79092b79db41343300f5159f400000000000000000000ffff7f0000012b1f005075d63109d74b507c7cf7c7e1d762f8a9120a20e34774f68e514a298a0068e280196968441df2fa95036f1f63ea56a0b527d0557f751ebbd1ae4f5ebbe43bc6667f7c3ec148787b856e271dd7f8009d144b91222f0115723b4f2926d0409daebd4528bcd9af7683e544f23949a4c8e66a12c20b07409601da3cdc277b370406"
+  }
+ }
+}

@@ -1,0 +1,812 @@
+#[cfg(test)]
+use crate::network::costs::ResponseCosts;
+use bip324::futures::{handshake as v2_handshake, ProtocolSessionReader};
+use bip324::io::{ProtocolError, ProtocolFailureSuggestion};
+use bip324::{Error as Bip324Error, OutboundCipher, Role};
+use dashcore::{
+    consensus::encode,
+    network::{
+        address::Address,
+        constants::{ServiceFlags, NODE_HEADERS_COMPRESSED},
+        message::{NetworkMessage, RawNetworkMessage, RawNetworkMessageCodec},
+        message_headers2::CompressionState,
+        message_network::VersionMessage,
+    },
+    Network,
+};
+use futures::lock::Mutex;
+use rand::Rng;
+use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(test)]
+use tokio::{io, net::TcpListener};
+use tokio::{
+    io::{AsyncRead, AsyncWriteExt, ReadBuf},
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
+};
+use tokio_stream::StreamExt;
+use tokio_util::bytes::BytesMut;
+use tokio_util::codec::{Decoder, FramedRead};
+use tokio_util::either::Either;
+use tokio_util::sync::CancellationToken;
+
+use crate::network::bans::Ban;
+use crate::network::costs::{as_sent, Ledger};
+use crate::network::manager::{InboundMessage, NetworkState};
+use crate::network::transport::{encrypt_message, TransportPreference, V2Decoder};
+use crate::{error::NetworkResult, NetworkError};
+
+static NEXT_CONNECTION: AtomicU64 = AtomicU64::new(0);
+
+/// Dash Core's `MAX_SUBVERSION_LENGTH`. Core drops a `version` with a longer user agent.
+pub(crate) const MAX_USER_AGENT_LEN: usize = 256;
+
+/// Identifies one connection, not one address: a late close event from an old
+/// connection must not evict a newer live connection to the same address.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PeerId {
+    addr: SocketAddr,
+    connection: u64,
+}
+
+impl PeerId {
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    #[cfg(test)]
+    pub fn for_test(addr: SocketAddr, connection: u64) -> Self {
+        PeerId {
+            addr,
+            connection,
+        }
+    }
+
+    /// Not a real connection: the sentinel `dispatch_local` injects under.
+    pub fn synthetic(addr: SocketAddr) -> Self {
+        PeerId {
+            addr,
+            connection: u64::MAX,
+        }
+    }
+}
+
+impl std::fmt::Display for PeerId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.addr)
+    }
+}
+
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// For the whole BIP324 handshake, from sending our key to the peer's version packet.
+const V2_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const PING_INTERVAL: Duration = Duration::from_secs(120);
+/// A new peer's in-flight byte cap until the controller has measured it.
+pub const INITIAL_CAP_BYTES: u64 = 256 * 1024;
+
+/// Counts bytes read, globally and per peer, to size the in-flight budgets from
+/// measured throughput.
+struct CountingReader<R> {
+    inner: R,
+    state: Arc<NetworkState>,
+    peer_bytes: Arc<AtomicU64>,
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for CountingReader<R> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        let before = buf.filled().len();
+        let r = std::pin::Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let std::task::Poll::Ready(Ok(())) = &r {
+            let n = (buf.filled().len() - before) as u64;
+            self.state.bytes.fetch_add(n, Ordering::Relaxed);
+            self.peer_bytes.fetch_add(n, Ordering::Relaxed);
+        }
+        r
+    }
+}
+
+enum SizedCodec {
+    V1,
+    V2(V2Decoder),
+}
+
+impl Decoder for SizedCodec {
+    type Item = (RawNetworkMessage, u64);
+    type Error = encode::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        match self {
+            SizedCodec::V1 => {
+                let before = src.len();
+                let raw = RawNetworkMessageCodec.decode(src)?;
+                Ok(raw.map(|raw| (raw, (before - src.len()) as u64)))
+            }
+            SizedCodec::V2(decoder) => decoder.decode(src),
+        }
+    }
+}
+
+/// The socket's write half, framing each message for the connection's transport.
+struct PeerWriter {
+    half: OwnedWriteHalf,
+    framing: Framing,
+}
+
+enum Framing {
+    V1 {
+        magic: u32,
+    },
+    /// Packets must be encrypted in the order they are written, so the cipher
+    /// lives behind the same lock as the socket.
+    V2(OutboundCipher),
+}
+
+impl PeerWriter {
+    async fn write_message(&mut self, msg: &NetworkMessage) -> std::io::Result<()> {
+        let bytes = match &mut self.framing {
+            // TODO: Take a reference to msg instead of cloning it
+            Framing::V1 {
+                magic,
+            } => encode::serialize(&RawNetworkMessage {
+                magic: *magic,
+                payload: msg.clone(),
+            }),
+            Framing::V2(cipher) => encrypt_message(cipher, msg),
+        };
+        self.half.write_all(&bytes).await
+    }
+}
+
+/// The socket's read half. Over V2 it first replays the bytes the handshake read past
+/// the peer's version packet.
+type LinkReader = Either<ProtocolSessionReader<OwnedReadHalf>, OwnedReadHalf>;
+
+type PeerReader = FramedRead<CountingReader<LinkReader>, SizedCodec>;
+
+/// A TCP connection with its transport negotiated, ready for the version handshake.
+struct Link {
+    reader: LinkReader,
+    codec: SizedCodec,
+    writer: PeerWriter,
+}
+
+impl Link {
+    fn v1(stream: TcpStream, magic: u32) -> Self {
+        let (reader, half) = stream.into_split();
+        Link {
+            reader: Either::Right(reader),
+            codec: SizedCodec::V1,
+            writer: PeerWriter {
+                half,
+                framing: Framing::V1 {
+                    magic,
+                },
+            },
+        }
+    }
+}
+
+/// Most garbage BIP324 allows before the garbage terminator.
+const MAX_V2_GARBAGE_LEN: usize = 4095;
+
+/// Random garbage to send after our key, as Dash Core's `GenerateRandomGarbage` does,
+/// so the first flight of a V2 connection doesn't have a fixed length.
+fn random_garbage() -> Vec<u8> {
+    let mut rng = rand::rng();
+    let mut garbage = vec![0u8; rng.random_range(0..=MAX_V2_GARBAGE_LEN)];
+    rng.fill(&mut garbage[..]);
+    garbage
+}
+
+/// Whether a failed V2 handshake should be retried over V1.
+///
+/// A V1-only Dash Core node drops the connection once our 64-byte key fails its
+/// magic check, which surfaces as a reset or EOF. A peer that answers with V1 magic
+/// speaks V1 too. Other errors, and timeouts, are propagated instead, so a stalled
+/// peer is not dialled a second time. (Dash Core reconnects over V1 on any disconnect
+/// before the peer sent anything, timeouts included.)
+fn should_fall_back_to_v1(error: &ProtocolError) -> bool {
+    matches!(
+        error,
+        ProtocolError::Io(_, ProtocolFailureSuggestion::RetryV1)
+            | ProtocolError::Internal(Bip324Error::V1Protocol)
+    )
+}
+
+// Boxing every message would penalise the common small ones.
+#[allow(clippy::large_enum_variant)]
+pub enum PeerEvent {
+    Message(PeerId, InboundMessage),
+    Disconnected(PeerId),
+}
+
+/// Cloneable view of a peer, so the router can write without holding the peer-set lock.
+#[derive(Clone)]
+pub struct PeerHandle {
+    id: PeerId,
+    writer: Arc<Mutex<PeerWriter>>,
+    ledger: Arc<Ledger>,
+    /// Response bytes this peer can have in flight before they queue (its
+    /// bandwidth-delay product), sized by the controller from its byte rate and
+    /// service time.
+    cap: Arc<AtomicU64>,
+    /// Bytes/s this peer serves while bandwidth bound, 0 until measured.
+    serving_rate: Arc<AtomicU64>,
+    headers2: bool,
+    /// Child of the global shutdown; cancelling it stops the reader and closes the socket.
+    token: CancellationToken,
+}
+
+impl PeerHandle {
+    pub fn addr(&self) -> SocketAddr {
+        self.id.addr()
+    }
+
+    pub fn id(&self) -> PeerId {
+        self.id
+    }
+
+    pub(super) fn serving_rate(&self) -> u64 {
+        self.serving_rate.load(Ordering::Relaxed)
+    }
+
+    pub fn in_flight_bytes(&self) -> u64 {
+        self.ledger.in_flight_bytes()
+    }
+
+    pub fn settled_replies(&self) -> u64 {
+        self.ledger.settled()
+    }
+
+    /// Settles `reply` as the reader does when it decodes one, without reading bytes.
+    #[cfg(test)]
+    pub(crate) async fn settle_for_test(&self, reply: &NetworkMessage) {
+        self.ledger.settle(reply, 0).await;
+    }
+
+    pub fn cap(&self) -> u64 {
+        self.cap.load(Ordering::Relaxed)
+    }
+
+    /// Holds this peer's writer, so its sends wait until the returned guard drops.
+    #[cfg(test)]
+    pub(crate) async fn hold_writes(&self) -> impl Sized + '_ {
+        self.writer.lock().await
+    }
+
+    pub async fn send(&self, msg: &NetworkMessage) -> NetworkResult<()> {
+        // The sync layer sends a plain `getheaders`, since it does not know the peer.
+        // The reader decompresses `Headers2` back to `Headers`.
+        let msg = as_sent(msg, self.headers2);
+
+        self.ledger.charge(&msg).await;
+
+        let write = async {
+            let mut writer = self.writer.lock().await;
+            writer.write_message(&msg).await
+        };
+        let outcome = match tokio::time::timeout(WRITE_TIMEOUT, write).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(format!("Write failed: {}", e)),
+            // The peer stopped reading; treat it as a failed write.
+            Err(_) => Err(format!("Write stalled for {}s", WRITE_TIMEOUT.as_secs())),
+        };
+        if let Err(reason) = outcome {
+            tracing::warn!("Disconnecting {} due to write error: {}", self.id, reason);
+            self.token.cancel();
+            return Err(NetworkError::ConnectionFailed(reason));
+        }
+        Ok(())
+    }
+}
+
+pub struct ConnectedPeer {
+    handle: PeerHandle,
+    version: VersionMessage,
+    lag_ms: AtomicU32,
+    bytes: Arc<AtomicU64>,
+}
+
+pub struct DisconnectedPeer {
+    network: Network,
+    addr: SocketAddr,
+}
+
+impl ConnectedPeer {
+    pub fn addr(&self) -> SocketAddr {
+        self.handle.addr()
+    }
+
+    pub fn id(&self) -> PeerId {
+        self.handle.id()
+    }
+
+    pub fn version(&self) -> &VersionMessage {
+        &self.version
+    }
+
+    pub fn handle(&self) -> PeerHandle {
+        self.handle.clone()
+    }
+
+    /// (completed requests, average ms, worst ms).
+    pub fn latency_stats(&self) -> (u64, f64, f64) {
+        self.handle.ledger.latency_stats()
+    }
+
+    /// Handshake round-trip latency in ms (0 if unmeasured).
+    pub fn lag_ms(&self) -> u32 {
+        self.lag_ms.load(Ordering::Relaxed)
+    }
+
+    pub fn close(&self) {
+        self.handle.token.cancel();
+    }
+
+    pub fn bytes_read(&self) -> u64 {
+        self.bytes.load(Ordering::Relaxed)
+    }
+
+    pub fn in_flight_bytes(&self) -> u64 {
+        self.handle.in_flight_bytes()
+    }
+
+    pub fn settled_replies(&self) -> u64 {
+        self.handle.settled_replies()
+    }
+
+    pub fn set_cap(&self, bytes: u64) {
+        self.handle.cap.store(bytes, Ordering::Relaxed);
+    }
+
+    pub fn cap(&self) -> u64 {
+        self.handle.cap()
+    }
+
+    pub fn serving_rate(&self) -> u64 {
+        self.handle.serving_rate()
+    }
+
+    pub fn set_serving_rate(&self, bytes_per_sec: u64) {
+        self.handle.serving_rate.store(bytes_per_sec, Ordering::Relaxed);
+    }
+
+    /// A handshaken connection `id` over a loopback socket, with no reader running.
+    /// The far end discards what it reads, so sends succeed.
+    #[cfg(test)]
+    pub(crate) async fn for_test(id: PeerId) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback");
+        let addr = listener.local_addr().expect("bound address");
+        let stream = TcpStream::connect(addr).await.expect("connect loopback");
+        let (mut far, _) = listener.accept().await.expect("accept loopback");
+        tokio::spawn(async move { io::copy(&mut far, &mut io::sink()).await });
+        let link = Link::v1(stream, Network::Regtest.magic());
+        ConnectedPeer {
+            handle: PeerHandle {
+                id,
+                writer: Arc::new(Mutex::new(link.writer)),
+                ledger: Arc::new(Ledger::new(Arc::new(ResponseCosts::new()))),
+                cap: Arc::new(AtomicU64::new(INITIAL_CAP_BYTES)),
+                serving_rate: Arc::new(AtomicU64::new(0)),
+                headers2: false,
+                token: CancellationToken::new(),
+            },
+            version: build_version(id.addr(), "test"),
+            lag_ms: AtomicU32::new(1),
+            bytes: Arc::new(AtomicU64::new(0)),
+        }
+    }
+}
+
+impl DisconnectedPeer {
+    pub fn new(addr: SocketAddr, network: Network) -> Self {
+        DisconnectedPeer {
+            network,
+            addr,
+        }
+    }
+
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    async fn open(&self) -> NetworkResult<TcpStream> {
+        let stream = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(&self.addr))
+            .await
+            .map_err(|_| {
+                NetworkError::ConnectionFailed(format!(
+                    "Connection to {} timed out after {}s",
+                    self.addr,
+                    CONNECT_TIMEOUT.as_secs()
+                ))
+            })?
+            .map_err(|e| {
+                NetworkError::ConnectionFailed(format!("Failed to connect to {}: {}", self.addr, e))
+            })?;
+        // The latency ping follows other small writes, so Nagle would skew `lag_ms`.
+        // Set it on every transport so V1 and V2 peers are measured alike.
+        stream.set_nodelay(true).map_err(|e| {
+            NetworkError::ConnectionFailed(format!("Failed to set TCP_NODELAY: {}", e))
+        })?;
+        Ok(stream)
+    }
+
+    /// Connect and negotiate the transport: BIP324 V2 unless `preference` is
+    /// `V1Only`, reconnecting over V1 if `V2Preferred` and the peer doesn't speak V2.
+    async fn open_link(&self, preference: TransportPreference) -> NetworkResult<Link> {
+        let magic = self.network.magic();
+        if preference == TransportPreference::V1Only {
+            return Ok(Link::v1(self.open().await?, magic));
+        }
+
+        let (read_half, mut half) = self.open().await?.into_split();
+        let garbage = Some(random_garbage());
+        let handshake =
+            v2_handshake(magic.to_le_bytes(), Role::Initiator, garbage, None, read_half, &mut half);
+        let error = match tokio::time::timeout(V2_HANDSHAKE_TIMEOUT, handshake).await {
+            Ok(Ok((inbound, outbound, reader, _session_id))) => {
+                return Ok(Link {
+                    reader: Either::Left(reader),
+                    codec: SizedCodec::V2(V2Decoder::new(magic, inbound)),
+                    writer: PeerWriter {
+                        half,
+                        framing: Framing::V2(outbound),
+                    },
+                });
+            }
+            Ok(Err(e)) => e,
+            Err(_) => return Err(NetworkError::Timeout),
+        };
+
+        if preference == TransportPreference::V2Preferred && should_fall_back_to_v1(&error) {
+            tracing::debug!(
+                target: "dash_spv::network",
+                "V2 handshake with {} failed ({}), reconnecting over V1",
+                self.addr, error
+            );
+            // The peer has already consumed our V2 key bytes, so the original stream
+            // cannot be reused. Close it before dialling again.
+            drop(half);
+            return Ok(Link::v1(self.open().await?, magic));
+        }
+        Err(NetworkError::V2HandshakeFailed(error.to_string()))
+    }
+
+    pub async fn connect(
+        self,
+        state: Arc<NetworkState>,
+        shutdown: CancellationToken,
+    ) -> NetworkResult<ConnectedPeer> {
+        let magic = self.network.magic();
+        let Link {
+            reader,
+            codec,
+            mut writer,
+        } = self.open_link(state.transport_preference).await?;
+
+        let transport_version = if matches!(writer.framing, Framing::V2(_)) {
+            2
+        } else {
+            1
+        };
+        let peer_bytes = Arc::new(AtomicU64::new(0));
+        let mut reader = FramedRead::new(
+            CountingReader {
+                inner: reader,
+                state: state.clone(),
+                peer_bytes: peer_bytes.clone(),
+            },
+            codec,
+        );
+
+        handshake_send(
+            &mut writer,
+            NetworkMessage::Version(build_version(self.addr, &state.user_agent)),
+        )
+        .await?;
+
+        let deadline = tokio::time::Instant::now() + HANDSHAKE_TIMEOUT;
+        let mut peer_version: Option<VersionMessage> = None;
+        let mut got_verack = false;
+
+        while !(peer_version.is_some() && got_verack) {
+            let raw = match tokio::time::timeout_at(deadline, reader.next()).await {
+                Err(_) => return Err(NetworkError::Timeout),
+                Ok(None) => return Err(NetworkError::PeerDisconnected),
+                Ok(Some(Err(e))) => return Err(e.into()),
+                Ok(Some(Ok((raw, _)))) => raw,
+            };
+            if raw.magic != magic {
+                return Err(NetworkError::ProtocolError("wrong network magic".into()));
+            }
+            match raw.payload {
+                NetworkMessage::Version(v) => {
+                    // BIP155: sendaddrv2 must be sent BEFORE verack.
+                    handshake_send(&mut writer, NetworkMessage::SendAddrV2).await?;
+                    handshake_send(&mut writer, NetworkMessage::Verack).await?;
+                    peer_version = Some(v);
+                }
+                NetworkMessage::Verack => got_verack = true,
+                NetworkMessage::Ping(n) => {
+                    handshake_send(&mut writer, NetworkMessage::Pong(n)).await?
+                }
+                _ => {}
+            }
+        }
+
+        let version = peer_version.ok_or(NetworkError::PeerDisconnected)?;
+
+        // A peer lacking a service silently ignores those requests, stalling its
+        // slots until timeout, so drop it now.
+        let required_services = state.required_services;
+        if !version.services.has(required_services) {
+            tracing::warn!(
+                target: "dash_spv::network",
+                "dropping {}: lacks required services {} (advertises {})",
+                self.addr, required_services, version.services
+            );
+            return Err(NetworkError::ConnectionFailed(format!(
+                "peer {} lacks required services {}",
+                self.addr, required_services
+            )));
+        }
+
+        // Announce sendheaders only after the handshake is fully complete, compressed
+        // (DIP-25, ~half the bytes) if the peer advertises it.
+        let headers2 = version.services.has(NODE_HEADERS_COMPRESSED);
+        let announce = if headers2 {
+            NetworkMessage::SendHeaders2
+        } else {
+            NetworkMessage::SendHeaders
+        };
+        handshake_send(&mut writer, announce).await?;
+
+        // Pinging before the handshake completes makes some peers drop us.
+        let mut lag_ms: u32 = 0;
+        let ping_nonce: u64 = rand::random();
+        let ping_sent = tokio::time::Instant::now();
+        if handshake_send(&mut writer, NetworkMessage::Ping(ping_nonce)).await.is_ok() {
+            let deadline = ping_sent + HANDSHAKE_TIMEOUT;
+            while let Ok(Some(Ok((raw, _)))) =
+                tokio::time::timeout_at(deadline, reader.next()).await
+            {
+                if raw.magic != magic {
+                    continue;
+                }
+                match raw.payload {
+                    NetworkMessage::Pong(n) if n == ping_nonce => {
+                        lag_ms = ping_sent.elapsed().as_millis().clamp(1, u32::MAX as u128) as u32;
+                        break;
+                    }
+                    NetworkMessage::Ping(n) => {
+                        let _ = handshake_send(&mut writer, NetworkMessage::Pong(n)).await;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let id = PeerId {
+            addr: self.addr,
+            connection: NEXT_CONNECTION.fetch_add(1, Ordering::Relaxed),
+        };
+        let writer = Arc::new(Mutex::new(writer));
+        let ledger = Arc::new(Ledger::new(state.costs.clone()));
+        // The controller grows it from the peer's measured serving rate.
+        let cap = Arc::new(AtomicU64::new(INITIAL_CAP_BYTES));
+        let token = shutdown.child_token();
+        spawn_reader(id, magic, reader, writer.clone(), state, token.clone(), ledger.clone());
+
+        tracing::debug!(
+            target: "dash_spv::network",
+            "peer connected: {} | v{} lag={}ms height={}",
+            self.addr,
+            transport_version,
+            lag_ms,
+            version.start_height,
+        );
+
+        Ok(ConnectedPeer {
+            handle: PeerHandle {
+                id,
+                writer,
+                ledger,
+                cap,
+                serving_rate: Arc::new(AtomicU64::new(0)),
+                headers2,
+                token,
+            },
+            version,
+            lag_ms: AtomicU32::new(lag_ms),
+            bytes: peer_bytes,
+        })
+    }
+}
+
+fn spawn_reader(
+    addr: PeerId,
+    magic: u32,
+    mut reader: PeerReader,
+    writer: Arc<Mutex<PeerWriter>>,
+    state: Arc<NetworkState>,
+    shutdown: CancellationToken,
+    ledger: Arc<Ledger>,
+) {
+    tokio::spawn(async move {
+        let inbound = &state.inbound;
+        let mut ping =
+            tokio::time::interval_at(tokio::time::Instant::now() + PING_INTERVAL, PING_INTERVAL);
+        let mut last_ping = None;
+        let mut last_seen = tokio::time::Instant::now();
+        loop {
+            let next = tokio::select! {
+                _ = shutdown.cancelled() => break,
+                _ = ping.tick() => {
+                    if last_ping.is_some_and(|sent| last_seen < sent) {
+                        tracing::warn!("NETWORK: {} did not answer a ping in {}s", addr, PING_INTERVAL.as_secs());
+                        break;
+                    }
+                    last_ping = Some(tokio::time::Instant::now());
+                    if !reader_write(&writer, &NetworkMessage::Ping(rand::random())).await {
+                        break;
+                    }
+                    continue;
+                }
+                next = reader.next() => next,
+            };
+            last_seen = tokio::time::Instant::now();
+            match next {
+                None => break,
+                Some(Err(e)) => {
+                    tracing::error!("NETWORK: reader {} stopped: {}", addr, e);
+                    if !matches!(e, encode::Error::Io(_)) {
+                        state.bans.ban(addr.addr(), Ban::Misbehaved).await;
+                    }
+                    break;
+                }
+                Some(Ok((raw, size))) => {
+                    if raw.magic != magic {
+                        continue;
+                    }
+                    ledger.settle(&raw.payload, size).await;
+                    match raw.payload {
+                        NetworkMessage::Ping(nonce) => {
+                            if !reader_write(&writer, &NetworkMessage::Pong(nonce)).await {
+                                break;
+                            }
+                        }
+                        NetworkMessage::Headers2(compressed) => {
+                            match CompressionState::default()
+                                .process_headers_with_hashes(&compressed.headers)
+                            {
+                                Ok(headers) => {
+                                    let msg = InboundMessage::new_headers(headers);
+                                    if inbound.send(PeerEvent::Message(addr, msg)).is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        target: "dash_spv::network",
+                                        "headers2 from {} failed to decompress: {}",
+                                        addr,
+                                        e
+                                    );
+                                    state.bans.ban(addr.addr(), Ban::Misbehaved).await;
+                                    break;
+                                }
+                            }
+                        }
+                        payload => {
+                            if inbound.send(PeerEvent::Message(addr, payload.into())).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let _ = inbound.send(PeerEvent::Disconnected(addr));
+    });
+}
+
+fn build_version(peer: SocketAddr, user_agent: &str) -> VersionMessage {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    let unspecified: SocketAddr = ([0u8, 0, 0, 0], 0).into();
+    VersionMessage::new(
+        // Needed for peers to honour our `sendheaders2`; we serve nothing else.
+        ServiceFlags::NONE | NODE_HEADERS_COMPRESSED,
+        now,
+        Address::new(&peer, ServiceFlags::NETWORK),
+        Address::new(&unspecified, ServiceFlags::NONE),
+        rand::random(),
+        normalize_user_agent(user_agent),
+        0,
+        false,
+        [0u8; 32],
+    )
+}
+
+/// Wraps `user_agent` in `/` delimiters and caps it at `MAX_USER_AGENT_LEN` bytes.
+fn normalize_user_agent(user_agent: &str) -> String {
+    let body = user_agent.strip_prefix('/').unwrap_or(user_agent);
+    let body = body.strip_suffix('/').unwrap_or(body);
+    let mut end = body.len().min(MAX_USER_AGENT_LEN - 2);
+    while !body.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("/{}/", &body[..end])
+}
+
+async fn reader_write(writer: &Mutex<PeerWriter>, msg: &NetworkMessage) -> bool {
+    let write = async { writer.lock().await.write_message(msg).await };
+    matches!(tokio::time::timeout(WRITE_TIMEOUT, write).await, Ok(Ok(())))
+}
+
+async fn handshake_send(writer: &mut PeerWriter, payload: NetworkMessage) -> NetworkResult<()> {
+    writer
+        .write_message(&payload)
+        .await
+        .map_err(|e| NetworkError::ConnectionFailed(format!("handshake write failed: {}", e)))?;
+    writer
+        .half
+        .flush()
+        .await
+        .map_err(|e| NetworkError::ConnectionFailed(format!("handshake flush failed: {}", e)))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Error as IoError, ErrorKind};
+
+    use super::*;
+
+    fn io_error(kind: ErrorKind) -> ProtocolError {
+        IoError::from(kind).into()
+    }
+
+    #[test]
+    fn v1_fallback_only_on_v2_protocol_failures() {
+        // A V1-only peer hangs up or answers with V1 magic: retry over V1.
+        assert!(should_fall_back_to_v1(&ProtocolError::eof()));
+        assert!(should_fall_back_to_v1(&io_error(ErrorKind::ConnectionReset)));
+        assert!(should_fall_back_to_v1(&Bip324Error::V1Protocol.into()));
+
+        // Other failures are surfaced rather than masked by a V1 retry.
+        assert!(!should_fall_back_to_v1(&io_error(ErrorKind::BrokenPipe)));
+        assert!(!should_fall_back_to_v1(&Bip324Error::PacketTooBig.into()));
+    }
+
+    #[test]
+    fn version_user_agent_is_delimited_and_capped() {
+        let peer: SocketAddr = ([127, 0, 0, 1], 9999).into();
+        let wire_agent = |agent: &str| build_version(peer, agent).user_agent;
+
+        assert_eq!(wire_agent("dash-spv:1.0"), "/dash-spv:1.0/");
+        assert_eq!(wire_agent("/dash-spv:1.0"), "/dash-spv:1.0/");
+        assert_eq!(wire_agent("dash-spv:1.0/"), "/dash-spv:1.0/");
+        assert_eq!(wire_agent("/dash-spv:1.0/"), "/dash-spv:1.0/");
+
+        let long = wire_agent(&"a".repeat(300));
+        assert_eq!(long.len(), MAX_USER_AGENT_LEN);
+        assert_eq!(long, format!("/{}/", "a".repeat(MAX_USER_AGENT_LEN - 2)));
+
+        // The 2-byte `é` starts on the last byte the body can hold, so it is dropped whole.
+        let straddling =
+            wire_agent(&format!("{}é{}", "a".repeat(MAX_USER_AGENT_LEN - 3), "b".repeat(10)));
+        assert_eq!(straddling, format!("/{}/", "a".repeat(MAX_USER_AGENT_LEN - 3)));
+    }
+}

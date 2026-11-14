@@ -1,0 +1,100 @@
+[package]
+name = "key-wallet"
+description = "Key derivation and wallet functionality for Dash"
+edition = "2021"
+keywords = ["dash", "wallet", "bip32", "bip39", "hdwallet"]
+readme = "README.md"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = ["getrandom"]
+serde = [
+    "dep:serde",
+    "dep:serde_json",
+    "dashcore_hashes/serde",
+    "dashcore/serde",
+]
+bincode = [
+    "serde",
+    "dep:bincode",
+    "dep:bincode_derive",
+    "dashcore_hashes/bincode",
+    "dashcore/bincode",
+]
+eddsa = ["dashcore/eddsa"]
+bls = ["dashcore/bls"]
+test-utils = ["dashcore/test-utils"]
+# Keep the full `TransactionRecord` for transactions that have reached a
+# "finalized in block" state — i.e. they have a ChainLock confirming the
+# block they were mined in. With this feature ON, every processed
+# transaction (including ones already chainlocked) stays in the
+# `transactions` map for the wallet's lifetime; finalization is implicit
+# in the stored `TransactionContext`. With it OFF (the default), records
+# of chainlocked transactions are dropped from the map and a per-account
+# `finalized_txids: HashSet<Txid>` retains only their txids so
+# `has_transaction` / `transaction_is_finalized` still answer
+# correctly, plus a summary of each (owned output indices and input
+# details) from which a rescan rebuilds a record it finds owning more
+# outputs. An InstantSend lock alone does NOT trigger record dropping
+# — we keep the record around so the surrounding block confirmation can
+# still write its height / block hash before the chainlock arrives.
+keep-finalized-transactions = []
+
+[dependencies]
+dashcore_hashes = { workspace = true }
+dashcore = { workspace = true }
+bip39 = { version = "3.0.0", default-features = false, features = [
+    "std",
+    "chinese-simplified",
+    "chinese-traditional",
+    "czech",
+    "french",
+    "italian",
+    "japanese",
+    "korean",
+    "portuguese",
+    "spanish",
+    "zeroize",
+] }
+unicode-normalization = "0.1"
+serde = { workspace = true, features = ["derive"], optional = true }
+bitflags = { version = "2.6", default-features = false }
+getrandom = { version = "0.4", optional = true }
+# Serialization
+bincode = { workspace = true, optional = true }
+bincode_derive = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+hex-conservative = { workspace = true, features = ["std"] }
+zeroize = { workspace = true }
+subtle = { version = "2.6", default-features = false }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true, features = ["serde"] }
+criterion = { workspace = true }
+dash-core-vectors = { path = "../test-vectors" }
+dashcore = { workspace = true, features = ["test-utils"] }
+key-wallet = { workspace = true, features = [
+    "test-utils",
+    "serde",
+    "bincode",
+    "eddsa",
+    "bls",
+] }
+proptest = "1.11"
+rand = { workspace = true, features = ["std", "std_rng", "thread_rng"] }
+test-case = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[[bench]]
+name = "address_generation"
+harness = false
+
+[lints]
+workspace = true
