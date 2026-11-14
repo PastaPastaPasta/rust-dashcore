@@ -1,0 +1,155 @@
+diff --git a/dash-llmq/src/dkg/wire.rs b/dash-llmq/src/dkg/wire.rs
+index 43d2dbed85f076b9fcff317cb16321fd410ea511..895cf220a0fb7869fc8e077455b19fc10e83ec00 100644
+--- a/dash-llmq/src/dkg/wire.rs
++++ b/dash-llmq/src/dkg/wire.rs
+@@ -140,6 +140,8 @@ fn write_contribution_without_sig(c: &DkgContribution, w: &mut impl CoreWrite) {
+ #[derive(Clone, Debug)]
+ pub struct Contribution {
+     msg: DkgContribution,
++    /// `msg`'s `quorumHash`, kept to lend it out: base-sdk's getter returns a copy.
++    quorum_hash: QuorumHash,
+     pro_tx_hash: ProTxHash,
+     vvec: Vec<BlsPkValue>,
+     blobs: BlsIesMultiBlobs,
+@@ -197,7 +199,14 @@ impl Contribution {
+ 
+     /// The contribution with `sig` (`qc.sig = Sign(GetSignHash())`, `a/dkgsession.cpp:99`).
+     pub(crate) fn with_sig(mut self, sig: BlsSigValue, flag: BlsSchemeKind) -> Self {
+-        self.msg.sig = BlsSigBytes::from_bytes(sig.to_bytes(flag));
++        self.msg = DkgContribution::new(
++            self.msg.llmq_type(),
++            self.msg.quorum_hash(),
++            self.msg.pro_tx_hash(),
++            self.msg.vvec().clone(),
++            self.msg.contributions().clone(),
++            BlsSigBytes::from_bytes(sig.to_bytes(flag)),
++        );
+         self.sig = sig;
+         self.session_hash = Self::hash(&self.msg, true);
+         self
+@@ -206,6 +215,7 @@ impl Contribution {
+     fn from_eager(msg: DkgContribution, scheme: BlsSchemeKind) -> Self {
+         let shares = msg.contributions();
+         Self {
++            quorum_hash: msg.quorum_hash(),
+             pro_tx_hash: pro_tx(&msg.pro_tx_hash()),
+             vvec: msg.vvec().iter().map(|pk| pk_value(pk.as_bytes(), scheme)).collect(),
+             blobs: BlsIesMultiBlobs {
+@@ -259,7 +269,7 @@ impl Contribution {
+ 
+     /// `quorumHash`.
+     pub fn quorum_hash(&self) -> &QuorumHash {
+-        &self.msg.quorum_hash()
++        &self.quorum_hash
+     }
+ 
+     /// `proTxHash`.
+@@ -305,6 +315,8 @@ fn write_complaint_without_sig(c: &DkgComplaint, w: &mut impl CoreWrite) {
+ #[derive(Clone, Debug)]
+ pub struct Complaint {
+     msg: DkgComplaint,
++    /// `msg`'s `quorumHash`, kept to lend it out: base-sdk's getter returns a copy.
++    quorum_hash: QuorumHash,
+     pro_tx_hash: ProTxHash,
+     sig: BlsSigValue,
+     sign_hash: [u8; 32],
+@@ -350,7 +362,14 @@ impl Complaint {
+ 
+     /// The complaint with `sig`.
+     pub(crate) fn with_sig(mut self, sig: BlsSigValue, flag: BlsSchemeKind) -> Self {
+-        self.msg.sig = BlsSigBytes::from_bytes(sig.to_bytes(flag));
++        self.msg = DkgComplaint::new(
++            self.msg.llmq_type(),
++            self.msg.quorum_hash(),
++            self.msg.pro_tx_hash(),
++            self.msg.bad_members().clone(),
++            self.msg.complain_for_members().clone(),
++            BlsSigBytes::from_bytes(sig.to_bytes(flag)),
++        );
+         self.sig = sig;
+         self.session_hash = Self::hash(&self.msg, true);
+         self
+@@ -358,6 +377,7 @@ impl Complaint {
+ 
+     fn from_eager(msg: DkgComplaint, scheme: BlsSchemeKind) -> Self {
+         Self {
++            quorum_hash: msg.quorum_hash(),
+             pro_tx_hash: pro_tx(&msg.pro_tx_hash()),
+             sig: sig_value(msg.sig().as_bytes(), scheme),
+             sign_hash: Self::hash(&msg, false),
+@@ -380,7 +400,7 @@ impl Complaint {
+ 
+     /// `quorumHash`.
+     pub fn quorum_hash(&self) -> &QuorumHash {
+-        &self.msg.quorum_hash()
++        &self.quorum_hash
+     }
+ 
+     /// `proTxHash`.
+@@ -439,6 +459,8 @@ fn write_justification_without_sig(j: &DkgJustification, w: &mut impl CoreWrite)
+ #[derive(Clone, Debug)]
+ pub struct Justification {
+     msg: DkgJustification,
++    /// `msg`'s `quorumHash`, kept to lend it out: base-sdk's getter returns a copy.
++    quorum_hash: QuorumHash,
+     pro_tx_hash: ProTxHash,
+     sig: BlsSigValue,
+     keys: Vec<(u32, BlsSkValue)>,
+@@ -482,7 +504,13 @@ impl Justification {
+ 
+     /// The justification with `sig`.
+     pub(crate) fn with_sig(mut self, sig: BlsSigValue, flag: BlsSchemeKind) -> Self {
+-        self.msg.sig = BlsSigBytes::from_bytes(sig.to_bytes(flag));
++        self.msg = DkgJustification::new(
++            self.msg.llmq_type(),
++            self.msg.quorum_hash(),
++            self.msg.pro_tx_hash(),
++            self.msg.contributions().clone(),
++            BlsSigBytes::from_bytes(sig.to_bytes(flag)),
++        );
+         self.sig = sig;
+         self.session_hash = Self::hash(&self.msg, true);
+         self
+@@ -490,6 +518,7 @@ impl Justification {
+ 
+     fn from_eager(msg: DkgJustification, scheme: BlsSchemeKind) -> Self {
+         Self {
++            quorum_hash: msg.quorum_hash(),
+             pro_tx_hash: pro_tx(&msg.pro_tx_hash()),
+             sig: sig_value(msg.sig().as_bytes(), scheme),
+             keys: msg
+@@ -521,7 +550,7 @@ impl Justification {
+ 
+     /// `quorumHash`.
+     pub fn quorum_hash(&self) -> &QuorumHash {
+-        &self.msg.quorum_hash()
++        &self.quorum_hash
+     }
+ 
+     /// `proTxHash`.
+@@ -566,6 +595,8 @@ fn revealed(shares: &[(u32, BlsSkValue)], flag: BlsSchemeKind) -> Vec<DkgReveale
+ #[cfg_attr(not(test), expect(dead_code, reason = "batched with its Receive in LQ4a-2 or LQ4b-1"))]
+ pub struct PrematureCommitment {
+     msg: DkgPrematureCommitment,
++    /// `msg`'s `quorumHash`, kept to lend it out: base-sdk's getter returns a copy.
++    quorum_hash: QuorumHash,
+     pro_tx_hash: ProTxHash,
+     sig: BlsSigValue,
+     quorum_sig: BlsSigValue,
+@@ -585,6 +616,7 @@ impl PrematureCommitment {
+             return Err(ReadFailure::Structure);
+         }
+         Ok(Self {
++            quorum_hash: msg.quorum_hash(),
+             pro_tx_hash: pro_tx(&msg.pro_tx_hash()),
+             sig: sig_value(msg.sig().as_bytes(), bls.scheme()),
+             quorum_sig: sig_value(msg.quorum_sig().as_bytes(), bls.scheme()),
+@@ -593,7 +625,7 @@ impl PrematureCommitment {
+     }
+ 
+     pub(crate) fn quorum_hash(&self) -> &QuorumHash {
+-        &self.msg.quorum_hash()
++        &self.quorum_hash
+     }
+ 
+     pub(crate) fn pro_tx_hash(&self) -> &ProTxHash {
