@@ -1,0 +1,4 @@
+# The block operator merkle_root's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate merkle_root
+extend main 1
