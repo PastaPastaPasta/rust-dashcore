@@ -1,0 +1,44 @@
+diff --git a/conformance/src/check.rs b/conformance/src/check.rs
+index f0cd17298044518aa1e927553e8d82b5f2ff80b3..35d2acc694d7334a92cc7a10b96819a1c70de1ee 100644
+--- a/conformance/src/check.rs
++++ b/conformance/src/check.rs
+@@ -801,14 +801,14 @@ fn bs_payload(
+             sink.fail("payload.decode", Side::BaseSdk, Some(txref), detail);
+             None
+         }
+-        Ok(dash_primitives::PayloadDecode {
+-            payload:
+-                SpecialPayload::Unknown {
+-                    tx_type,
+-                    ..
+-                },
+-            ..
+-        }) => {
++        Ok(d) if matches!(d.payload(), SpecialPayload::Unknown { .. }) => {
++            let SpecialPayload::Unknown {
++                tx_type,
++                ..
++            } = d.payload()
++            else {
++                unreachable!("the guard matched `Unknown`")
++            };
+             let detail = format!("no decoder for special tx type {}", tx_type.to_base());
+             sink.fail("payload.unsupported", Side::BaseSdk, Some(txref), detail);
+             None
+diff --git a/conformance/src/payload.rs b/conformance/src/payload.rs
+index b1f0879136ba4710ceac74fbda2caf2e68a31df3..b44753a18eb4521bb07a54911cd531a5e21b0773 100644
+--- a/conformance/src/payload.rs
++++ b/conformance/src/payload.rs
+@@ -600,10 +600,8 @@ mod tests {
+ 
+     #[test]
+     fn bitset_rendering_matches() {
+-        let b = dash_primitives::DynBitset {
+-            num_bits: 10,
+-            data: vec![0b0000_0101, 0b0000_0010],
+-        };
++        let b =
++            dash_primitives::DynBitset::new(10, vec![0b0000_0101, 0b0000_0010]).expect("10 bits");
+         assert_eq!(bs_bits(&b), "1010000001");
+         assert_eq!(
+             bits(&[true, false, true, false, false, false, false, false, false, true]),
