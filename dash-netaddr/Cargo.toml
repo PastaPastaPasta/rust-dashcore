@@ -1,0 +1,44 @@
+[package]
+name = "dash-netaddr"
+description = "Dash Core's network addresses (CNetAddr, CService, CSubNet) and resolver-free name helpers (SplitHostPort, IsBadPort, the numeric Lookup, MaybeFlipIPv6toCJDNS), shared by dash-p2p and the node's NetInfo rules. Pure."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_netaddr"
+path = "src/lib.rs"
+
+[dependencies]
+# The wire forms (`AddrV2`, `ServiceV1`) and the Tor v3 name with its checksum.
+dash-primitives = { workspace = true, features = ["std"] }
+# `NET_INTERNAL` names (SHA-256, `CNetAddr::SetInternal`).
+dash-sha256 = { path = "../dash-sha256" }
+
+# base-sdk's `dash-pow`, reached through `dash-primitives`, needs `portable` on targets without
+# the CPU features its accelerated X11 requires; enabling it here, as dashcore_hashes does,
+# keeps this crate building on its own.
+[target.'cfg(all(target_arch = "aarch64", not(all(target_feature = "neon", target_feature = "aes"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "x86_64", not(all(target_feature = "aes", target_feature = "avx", target_feature = "avx2", target_feature = "bmi1", target_feature = "bmi2", target_feature = "f16c", target_feature = "fma", target_feature = "lzcnt", target_feature = "movbe", target_feature = "xsave"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "wasm32", not(target_feature = "simd128")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(not(any(target_arch = "aarch64", target_arch = "x86_64", target_arch = "wasm32")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+# Likewise base-sdk's `dash-pkc`, whose BLS needs ADX on x86_64 unless built `portable`.
+[target.'cfg(all(target_arch = "x86_64", not(target_feature = "adx")))'.dependencies]
+dash-pkc = { workspace = true, features = ["portable"] }
+
+[dev-dependencies]
+# tests/glibc_numeric.rs compares the numeric lookup with the host's getaddrinfo (D35).
+libc = "0.2"

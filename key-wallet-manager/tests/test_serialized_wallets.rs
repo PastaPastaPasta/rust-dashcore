@@ -1,0 +1,118 @@
+#[cfg(feature = "bincode")]
+#[cfg(test)]
+mod tests {
+    use hex_conservative::DisplayHex;
+    use key_wallet::wallet::initialization::WalletAccountCreationOptions;
+    use key_wallet::wallet::managed_wallet_info::wallet_info_interface::WalletInfoInterface;
+    use key_wallet::wallet::managed_wallet_info::ManagedWalletInfo;
+    use key_wallet::Network;
+    use key_wallet_manager::WalletManager;
+
+    #[test]
+    fn test_create_wallet_return_serialized_bytes() {
+        let mut manager = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+
+        let test_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+        // Test 1: Create full wallet with private keys
+        let result = manager.create_wallet_from_mnemonic_return_serialized_bytes(
+            test_mnemonic,
+            100_000,
+            WalletAccountCreationOptions::Default,
+            false, // Don't downgrade
+            false,
+        );
+        assert!(result.is_ok());
+        let (bytes, wallet_id) = result.unwrap();
+        assert!(!bytes.is_empty());
+        println!("Full wallet ID: {}", wallet_id.to_lower_hex_string());
+
+        // The wallet's sync checkpoint should be seeded to birth_height - 1.
+        let info = manager.get_wallet_info(&wallet_id).unwrap();
+        assert_eq!(info.birth_height(), 100_000);
+        assert_eq!(info.synced_height(), 99_999);
+        assert_eq!(info.last_processed_height(), 99_999);
+
+        // Test 2: Create watch-only wallet (no private keys)
+        let mut manager2 = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+        let result = manager2.create_wallet_from_mnemonic_return_serialized_bytes(
+            test_mnemonic,
+            100_000,
+            WalletAccountCreationOptions::Default,
+            true,  // Downgrade to pubkey wallet
+            false, // Watch-only, not externally signable
+        );
+        assert!(result.is_ok());
+        let (bytes2, wallet_id2) = result.unwrap();
+        assert!(!bytes2.is_empty());
+
+        // Same wallet ID because it's derived from the same root public key
+        assert_eq!(wallet_id, wallet_id2);
+        println!("Watch-only wallet ID: {}", wallet_id2.to_lower_hex_string());
+
+        // Test 3: Create externally signable wallet (for hardware wallets)
+        let mut manager3 = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+        let result = manager3.create_wallet_from_mnemonic_return_serialized_bytes(
+            test_mnemonic,
+            100_000,
+            WalletAccountCreationOptions::Default,
+            true, // Downgrade to pubkey wallet
+            true, // Externally signable (for hardware wallets)
+        );
+        assert!(result.is_ok());
+        let (bytes3, wallet_id3) = result.unwrap();
+        assert!(!bytes3.is_empty());
+        assert_eq!(wallet_id, wallet_id3);
+        println!("Externally signable wallet ID: {}", wallet_id3.to_lower_hex_string());
+
+        // Test 4: Import the serialized wallet back with a specific birth height
+        let mut manager4 = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+        let import_result = manager4.import_wallet_from_bytes(&bytes, 50_000);
+        assert!(import_result.is_ok());
+        let imported_id = import_result.unwrap();
+        assert_eq!(imported_id, wallet_id);
+        let imported = manager4.get_wallet_info(&imported_id).unwrap();
+        assert_eq!(imported.birth_height(), 50_000);
+        assert_eq!(imported.synced_height(), 49_999);
+        assert_eq!(imported.last_processed_height(), 49_999);
+    }
+
+    /// A non-English mnemonic must survive the full serialize → import round
+    /// trip on both network configurations: creation parses the French phrase
+    /// (auto-detected language) and the import decodes the embedded mnemonic
+    /// from the serialized bytes.
+    #[test]
+    fn test_create_wallet_from_non_english_mnemonic_serialized_bytes() {
+        use key_wallet::mnemonic::Language;
+        use key_wallet::Mnemonic;
+
+        let french = Mnemonic::generate(12, Language::French).unwrap().to_string();
+        for network in [Network::Mainnet, Network::Testnet] {
+            let mut manager = WalletManager::<ManagedWalletInfo>::new(network);
+
+            let result = manager.create_wallet_from_mnemonic_return_serialized_bytes(
+                &french,
+                100_000,
+                WalletAccountCreationOptions::Default,
+                false, // Keep private keys so the serialized wallet embeds the mnemonic
+                false,
+            );
+            assert!(
+                result.is_ok(),
+                "French wallet creation failed on {network:?}: {:?}",
+                result.err()
+            );
+            let (bytes, wallet_id) = result.unwrap();
+            assert!(!bytes.is_empty());
+
+            let mut manager2 = WalletManager::<ManagedWalletInfo>::new(network);
+            let import_result = manager2.import_wallet_from_bytes(&bytes, 50_000);
+            assert!(
+                import_result.is_ok(),
+                "French wallet import failed on {network:?}: {:?}",
+                import_result.err()
+            );
+            assert_eq!(import_result.unwrap(), wallet_id);
+        }
+    }
+}
