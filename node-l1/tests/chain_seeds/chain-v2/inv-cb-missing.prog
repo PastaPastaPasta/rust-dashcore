@@ -1,0 +1,4 @@
+# The block operator cb_missing's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate cb_missing
+extend main 1
