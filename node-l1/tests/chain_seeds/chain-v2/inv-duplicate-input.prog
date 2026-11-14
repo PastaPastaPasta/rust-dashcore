@@ -1,0 +1,4 @@
+# The block operator duplicate_input's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate duplicate_input
+extend main 1
