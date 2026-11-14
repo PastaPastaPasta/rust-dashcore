@@ -1,0 +1,304 @@
+{
+ "chain_args": [
+  "-dip3params=2:2",
+  "-testactivationheight=v20@1000000",
+  "-testactivationheight=mn_rr@1000000",
+  "-testactivationheight=dip0024@1000000",
+  "-vbparams=testdummy:-2:0",
+  "-testactivationheight=v19@212"
+ ],
+ "core_tag": "v24.0.0",
+ "cycles": [
+  {
+   "base": 168,
+   "mined_height": 179,
+   "quorum_hash": "2fe5189379cb5c4717c8ba6dad44db531ba6837be85a89c06eee4da3e9a11706",
+   "types": [
+    100,
+    104,
+    106
+   ],
+   "version": 1,
+   "wall_s": 6.19
+  },
+  {
+   "base": 192,
+   "mined_height": 203,
+   "quorum_hash": "0f5d134a82159029772b9b1ea3582ccd0c063a016f0f244b57a71e616eeeaccc",
+   "types": [
+    100,
+    104,
+    106
+   ],
+   "version": 1,
+   "wall_s": 1.86
+  },
+  {
+   "base": 216,
+   "mined_height": 227,
+   "quorum_hash": "06d0102ba0c38aa4865d03012c202114844f951251f407126ab25da60843008f",
+   "types": [
+    100,
+    104
+   ],
+   "version": 3,
+   "wall_s": 3.52
+  },
+  {
+   "base": 240,
+   "mined_height": 251,
+   "quorum_hash": "25face15672df140324ea7a5d61a77ba5713fa84109da18e0dd99053e74bdf51",
+   "types": [
+    100,
+    104
+   ],
+   "version": 3,
+   "wall_s": 1.98
+  }
+ ],
+ "dashd_version": "Dash Core version v24.0.0",
+ "events": {
+  "reg_e": {
+   "height": 212,
+   "hex": "0300010001fba880cbba19434d9bb2e32da2c4b3d3b602562d46ff19688afd5013b05086fa000000006a47304402206e47a2c1039e40d98ada9b1e17558572d6a5a4b9d0b2b426edd34a28a3c881e90220163fb5fca878933df64e96b94a2ec5327b2f7e94e679eca7b4d0263f0923e412012103cfee5f983f5bb306e315e8954b985fca6ee736d66869bfe69165544a4114014bfeffffff0122dff505000000001976a91427960a18a3781400f16934b3f83963909557bd0988ac00000000fd1201020000000000fba880cbba19434d9bb2e32da2c4b3d3b602562d46ff19688afd5013b05086fa0600000000000000000000000000ffff7f0000012b108b732d116e21f72817596173e7f2ab0e3016ab99af0ce4ed6f08d3af64bbda74bd36954686f5f4bc05fd0ecf618b7e9ab6627c4d90bf018feedfb6694eb9785c35b20453e6b9011431583e64cac065890427924180a5b45d00001976a9144cb85b8646f342d19214b31e08fb020b5157524f88acd04c40d55d1bae5e083283d234aae5141c7b7314d46e127e7f27110dbe94c35f412014ea74e614c69f8f6462f2df9c282c50e98fe7497a8bea4300abf1447cef083f15f2334b845ec4afba9525aac64bccdec1549ee706826635585e0b02e3c12798",
+   "inputs": [
+    "fa8650b01350fd8a6819ff462d5602b6d3b3c4a22de3b29b4d4319bacb80a8fb"
+   ],
+   "txid": "86117e8f630b4d6d57ef1af734744fd97340f104508c7d03f548bfb8abf61c96",
+   "version": 2
+  },
+  "revoke_c": {
+   "height": 214,
+   "proTxHash": "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb",
+   "txid": "97983b9bd1d915e0d7b9b792d522fc5067c70e502d860b3ff7cb1949e9520508",
+   "version": 2
+  },
+  "upreg_b": {
+   "height": 213,
+   "proTxHash": "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397",
+   "txid": "5e53d4d981c698b02eba9c157b25ba3952233a2926ae0a59c2639a08bcd0fbc3",
+   "version": 2
+  },
+  "upserv_a": {
+   "height": 210,
+   "proTxHash": "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f",
+   "txid": "66c8fdd7dab78fb68e02d79a0f0c7fc134a6a7205e4a8c7c6b035bef83332de3",
+   "version": 1
+  },
+  "upserv_b": {
+   "height": 215,
+   "proTxHash": "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397",
+   "txid": "de2e1f2de24aa7da2cf3111edcb70a3173c8b7a5b999f6a585ce0462bbb3741b",
+   "version": 2
+  }
+ },
+ "finished_utc": "2026-11-10T10:28:48Z",
+ "m": {
+  "blocks": 259,
+  "tip_at_fork": 215
+ },
+ "masternodes": [
+  {
+   "legacy_at_registration": true,
+   "node": 1,
+   "proTxHash": "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 2,
+   "proTxHash": "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 3,
+   "proTxHash": "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb"
+  },
+  {
+   "legacy_at_registration": true,
+   "node": 4,
+   "proTxHash": "e644afed9fde60d17f01bb8a44b7d580a924e590af6ae2d72b915c72bfefdb7d"
+  },
+  {
+   "legacy_at_registration": false,
+   "node": 5,
+   "proTxHash": "86117e8f630b4d6d57ef1af734744fd97340f104508c7d03f548bfb8abf61c96"
+  }
+ ],
+ "mode": "reorg",
+ "n1_dashd": "TestBlockValidity failed: bad-protx-version (-25)",
+ "node_args": [
+  "-testactivationheight=dip0024@1000000",
+  "-vbparams=testdummy:-2:0",
+  "-testactivationheight=v19@212",
+  "-deprecatedrpc=legacy_mn"
+ ],
+ "platform": {
+  "llmq_test_platform": 106
+ },
+ "revoked": [
+  "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb"
+ ],
+ "s": {
+  "blocks": 6,
+  "invalidated": "657196350f0e33f15facfa1941bf93de69701f566432fc6411e390b39b5917a1",
+  "parent": 208,
+  "parent_hash": "7b054b7c73153954af0d2a6ce1ba5ea71adc2ee7a993e0639972b887e55414eb",
+  "tip_hash": "421c0dd6433db6e3112c2cbfce79c8eddc7205d861d05644ab9866d8a32951cc"
+ },
+ "scheme_lines_node0": [
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: entered bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: reverted bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0",
+  "ScopedBLSLegacyScheme: entered bls_legacy_scheme=1",
+  "CSpecialTxProcessor::ProcessSpecialTxsInBlock -- bls_legacy_scheme=0"
+ ],
+ "setup_tip": 135,
+ "sporks": {
+  "SPORK_17_QUORUM_DKG_ENABLED": 0,
+  "SPORK_19_CHAINLOCKS_ENABLED": 4070908800,
+  "SPORK_21_QUORUM_ALL_CONNECTED": 4070908800,
+  "SPORK_23_QUORUM_POSE": 4070908800,
+  "SPORK_2_INSTANTSEND_ENABLED": 4070908800
+ },
+ "started_utc": "2026-11-10T10:28:04Z",
+ "state_versions": {
+  "211": {
+   "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "9352954a7564ceacb09d3c0b2f909f6b69dd7f04e129519093fed1269fd9586a311a0f8b7b2562dd5dd990929188b4f4",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "0ddc3ee6dac50eae9a1bf1aa199afb74f961838a91f3db0267a9abc3751d2e7df2677a7a5e373a34aeac89f5acd2ca85",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "8a2e407c5cdbc9bb04f9e79fc4e6f50ca539b0f26597cc150dc6e9e15b9976770123ebc0fae51fbe201a9b445b94cb81",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "e644afed9fde60d17f01bb8a44b7d580a924e590af6ae2d72b915c72bfefdb7d": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "91c2ef63971fd5af63d4886203ad11761bedf6da75c234ff73acfb1b168c431ee459b259b74068b4b0a8344d22e837d2",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "212": {
+   "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "9352954a7564ceacb09d3c0b2f909f6b69dd7f04e129519093fed1269fd9586a311a0f8b7b2562dd5dd990929188b4f4",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "0ddc3ee6dac50eae9a1bf1aa199afb74f961838a91f3db0267a9abc3751d2e7df2677a7a5e373a34aeac89f5acd2ca85",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "8a2e407c5cdbc9bb04f9e79fc4e6f50ca539b0f26597cc150dc6e9e15b9976770123ebc0fae51fbe201a9b445b94cb81",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "86117e8f630b4d6d57ef1af734744fd97340f104508c7d03f548bfb8abf61c96": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "af0ce4ed6f08d3af64bbda74bd36954686f5f4bc05fd0ecf618b7e9ab6627c4d90bf018feedfb6694eb9785c35b20453",
+    "revocationReason": 0,
+    "version": 2
+   },
+   "e644afed9fde60d17f01bb8a44b7d580a924e590af6ae2d72b915c72bfefdb7d": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "91c2ef63971fd5af63d4886203ad11761bedf6da75c234ff73acfb1b168c431ee459b259b74068b4b0a8344d22e837d2",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "214": {
+   "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "9352954a7564ceacb09d3c0b2f909f6b69dd7f04e129519093fed1269fd9586a311a0f8b7b2562dd5dd990929188b4f4",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397": {
+    "PoSeBanHeight": 213,
+    "pubKeyOperator": "b3846e9947634c8efc0dd57d641c37373392c7afa1680450eb6ada79361ad18b215a33dabf8b21a7df60dfb47104a417",
+    "revocationReason": 0,
+    "version": 2
+   },
+   "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb": {
+    "PoSeBanHeight": 214,
+    "pubKeyOperator": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "86117e8f630b4d6d57ef1af734744fd97340f104508c7d03f548bfb8abf61c96": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "af0ce4ed6f08d3af64bbda74bd36954686f5f4bc05fd0ecf618b7e9ab6627c4d90bf018feedfb6694eb9785c35b20453",
+    "revocationReason": 0,
+    "version": 2
+   },
+   "e644afed9fde60d17f01bb8a44b7d580a924e590af6ae2d72b915c72bfefdb7d": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "91c2ef63971fd5af63d4886203ad11761bedf6da75c234ff73acfb1b168c431ee459b259b74068b4b0a8344d22e837d2",
+    "revocationReason": 0,
+    "version": 1
+   }
+  },
+  "259": {
+   "464f74fdf64081477ba2d025794b6fecb27a0efb6903437b2d0520fb79f2274f": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "9352954a7564ceacb09d3c0b2f909f6b69dd7f04e129519093fed1269fd9586a311a0f8b7b2562dd5dd990929188b4f4",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "6e9510ac5d9d58f2fd867af35126c44347d9900a22d1a8d2f4e786138d756397": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "b3846e9947634c8efc0dd57d641c37373392c7afa1680450eb6ada79361ad18b215a33dabf8b21a7df60dfb47104a417",
+    "revocationReason": 0,
+    "version": 2
+   },
+   "858a0635483ce34ab69b388e03f61ac6a968d6b28524a25c96117bfe427d59cb": {
+    "PoSeBanHeight": 214,
+    "pubKeyOperator": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "revocationReason": 0,
+    "version": 1
+   },
+   "86117e8f630b4d6d57ef1af734744fd97340f104508c7d03f548bfb8abf61c96": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "af0ce4ed6f08d3af64bbda74bd36954686f5f4bc05fd0ecf618b7e9ab6627c4d90bf018feedfb6694eb9785c35b20453",
+    "revocationReason": 0,
+    "version": 2
+   },
+   "e644afed9fde60d17f01bb8a44b7d580a924e590af6ae2d72b915c72bfefdb7d": {
+    "PoSeBanHeight": -1,
+    "pubKeyOperator": "91c2ef63971fd5af63d4886203ad11761bedf6da75c234ff73acfb1b168c431ee459b259b74068b4b0a8344d22e837d2",
+    "revocationReason": 0,
+    "version": 1
+   }
+  }
+ },
+ "tip": 259,
+ "tip_hash": "6896c7a9d59b7cd036a268d95994a19bb789266543b01160e28edebd6ce2d823",
+ "types": {
+  "llmq_test": 100,
+  "llmq_test_instantsend": 104
+ },
+ "v19_height": 212,
+ "v20_height": 1000000
+}

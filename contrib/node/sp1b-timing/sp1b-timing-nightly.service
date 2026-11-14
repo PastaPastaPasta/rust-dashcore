@@ -1,0 +1,25 @@
+[Unit]
+Description=SP1b masternode-sync timer KS against dashd v24.0.0-rc.4, nightly (DEC-562)
+
+# Install: copy this file and sp1b-timing-nightly.timer to ~/.config/systemd/user/, set the
+# paths below, then `systemctl --user daemon-reload && systemctl --user enable --now
+# sp1b-timing-nightly.timer`. A run takes about 3 h of wall time at SP1B_JOBS=128, after up
+# to 4 h waiting for the load.
+[Service]
+Type=oneshot
+# Under WorkingDirectory; SP1B_SWEEP_TMP=1 has nightly.sh remove earlier nights' leftover roots.
+Environment=TMPDIR=/work/conformance/nightly/sp1b-timing/tmp
+Environment=SP1B_SWEEP_TMP=1
+Environment=SP1B_RDASHD=/work/conformance/nightly/sp1b-timing/bin/rdashd
+Environment=SP1B_CPUS=0-15
+Environment=SP1B_JOBS=128
+# An acceptance run starts only below this 1-minute load (DEC-562), waiting up to 4 h.
+Environment=SP1B_MAX_LOAD=40
+WorkingDirectory=/work/conformance/nightly/sp1b-timing
+# One output directory per night; `nightly.sh` resumes into it if a run is restarted.
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/sp1b-timing/nightly.sh "out/$(date -u +%%Y%%m%%d)"'
+IOSchedulingClass=idle
+MemoryMax=48G
+TimeoutStartSec=10h
+# 2: the load never fell below SP1B_MAX_LOAD, a skipped night ("skipped: load" in nightly.log).
+SuccessExitStatus=2
