@@ -1,0 +1,12 @@
+{
+ "nodes": [
+  "node0"
+ ],
+ "recorded": [
+  "node0"
+ ],
+ "source": "backfill: frozen/ and unstarted_nodes",
+ "test": "p2p_invalid_block.py",
+ "test_args": [],
+ "unstarted": []
+}

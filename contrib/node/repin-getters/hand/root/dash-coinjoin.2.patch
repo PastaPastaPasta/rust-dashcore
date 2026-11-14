@@ -1,0 +1,44 @@
+diff --git a/dash-coinjoin/tests/relay_rules.rs b/dash-coinjoin/tests/relay_rules.rs
+index 9cee25c399d08aaae50e7b98b9ba3b17b42b5b9b..7dd27b1e46aa15594d9ec13e226acbe8e0330fc0 100644
+--- a/dash-coinjoin/tests/relay_rules.rs
++++ b/dash-coinjoin/tests/relay_rules.rs
+@@ -172,7 +172,7 @@ fn server_dsq_rejections() {
+         forged.pro_tx_hash(),
+         forged.time(),
+         forged.ready(),
+-        stranger.queue(SMALLEST, NOW, false).sig(),
++        stranger.queue(SMALLEST, NOW, false).sig().clone(),
+     );
+     assert_eq!(run(forged), DsqOutcome::Misbehaving(10));
+     // A masternode only relays the queues that open sessions.
+@@ -311,7 +311,7 @@ fn client_dsq_rejections() {
+         forged.pro_tx_hash(),
+         forged.time(),
+         forged.ready(),
+-        stranger.queue(SMALLEST, NOW, false).sig(),
++        stranger.queue(SMALLEST, NOW, false).sig().clone(),
+     );
+     assert_eq!(run(forged), DsqOutcome::Misbehaving(10));
+ }
+@@ -474,7 +474,7 @@ fn validate_dstx_rejections() {
+     forged = dash_p2p_core::DsTx::new(
+         forged.tx().clone(),
+         forged.pro_tx_hash(),
+-        Mn::new(2).dstx(3, 3).sig(),
++        Mn::new(2).dstx(3, 3).sig().clone(),
+         forged.sig_time(),
+     );
+     let mut counters = MixingCounters::default();
+diff --git a/dash-coinjoin/tests/sessions.rs b/dash-coinjoin/tests/sessions.rs
+index 8ff62d0c35c02a2fbf60f9a27f681fc3fc5fe308..6abc7ed3e8fbedd55e6c33d13eb79dec45c1f07d 100644
+--- a/dash-coinjoin/tests/sessions.rs
++++ b/dash-coinjoin/tests/sessions.rs
+@@ -391,7 +391,7 @@ fn server_session_completes() {
+         panic!("{fx:?}");
+     };
+     assert_eq!((*added, *relayed), (txid, txid));
+-    assert_eq!(dstx.tx(), committed);
++    assert_eq!(dstx.tx(), &committed);
+     assert_eq!(dstx::check_dstx_signature(dstx, &env.op.public()), BlsVerdict::Valid);
+     assert!(dstx::is_valid_structure(dstx, mainnet_limits(), false).valid);
+     let completes: Vec<_> = rest
