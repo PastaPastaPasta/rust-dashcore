@@ -1,0 +1,20 @@
+# Dash Core version v24.0.0-rc.4; contrib/node/sp1-transcripts/clear_vectors.py
+# case	file	dashd's CoreRead line (debug.log, after the time and [error])
+nf-short	netfulfilled.dat	CoreRead: Deserialize or I/O error - AutoFile::read: end of file: iostream error
+nf-magic	netfulfilled.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+nf-outer	netfulfilled.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+nf-outer-max	netfulfilled.dat	CoreRead: Deserialize or I/O error - DataStream::read(): end of data: iostream error
+nf-outer-noncanonical	netfulfilled.dat	CoreRead: Deserialize or I/O error - non-canonical ReadCompactSize(): iostream error
+nf-outer-noncanonical-9	netfulfilled.dat	CoreRead: Deserialize or I/O error - non-canonical ReadCompactSize(): iostream error
+nf-outer-over-9	netfulfilled.dat	CoreRead: Deserialize or I/O error - non-canonical ReadCompactSize(): iostream error
+nf-inner	netfulfilled.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+nf-name	netfulfilled.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+sp-sig-65	sporks.dat	CoreRead: Deserialize or I/O error - DataStream::read(): end of data: iostream error
+sp-sig-66	sporks.dat	CoreRead: Deserialize or I/O error - Vector length limit exceeded: iostream error
+sp-sig-over	sporks.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+mn-version	mncache.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+mn-infos	mncache.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+mn-votes	mncache.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+mn-used	mncache.dat	CoreRead: Deserialize or I/O error - ReadCompactSize(): size too large: iostream error
+mn-used-max	mncache.dat	CoreRead: Deserialize or I/O error - DataStream::read(): end of data: iostream error
+mn-used-noncanonical	mncache.dat	CoreRead: Deserialize or I/O error - non-canonical ReadCompactSize(): iostream error
