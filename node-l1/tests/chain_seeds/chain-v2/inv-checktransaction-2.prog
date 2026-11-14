@@ -1,0 +1,4 @@
+# tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty (bank slot 6, x_vout_empty).
+extend main 1 tx=spends
+mutatex x_vout_empty
+extend main 1
