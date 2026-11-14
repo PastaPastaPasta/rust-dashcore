@@ -1,0 +1,10 @@
+[Unit]
+Description=ST3b device-level W-40k weekly, Saturdays 04:10 UTC (PLAN-ST3b Q8, owner ruling S8)
+
+[Timer]
+# The service waits for the nightly, which starts at 04:10 too.
+OnCalendar=Sat *-*-* 04:10:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
