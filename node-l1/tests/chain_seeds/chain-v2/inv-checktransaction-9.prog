@@ -1,0 +1,4 @@
+# tx_check.cpp:CheckTransaction#9:bad-cb-length (bank slot 10, x_cb_length).
+extend main 1 tx=spends
+mutatex x_cb_length
+extend main 1

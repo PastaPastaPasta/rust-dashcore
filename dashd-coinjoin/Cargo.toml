@@ -1,0 +1,36 @@
+[package]
+name = "dashd-coinjoin"
+description = "The Rust Dash node's CoinJoin runtime: server, DSTX and queue services over the pure CoinJoin rules."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dashd_coinjoin"
+path = "src/lib.rs"
+
+[features]
+# In-memory environment fakes for this crate and dependent runtime tests.
+testing = []
+
+[dependencies]
+dash-coinjoin = { path = "../dash-coinjoin" }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p = { path = "../dash-p2p" }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-p2p = { path = "../dashd-p2p" }
+
+[dev-dependencies]
+dash-clock = { path = "../dash-clock" }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dashd-coinjoin = { path = ".", features = ["testing"] }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }

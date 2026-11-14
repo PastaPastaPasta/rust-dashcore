@@ -1,0 +1,36 @@
+[package]
+name = "dashd-locks"
+description = "ChainLock intake and coinbase extraction for the Rust Dash node."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[features]
+oracle = ["dash-oracle-sys/oracle"]
+
+[dependencies]
+dash-clock = { path = "../dash-clock" }
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true, features = ["std"] }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls", "std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+dashd-p2p = { path = "../dashd-p2p" }
+tracing = "0.1"
+
+[dev-dependencies]
+parking_lot = "0.12"
+dash-oracle-sys = { path = "../dash-oracle-sys" }
+dash-consensus = { path = "../dash-consensus" }
+dash-core-vectors = { path = "../test-vectors" }
+serde_json = "1.0"
+zstd = "0.14"
+
+[[test]]
+name = "handler_oracle"
+required-features = ["oracle"]
