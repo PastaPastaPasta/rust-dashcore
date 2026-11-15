@@ -1,0 +1,72 @@
+{
+  "core_commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "version": "v24.0.0",
+  "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+  "core_lines": "evo/mnauth.cpp:19-49; bls/bls.h:177-180",
+  "records": [
+    {
+      "core_lines": "evo/mnauth.cpp:19-49; bls/bls.h:177-180",
+      "direction": "inbound",
+      "challenge": "1111111111111111111111111111111111111111111111111111111111111111",
+      "peer_version": 70242,
+      "pushversion": null,
+      "pro_tx_hash": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "public_key": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "process_scheme": "basic",
+      "signature_scheme": "basic",
+      "signature_serialization_scheme": "basic",
+      "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+      "payload": "77426addfbafb1a21a2b02614e1fae4f57cdfeeb53dd403b69cdca34ddedde3d83cace47e8a0627e6357f52ba521c8320787d27a61a1b072f1fc5f7cfa1d56180c087802c436082e9da5ad7decac1e5302bec494ad4137293c89fc70aab9e3b59465542bea3a62bb4779160848e8ad7224bacd0756444ab6683e7a5b85c33667",
+      "name": "mnauth-in-no-push",
+      "version": 70242
+    },
+    {
+      "core_lines": "evo/mnauth.cpp:19-49; bls/bls.h:177-180",
+      "direction": "inbound",
+      "challenge": "1111111111111111111111111111111111111111111111111111111111111111",
+      "peer_version": 70242,
+      "pushversion": 70100,
+      "pro_tx_hash": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "public_key": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "process_scheme": "basic",
+      "signature_scheme": "basic",
+      "signature_serialization_scheme": "basic",
+      "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+      "payload": "77426addfbafb1a21a2b02614e1fae4f57cdfeeb53dd403b69cdca34ddedde3d801dfde152eab9e013a7957deed0eefcb199e8dbd3eaeffd36b8d57210ef65e5f7a02ae41542e812beb3288471755354170547904d20e5518ad1d33a0745a8224f47ffdb2d0d57c031a84e9f868635389861eb7486aa18392fadd07ca6bbe43f",
+      "name": "mnauth-in-push",
+      "version": 70100
+    },
+    {
+      "core_lines": "evo/mnauth.cpp:19-49; bls/bls.h:177-180",
+      "direction": "outbound",
+      "challenge": "1111111111111111111111111111111111111111111111111111111111111111",
+      "peer_version": 70242,
+      "pushversion": null,
+      "pro_tx_hash": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "public_key": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "process_scheme": "basic",
+      "signature_scheme": "basic",
+      "signature_serialization_scheme": "basic",
+      "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+      "payload": "77426addfbafb1a21a2b02614e1fae4f57cdfeeb53dd403b69cdca34ddedde3d8e3b69898e8b7d656e203db8f10d3123e6b0125aceb5096242de5e2c16ae78f1d584f3c59cd5cfc5292903c0f642332b07a0a0f4fac9fcf47ff8e4f2beaac19c9d21161c9a24ee033591260c608d5c5a50444c9d21c27f516fc6f93414fa5947",
+      "name": "mnauth-out-no-push",
+      "version": 70242
+    },
+    {
+      "core_lines": "evo/mnauth.cpp:19-49; bls/bls.h:177-180",
+      "direction": "outbound",
+      "challenge": "1111111111111111111111111111111111111111111111111111111111111111",
+      "peer_version": 70242,
+      "pushversion": 70100,
+      "pro_tx_hash": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "public_key": "aa0e59e0277232d5ccfb448df76acebdc550c7b7164967aa77ad87a6ac26d336d9e65d35e1f0dff548af03f692f6402e",
+      "process_scheme": "basic",
+      "signature_scheme": "basic",
+      "signature_serialization_scheme": "basic",
+      "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+      "payload": "77426addfbafb1a21a2b02614e1fae4f57cdfeeb53dd403b69cdca34ddedde3d88d11cc42059196d454791dd977e00be38c3a615ea6256aabdf77ca116c6e3f79f573949c8cbcaa31b3865a3373e07ea1255b392e20945c06b1ea36592161101b38f948d3c0d3d0c7f2b6a18904aed6fa7aa353de896c00f624b27b3257d6a25",
+      "name": "mnauth-out-push",
+      "version": 70100
+    }
+  ]
+}
