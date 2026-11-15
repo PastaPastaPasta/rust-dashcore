@@ -2,7 +2,6 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::hash::Hash;
 use std::mem;
 use std::net::SocketAddr;
 use std::num::NonZeroUsize;
@@ -12,29 +11,32 @@ use std::time::Duration;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::time::Instant;
 
-use super::{InboundMessage, MessageType, RequestKey};
+use super::{InboundMessage, MessageType};
 
-/// Message and payload-byte limits for one subscriber.
+/// Message, payload-byte and request-credit limits for one subscriber.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SubCap {
     pub msgs: NonZeroUsize,
     pub bytes: NonZeroUsize,
+    /// Open requests plus unread terminal failures.
+    pub requests: NonZeroUsize,
 }
 
 impl SubCap {
     /// The default budget for a subscriber of this kind.
     pub fn for_kind(kind: MessageType) -> Self {
-        let (msgs, mib) = match kind {
-            MessageType::Headers => (4, 2),
-            MessageType::CfHeaders => (8, 1),
-            MessageType::CFilter => (2_000, 4),
-            MessageType::Block => (8, 8),
-            MessageType::MnListDiff | MessageType::QrInfo => (4, 6),
-            _ => (256, 1),
+        let (msgs, mib, requests) = match kind {
+            MessageType::Headers => (4, 2, 4),
+            MessageType::CfHeaders => (8, 1, 16),
+            MessageType::CFilter => (2_000, 4, 64),
+            MessageType::Block => (8, 8, 32),
+            MessageType::MnListDiff | MessageType::QrInfo => (4, 6, 8),
+            _ => (256, 1, 16),
         };
         Self {
-            msgs: NonZeroUsize::new(msgs).unwrap_or(NonZeroUsize::MIN),
-            bytes: NonZeroUsize::new(mib * 1024 * 1024).unwrap_or(NonZeroUsize::MIN),
+            msgs: nonzero(msgs),
+            bytes: nonzero(mib * 1024 * 1024),
+            requests: nonzero(requests),
         }
     }
 }
@@ -43,9 +45,14 @@ impl From<NonZeroUsize> for SubCap {
     fn from(msgs: NonZeroUsize) -> Self {
         Self {
             msgs,
-            bytes: NonZeroUsize::new(1024 * 1024).unwrap_or(NonZeroUsize::MIN),
+            bytes: nonzero(1024 * 1024),
+            requests: nonzero(16),
         }
     }
+}
+
+fn nonzero(n: usize) -> NonZeroUsize {
+    NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
 }
 
 /// A subscription's identity, stable until it is removed.
@@ -60,12 +67,10 @@ pub enum Inbound<R, A, F, P = SocketAddr> {
         msg: Arc<InboundMessage>,
         request: Option<(R, A)>,
     },
-    RequestFailed {
-        id: R,
-        key: RequestKey,
-        attempts: u8,
-        last: F,
-    },
+    /// A request's terminal failure. It holds the request's credit until it is received.
+    RequestFailed(F),
+    /// A credit is free again after `acquire_or_want` found none.
+    CreditAvailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,8 +115,11 @@ struct Subscriber<R, A, F, P> {
     queue: VecDeque<Queued<R, A, F, P>>,
     msgs: usize,
     bytes: usize,
-    // A queued failure keeps its reservation until it is received.
-    requests: HashMap<R, bool>,
+    // Credits held by open requests and by queued failures.
+    credits: usize,
+    failures: usize,
+    wants_credit: bool,
+    marker_queued: bool,
     stall: Option<Stall>,
 }
 
@@ -120,6 +128,18 @@ impl<R, A, F, P> Subscriber<R, A, F, P> {
     fn fits(&self, bytes: usize) -> bool {
         self.msgs < self.cap.msgs.get()
             && (self.bytes.saturating_add(bytes) <= self.cap.bytes.get() || self.msgs == 0)
+    }
+
+    /// Returns one credit and queues `CreditAvailable` if one was wanted and none is queued.
+    fn release(&mut self) {
+        self.credits = self.credits.saturating_sub(1);
+        if mem::take(&mut self.wants_credit) && !self.marker_queued {
+            self.marker_queued = true;
+            self.queue.push_back(Queued {
+                inbound: Inbound::CreditAvailable,
+                charge: None,
+            });
+        }
     }
 }
 
@@ -155,13 +175,13 @@ pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     clock: Arc<dyn Fn() -> Instant + Send + Sync>,
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Default for SubscriptionHub<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> Default for SubscriptionHub<R, A, F, P> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
     pub fn new() -> Self {
         Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
     }
@@ -207,7 +227,10 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 queue: VecDeque::new(),
                 msgs: 0,
                 bytes: 0,
-                requests: HashMap::new(),
+                credits: 0,
+                failures: 0,
+                wants_credit: false,
+                marker_queued: false,
                 stall: None,
             },
         );
@@ -324,12 +347,15 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
     pub fn recv(&mut self, id: SubId) -> Option<Inbound<R, A, F, P>> {
         let sub = self.subscribers.get_mut(&id)?;
         let queued = sub.queue.pop_front()?;
-        if let Inbound::RequestFailed {
-            id,
-            ..
-        } = &queued.inbound
-        {
-            sub.requests.remove(id);
+        match queued.inbound {
+            Inbound::RequestFailed(_) => {
+                sub.failures -= 1;
+                sub.release();
+            }
+            Inbound::CreditAvailable => sub.marker_queued = false,
+            Inbound::Message {
+                ..
+            } => {}
         }
         if let Some((bytes, charge)) = queued.charge {
             sub.msgs -= 1;
@@ -411,55 +437,42 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         }
     }
 
-    /// Reserves one terminal notification slot for an open request.
-    pub fn reserve_request(&mut self, sub: SubId, id: R) -> bool {
+    /// Takes a request credit, or records that the subscription wants one.
+    /// A later `release` then queues one `CreditAvailable`. A removed subscription gets nothing.
+    pub fn acquire_or_want(&mut self, sub: SubId) -> bool {
         let Some(sub) = self.subscribers.get_mut(&sub) else {
             return false;
         };
-        match sub.requests.entry(id) {
-            Entry::Vacant(entry) => {
-                entry.insert(false);
-                true
-            }
-            Entry::Occupied(_) => false,
+        if sub.credits < sub.cap.requests.get() {
+            sub.credits += 1;
+            true
+        } else {
+            sub.wants_credit = true;
+            false
         }
     }
 
-    /// Releases a completed or cancelled request's unused terminal slot.
-    pub fn release_request(&mut self, sub: SubId, id: R) {
+    /// Returns a request's credit when it ends without a terminal failure.
+    pub fn release(&mut self, sub: SubId) {
         if let Some(sub) = self.subscribers.get_mut(&sub) {
-            if sub.requests.get(&id) == Some(&false) {
-                sub.requests.remove(&id);
+            if sub.credits > sub.failures {
+                sub.release();
             }
         }
     }
 
-    /// Enqueues at most one failure per reservation, even when payload delivery is full.
-    pub fn request_failed(
-        &mut self,
-        sub: SubId,
-        id: R,
-        key: RequestKey,
-        attempts: u8,
-        last: F,
-    ) -> bool {
+    /// Queues a request's terminal failure, which keeps the request's credit until received.
+    /// Returns false when the subscription is gone or holds no credit for another failure.
+    pub fn failed(&mut self, sub: SubId, failure: F) -> bool {
         let Some(sub) = self.subscribers.get_mut(&sub) else {
             return false;
         };
-        let Some(queued) = sub.requests.get_mut(&id) else {
-            return false;
-        };
-        if *queued {
+        if sub.failures >= sub.credits {
             return false;
         }
-        *queued = true;
+        sub.failures += 1;
         sub.queue.push_back(Queued {
-            inbound: Inbound::RequestFailed {
-                id,
-                key,
-                attempts,
-                last,
-            },
+            inbound: Inbound::RequestFailed(failure),
             charge: None,
         });
         true
@@ -472,7 +485,7 @@ struct AsyncState<R, A, F, P> {
     resumed: BTreeSet<P>,
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncState<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncState<R, A, F, P> {
     fn maintain(&mut self) {
         let dropped: Vec<_> =
             self.ready.iter().filter_map(|(id, tx)| tx.is_closed().then_some(*id)).collect();
@@ -498,13 +511,13 @@ pub struct AsyncHub<R, A, F, P = SocketAddr> {
     space: Arc<Notify>,
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Default for AsyncHub<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> Default for AsyncHub<R, A, F, P> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
     pub fn new() -> Self {
         Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
     }
@@ -552,27 +565,22 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
         result
     }
 
-    pub async fn reserve_request(&self, sub: SubId, id: R) -> bool {
+    pub async fn acquire_or_want(&self, sub: SubId) -> bool {
         let mut state = self.state.lock().await;
         state.maintain();
-        state.core.reserve_request(sub, id)
+        state.core.acquire_or_want(sub)
     }
 
-    pub async fn release_request(&self, sub: SubId, id: R) {
-        self.state.lock().await.core.release_request(sub, id);
+    pub async fn release(&self, sub: SubId) {
+        let mut state = self.state.lock().await;
+        state.core.release(sub);
+        state.wake();
     }
 
-    pub async fn request_failed(
-        &self,
-        sub: SubId,
-        id: R,
-        key: RequestKey,
-        attempts: u8,
-        last: F,
-    ) -> bool {
+    pub async fn failed(&self, sub: SubId, failure: F) -> bool {
         let mut state = self.state.lock().await;
         state.maintain();
-        let result = state.core.request_failed(sub, id, key, attempts, last);
+        let result = state.core.failed(sub, failure);
         state.wake();
         result
     }
@@ -616,7 +624,7 @@ pub struct Subscription<R, A, F, P = SocketAddr> {
     sub: SubId,
 }
 
-impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Subscription<R, A, F, P> {
+impl<R: Copy, A: Copy, F, P: Copy + Ord> Subscription<R, A, F, P> {
     pub fn id(&self) -> SubId {
         self.sub
     }
@@ -663,7 +671,7 @@ mod tests {
     use tokio::task::yield_now;
 
     use super::{AsyncHub, Inbound, Offer, SubCap, SubId, SubscriptionHub, HUB_BYTES};
-    use crate::network::{InboundMessage, MessageType, RequestKey};
+    use crate::network::{InboundMessage, MessageType};
 
     type Hub = SubscriptionHub<u64, u64, &'static str, u64>;
 
@@ -671,6 +679,7 @@ mod tests {
         SubCap {
             msgs: NonZeroUsize::new(msgs).unwrap(),
             bytes: NonZeroUsize::new(bytes).unwrap(),
+            requests: NonZeroUsize::new(16).unwrap(),
         }
     }
 
@@ -758,8 +767,8 @@ mod tests {
         assert_eq!(take(&mut hub, sub), (1, 1));
         assert_eq!(hub.on_space(sub), vec![1]);
         assert_eq!(take(&mut hub, sub), (1, 2));
-        assert!(hub.reserve_request(sub, 1));
-        assert!(hub.request_failed(sub, 1, RequestKey::CFilters(0), 3, "timeout"));
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.failed(sub, "timeout"));
         assert_eq!(
             hub.offer(1, MessageType::Block, msg(3), 1_000_000, None).unwrap(),
             Offer::Delivered
@@ -864,50 +873,164 @@ mod tests {
         assert!(hub.recv(sub).is_none());
     }
 
+    fn credits(requests: usize) -> SubCap {
+        SubCap {
+            requests: NonZeroUsize::new(requests).unwrap(),
+            ..cap(1, 1)
+        }
+    }
+
+    fn markers(hub: &mut Hub, sub: SubId) -> usize {
+        let mut n = 0;
+        while let Some(inbound) = hub.recv(sub) {
+            assert!(matches!(inbound, Inbound::CreditAvailable));
+            n += 1;
+        }
+        n
+    }
+
     #[test]
-    fn terminal_slots_are_bounded_and_owner_only() {
+    fn issue_fail_without_recv_is_bounded() {
         let mut hub = Hub::new();
-        let owner = hub.subscribe(&[MessageType::Inv], cap(1, 1));
-        let other = hub.subscribe(&[MessageType::Inv], cap(1, 1));
-        assert!(hub.reserve_request(owner, 1));
-        assert!(hub.reserve_request(owner, 2));
-        assert!(!hub.reserve_request(owner, 1));
+        let owner = hub.subscribe(&[MessageType::Inv], credits(2));
+        let other = hub.subscribe(&[MessageType::Inv], credits(1));
+        assert!(hub.acquire_or_want(owner));
+        assert!(hub.acquire_or_want(owner));
+        assert!(!hub.acquire_or_want(owner));
+        assert!(hub.acquire_or_want(other));
         hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
-        hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
-        assert!(!hub.request_failed(other, 1, RequestKey::CFilters(0), 3, "timeout"));
-        assert!(!hub.request_failed(owner, 3, RequestKey::CFilters(0), 3, "timeout"));
-        for id in [1, 2] {
-            assert!(hub.request_failed(owner, id, RequestKey::CFilters(0), 3, "timeout"));
-            assert!(!hub.request_failed(owner, id, RequestKey::CFilters(0), 3, "timeout"));
-        }
-        hub.release_request(owner, 1);
-        assert!(!hub.reserve_request(owner, 1));
+        assert!(hub.failed(owner, "first"));
+        assert!(hub.failed(owner, "second"));
+        assert!(!hub.failed(owner, "third"));
+        hub.release(owner);
+        assert!(!hub.acquire_or_want(owner));
+        assert!(!hub.failed(owner, "fourth"));
         assert_eq!(take(&mut hub, owner), (1, 1));
-        for expected in [1, 2] {
-            match hub.recv(owner).unwrap() {
-                Inbound::RequestFailed {
-                    id,
-                    key,
-                    attempts,
-                    last,
-                } => {
-                    assert_eq!(id, expected);
-                    assert_eq!(key, RequestKey::CFilters(0));
-                    assert_eq!(attempts, 3);
-                    assert_eq!(last, "timeout");
-                }
-                _ => panic!("expected terminal failure"),
-            }
+        for expected in ["first", "second"] {
+            assert!(
+                matches!(hub.recv(owner), Some(Inbound::RequestFailed(last)) if last == expected)
+            );
         }
+        assert!(matches!(hub.recv(owner), Some(Inbound::CreditAvailable)));
         assert!(hub.recv(owner).is_none());
         assert_eq!(take(&mut hub, other), (1, 1));
-        assert!(hub.recv(other).is_none());
-        assert_eq!(hub.on_space(other), vec![1]);
-        assert_eq!(take(&mut hub, owner), (1, 2));
-        assert_eq!(take(&mut hub, other), (1, 2));
-        assert!(hub.reserve_request(owner, 3));
-        hub.release_request(owner, 3);
-        assert!(!hub.request_failed(owner, 3, RequestKey::CFilters(0), 3, "timeout"));
+        let gone = hub.subscribe(&[MessageType::Inv], credits(1));
+        hub.remove(gone);
+        assert!(!hub.acquire_or_want(gone));
+        assert!(!hub.failed(gone, "timeout"));
+    }
+
+    #[test]
+    fn credits_return_on_answer_cancel_recv() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(3));
+        for _ in 0..3 {
+            assert!(hub.acquire_or_want(sub));
+        }
+        assert!(!hub.acquire_or_want(sub));
+        // An answered request and a cancelled one each return their credit.
+        hub.release(sub);
+        hub.release(sub);
+        assert!(hub.failed(sub, "timeout"));
+        assert!(matches!(hub.recv(sub), Some(Inbound::CreditAvailable)));
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        assert!(matches!(hub.recv(sub), Some(Inbound::RequestFailed("timeout"))));
+        assert!(matches!(hub.recv(sub), Some(Inbound::CreditAvailable)));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        hub.remove(sub);
+        assert!(!hub.acquire_or_want(sub));
+    }
+
+    #[test]
+    fn credit_available_after_no_credit() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(1));
+        assert!(hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert!(hub.recv(sub).is_none());
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert_eq!(markers(&mut hub, sub), 1);
+        assert!(hub.acquire_or_want(sub));
+    }
+
+    #[test]
+    fn acquire_or_want_then_release_queues_marker() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(1));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        assert!(hub.recv(sub).is_none());
+        hub.release(sub);
+        assert!(matches!(hub.recv(sub), Some(Inbound::CreditAvailable)));
+        assert!(hub.recv(sub).is_none());
+    }
+
+    #[test]
+    fn release_in_no_credit_window_queues_one_marker() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(2));
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.acquire_or_want(sub));
+        // Both credits free after the caller saw none, before it acts on that answer.
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        hub.release(sub);
+        assert_eq!(markers(&mut hub, sub), 1);
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+    }
+
+    #[test]
+    fn repeated_defer_release_keeps_one_marker() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(1));
+        assert!(hub.acquire_or_want(sub));
+        for _ in 0..5 {
+            assert!(!hub.acquire_or_want(sub));
+            hub.release(sub);
+            assert!(hub.acquire_or_want(sub));
+        }
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert_eq!(markers(&mut hub, sub), 1);
+    }
+
+    #[test]
+    fn recv_clears_marker_queued() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(1));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert_eq!(markers(&mut hub, sub), 1);
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert_eq!(markers(&mut hub, sub), 1);
+    }
+
+    #[test]
+    fn markers_and_failures_skip_the_message_bound() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], credits(2));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.acquire_or_want(sub));
+        assert!(!hub.acquire_or_want(sub));
+        hub.release(sub);
+        assert!(hub.failed(sub, "timeout"));
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert!(matches!(hub.recv(sub), Some(Inbound::CreditAvailable)));
+        assert!(matches!(hub.recv(sub), Some(Inbound::RequestFailed("timeout"))));
+        assert!(hub.recv(sub).is_none());
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.acquire_or_want(sub));
     }
 
     #[test]
@@ -939,20 +1062,14 @@ mod tests {
         let (mut sub, inbound) = waiting.await.unwrap();
         assert!(matches!(inbound, Some(Inbound::Message { .. })));
         let id = sub.id();
-        assert!(hub.reserve_request(id, 1).await);
+        assert!(hub.acquire_or_want(id).await);
         hub.offer(1, MessageType::Inv, msg(1), 1, None).await.unwrap();
         hub.offer(1, MessageType::Inv, msg(2), 1, None).await.unwrap();
-        assert!(hub.request_failed(id, 1, RequestKey::CFilters(0), 3, "timeout").await);
+        assert!(hub.failed(id, "timeout").await);
         assert!(matches!(sub.recv().await, Some(Inbound::Message { .. })));
         hub.space().notified().await;
         assert_eq!(hub.resumed().await, vec![1]);
-        assert!(matches!(
-            sub.recv().await,
-            Some(Inbound::RequestFailed {
-                id: 1,
-                ..
-            })
-        ));
+        assert!(matches!(sub.recv().await, Some(Inbound::RequestFailed("timeout"))));
         assert!(matches!(sub.recv().await, Some(Inbound::Message { .. })));
         hub.offer(1, MessageType::Inv, msg(3), 1, None).await.unwrap();
         hub.offer(1, MessageType::Inv, msg(4), 1, None).await.unwrap();
@@ -997,8 +1114,8 @@ mod tests {
         hub.offer(1, MessageType::Block, msg(2), 6, None).unwrap();
         hub.offer(1, MessageType::Block, msg(3), 9, None).unwrap();
         assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
-        assert!(hub.reserve_request(sub, 1));
-        assert!(hub.request_failed(sub, 1, RequestKey::CFilters(0), 3, "timeout"));
+        assert!(hub.acquire_or_want(sub));
+        assert!(hub.failed(sub, "timeout"));
         assert_eq!(take(&mut hub, sub), (1, 1));
         assert!(hub.on_space(sub).is_empty());
         assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
@@ -1179,19 +1296,23 @@ mod tests {
 
     #[test]
     fn default_budgets() {
-        for (kind, msgs, mib) in [
-            (MessageType::Headers, 4, 2),
-            (MessageType::CfHeaders, 8, 1),
-            (MessageType::CFilter, 2_000, 4),
-            (MessageType::Block, 8, 8),
-            (MessageType::MnListDiff, 4, 6),
-            (MessageType::QrInfo, 4, 6),
-            (MessageType::Inv, 256, 1),
-            (MessageType::Tx, 256, 1),
-            (MessageType::ChainLock, 256, 1),
-            (MessageType::IsDLock, 256, 1),
+        for (kind, msgs, mib, requests) in [
+            (MessageType::Headers, 4, 2, 4),
+            (MessageType::CfHeaders, 8, 1, 16),
+            (MessageType::CFilter, 2_000, 4, 64),
+            (MessageType::Block, 8, 8, 32),
+            (MessageType::MnListDiff, 4, 6, 8),
+            (MessageType::QrInfo, 4, 6, 8),
+            (MessageType::Inv, 256, 1, 16),
+            (MessageType::Tx, 256, 1, 16),
+            (MessageType::ChainLock, 256, 1, 16),
+            (MessageType::IsDLock, 256, 1, 16),
         ] {
-            assert_eq!(SubCap::for_kind(kind), cap(msgs, mib * 1024 * 1024));
+            let expected = SubCap {
+                requests: NonZeroUsize::new(requests).unwrap(),
+                ..cap(msgs, mib * 1024 * 1024)
+            };
+            assert_eq!(SubCap::for_kind(kind), expected);
         }
         assert_eq!(SubCap::from(NonZeroUsize::new(3).unwrap()), cap(3, 1024 * 1024));
     }
