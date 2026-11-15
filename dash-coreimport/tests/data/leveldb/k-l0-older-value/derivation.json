@@ -1,0 +1,4 @@
+{
+  "base": "a-wal",
+  "detail": "Constructed overlapping L0 files (seq 10,20); lower-priority L1 holds contradictory seq 30; values originate in a-wal"
+}

@@ -1,0 +1,13 @@
+diff --git a/dashd-net/tests/relay.rs b/dashd-net/tests/relay.rs
+index 685a91e90e0f6d1e73fe697ba8097aae1507acb4..739c4f11061c3b1c5210e6c00a3fe536910578c6 100644
+--- a/dashd-net/tests/relay.rs
++++ b/dashd-net/tests/relay.rs
+@@ -214,7 +214,7 @@ fn self_advertisement_outside_ibd() {
+         let ours: Vec<_> = sent
+             .iter()
+             .filter(|(c, _)| c.as_str() == "addr")
+-            .flat_map(|(_, payload)| Addr::decode(&mut &payload[..]).unwrap().addrs())
++            .flat_map(|(_, payload)| Addr::decode(&mut &payload[..]).unwrap().addrs().clone())
+             .collect();
+         if ibd {
+             assert!(ours.is_empty());
