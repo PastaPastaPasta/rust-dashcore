@@ -1,0 +1,13 @@
+diff --git a/dashd-p2p/src/processing/compact.rs b/dashd-p2p/src/processing/compact.rs
+index 977ea8e2fccd6b4bd0ad27461710e7de0d966342..07928c855076a92f944114c6859cbb654ac63fb2 100644
+--- a/dashd-p2p/src/processing/compact.rs
++++ b/dashd-p2p/src/processing/compact.rs
+@@ -317,7 +317,7 @@ impl CompactBlock {
+             short_ids: msg.short_ids().iter().map(|s| s.get()).collect(),
+             prefilled: msg
+                 .prefilled()
+-                .into_iter()
++                .iter()
+                 .map(|p| Prefilled {
+                     index: p.index(),
+                     tx: Arc::new(Tx::new(p.tx().clone())),

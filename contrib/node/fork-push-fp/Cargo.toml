@@ -1,0 +1,12 @@
+# Standalone tool, not a workspace member: check-fork-push.sh's content fingerprint (check 2).
+# std only, so it builds offline in seconds. Build from this directory with its own target dir.
+[package]
+name = "fork-push-fp"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[profile.release]
+debug = false

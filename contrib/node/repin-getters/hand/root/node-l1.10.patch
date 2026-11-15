@@ -1,0 +1,99 @@
+diff --git a/contrib/node/layers.toml b/contrib/node/layers.toml
+index a351486e79b0988c3089cd7af75eb9cdc3ea4261..794f6fd73c1d7551f2ce91480502b15932ec7975 100644
+--- a/contrib/node/layers.toml
++++ b/contrib/node/layers.toml
+@@ -420,7 +420,7 @@ reason = "sets SpecialTxRules::evo_shares (dash-dml/src/specialtx/mod.rs)"
+ # P6: node-own methods of the same name.
+ [[params.allow]]
+ rule = "P6"
+-path = "node-fuzz/src/models/netinfo.rs:215"
++path = "node-fuzz/src/models/netinfo.rs:217"
+ reason = "node_l1::check_inputs::Network::params, which returns the builder's ChainSetup (dash-consensus/tests/support/checks.rs:77)"
+ 
+ # L7's reference while the merge base with node/integration has no
+diff --git a/node-l1/src/protx_mirror.rs b/node-l1/src/protx_mirror.rs
+index 0e4ec08dd3ddb60229dbbfb7ce0606ee77fce33d..fc7cb1f1c580b13bfcb6639a6d22fcf7a70f1901 100644
+--- a/node-l1/src/protx_mirror.rs
++++ b/node-l1/src/protx_mirror.rs
+@@ -36,7 +36,7 @@
+ use bitcoin_hashes::sha256d;
+ use bitcoin_primitives::script::ScriptPubKeyBuf;
+ use dash_num::Hash256;
+-use dash_params::AddrParams;
++use dash_params::ChainSetup;
+ use dash_pkc::bls::{BlsEagerSig, BlsLazyPk, BlsSchemeKind};
+ use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
+ use dash_primitives as bsdk;
+@@ -294,9 +294,11 @@ impl ProRegTx {
+     // writes. Source: fda80b21 `pkgs/primitives/src/provider/proregtx.rs:404-429`.
+     /// Core's `MakeSignString`, which the key of an external collateral signs as a text message:
+     /// the payout, the operator reward, the owner and voting addresses and the payload hash,
+-    /// separated by `|`. It depends on the network through the address prefixes in `addr`.
++    /// separated by `|`. It depends on the network through the address prefixes of `setup`
++    /// (base-sdk's takes them as `setup.base_sdk_addr_params()`).
+     #[must_use]
+-    pub fn sign_string(&self, addr: &AddrParams) -> String {
++    pub fn sign_string(&self, setup: &ChainSetup) -> String {
++        let addr = setup.base_sdk_addr_params();
+         let mut unsigned = Vec::new();
+         self.encode_unsigned(&mut unsigned);
+         let hash = hash256(&unsigned);
+@@ -307,14 +309,14 @@ impl ProRegTx {
+                 .map(|payout| {
+                     format!(
+                         "{}:{}",
+-                        destination_string(payout.script_payout().as_bytes(), addr),
++                        destination_string(payout.script_payout().as_bytes(), setup),
+                         payout.reward()
+                     )
+                 })
+                 .collect();
+             entries.join(",")
+         } else {
+-            destination_string(self.script_payout.as_bytes(), addr)
++            destination_string(self.script_payout.as_bytes(), setup)
+         };
+         format!(
+             "{payout}|{}|{}|{}|{}",
+@@ -575,9 +577,11 @@ fn hash256(bytes: &[u8]) -> Hash256 {
+ 
+ /// `sighash.rs:43-49` `destination_string`: a script as Core's provider payloads print it into
+ /// signed strings, the address of the destination `ExtractDestination` finds, else the hex.
+-fn destination_string(script: &[u8], addr: &AddrParams) -> String {
++/// It takes the setup where base-sdk's takes its address prefixes, which are
++/// `setup.base_sdk_addr_params()`.
++fn destination_string(script: &[u8], setup: &ChainSetup) -> String {
+     Recipient::from_script(script)
+-        .and_then(|recipient| recipient.to_base58c(addr))
++        .and_then(|recipient| recipient.to_base58c(&setup.base_sdk_addr_params()))
+         .unwrap_or_else(|| script.to_lower_hex_string())
+ }
+ 
+diff --git a/node-l1/src/protx_mirror/tests.rs b/node-l1/src/protx_mirror/tests.rs
+index 0b676a14afc938194f31074129be74fc2c44563c..adf29ff51e50a8584044caafed723fafd74ede60 100644
+--- a/node-l1/src/protx_mirror/tests.rs
++++ b/node-l1/src/protx_mirror/tests.rs
+@@ -233,7 +233,7 @@ fn mirror_sighashes_as_base_sdk() {
+                 );
+                 for params in networks {
+                     assert_eq!(
+-                        Some(m.sign_string(&params.base_sdk_addr_params())),
++                        Some(m.sign_string(params)),
+                         make_sign_string(&p, params),
+                         "sign string of {p:?}"
+                     );
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index a188fbc99e468deabea024a9608a03515bf2536f..cc514d57697ceca2d5025d3abcc67ade5c616ed1 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -1078,9 +1078,7 @@ impl Case {
+             }
+             Payload::Reg(p) if !p.collateral_hash().is_null() => {
+                 // The mirror's copy of base-sdk's sign string, over the payload as written.
+-                let Some(message) =
+-                    params.map(|params| p.sign_string(&params.base_sdk_addr_params()))
+-                else {
++                let Some(message) = params.map(|params| p.sign_string(params)) else {
+                     return;
+                 };
+                 let key = match collateral.filter(|_| !forged) {

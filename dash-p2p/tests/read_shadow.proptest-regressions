@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 18698d4d3e56082925cf387f86417992aadfcbc72d003a2a0c40d5af5c90b1e8 # shrinks to cmd_index = 57, version = 70230, payload = [1], bls_index = 0
+cc 04e9e990ecb089c28b864efd4e0259d8477e0583019d8b711643b708434f3a5f # shrinks to cmd_index = 11, version = 70230, payload = [1, 0], bls_index = 0
+cc cba57db13bdf99b0bf1af270e5345137394117222842cb6a7add6f4125f20770 # shrinks to cmd_index = 70, version = 70230, payload = [1, 0], bls_index = 0
+cc 86a7d446abc7b44aae372b6daa61184e47bf3ec1418fed01481d4f21dcbd4c88 # shrinks to cmd_index = 2, version = 70230, payload = [1], bls_index = 0
+cc 3ec249974368548135a610f145103d2e1a575cf3c4556ee85ad179276edead0c # shrinks to cmd_index = 2, version = 70230, payload = [253, 0, 40], bls_index = 0
+cc c167ed529e3264dfbfceefe5def9534dc82a9b257c4965e27e506bfcd48ba81e # shrinks to cmd_index = 3, version = 70230, payload = [8, 0, 0, 0, 0, 0, 4, 0], bls_index = 0
