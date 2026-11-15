@@ -1,0 +1,22 @@
+[package]
+name = "node-amb"
+description = "P3's (A − B) counting harness, shared by the node leg (dashd-node) and the Core leg (node-l1): pinned per-thread instructions:u counters, the masking protocol, the seccomp guard, the child-per-pass supervisor, the shared block fixture and the comparison. Test-only; never a runtime dependency."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "node_amb"
+path = "src/lib.rs"
+
+[dependencies]
+# The fixture's and records' digests.
+dash-sha256 = { path = "../dash-sha256" }
+libc = "0.2"
+# A pass's record (one JSON object, at most 4 KiB).
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = "1.0"

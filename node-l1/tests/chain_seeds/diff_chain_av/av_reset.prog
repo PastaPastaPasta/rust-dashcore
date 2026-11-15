@@ -1,0 +1,7 @@
+# S2: an INVALIDATE of a line header resets Core's best header to the active tip
+# (InvalidChainFound), so the line's first defect is no longer an ancestor of it: its scripts are
+# checked and it is refused.
+extend main 4
+extend main 2 headers hold
+invalidate tip#0
+deliver b1
