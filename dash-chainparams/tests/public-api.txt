@@ -1,0 +1,410 @@
+pub mod dash_chainparams
+pub enum dash_chainparams::ChainOption
+pub dash_chainparams::ChainOption::BudgetParams
+pub dash_chainparams::ChainOption::Devnet
+pub dash_chainparams::ChainOption::Dip3Params
+pub dash_chainparams::ChainOption::FastPrune
+pub dash_chainparams::ChainOption::HighSubsidyBlocks
+pub dash_chainparams::ChainOption::HighSubsidyFactor
+pub dash_chainparams::ChainOption::LlmqChainLocks
+pub dash_chainparams::ChainOption::LlmqDevnetParams
+pub dash_chainparams::ChainOption::LlmqInstantSendDip0024
+pub dash_chainparams::ChainOption::LlmqMnhf
+pub dash_chainparams::ChainOption::LlmqPlatform
+pub dash_chainparams::ChainOption::LlmqTestInstantSendDip0024
+pub dash_chainparams::ChainOption::LlmqTestInstantSendParams
+pub dash_chainparams::ChainOption::LlmqTestParams
+pub dash_chainparams::ChainOption::LlmqTestPlatformParams
+pub dash_chainparams::ChainOption::MinSporkKeys
+pub dash_chainparams::ChainOption::MinimumDifficultyBlocks
+pub dash_chainparams::ChainOption::PowTargetSpacing
+pub dash_chainparams::ChainOption::SporkAddr
+pub dash_chainparams::ChainOption::TestActivationHeight
+pub dash_chainparams::ChainOption::VbParams
+impl dash_chainparams::ChainOption
+pub const dash_chainparams::ChainOption::ALL: [Self; 21]
+pub fn dash_chainparams::ChainOption::from_name(&str) -> core::option::Option<Self>
+pub const fn dash_chainparams::ChainOption::name(self) -> &'static str
+pub const fn dash_chainparams::ChainOption::negatable(self) -> bool
+impl core::clone::Clone for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::clone(&self) -> dash_chainparams::ChainOption
+impl core::cmp::Eq for dash_chainparams::ChainOption
+impl core::cmp::Ord for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::cmp(&self, &dash_chainparams::ChainOption) -> core::cmp::Ordering
+impl core::cmp::PartialEq for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::eq(&self, &dash_chainparams::ChainOption) -> bool
+impl core::cmp::PartialOrd for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::partial_cmp(&self, &dash_chainparams::ChainOption) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::ChainOption
+pub fn dash_chainparams::ChainOption::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::ChainOption
+impl core::marker::StructuralPartialEq for dash_chainparams::ChainOption
+pub enum dash_chainparams::DeploymentPos
+pub dash_chainparams::DeploymentPos::EvoShares = 2
+pub dash_chainparams::DeploymentPos::TestDummy = 0
+pub dash_chainparams::DeploymentPos::V24 = 1
+impl dash_chainparams::DeploymentPos
+pub const fn dash_chainparams::DeploymentPos::gbt_force(self) -> bool
+pub const fn dash_chainparams::DeploymentPos::index(self) -> usize
+pub const fn dash_chainparams::DeploymentPos::name(self) -> &'static str
+impl core::clone::Clone for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::clone(&self) -> dash_chainparams::DeploymentPos
+impl core::cmp::Eq for dash_chainparams::DeploymentPos
+impl core::cmp::Ord for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::cmp(&self, &dash_chainparams::DeploymentPos) -> core::cmp::Ordering
+impl core::cmp::PartialEq for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::eq(&self, &dash_chainparams::DeploymentPos) -> bool
+impl core::cmp::PartialOrd for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::partial_cmp(&self, &dash_chainparams::DeploymentPos) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::DeploymentPos
+pub fn dash_chainparams::DeploymentPos::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::DeploymentPos
+impl core::marker::StructuralPartialEq for dash_chainparams::DeploymentPos
+#[repr(u8)] pub enum dash_chainparams::Network
+pub dash_chainparams::Network::Devnet
+pub dash_chainparams::Network::Main
+pub dash_chainparams::Network::Regtest
+pub dash_chainparams::Network::Testnet3
+impl dash_chainparams::Network
+pub const dash_chainparams::Network::ALL: [Self; 4]
+pub const fn dash_chainparams::Network::addr(self) -> &'static dash_params::addr::AddrParams
+pub const fn dash_chainparams::Network::chain(self) -> &'static dash_params::chain::ChainParams
+pub const fn dash_chainparams::Network::consensus(self) -> &'static dash_params::consensus::ConsensusParams
+pub fn dash_chainparams::Network::from_network_id(&str) -> core::option::Option<Self>
+pub const fn dash_chainparams::Network::network_id(self) -> &'static str
+impl core::clone::Clone for dash_chainparams::Network
+pub fn dash_chainparams::Network::clone(&self) -> dash_chainparams::Network
+impl core::cmp::Eq for dash_chainparams::Network
+impl core::cmp::Ord for dash_chainparams::Network
+pub fn dash_chainparams::Network::cmp(&self, &dash_chainparams::Network) -> core::cmp::Ordering
+impl core::cmp::PartialEq for dash_chainparams::Network
+pub fn dash_chainparams::Network::eq(&self, &dash_chainparams::Network) -> bool
+impl core::cmp::PartialOrd for dash_chainparams::Network
+pub fn dash_chainparams::Network::partial_cmp(&self, &dash_chainparams::Network) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::TryFrom<dash_chainparams::Network> for dash_params::Network
+pub type dash_params::Network::Error = dash_chainparams::Network
+pub fn dash_params::Network::try_from(dash_chainparams::Network) -> core::result::Result<Self, dash_chainparams::Network>
+impl core::fmt::Debug for dash_chainparams::Network
+pub fn dash_chainparams::Network::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::Network
+pub fn dash_chainparams::Network::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::Network
+impl core::marker::StructuralPartialEq for dash_chainparams::Network
+pub enum dash_chainparams::ParamsError
+pub dash_chainparams::ParamsError::ActivationHeightFormat(alloc::string::String)
+pub dash_chainparams::ParamsError::ActivationHeightName(alloc::string::String)
+pub dash_chainparams::ParamsError::ActivationHeightValue(alloc::string::String)
+pub dash_chainparams::ParamsError::BudgetBudget(alloc::string::String)
+pub dash_chainparams::ParamsError::BudgetMalformed
+pub dash_chainparams::ParamsError::BudgetMasternode(alloc::string::String)
+pub dash_chainparams::ParamsError::BudgetSuperblock(alloc::string::String)
+pub dash_chainparams::ParamsError::DevnetGenesis(alloc::string::String)
+pub dash_chainparams::ParamsError::Dip3Activation(alloc::string::String)
+pub dash_chainparams::ParamsError::Dip3Enforcement(alloc::string::String)
+pub dash_chainparams::ParamsError::Dip3Malformed
+pub dash_chainparams::ParamsError::InvalidParameter(alloc::string::String)
+pub dash_chainparams::ParamsError::LlmqOutOfRange(&'static str, i32, i32)
+pub dash_chainparams::ParamsError::LlmqParamsMalformed(&'static str)
+pub dash_chainparams::ParamsError::LlmqRotation(dash_chainparams::ChainOption)
+pub dash_chainparams::ParamsError::LlmqSize(&'static str, alloc::string::String)
+pub dash_chainparams::ParamsError::LlmqSizeTooLarge(&'static str, i32)
+pub dash_chainparams::ParamsError::LlmqThreshold(&'static str, alloc::string::String)
+pub dash_chainparams::ParamsError::LlmqTypeName(dash_chainparams::ChainOption)
+pub dash_chainparams::ParamsError::MnRrBelowV20
+pub dash_chainparams::ParamsError::NegationForbidden(dash_chainparams::ChainOption)
+pub dash_chainparams::ParamsError::NegativeHeight(dash_chainparams::ChainOption, i64)
+pub dash_chainparams::ParamsError::PowTargetSpacingParse(alloc::string::String)
+pub dash_chainparams::ParamsError::PowTargetSpacingValue(alloc::string::String)
+pub dash_chainparams::ParamsError::SporkAddress
+pub dash_chainparams::ParamsError::V20BelowDip3
+pub dash_chainparams::ParamsError::VbParamsDeployment(alloc::string::String)
+pub dash_chainparams::ParamsError::VbParamsField(dash_chainparams::VbField, alloc::string::String)
+pub dash_chainparams::ParamsError::VbParamsMalformed
+impl core::clone::Clone for dash_chainparams::ParamsError
+pub fn dash_chainparams::ParamsError::clone(&self) -> dash_chainparams::ParamsError
+impl core::cmp::Eq for dash_chainparams::ParamsError
+impl core::cmp::PartialEq for dash_chainparams::ParamsError
+pub fn dash_chainparams::ParamsError::eq(&self, &dash_chainparams::ParamsError) -> bool
+impl core::fmt::Debug for dash_chainparams::ParamsError
+pub fn dash_chainparams::ParamsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for dash_chainparams::ParamsError
+pub fn dash_chainparams::ParamsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::ParamsError
+pub fn dash_chainparams::ParamsError::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::ParamsError
+pub enum dash_chainparams::Release
+pub dash_chainparams::Release::V24_0
+impl dash_chainparams::Release
+pub const dash_chainparams::Release::ALL: [Self; 1]
+pub fn dash_chainparams::Release::buried_deployments(self) -> &'static [dash_params::consensus::BuriedDeployment]
+pub const fn dash_chainparams::Release::deployments(self) -> &'static [dash_chainparams::DeploymentPos]
+impl core::clone::Clone for dash_chainparams::Release
+pub fn dash_chainparams::Release::clone(&self) -> dash_chainparams::Release
+impl core::cmp::Eq for dash_chainparams::Release
+impl core::cmp::Ord for dash_chainparams::Release
+pub fn dash_chainparams::Release::cmp(&self, &dash_chainparams::Release) -> core::cmp::Ordering
+impl core::cmp::PartialEq for dash_chainparams::Release
+pub fn dash_chainparams::Release::eq(&self, &dash_chainparams::Release) -> bool
+impl core::cmp::PartialOrd for dash_chainparams::Release
+pub fn dash_chainparams::Release::partial_cmp(&self, &dash_chainparams::Release) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for dash_chainparams::Release
+pub fn dash_chainparams::Release::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::Release
+pub fn dash_chainparams::Release::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::Release
+impl core::marker::StructuralPartialEq for dash_chainparams::Release
+pub enum dash_chainparams::VbField
+pub dash_chainparams::VbField::FalloffCoeff
+pub dash_chainparams::VbField::MinActivationHeight
+pub dash_chainparams::VbField::StartTime
+pub dash_chainparams::VbField::ThresholdMin
+pub dash_chainparams::VbField::ThresholdStart
+pub dash_chainparams::VbField::Timeout
+pub dash_chainparams::VbField::UseEhf
+pub dash_chainparams::VbField::WindowSize
+impl core::clone::Clone for dash_chainparams::VbField
+pub fn dash_chainparams::VbField::clone(&self) -> dash_chainparams::VbField
+impl core::cmp::Eq for dash_chainparams::VbField
+impl core::cmp::PartialEq for dash_chainparams::VbField
+pub fn dash_chainparams::VbField::eq(&self, &dash_chainparams::VbField) -> bool
+impl core::fmt::Debug for dash_chainparams::VbField
+pub fn dash_chainparams::VbField::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::VbField
+pub fn dash_chainparams::VbField::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::VbField
+impl core::marker::StructuralPartialEq for dash_chainparams::VbField
+pub struct dash_chainparams::AddrSetup
+pub dash_chainparams::AddrSetup::bip44_idx: u32
+pub dash_chainparams::AddrSetup::ext_pubkey: [u8; 4]
+pub dash_chainparams::AddrSetup::ext_secret: [u8; 4]
+pub dash_chainparams::AddrSetup::pubkey_addr: u8
+pub dash_chainparams::AddrSetup::script_addr: u8
+pub dash_chainparams::AddrSetup::secret_key: u8
+impl core::clone::Clone for dash_chainparams::AddrSetup
+pub fn dash_chainparams::AddrSetup::clone(&self) -> dash_chainparams::AddrSetup
+impl core::cmp::Eq for dash_chainparams::AddrSetup
+impl core::cmp::PartialEq for dash_chainparams::AddrSetup
+pub fn dash_chainparams::AddrSetup::eq(&self, &dash_chainparams::AddrSetup) -> bool
+impl core::convert::From<dash_params::addr::AddrParams> for dash_chainparams::AddrSetup
+pub fn dash_chainparams::AddrSetup::from(dash_params::addr::AddrParams) -> Self
+impl core::fmt::Debug for dash_chainparams::AddrSetup
+pub fn dash_chainparams::AddrSetup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::AddrSetup
+pub fn dash_chainparams::AddrSetup::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::AddrSetup
+impl core::marker::StructuralPartialEq for dash_chainparams::AddrSetup
+pub struct dash_chainparams::AssumeutxoData
+pub dash_chainparams::AssumeutxoData::chain_tx: u32
+pub dash_chainparams::AssumeutxoData::evo_hash: core::option::Option<dash_num::hash::Hash256>
+pub dash_chainparams::AssumeutxoData::hash_serialized: dash_num::hash::Hash256
+pub dash_chainparams::AssumeutxoData::height: bitcoin_units::block::BlockHeight
+impl core::clone::Clone for dash_chainparams::AssumeutxoData
+pub fn dash_chainparams::AssumeutxoData::clone(&self) -> dash_chainparams::AssumeutxoData
+impl core::cmp::Eq for dash_chainparams::AssumeutxoData
+impl core::cmp::PartialEq for dash_chainparams::AssumeutxoData
+pub fn dash_chainparams::AssumeutxoData::eq(&self, &dash_chainparams::AssumeutxoData) -> bool
+impl core::fmt::Debug for dash_chainparams::AssumeutxoData
+pub fn dash_chainparams::AssumeutxoData::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::AssumeutxoData
+pub fn dash_chainparams::AssumeutxoData::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::AssumeutxoData
+impl core::marker::StructuralPartialEq for dash_chainparams::AssumeutxoData
+pub struct dash_chainparams::ChainParamsBuilder
+impl dash_chainparams::ChainParamsBuilder
+pub fn dash_chainparams::ChainParamsBuilder::activation_height(self, dash_params::consensus::BuriedDeployment, bitcoin_units::block::BlockHeight) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::arg(self, dash_chainparams::ChainOption, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::budget(self, bitcoin_units::block::BlockHeight, bitcoin_units::block::BlockHeight, bitcoin_units::block::BlockHeight) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::build(&self) -> core::result::Result<dash_chainparams::ChainSetup, dash_chainparams::ParamsError>
+pub fn dash_chainparams::ChainParamsBuilder::devnet_name(self, &str) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::dip3(self, bitcoin_units::block::BlockHeight, bitcoin_units::block::BlockHeight) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::fast_prune(self, bool) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::negate(self, dash_chainparams::ChainOption) -> Self
+pub const fn dash_chainparams::ChainParamsBuilder::new(dash_chainparams::Network, dash_chainparams::Release) -> Self
+pub fn dash_chainparams::ChainParamsBuilder::pow_target_spacing(self, i64) -> Self
+impl core::clone::Clone for dash_chainparams::ChainParamsBuilder
+pub fn dash_chainparams::ChainParamsBuilder::clone(&self) -> dash_chainparams::ChainParamsBuilder
+impl core::cmp::Eq for dash_chainparams::ChainParamsBuilder
+impl core::cmp::PartialEq for dash_chainparams::ChainParamsBuilder
+pub fn dash_chainparams::ChainParamsBuilder::eq(&self, &dash_chainparams::ChainParamsBuilder) -> bool
+impl core::fmt::Debug for dash_chainparams::ChainParamsBuilder
+pub fn dash_chainparams::ChainParamsBuilder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::ChainParamsBuilder
+pub fn dash_chainparams::ChainParamsBuilder::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::ChainParamsBuilder
+pub struct dash_chainparams::ChainPolicy
+pub dash_chainparams::ChainPolicy::assumed_blockchain_size_gb: u64
+pub dash_chainparams::ChainPolicy::assumed_chain_state_size_gb: u64
+pub dash_chainparams::ChainPolicy::default_consistency_checks: bool
+pub dash_chainparams::ChainPolicy::is_mockable_chain: bool
+pub dash_chainparams::ChainPolicy::min_blocks_to_keep: u32
+pub dash_chainparams::ChainPolicy::prune_after_height: u64
+impl dash_chainparams::ChainPolicy
+pub const fn dash_chainparams::ChainPolicy::for_setup(&dash_chainparams::ChainSetup, bool) -> Self
+pub const fn dash_chainparams::ChainPolicy::new(dash_chainparams::Network, bool) -> Self
+impl core::clone::Clone for dash_chainparams::ChainPolicy
+pub fn dash_chainparams::ChainPolicy::clone(&self) -> dash_chainparams::ChainPolicy
+impl core::cmp::Eq for dash_chainparams::ChainPolicy
+impl core::cmp::PartialEq for dash_chainparams::ChainPolicy
+pub fn dash_chainparams::ChainPolicy::eq(&self, &dash_chainparams::ChainPolicy) -> bool
+impl core::fmt::Debug for dash_chainparams::ChainPolicy
+pub fn dash_chainparams::ChainPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for dash_chainparams::ChainPolicy
+impl core::marker::StructuralPartialEq for dash_chainparams::ChainPolicy
+pub struct dash_chainparams::ChainSetup
+pub dash_chainparams::ChainSetup::addr_params: dash_chainparams::AddrSetup
+pub dash_chainparams::ChainSetup::allow_multiple_addresses_from_group: bool
+pub dash_chainparams::ChainSetup::assumeutxo: &'static [dash_chainparams::AssumeutxoData]
+pub dash_chainparams::ChainSetup::checkpoints: alloc::vec::Vec<dash_params::consensus::Checkpoint>
+pub dash_chainparams::ChainSetup::consensus: dash_chainparams::ConsensusSetup
+pub dash_chainparams::ChainSetup::devnet_genesis: core::option::Option<dash_chainparams::DevnetGenesisParams>
+pub dash_chainparams::ChainSetup::devnet_name: core::option::Option<alloc::string::String>
+pub dash_chainparams::ChainSetup::fixed_seeds: &'static [u8]
+pub dash_chainparams::ChainSetup::fulfilled_request_expire_time: i32
+pub dash_chainparams::ChainSetup::llmq_connection_retry_timeout: i32
+pub dash_chainparams::ChainSetup::network: dash_chainparams::Network
+pub dash_chainparams::ChainSetup::pins: dash_chainparams::HardCodedPins
+pub dash_chainparams::ChainSetup::platform_hrp: core::option::Option<&'static str>
+pub dash_chainparams::ChainSetup::policy: dash_chainparams::ChainPolicy
+pub dash_chainparams::ChainSetup::release: dash_chainparams::Release
+pub dash_chainparams::ChainSetup::require_routable_external_ip: bool
+pub dash_chainparams::ChainSetup::require_standard: core::option::Option<bool>
+pub dash_chainparams::ChainSetup::spork_signers: dash_chainparams::SporkSigners
+impl dash_chainparams::ChainSetup
+pub fn dash_chainparams::ChainSetup::base_sdk_addr_params(&self) -> dash_params::addr::AddrParams
+pub fn dash_chainparams::ChainSetup::data_dir(&self) -> &str
+pub fn dash_chainparams::ChainSetup::deployment(&self, dash_chainparams::DeploymentPos) -> core::option::Option<&dash_params::deployment::Bip9Deployment>
+pub fn dash_chainparams::ChainSetup::deployments(&self) -> impl core::iter::traits::iterator::Iterator<Item = (dash_chainparams::DeploymentPos, &dash_params::deployment::Bip9Deployment)>
+impl core::clone::Clone for dash_chainparams::ChainSetup
+pub fn dash_chainparams::ChainSetup::clone(&self) -> dash_chainparams::ChainSetup
+impl core::cmp::PartialEq for dash_chainparams::ChainSetup
+pub fn dash_chainparams::ChainSetup::eq(&self, &dash_chainparams::ChainSetup) -> bool
+impl core::fmt::Debug for dash_chainparams::ChainSetup
+pub fn dash_chainparams::ChainSetup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for dash_chainparams::ChainSetup
+impl core::ops::deref::Deref for dash_chainparams::ChainSetup
+pub type dash_chainparams::ChainSetup::Target = dash_params::chain::ChainParams
+pub fn dash_chainparams::ChainSetup::deref(&self) -> &dash_params::chain::ChainParams
+impl core::ops::deref::DerefMut for dash_chainparams::ChainSetup
+pub fn dash_chainparams::ChainSetup::deref_mut(&mut self) -> &mut dash_params::chain::ChainParams
+pub struct dash_chainparams::ConsensusSetup
+pub dash_chainparams::ConsensusSetup::deployments: dash_chainparams::ReleaseDeployments
+pub dash_chainparams::ConsensusSetup::hash_devnet_genesis_block: dash_num::hash::Hash256
+pub dash_chainparams::ConsensusSetup::high_subsidy_blocks: i32
+pub dash_chainparams::ConsensusSetup::high_subsidy_factor: i32
+pub dash_chainparams::ConsensusSetup::minimum_difficulty_blocks: i32
+impl dash_chainparams::ConsensusSetup
+pub const fn dash_chainparams::ConsensusSetup::difficulty_adjustment_interval(&self) -> core::option::Option<i64>
+pub fn dash_chainparams::ConsensusSetup::llmq(&self, dash_params::llmq::LlmqType) -> core::option::Option<&dash_params::llmq::LlmqParams>
+pub fn dash_chainparams::ConsensusSetup::llmq_mut(&mut self, dash_params::llmq::LlmqType) -> core::option::Option<&mut dash_params::llmq::LlmqParams>
+pub fn dash_chainparams::ConsensusSetup::llmq_params(&self) -> impl core::iter::traits::iterator::Iterator<Item = (dash_params::llmq::LlmqType, &dash_params::llmq::LlmqParams)>
+impl core::clone::Clone for dash_chainparams::ConsensusSetup
+pub fn dash_chainparams::ConsensusSetup::clone(&self) -> dash_chainparams::ConsensusSetup
+impl core::cmp::Eq for dash_chainparams::ConsensusSetup
+impl core::cmp::PartialEq for dash_chainparams::ConsensusSetup
+pub fn dash_chainparams::ConsensusSetup::eq(&self, &dash_chainparams::ConsensusSetup) -> bool
+impl core::fmt::Debug for dash_chainparams::ConsensusSetup
+pub fn dash_chainparams::ConsensusSetup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::ConsensusSetup
+pub fn dash_chainparams::ConsensusSetup::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::ConsensusSetup
+impl core::ops::deref::Deref for dash_chainparams::ConsensusSetup
+pub type dash_chainparams::ConsensusSetup::Target = dash_params::consensus::ConsensusParams
+pub fn dash_chainparams::ConsensusSetup::deref(&self) -> &dash_params::consensus::ConsensusParams
+impl core::ops::deref::DerefMut for dash_chainparams::ConsensusSetup
+pub fn dash_chainparams::ConsensusSetup::deref_mut(&mut self) -> &mut dash_params::consensus::ConsensusParams
+pub struct dash_chainparams::DevnetGenesisParams
+pub dash_chainparams::DevnetGenesisParams::bits: u32
+pub dash_chainparams::DevnetGenesisParams::hash: dash_num::hash::Hash256
+pub dash_chainparams::DevnetGenesisParams::name: alloc::string::String
+pub dash_chainparams::DevnetGenesisParams::nonce: u32
+pub dash_chainparams::DevnetGenesisParams::prev_hash: dash_num::hash::Hash256
+pub dash_chainparams::DevnetGenesisParams::time: u32
+impl dash_chainparams::DevnetGenesisParams
+pub const dash_chainparams::DevnetGenesisParams::REWARD: bitcoin_units::amount::unsigned::encapsulate::Amount
+pub const dash_chainparams::DevnetGenesisParams::SCRIPT_PUBKEY: &[u8]
+pub const dash_chainparams::DevnetGenesisParams::VERSION: i32
+pub fn dash_chainparams::DevnetGenesisParams::find(&str, &dash_params::genesis::GenesisParams, dash_num::hash::Hash256) -> core::option::Option<Self>
+pub fn dash_chainparams::DevnetGenesisParams::script_sig(&self) -> alloc::vec::Vec<u8>
+impl core::clone::Clone for dash_chainparams::DevnetGenesisParams
+pub fn dash_chainparams::DevnetGenesisParams::clone(&self) -> dash_chainparams::DevnetGenesisParams
+impl core::cmp::Eq for dash_chainparams::DevnetGenesisParams
+impl core::cmp::PartialEq for dash_chainparams::DevnetGenesisParams
+pub fn dash_chainparams::DevnetGenesisParams::eq(&self, &dash_chainparams::DevnetGenesisParams) -> bool
+impl core::fmt::Debug for dash_chainparams::DevnetGenesisParams
+pub fn dash_chainparams::DevnetGenesisParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::DevnetGenesisParams
+pub fn dash_chainparams::DevnetGenesisParams::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::DevnetGenesisParams
+pub struct dash_chainparams::HardCodedPins
+pub dash_chainparams::HardCodedPins::llmq_25_67_activation_height: bitcoin_units::block::BlockHeight
+pub dash_chainparams::HardCodedPins::pre_dgw_tolerance_until: core::option::Option<bitcoin_units::block::BlockHeight>
+impl core::clone::Clone for dash_chainparams::HardCodedPins
+pub fn dash_chainparams::HardCodedPins::clone(&self) -> dash_chainparams::HardCodedPins
+impl core::cmp::Eq for dash_chainparams::HardCodedPins
+impl core::cmp::PartialEq for dash_chainparams::HardCodedPins
+pub fn dash_chainparams::HardCodedPins::eq(&self, &dash_chainparams::HardCodedPins) -> bool
+impl core::fmt::Debug for dash_chainparams::HardCodedPins
+pub fn dash_chainparams::HardCodedPins::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::HardCodedPins
+pub fn dash_chainparams::HardCodedPins::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for dash_chainparams::HardCodedPins
+impl core::marker::StructuralPartialEq for dash_chainparams::HardCodedPins
+pub struct dash_chainparams::ReleaseDeployments
+pub dash_chainparams::ReleaseDeployments::test_dummy: dash_params::deployment::Bip9Deployment
+pub dash_chainparams::ReleaseDeployments::v24: dash_params::deployment::Bip9Deployment
+impl dash_chainparams::ReleaseDeployments
+pub fn dash_chainparams::ReleaseDeployments::deployment_mut(&mut self, dash_chainparams::DeploymentPos) -> core::option::Option<&mut dash_params::deployment::Bip9Deployment>
+pub fn dash_chainparams::ReleaseDeployments::get(&self, dash_chainparams::DeploymentPos) -> core::option::Option<&dash_params::deployment::Bip9Deployment>
+pub fn dash_chainparams::ReleaseDeployments::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (dash_chainparams::DeploymentPos, &dash_params::deployment::Bip9Deployment)>
+impl core::clone::Clone for dash_chainparams::ReleaseDeployments
+pub fn dash_chainparams::ReleaseDeployments::clone(&self) -> dash_chainparams::ReleaseDeployments
+impl core::cmp::Eq for dash_chainparams::ReleaseDeployments
+impl core::cmp::PartialEq for dash_chainparams::ReleaseDeployments
+pub fn dash_chainparams::ReleaseDeployments::eq(&self, &dash_chainparams::ReleaseDeployments) -> bool
+impl core::fmt::Debug for dash_chainparams::ReleaseDeployments
+pub fn dash_chainparams::ReleaseDeployments::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::ReleaseDeployments
+pub fn dash_chainparams::ReleaseDeployments::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::ReleaseDeployments
+#[non_exhaustive] pub struct dash_chainparams::SporkSigners
+pub dash_chainparams::SporkSigners::key_ids: alloc::vec::Vec<dash_num::hash::Hash160>
+pub dash_chainparams::SporkSigners::min_spork_keys: core::option::Option<i32>
+pub dash_chainparams::SporkSigners::warning: core::option::Option<alloc::string::String>
+impl core::clone::Clone for dash_chainparams::SporkSigners
+pub fn dash_chainparams::SporkSigners::clone(&self) -> dash_chainparams::SporkSigners
+impl core::cmp::Eq for dash_chainparams::SporkSigners
+impl core::cmp::PartialEq for dash_chainparams::SporkSigners
+pub fn dash_chainparams::SporkSigners::eq(&self, &dash_chainparams::SporkSigners) -> bool
+impl core::default::Default for dash_chainparams::SporkSigners
+pub fn dash_chainparams::SporkSigners::default() -> dash_chainparams::SporkSigners
+impl core::fmt::Debug for dash_chainparams::SporkSigners
+pub fn dash_chainparams::SporkSigners::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for dash_chainparams::SporkSigners
+pub fn dash_chainparams::SporkSigners::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for dash_chainparams::SporkSigners
+pub const dash_chainparams::MAX_LLMQ_SIZE: u16
+pub trait dash_chainparams::BuriedDeploymentExt: core::marker::Sized
+pub const dash_chainparams::BuriedDeploymentExt::ALL: [Self; 16]
+pub fn dash_chainparams::BuriedDeploymentExt::name(self) -> &'static str
+pub fn dash_chainparams::BuriedDeploymentExt::test_activation_name(self) -> core::option::Option<&'static str>
+impl dash_chainparams::BuriedDeploymentExt for dash_params::consensus::BuriedDeployment
+pub const dash_params::consensus::BuriedDeployment::ALL: [Self; 16]
+pub fn dash_params::consensus::BuriedDeployment::name(self) -> &'static str
+pub fn dash_params::consensus::BuriedDeployment::test_activation_name(self) -> core::option::Option<&'static str>
+pub trait dash_chainparams::LlmqParamsExt
+pub fn dash_chainparams::LlmqParamsExt::is_single_member(&self) -> bool
+pub fn dash_chainparams::LlmqParamsExt::max_cycles(&self, i32) -> i32
+pub fn dash_chainparams::LlmqParamsExt::max_store_depth(&self) -> i32
+impl dash_chainparams::LlmqParamsExt for dash_params::llmq::LlmqParams
+pub fn dash_params::llmq::LlmqParams::is_single_member(&self) -> bool
+pub fn dash_params::llmq::LlmqParams::max_cycles(&self, i32) -> i32
+pub fn dash_params::llmq::LlmqParams::max_store_depth(&self) -> i32
+pub trait dash_chainparams::LlmqTypeExt: core::marker::Sized
+pub const dash_chainparams::LlmqTypeExt::AVAILABLE: [Self; 14]
+impl dash_chainparams::LlmqTypeExt for dash_params::llmq::LlmqType
+pub const dash_params::llmq::LlmqType::AVAILABLE: [Self; 14]
+pub const fn dash_chainparams::available_params(dash_params::llmq::LlmqType) -> core::option::Option<dash_params::llmq::LlmqParams>

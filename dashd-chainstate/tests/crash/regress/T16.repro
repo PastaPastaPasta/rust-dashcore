@@ -1,0 +1,10 @@
+# CRASH planted subscriber bug T16 (CH2 §7.2 b3), minimised in 300 replays.
+harness st3a/1
+sut chainsut
+config sub=50000 invalid=- effects=- presumed=- crash=- replay=- prune=0 index=syncing:1000:1024 planted=T16
+workload c10;f;c421;s11;s290;q431;f
+crash 1670 process-kill
+adversary realistic
+granularity sector
+expect R11b
+minimality best-effort
