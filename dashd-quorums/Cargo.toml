@@ -1,0 +1,31 @@
+[package]
+name = "dashd-quorums"
+description = "Runtime quorum contribution manager for the Rust Dash node."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-evo = { path = "../dash-evo" }
+dash-llmq = { path = "../dash-llmq" }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+# The lane (c) differential (`tests/lane_c_differential.rs`): the recorded chain replayed into
+# `NodeSut`'s V, route B's quorums, the recorded RPC answers and the fixture's sha256 pins.
+dash-sha256 = { path = "../dash-sha256" }
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
+serde_json = "1.0"
+tempfile = "3"

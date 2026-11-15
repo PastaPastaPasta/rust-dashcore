@@ -1,0 +1,74 @@
+diff --git a/dash-llmq/src/dkg/wire.rs b/dash-llmq/src/dkg/wire.rs
+index a3f784060a6ea9296c696540ab51cbd5a8363313..0e910909856dbbd0dadd912400f267e01cfe96a4 100644
+--- a/dash-llmq/src/dkg/wire.rs
++++ b/dash-llmq/src/dkg/wire.rs
+@@ -99,10 +99,7 @@ fn bitset(bits: &[bool]) -> DynBitset {
+     for (i, _) in bits.iter().enumerate().filter(|(_, bit)| **bit) {
+         data[i / 8] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: bits.len() as u64,
+-        data,
+-    }
++    DynBitset::new(bits.len() as u64, data).expect("the bits' own size, padding clear")
+ }
+ 
+ /// A `CHashWriter` over `write` with the signature after it: `GetSignHash()` writes the
+@@ -247,15 +244,18 @@ impl Contribution {
+     /// when it serializes (`bls/bls.h:178-181`), so the BLS fields are written from their
+     /// values, not as the read left them (BL-480).
+     pub fn payload(&self, flag: BlsSchemeKind) -> Vec<u8> {
+-        let msg = DkgContribution {
+-            vvec: self.vvec.iter().map(|pk| BlsPkBytes::from_bytes(pk.to_bytes(flag))).collect(),
+-            contributions: BlsIesMultiBytes::new(
++        let msg = DkgContribution::new(
++            self.msg.llmq_type(),
++            self.msg.quorum_hash(),
++            self.msg.pro_tx_hash(),
++            self.vvec.iter().map(|pk| BlsPkBytes::from_bytes(pk.to_bytes(flag))).collect(),
++            BlsIesMultiBytes::new(
+                 BlsPkBytes::from_bytes(self.blobs.ephemeral.to_bytes(flag)),
+                 self.blobs.iv_seed,
+                 self.blobs.blobs.clone(),
+             ),
+-            ..self.msg.clone()
+-        };
++            self.msg.sig(),
++        );
+         let mut out = Vec::new();
+         write_contribution_without_sig(&msg, &mut out);
+         out.extend_from_slice(&self.sig.to_bytes(flag));
+@@ -538,10 +538,13 @@ impl Justification {
+ 
+     /// `ds << qj` under `flag`, as [`Contribution::payload`].
+     pub fn payload(&self, flag: BlsSchemeKind) -> Vec<u8> {
+-        let msg = DkgJustification {
+-            contributions: revealed(&self.keys, flag),
+-            ..self.msg.clone()
+-        };
++        let msg = DkgJustification::new(
++            self.msg.llmq_type(),
++            self.msg.quorum_hash(),
++            self.msg.pro_tx_hash(),
++            revealed(&self.keys, flag),
++            self.msg.sig(),
++        );
+         let mut out = Vec::new();
+         write_justification_without_sig(&msg, &mut out);
+         out.extend_from_slice(&self.sig.to_bytes(flag));
+diff --git a/dash-llmq/src/dkg/wire/testing.rs b/dash-llmq/src/dkg/wire/testing.rs
+index 8a7775e70841105c9b80210e38bcad5b600fb175..197ac0fc25e42161127cec7085379c5c06920dea 100644
+--- a/dash-llmq/src/dkg/wire/testing.rs
++++ b/dash-llmq/src/dkg/wire/testing.rs
+@@ -27,10 +27,7 @@ fn bitset(bits: &[bool]) -> DynBitset {
+     for (i, _) in bits.iter().enumerate().filter(|(_, b)| **b) {
+         data[i / 8] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: bits.len() as u64,
+-        data,
+-    }
++    DynBitset::new(bits.len() as u64, data).expect("the bits' own size, padding clear")
+ }
+ 
+ fn encode(msg: &impl BaseCodec) -> Vec<u8> {

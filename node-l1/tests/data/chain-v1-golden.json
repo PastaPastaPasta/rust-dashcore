@@ -1,0 +1,2984 @@
+{
+  "about": "O2b-4 G-ENC-1: synthetic inputs and the chain-v1 decoder's programs, canonical bytes and resolved operators, pinned before any decoder change (node-l1 examples/chain_v1_golden.rs)",
+  "cases": [
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "000200"
+      },
+      "name": "mutate/op=0",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "000201",
+      "input": {
+        "hex": "000201"
+      },
+      "name": "mutate/op=1",
+      "operators": [
+        [
+          0,
+          "duplicate_tx"
+        ]
+      ],
+      "program": "mutate duplicate_tx\n"
+    },
+    {
+      "canonical_hex": "00021d",
+      "input": {
+        "hex": "00021d"
+      },
+      "name": "mutate/op=29",
+      "operators": [
+        [
+          0,
+          "queued_script_then_bip68"
+        ]
+      ],
+      "program": "mutate queued_script_then_bip68\n"
+    },
+    {
+      "canonical_hex": "00021e",
+      "input": {
+        "hex": "00021e"
+      },
+      "name": "mutate/op=30",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate #30\n"
+    },
+    {
+      "canonical_hex": "00021f",
+      "input": {
+        "hex": "00021f"
+      },
+      "name": "mutate/op=31",
+      "operators": [
+        [
+          0,
+          "duplicate_tx"
+        ]
+      ],
+      "program": "mutate #31\n"
+    },
+    {
+      "canonical_hex": "00023b",
+      "input": {
+        "hex": "00023b"
+      },
+      "name": "mutate/op=59",
+      "operators": [
+        [
+          0,
+          "queued_script_then_bip68"
+        ]
+      ],
+      "program": "mutate #59\n"
+    },
+    {
+      "canonical_hex": "00023c",
+      "input": {
+        "hex": "00023c"
+      },
+      "name": "mutate/op=60",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate #60\n"
+    },
+    {
+      "canonical_hex": "0002ff",
+      "input": {
+        "hex": "0002ff"
+      },
+      "name": "mutate/op=255",
+      "operators": [
+        [
+          0,
+          "vout_toolarge"
+        ]
+      ],
+      "program": "mutate #255\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00030000"
+      },
+      "name": "propose/m=0x00",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "00030080",
+      "input": {
+        "hex": "00030080"
+      },
+      "name": "propose/m=0x80",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0 again\n"
+    },
+    {
+      "canonical_hex": "00030001",
+      "input": {
+        "hex": "00030001"
+      },
+      "name": "propose/m=0x01",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "propose main@-0 cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030081",
+      "input": {
+        "hex": "00030081"
+      },
+      "name": "propose/m=0x81",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "propose main@-0 again cb_amount\n"
+    },
+    {
+      "canonical_hex": "0003001e",
+      "input": {
+        "hex": "0003001e"
+      },
+      "name": "propose/m=0x1e",
+      "operators": [
+        [
+          0,
+          "queued_script_then_bip68"
+        ]
+      ],
+      "program": "propose main@-0 queued_script_then_bip68\n"
+    },
+    {
+      "canonical_hex": "0003009e",
+      "input": {
+        "hex": "0003009e"
+      },
+      "name": "propose/m=0x9e",
+      "operators": [
+        [
+          0,
+          "queued_script_then_bip68"
+        ]
+      ],
+      "program": "propose main@-0 again queued_script_then_bip68\n"
+    },
+    {
+      "canonical_hex": "0003001f",
+      "input": {
+        "hex": "0003001f"
+      },
+      "name": "propose/m=0x1f",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "propose main@-0 #30\n"
+    },
+    {
+      "canonical_hex": "0003009f",
+      "input": {
+        "hex": "0003009f"
+      },
+      "name": "propose/m=0x9f",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "propose main@-0 again #30\n"
+    },
+    {
+      "canonical_hex": "00030020",
+      "input": {
+        "hex": "00030020"
+      },
+      "name": "propose/m=0x20",
+      "operators": [
+        [
+          0,
+          "duplicate_tx"
+        ]
+      ],
+      "program": "propose main@-0 #31\n"
+    },
+    {
+      "canonical_hex": "000300a0",
+      "input": {
+        "hex": "000300a0"
+      },
+      "name": "propose/m=0xa0",
+      "operators": [
+        [
+          0,
+          "duplicate_tx"
+        ]
+      ],
+      "program": "propose main@-0 again #31\n"
+    },
+    {
+      "canonical_hex": "0003007f",
+      "input": {
+        "hex": "0003007f"
+      },
+      "name": "propose/m=0x7f",
+      "operators": [
+        [
+          0,
+          "time_too_new"
+        ]
+      ],
+      "program": "propose main@-0 #126\n"
+    },
+    {
+      "canonical_hex": "000300ff",
+      "input": {
+        "hex": "000300ff"
+      },
+      "name": "propose/m=0xff",
+      "operators": [
+        [
+          0,
+          "time_too_new"
+        ]
+      ],
+      "program": "propose main@-0 again #126\n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "000f"
+      },
+      "name": "header/0x00",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "010f",
+      "input": {
+        "hex": "010f"
+      },
+      "name": "header/0x01",
+      "operators": [],
+      "program": "start old\nactivate\n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "fe0f"
+      },
+      "name": "header/0xfe",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "010f",
+      "input": {
+        "hex": "ff0f"
+      },
+      "name": "header/0xff",
+      "operators": [],
+      "program": "start old\nactivate\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0000"
+      },
+      "name": "tag/0",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0001"
+      },
+      "name": "tag/1",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0002"
+      },
+      "name": "tag/2",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0003"
+      },
+      "name": "tag/3",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0004"
+      },
+      "name": "tag/4",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "0005"
+      },
+      "name": "tag/5",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "0006"
+      },
+      "name": "tag/6",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "0007"
+      },
+      "name": "tag/7",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "0008"
+      },
+      "name": "tag/8",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "0009"
+      },
+      "name": "tag/9",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "000a"
+      },
+      "name": "tag/10",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "000b"
+      },
+      "name": "tag/11",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "000c"
+      },
+      "name": "tag/12",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "000d"
+      },
+      "name": "tag/13",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "000e"
+      },
+      "name": "tag/14",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "000f"
+      },
+      "name": "tag/15",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0010"
+      },
+      "name": "tag/16",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0011"
+      },
+      "name": "tag/17",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0012"
+      },
+      "name": "tag/18",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0013"
+      },
+      "name": "tag/19",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0014"
+      },
+      "name": "tag/20",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0015"
+      },
+      "name": "tag/21",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "0016"
+      },
+      "name": "tag/22",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "0017"
+      },
+      "name": "tag/23",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "0018"
+      },
+      "name": "tag/24",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "0019"
+      },
+      "name": "tag/25",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "001a"
+      },
+      "name": "tag/26",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "001b"
+      },
+      "name": "tag/27",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "001c"
+      },
+      "name": "tag/28",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "001d"
+      },
+      "name": "tag/29",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "001e"
+      },
+      "name": "tag/30",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "001f"
+      },
+      "name": "tag/31",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0020"
+      },
+      "name": "tag/32",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0021"
+      },
+      "name": "tag/33",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0022"
+      },
+      "name": "tag/34",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0023"
+      },
+      "name": "tag/35",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0024"
+      },
+      "name": "tag/36",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0025"
+      },
+      "name": "tag/37",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0026"
+      },
+      "name": "tag/38",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "0027"
+      },
+      "name": "tag/39",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "0028"
+      },
+      "name": "tag/40",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "0029"
+      },
+      "name": "tag/41",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "002a"
+      },
+      "name": "tag/42",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "002b"
+      },
+      "name": "tag/43",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "002c"
+      },
+      "name": "tag/44",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "002d"
+      },
+      "name": "tag/45",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "002e"
+      },
+      "name": "tag/46",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "002f"
+      },
+      "name": "tag/47",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0030"
+      },
+      "name": "tag/48",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0031"
+      },
+      "name": "tag/49",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0032"
+      },
+      "name": "tag/50",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0033"
+      },
+      "name": "tag/51",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0034"
+      },
+      "name": "tag/52",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0035"
+      },
+      "name": "tag/53",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0036"
+      },
+      "name": "tag/54",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0037"
+      },
+      "name": "tag/55",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "0038"
+      },
+      "name": "tag/56",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "0039"
+      },
+      "name": "tag/57",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "003a"
+      },
+      "name": "tag/58",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "003b"
+      },
+      "name": "tag/59",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "003c"
+      },
+      "name": "tag/60",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "003d"
+      },
+      "name": "tag/61",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "003e"
+      },
+      "name": "tag/62",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "003f"
+      },
+      "name": "tag/63",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0040"
+      },
+      "name": "tag/64",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0041"
+      },
+      "name": "tag/65",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0042"
+      },
+      "name": "tag/66",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0043"
+      },
+      "name": "tag/67",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0044"
+      },
+      "name": "tag/68",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0045"
+      },
+      "name": "tag/69",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0046"
+      },
+      "name": "tag/70",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0047"
+      },
+      "name": "tag/71",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0048"
+      },
+      "name": "tag/72",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "0049"
+      },
+      "name": "tag/73",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "004a"
+      },
+      "name": "tag/74",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "004b"
+      },
+      "name": "tag/75",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "004c"
+      },
+      "name": "tag/76",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "004d"
+      },
+      "name": "tag/77",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "004e"
+      },
+      "name": "tag/78",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "004f"
+      },
+      "name": "tag/79",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "0050"
+      },
+      "name": "tag/80",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0051"
+      },
+      "name": "tag/81",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0052"
+      },
+      "name": "tag/82",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0053"
+      },
+      "name": "tag/83",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0054"
+      },
+      "name": "tag/84",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0055"
+      },
+      "name": "tag/85",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0056"
+      },
+      "name": "tag/86",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0057"
+      },
+      "name": "tag/87",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0058"
+      },
+      "name": "tag/88",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "0059"
+      },
+      "name": "tag/89",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "005a"
+      },
+      "name": "tag/90",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "005b"
+      },
+      "name": "tag/91",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "005c"
+      },
+      "name": "tag/92",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "005d"
+      },
+      "name": "tag/93",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "005e"
+      },
+      "name": "tag/94",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "005f"
+      },
+      "name": "tag/95",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "0060"
+      },
+      "name": "tag/96",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "0061"
+      },
+      "name": "tag/97",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0062"
+      },
+      "name": "tag/98",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0063"
+      },
+      "name": "tag/99",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0064"
+      },
+      "name": "tag/100",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0065"
+      },
+      "name": "tag/101",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0066"
+      },
+      "name": "tag/102",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0067"
+      },
+      "name": "tag/103",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0068"
+      },
+      "name": "tag/104",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "0069"
+      },
+      "name": "tag/105",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "006a"
+      },
+      "name": "tag/106",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "006b"
+      },
+      "name": "tag/107",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "006c"
+      },
+      "name": "tag/108",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "006d"
+      },
+      "name": "tag/109",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "006e"
+      },
+      "name": "tag/110",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "006f"
+      },
+      "name": "tag/111",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "0070"
+      },
+      "name": "tag/112",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "0071"
+      },
+      "name": "tag/113",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "0072"
+      },
+      "name": "tag/114",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0073"
+      },
+      "name": "tag/115",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0074"
+      },
+      "name": "tag/116",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0075"
+      },
+      "name": "tag/117",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0076"
+      },
+      "name": "tag/118",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0077"
+      },
+      "name": "tag/119",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0078"
+      },
+      "name": "tag/120",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "0079"
+      },
+      "name": "tag/121",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "007a"
+      },
+      "name": "tag/122",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "007b"
+      },
+      "name": "tag/123",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "007c"
+      },
+      "name": "tag/124",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "007d"
+      },
+      "name": "tag/125",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "007e"
+      },
+      "name": "tag/126",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "007f"
+      },
+      "name": "tag/127",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "0080"
+      },
+      "name": "tag/128",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "0081"
+      },
+      "name": "tag/129",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "0082"
+      },
+      "name": "tag/130",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "0083"
+      },
+      "name": "tag/131",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0084"
+      },
+      "name": "tag/132",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0085"
+      },
+      "name": "tag/133",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0086"
+      },
+      "name": "tag/134",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0087"
+      },
+      "name": "tag/135",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0088"
+      },
+      "name": "tag/136",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "0089"
+      },
+      "name": "tag/137",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "008a"
+      },
+      "name": "tag/138",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "008b"
+      },
+      "name": "tag/139",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "008c"
+      },
+      "name": "tag/140",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "008d"
+      },
+      "name": "tag/141",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "008e"
+      },
+      "name": "tag/142",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "008f"
+      },
+      "name": "tag/143",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "0090"
+      },
+      "name": "tag/144",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "0091"
+      },
+      "name": "tag/145",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "0092"
+      },
+      "name": "tag/146",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "0093"
+      },
+      "name": "tag/147",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "0094"
+      },
+      "name": "tag/148",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "0095"
+      },
+      "name": "tag/149",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "0096"
+      },
+      "name": "tag/150",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "0097"
+      },
+      "name": "tag/151",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "0098"
+      },
+      "name": "tag/152",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "0099"
+      },
+      "name": "tag/153",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "009a"
+      },
+      "name": "tag/154",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "009b"
+      },
+      "name": "tag/155",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "009c"
+      },
+      "name": "tag/156",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "009d"
+      },
+      "name": "tag/157",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "009e"
+      },
+      "name": "tag/158",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "009f"
+      },
+      "name": "tag/159",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00a0"
+      },
+      "name": "tag/160",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00a1"
+      },
+      "name": "tag/161",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00a2"
+      },
+      "name": "tag/162",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00a3"
+      },
+      "name": "tag/163",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00a4"
+      },
+      "name": "tag/164",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00a5"
+      },
+      "name": "tag/165",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00a6"
+      },
+      "name": "tag/166",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00a7"
+      },
+      "name": "tag/167",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00a8"
+      },
+      "name": "tag/168",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00a9"
+      },
+      "name": "tag/169",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00aa"
+      },
+      "name": "tag/170",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "00ab"
+      },
+      "name": "tag/171",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "00ac"
+      },
+      "name": "tag/172",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00ad"
+      },
+      "name": "tag/173",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "00ae"
+      },
+      "name": "tag/174",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "00af"
+      },
+      "name": "tag/175",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "00b0"
+      },
+      "name": "tag/176",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00b1"
+      },
+      "name": "tag/177",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00b2"
+      },
+      "name": "tag/178",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00b3"
+      },
+      "name": "tag/179",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00b4"
+      },
+      "name": "tag/180",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00b5"
+      },
+      "name": "tag/181",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00b6"
+      },
+      "name": "tag/182",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00b7"
+      },
+      "name": "tag/183",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00b8"
+      },
+      "name": "tag/184",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00b9"
+      },
+      "name": "tag/185",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00ba"
+      },
+      "name": "tag/186",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00bb"
+      },
+      "name": "tag/187",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "00bc"
+      },
+      "name": "tag/188",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "00bd"
+      },
+      "name": "tag/189",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00be"
+      },
+      "name": "tag/190",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "00bf"
+      },
+      "name": "tag/191",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "00c0"
+      },
+      "name": "tag/192",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "00c1"
+      },
+      "name": "tag/193",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00c2"
+      },
+      "name": "tag/194",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00c3"
+      },
+      "name": "tag/195",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00c4"
+      },
+      "name": "tag/196",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00c5"
+      },
+      "name": "tag/197",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00c6"
+      },
+      "name": "tag/198",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00c7"
+      },
+      "name": "tag/199",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00c8"
+      },
+      "name": "tag/200",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00c9"
+      },
+      "name": "tag/201",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00ca"
+      },
+      "name": "tag/202",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00cb"
+      },
+      "name": "tag/203",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00cc"
+      },
+      "name": "tag/204",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "00cd"
+      },
+      "name": "tag/205",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "00ce"
+      },
+      "name": "tag/206",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00cf"
+      },
+      "name": "tag/207",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "00d0"
+      },
+      "name": "tag/208",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "00d1"
+      },
+      "name": "tag/209",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "00d2"
+      },
+      "name": "tag/210",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00d3"
+      },
+      "name": "tag/211",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00d4"
+      },
+      "name": "tag/212",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00d5"
+      },
+      "name": "tag/213",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00d6"
+      },
+      "name": "tag/214",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00d7"
+      },
+      "name": "tag/215",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00d8"
+      },
+      "name": "tag/216",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00d9"
+      },
+      "name": "tag/217",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00da"
+      },
+      "name": "tag/218",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00db"
+      },
+      "name": "tag/219",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00dc"
+      },
+      "name": "tag/220",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00dd"
+      },
+      "name": "tag/221",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "00de"
+      },
+      "name": "tag/222",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "00df"
+      },
+      "name": "tag/223",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00e0"
+      },
+      "name": "tag/224",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "00e1"
+      },
+      "name": "tag/225",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "00e2"
+      },
+      "name": "tag/226",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "00e3"
+      },
+      "name": "tag/227",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00e4"
+      },
+      "name": "tag/228",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00e5"
+      },
+      "name": "tag/229",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00e6"
+      },
+      "name": "tag/230",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00e7"
+      },
+      "name": "tag/231",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00e8"
+      },
+      "name": "tag/232",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00e9"
+      },
+      "name": "tag/233",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00ea"
+      },
+      "name": "tag/234",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00eb"
+      },
+      "name": "tag/235",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00ec"
+      },
+      "name": "tag/236",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00ed"
+      },
+      "name": "tag/237",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00ee"
+      },
+      "name": "tag/238",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "0001000000",
+      "input": {
+        "hex": "00ef"
+      },
+      "name": "tag/239",
+      "operators": [],
+      "program": "fork 0 0\n"
+    },
+    {
+      "canonical_hex": "000200",
+      "input": {
+        "hex": "00f0"
+      },
+      "name": "tag/240",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate cb_amount\n"
+    },
+    {
+      "canonical_hex": "00030000",
+      "input": {
+        "hex": "00f1"
+      },
+      "name": "tag/241",
+      "operators": [
+        [
+          0,
+          null
+        ]
+      ],
+      "program": "propose main@-0\n"
+    },
+    {
+      "canonical_hex": "000400",
+      "input": {
+        "hex": "00f2"
+      },
+      "name": "tag/242",
+      "operators": [],
+      "program": "invalidate main@-0\n"
+    },
+    {
+      "canonical_hex": "00050000",
+      "input": {
+        "hex": "00f3"
+      },
+      "name": "tag/243",
+      "operators": [],
+      "program": "reconsider main@-0\n"
+    },
+    {
+      "canonical_hex": "000600",
+      "input": {
+        "hex": "00f4"
+      },
+      "name": "tag/244",
+      "operators": [],
+      "program": "precious main@-0\n"
+    },
+    {
+      "canonical_hex": "000700",
+      "input": {
+        "hex": "00f5"
+      },
+      "name": "tag/245",
+      "operators": [],
+      "program": "cl main@-0\n"
+    },
+    {
+      "canonical_hex": "0008",
+      "input": {
+        "hex": "00f6"
+      },
+      "name": "tag/246",
+      "operators": [],
+      "program": "cl_enforce\n"
+    },
+    {
+      "canonical_hex": "000900",
+      "input": {
+        "hex": "00f7"
+      },
+      "name": "tag/247",
+      "operators": [],
+      "program": "spork off\n"
+    },
+    {
+      "canonical_hex": "000a00",
+      "input": {
+        "hex": "00f8"
+      },
+      "name": "tag/248",
+      "operators": [],
+      "program": "flush always\n"
+    },
+    {
+      "canonical_hex": "000b00",
+      "input": {
+        "hex": "00f9"
+      },
+      "name": "tag/249",
+      "operators": [],
+      "program": "restart clean\n"
+    },
+    {
+      "canonical_hex": "000c00",
+      "input": {
+        "hex": "00fa"
+      },
+      "name": "tag/250",
+      "operators": [],
+      "program": "time 0\n"
+    },
+    {
+      "canonical_hex": "000d00",
+      "input": {
+        "hex": "00fb"
+      },
+      "name": "tag/251",
+      "operators": [],
+      "program": "warp 0\n"
+    },
+    {
+      "canonical_hex": "000e00",
+      "input": {
+        "hex": "00fc"
+      },
+      "name": "tag/252",
+      "operators": [],
+      "program": "raw \n"
+    },
+    {
+      "canonical_hex": "000f",
+      "input": {
+        "hex": "00fd"
+      },
+      "name": "tag/253",
+      "operators": [],
+      "program": "activate\n"
+    },
+    {
+      "canonical_hex": "001000",
+      "input": {
+        "hex": "00fe"
+      },
+      "name": "tag/254",
+      "operators": [],
+      "program": "deliver main\n"
+    },
+    {
+      "canonical_hex": "0000000000",
+      "input": {
+        "hex": "00ff"
+      },
+      "name": "tag/255",
+      "operators": [],
+      "program": "extend main 0\n"
+    },
+    {
+      "canonical_hex": "00021e",
+      "input": {
+        "hex": "00131e"
+      },
+      "name": "alias/tag19-op30",
+      "operators": [
+        [
+          0,
+          "cb_amount"
+        ]
+      ],
+      "program": "mutate #30\n"
+    },
+    {
+      "canonical_hex": "000f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
+      "input": {
+        "hex": "000f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"
+      },
+      "name": "intents/max+1",
+      "operators": [],
+      "program": "activate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\nactivate\n"
+    },
+    {
+      "canonical_hex": "000e03010203",
+      "input": {
+        "hex": "000ec8010203"
+      },
+      "name": "raw/past-end",
+      "operators": [],
+      "program": "raw 010203\n"
+    },
+    {
+      "canonical_hex": "0000000804000008040000080400000804",
+      "input": {
+        "hex": "0000000804000008040000080400000804"
+      },
+      "name": "seed/12e6e72c26c753c1",
+      "operators": [],
+      "program": "extend main 8 signal\nextend main 8 signal\nextend main 8 signal\nextend main 8 signal\n"
+    },
+    {
+      "canonical_hex": "00000003000b01000002000a000b0100000100",
+      "input": {
+        "hex": "00000003000b01000002000a000b0100000100"
+      },
+      "name": "seed/159dec330aa869b2",
+      "operators": [],
+      "program": "extend main 3\nrestart kill\nextend main 2\nflush always\nrestart kill\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "000000030801030508000102000a000b00",
+      "input": {
+        "hex": "000000030801030508000102000a000b00"
+      },
+      "name": "seed/267c5639a79fd6e5",
+      "operators": [],
+      "program": "extend main 3 tx=spends\nfork 3 5 tx=spends\nextend b1 2\nflush always\nrestart clean\n"
+    },
+    {
+      "canonical_hex": "0000000108021d0000010000000100",
+      "input": {
+        "hex": "0000000108021d0000010000000100"
+      },
+      "name": "seed/38e55cd7e917fba0",
+      "operators": [
+        [
+          1,
+          "queued_script_then_bip68"
+        ]
+      ],
+      "program": "extend main 1 tx=spends\nmutate queued_script_then_bip68\nextend main 1\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "000000030800000210000002180a000a010a020b00000001080b01",
+      "input": {
+        "hex": "000000030800000210000002180a000a010a020b00000001080b01"
+      },
+      "name": "seed/4cdad12a8d7a0387",
+      "operators": [],
+      "program": "extend main 3 tx=spends\nextend main 2 tx=fan\nextend main 2 tx=chain\nflush always\nflush if_needed\nflush periodic\nrestart clean\nextend main 1 tx=spends\nrestart kill\n"
+    },
+    {
+      "canonical_hex": "000000020001010200044207410805420108",
+      "input": {
+        "hex": "000000020001010200044207410805420108"
+      },
+      "name": "seed/5fec339c509ec7eb",
+      "operators": [],
+      "program": "extend main 2\nfork 1 2\ninvalidate built#2\ncl built#1\ncl_enforce\nreconsider built#2 ignore_cl\ncl_enforce\n"
+    },
+    {
+      "canonical_hex": "000000010001010100068000000100",
+      "input": {
+        "hex": "000000010001010100068000000100"
+      },
+      "name": "seed/66fd1f80e5855da3",
+      "operators": [],
+      "program": "extend main 1\nfork 1 1\nprecious tip#0\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "00000002000d640b000000010004000cc80b0000000100",
+      "input": {
+        "hex": "00000002000d640b000000010004000cc80b0000000100"
+      },
+      "name": "seed/77fb000c24186cd1",
+      "operators": [],
+      "program": "extend main 2\nwarp 100\nrestart clean\nextend main 1\ninvalidate main@-0\ntime 200\nrestart clean\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "00000002010000020310010e01000f09000901000001000203000001010000020210821002",
+      "input": {
+        "hex": "00000002010000020310010e01000f09000901000001000203000001010000020210821002"
+      },
+      "name": "seed/79743244967f80f0",
+      "operators": [
+        [
+          8,
+          "bits_minus"
+        ]
+      ],
+      "program": "extend main 2 headers\nextend main 2 headers hold\ndeliver b1\nraw 00\nactivate\nspork off\nspork on\nextend main 1\nmutate bits_minus\nextend main 1 headers\nextend main 2 hold\ndeliver b2 rev\ndeliver b2\n"
+    },
+    {
+      "canonical_hex": "000000010001010100070008010101000001010000020100",
+      "input": {
+        "hex": "000000010001010100070008010101000001010000020100"
+      },
+      "name": "seed/92c78842cd8c9f6f",
+      "operators": [],
+      "program": "extend main 1\nfork 1 1\ncl main@-0\ncl_enforce\nfork 1 1\nextend b1 1\nextend b2 1\n"
+    },
+    {
+      "canonical_hex": "000000020207c110010800000100",
+      "input": {
+        "hex": "000000020207c110010800000100"
+      },
+      "name": "seed/9c10e3e88b5c5d4b",
+      "operators": [],
+      "program": "extend main 2 hold\ncl unsent#1\ndeliver b1\ncl_enforce\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "0000000100030000030001030100034080020200000100",
+      "input": {
+        "hex": "0000000100030000030001030100034080020200000100"
+      },
+      "name": "seed/9e5d03632c924750",
+      "operators": [
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          "cb_amount"
+        ],
+        [
+          3,
+          null
+        ],
+        [
+          4,
+          null
+        ],
+        [
+          5,
+          "merkle_root"
+        ]
+      ],
+      "program": "extend main 1\npropose main@-0\npropose main@-0 cb_amount\npropose main@-1\npropose built#0 again\nmutate merkle_root\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "01000001000d1e00000100",
+      "input": {
+        "hex": "01000001000d1e00000100"
+      },
+      "name": "seed/baec2126b7ee0462",
+      "operators": [],
+      "program": "start old\nextend main 1\nwarp 30\nextend main 1\n"
+    },
+    {
+      "canonical_hex": "00000002000a0004000b00040105010004ff05ff0006ff",
+      "input": {
+        "hex": "00000002000a0004000b00040105010004ff05ff0006ff"
+      },
+      "name": "seed/ccc2e2c7d4a23e0a",
+      "operators": [],
+      "program": "extend main 2\nflush always\ninvalidate main@-0\nrestart clean\ninvalidate main@-1\nreconsider main@-1\ninvalidate random\nreconsider random\nprecious random\n"
+    },
+    {
+      "canonical_hex": "00000004000a0004020a000b01",
+      "input": {
+        "hex": "00000004000a0004020a000b01"
+      },
+      "name": "seed/eb6dda87b9332780",
+      "operators": [],
+      "program": "extend main 4\nflush always\ninvalidate main@-2\nflush always\nrestart kill\n"
+    },
+    {
+      "canonical_hex": "000e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e",
+      "input": {
+        "fill": 14,
+        "len": 65537,
+        "prefix_hex": "00"
+      },
+      "name": "input/longer-than-max",
+      "operators": [],
+      "program": "raw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\nraw 0e0e0e0e0e0e0e0e0e0e0e0e0e0e\n"
+    }
+  ]
+}
