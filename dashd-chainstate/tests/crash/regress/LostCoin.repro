@@ -1,0 +1,10 @@
+# CRASH planted bug LostCoin (CH2 §6.4), minimised in 35 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=- presumed=- crash=- replay=- planted=LostCoin
+workload c5;f
+crash 29 process-kill
+adversary realistic
+granularity write
+expect R3
+minimality verified

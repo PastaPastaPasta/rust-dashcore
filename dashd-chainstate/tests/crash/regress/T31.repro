@@ -1,0 +1,10 @@
+# CRASH planted bug T31 (CH2 §6.4), minimised in 67 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=12,22 presumed=25:31 crash=- replay=- planted=T31
+workload c5;i;c5;f;c10;f
+crash 50 process-kill
+adversary realistic
+granularity write
+expect R5
+minimality verified

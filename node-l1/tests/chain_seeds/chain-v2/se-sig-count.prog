@@ -1,0 +1,4 @@
+# script error "Signature count negative or greater than pubkey count" (bank slot 23, se_sig_count): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_sig_count
+extend main 1

@@ -1,0 +1,14 @@
+# UBSan suppressions for the oracle's ubsan flavor (dash-oracle-sys/README.md).
+# Third-party code only; everything else aborts the test run (halt_on_error=1).
+
+# Dash Core's X11 hashes (sph): stores through misaligned pointers by design
+# (sph_types.h, SPH_UNALIGNED) and left-shifts negative values in C (simd.c).
+alignment:crypto/x11/
+shift-base:crypto/x11/
+
+# The dependency entries of Core's test/sanitizer_suppressions/ubsan.
+shift-base:*/include/c++/
+shift-base:leveldb/
+shift-base:minisketch/
+shift-base:immer/
+shift-base:secp256k1*
