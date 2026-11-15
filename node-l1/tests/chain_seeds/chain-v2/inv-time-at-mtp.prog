@@ -1,0 +1,4 @@
+# The block operator time_at_mtp's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate time_at_mtp
+extend main 1
