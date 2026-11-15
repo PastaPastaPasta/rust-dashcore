@@ -1,0 +1,4 @@
+# The block operator vout_toolarge's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate vout_toolarge
+extend main 1

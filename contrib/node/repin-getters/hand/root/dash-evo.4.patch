@@ -1,0 +1,44 @@
+diff --git a/dash-evo/tests/cbtx.rs b/dash-evo/tests/cbtx.rs
+index 40d01d68a773a4302e0477b7cc575ec2477a1ccd..fd95a81708b43399080ab39845fa0bf9232092d2 100644
+--- a/dash-evo/tests/cbtx.rs
++++ b/dash-evo/tests/cbtx.rs
+@@ -335,7 +335,7 @@ fn nonnull_coinbase_chainlock_cases() {
+ 
+     // A version-2 CbTx (900,000) carries no ChainLock.
+     let v2 = tx(block(900_000)["coinbase_hex"].as_str().unwrap());
+-    assert_eq!(coinbase_payload(&v2).version(), 2);
++    assert_eq!(coinbase_payload(&v2).version().to_base(), 2);
+     assert!(chainlock(&CoinbaseFacts::First(v2), 900_000).is_none());
+ 
+     // Edits of the v3 payload: version(2) height(4) roots(64) diff(1) sig(96) balance(8).
+@@ -377,7 +377,7 @@ fn cbtx_root_checks() {
+     // A version-1 CbTx has no quorum root: nothing is computed.
+     let mut v1 = cbtx.clone();
+     v1 = dash_primitives::CoinbaseCommitment::new(
+-        1,
++        dash_primitives::CbCommitmentVersion::new(1),
+         v1.height(),
+         v1.merkle_root_mn_list(),
+         v1.merkle_root_quorums(),
+@@ -391,7 +391,7 @@ fn cbtx_root_checks() {
+     // Version 2, the first with a quorum root (testnet 900,000): it is computed and compared.
+     let b = block(900_000);
+     let v2 = coinbase_payload(&tx(b["coinbase_hex"].as_str().unwrap()));
+-    assert_eq!(v2.version(), 2);
++    assert_eq!(v2.version().to_base(), 2);
+     let q_root = MerkleRoot::from_hex(b["cbTx"]["merkleRootQuorums"].as_str().unwrap()).unwrap();
+     assert_eq!(check_quorums_root(&v2, || Ok(q_root)), Ok(()));
+     assert_eq!(reason(check_quorums_root(&v2, || Ok(other))), "bad-cbtx-quorummerkleroot");
+diff --git a/dash-evo/tests/cbtx_root_history.rs b/dash-evo/tests/cbtx_root_history.rs
+index 81686e4994aa69bd31024d083860ce72bd7d1f39..e2e38638a542d7a959a936f7d8c2c8b1797b4950 100644
+--- a/dash-evo/tests/cbtx_root_history.rs
++++ b/dash-evo/tests/cbtx_root_history.rs
+@@ -517,7 +517,7 @@ fn check(
+             };
+             let committed = MerkleRoot::from_hex(cbtx[1].as_str().unwrap()).unwrap();
+             if let Some(proven) = proven
+-                && (cbtx[0].as_u64() != Some(u64::from(proven.version()))
++                && (cbtx[0].as_u64() != Some(u64::from(proven.version().to_base()))
+                     || committed != proven.merkle_root_mn_list())
+             {
+                 return Err(failure(format!("the record's CbTx at {height} is not the block's")));
