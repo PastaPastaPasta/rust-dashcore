@@ -1,0 +1,46 @@
+{
+ "name": "submitchainlock-nonpositive-height",
+ "description": "submitchainlock refuses a height <= 0 before anything else (rpc/quorums.cpp:1366), so G@0 and A5@-1 change nothing; A5@5 is then accepted",
+ "rows": [
+  "submitchainlock"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "G",
+   "height": 0,
+   "via": "submitchainlock"
+  },
+  {
+   "op": "cl",
+   "block": "A5",
+   "height": -1,
+   "via": "submitchainlock"
+  },
+  {
+   "op": "cl",
+   "block": "A5",
+   "via": "submitchainlock"
+  }
+ ]
+}
