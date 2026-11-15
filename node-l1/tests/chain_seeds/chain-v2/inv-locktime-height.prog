@@ -1,0 +1,4 @@
+# The block operator locktime_height's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate locktime_height
+extend main 1
