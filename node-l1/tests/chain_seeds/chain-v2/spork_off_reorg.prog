@@ -1,0 +1,11 @@
+# While spork 19 is off, a block above the held lock takes the active chain onto a fork the lock
+# conflicts with below its height. The block is no conflict itself, but the reorg connects the
+# fork's blocks unmarked (validation.cpp:2527, gated by chainlock/chainlock.cpp:73-82). Back on,
+# the timer's enforcement walks back to the lock.
+extend main 3
+fork 2 2
+cl main@-0
+spork off
+extend b1 1
+spork on
+extend main 1

@@ -1,0 +1,16 @@
+{
+ "provenance": {
+  "oracle": "dashd /Dash Core:24.0.0/ at /work/chains/testnet",
+  "rpc": "getchaintips, getblockheader, getnetworkinfo (read-only)",
+  "script": "dash-chain/tests/data/headers/fetch_tips.py",
+  "dump": "testnet.bin sha256 a88526024d3c3a2a82c797bd6348a8789ce5ee388ecf33742f3987e414659b27",
+  "recorded": "2026-10-10T19:52:06Z"
+ },
+ "network": "testnet",
+ "dump_height": 1568459,
+ "dump_tip": {
+  "hash": "0000004e9ad07221cc102fceee33d1e2cfa19f956201d3e1eef80690d89b240e",
+  "chainwork": "00000000000000000000000000000000000000000000000003ed57b9a5e9d879"
+ },
+ "stale": []
+}

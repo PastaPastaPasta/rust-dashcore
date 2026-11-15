@@ -1,0 +1,215 @@
+[package]
+name = "dashd-node"
+description = "The Rust Dash node's process shell: init and shutdown order, Core-format logging, the scheduler and the host services shared crates take"
+publish = false
+# Ports Dash Core code (MIT): init.cpp, shutdown.cpp, logging.cpp, scheduler.cpp.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# Process-test seams only: `rdashd`'s fault injection, a log line when shutdown flushes, the
+# block-import barrier line, F01's park (CH3b D223), CH5-5's live-copy seams (the storage
+# profile seam, the `live-copy` control hooks, the counters and their RPC fields), and the coins
+# salt seam (BL-723). It turns on dashd-chainstate's `test-support` and `test-hooks` seams. A
+# release build with it on fails to compile (the canaries in this crate's, dashd-chainstate's and
+# dashd-store's `lib.rs`).
+test-hooks = [
+    "dashd-chainstate/test-support",
+    "dashd-chainstate/test-hooks",
+    "dashd-rpc/test-hooks",
+    "dep:dash-num",
+    "dep:dash-rpc-spec",
+]
+# `sut::NodeSut`, the chainstate under O2b's comparator on the production startup and shutdown
+# path (ND1-D10). Never in a product build: O2b §6.4's check reads `cargo tree -p rdashd -e
+# features`, and a release build with it on fails to compile (the canary in `lib.rs`).
+test-support = [
+    "dash-kv/image",
+    "dashd-chainstate/test-support",
+    "dep:dash-num",
+]
+# Planted bugs, in test builds only: xcheck's positive controls (`CoinsSetup::planted` and
+# `NodeSut::planted` arm a `dashd_chainstate::Planted` bug on the connector, and NodeSut V's own
+# through `ChainHandle::plant`, O2b-4's P3b), and ST3b's plant
+# build (`RDASHD_ST3B_PLANT` arms one in the chainstate's guard and coins cache at open). Never
+# in a product build: dashd-chainstate's `test_feature_scope` reads `cargo tree`, and an
+# optimized build with it on fails to compile (the canaries in `lib.rs` and dashd-chainstate's).
+planted-bugs = ["test-support", "dashd-chainstate/planted-bugs"]
+
+[dependencies]
+dashd-mempool = { workspace = true }
+dash-args = { path = "../dash-args" }
+# The block index recovery checks the chainstate against (`chainstate::NoIndex`).
+dash-chain = { path = "../dash-chain" }
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+# `BlockingIo`, which `host::BlockingPool` implements for the shared crates (SB10).
+dash-kv = { path = "../dash-kv" }
+# The chain parameters `SelectParams` builds (`init::params`).
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+# The RocksDB chainstate init opens and recovers (DEC-201 Q7), and the `AbortSink` it aborts
+# through (`NodeAbort`).
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb", "statedigest"] }
+# SP0: the spork manager (`sporkman`), the chain's `SporkView` and its P2P handler (`net`), which
+# the processor's registry holds (P5a D15, closing SP0 D20).
+dashd-masternode = { path = "../dashd-masternode", default-features = false, features = ["net"] }
+dashd-store = { path = "../dashd-store" }
+# Every crate logs through `tracing`; `logging::CoreSubscriber` renders it in Core's format (DEC-200).
+# The RPC server `-server` starts (PLAN RP0).
+dashd-rpc = { path = "../dashd-rpc" }
+# `livecopycounters`' spec and the `cl-floor` hook's lock key (CH5-5 §2.2, §6.2; test-hooks only).
+dash-num = { workspace = true, features = ["std"], optional = true }
+dash-rpc-spec = { path = "../dash-rpc-spec", optional = true }
+# StateDigest records written by the node and its replay harness.
+dash-statedigest = { path = "../dash-statedigest" }
+# The `generate*` commands' block assembler and nonce search (MN0). Never with `test-support`
+# here: the dev-dependency below enables it for tests only.
+dashd-mining = { path = "../dashd-mining" }
+# The process RNG, seeded at init, and the validation caches' salts
+# (`init::caches::init_validation_caches`), as Core's `GetRandHash`.
+dashd-random = { path = "../dashd-random" }
+# The pool a stored block index loads on (`chain::open_parts`, 2b-D22).
+rayon = { workspace = true }
+tracing = "0.1"
+# P3 S6a: SB6's network core, P2a-net's connection manager and P2a-core's processor with P3's
+# block download (`p2p`); the runtime the socket tasks run on.
+dash-p2p = { path = "../dash-p2p" }
+dashd-net = { path = "../dashd-net" }
+# IM1b's codec for Tor control's onion_v3_private_key (P8b): only the `keys` readers, so
+# dash-dml stays out of rdashd (DEC-546).
+dash-coreimport = { path = "../dash-coreimport", default-features = false, features = ["keys"] }
+dashd-p2p = { path = "../dashd-p2p" }
+# getmerkleblocks (RP1a-2c-3): the filter `filterload` carries, and the `merkleblock` codec.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-types = { workspace = true }
+# BL-327: `SplitHostPort`'s validity and `IsBadPort` for step 6's port checks and step 12's binds.
+dash-netaddr = { path = "../dash-netaddr" }
+tokio = { version = "1.53", default-features = false, features = ["net", "rt", "rt-multi-thread", "time"] }
+# P3 S6b: the wake of V's condition wait on P3's queue (`p2p::listener`), V's own channel type.
+crossbeam-channel = "0.5"
+
+# `ProTxHash`, the key of the chainstate's platform-ban resets (`chainstate::MetaPlatformBans`);
+# also the spork ids `sut`'s tests set.
+dash-evo = { path = "../dash-evo" }
+
+[target.'cfg(unix)'.dependencies]
+# `getaddrinfo` with Core's hints (`host::get_addr_info`).
+libc = "0.2"
+
+[dev-dependencies]
+# The masternode lists the dashd differentials compare (`tests/v24`, `tests/ch7a5_dashd.rs`).
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# Regtest blocks mined in `chain`'s tests.
+dash-num = { workspace = true, features = ["std"] }
+# EV1-J J0b-1 (`tests/ev1_j_dashd.rs`): the quorum fixture's commitments and the type 7 and 9
+# signatures, made with the quorums' and operators' secret keys (the set dashd-chainstate builds).
+dash-pkc = { workspace = true, features = ["bls"] }
+tempfile = "3"
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+# MN0-1's differential (`tests/mn0_template_dashd.rs`): the template source on `sut`'s chain
+# against a dashd v24 regtest node, on free ports, over JSON-RPC.
+dashd-mining = { path = "../dashd-mining", features = ["test-support"] }
+node-test-ports = { path = "../node-test-ports" }
+# P3's (A − B) node leg (`p2p::amb`): the counting harness and the fixture it shares with node-l1.
+node-amb = { path = "../node-amb" }
+serde_json = "1.0"
+# The workspace manifest's `[workspace] members` (`asserted_log_lines`), a multi-line array.
+toml = "0.9"
+# C14's recorded chain (`sut`'s tests): the O8 recorder's zstd `blocks.dat` under `test-vectors`.
+zstd = { version = "0.14", default-features = false }
+# CH7a-5b C3, T-RD's state-hash mode: the connector's `DigestLog` (the `statedigest` feature) and
+# the record parser and linear comparison its logs are checked with.
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb", "statedigest"] }
+dash-statedigest = { path = "../dash-statedigest" }
+# CH7a-5b C4 and CH7b-3a-2 C9a: the testnet slice's and T-TN's golden cut's sha256 pins.
+dash-sha256 = { path = "../dash-sha256" }
+
+[[test]]
+name = "mn0_template_dashd"
+required-features = ["test-support"]
+
+[[test]]
+name = "mn0_rebuild"
+required-features = ["test-support"]
+
+[[test]]
+name = "mn0_dmn_tip"
+required-features = ["test-support"]
+
+[[test]]
+name = "mn0_payee_window"
+required-features = ["test-support"]
+
+[[test]]
+name = "mn0_mn_dashd"
+required-features = ["test-support"]
+
+# BL-843 (`tests/llmq_bls_lines_dashd.rs`): the failing mined-commitment checks' `-debug=llmq`
+# lines on the SUT and against a dashd v24 regtest node.
+[[test]]
+name = "llmq_bls_lines_dashd"
+required-features = ["test-support"]
+
+# CH7a-2b-2's Core verdicts (`tests/ch7a_cbtx_dashd.rs`): pre-DIP0003 CbTx blocks on V and on a
+# dashd v24 regtest node, through MN0-1's template source.
+[[test]]
+name = "ch7a_cbtx_dashd"
+required-features = ["test-support"]
+
+# CH7a-4b's differential (`tests/ch7a4b_dashd.rs`): dashd's recorded DIP0003-active chain on V
+# and on a dashd v24 regtest node, with a reorg below DIP0003 and a restart.
+[[test]]
+name = "ch7a4b_dashd"
+required-features = ["test-support"]
+
+# CH7a-5a (`tests/ch7a5_dashd.rs`): dashd's recorded masternode chain on V and on a dashd v24
+# regtest node, field by field through `protx list`, and BL-526's platform-ban reset.
+[[test]]
+name = "ch7a5_dashd"
+required-features = ["test-support"]
+
+# BL-648 T2 (`tests/v19_window_dashd.rs`): dashd's recorded V19-window chains on V and on a dashd
+# v24 regtest node: R1's reorg across V19 with a restart and N1, R2's ChainLocks across V19.
+[[test]]
+name = "v19_window_dashd"
+required-features = ["test-support"]
+
+# CH5-5 §6.7 (`tests/livecopy_profile.rs`): `chainstate_profile`'s live path on regtest only
+# (`live_path_isolation`, M13/M14), and the test-hooks profile seam.
+[[test]]
+name = "livecopy_profile"
+required-features = ["test-hooks"]
+
+# EV1-J J0a (`tests/ev1_j_dashd.rs`): the block-path rows of `contrib/node/ev1-j-rows.toml` on V
+# and on dashd v24 regtest validators, from a dashd producer; and the rows' closure over EV1 §6.3.
+[[test]]
+name = "ev1_j_dashd"
+required-features = ["test-support"]
+
+# EV1-J J0b-3 (`tests/ev1_j_d14_dashd.rs`): D14's scan-capacity rows on the llmq_60_75 devnet of
+# `tests/ev1_j/d14.rs`, against dashd v24.0.0-rc.5. It requires `test-support`, so node-gate.yml
+# picks it as a feature-gated target (`.github/workflows/node-gate.yml:311-363`) and runs all of
+# it, with no name filter, in the `features` shard's `test` step (`:715`); scheduled and nightly
+# dispatches skip that shard job (`:614`).
+[[test]]
+name = "ev1_j_d14_dashd"
+required-features = ["test-support"]
+
+# MN0-2b-1 (`tests/mn0_proposal_dashd.rs`): block proposals past DIP0003 on Core's dummy index,
+# against dashd v24.0.0-rc.5's `getblocktemplate` proposal mode.
+[[test]]
+name = "mn0_proposal_dashd"
+required-features = ["test-support"]
+
+# The gate's feature step runs `sut`'s tests and the coins salt seam's (BL-723): `cargo test -p
+# dashd-node --features planted-bugs,test-hooks --lib -- sut:: chainstate::tests::coins_salt::`.
+# `planted-bugs` implies `test-support`, so xcheck's positive control runs too. The main step runs
+# the rest.
+[package.metadata.gate]
+test-features = ["planted-bugs", "test-hooks"]
+test-filter = ["sut::", "chainstate::tests::coins_salt::"]

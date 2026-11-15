@@ -1,0 +1,10 @@
+# ToyChain planted bug T15 (ST3a §6.2), minimised in 321 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=8:2:- sub=- bug=T15
+workload c50;f;c20;q100;F10:0;c10;f
+crash 307 process-kill
+adversary realistic
+granularity write
+expect R0
+minimality verified
