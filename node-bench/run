@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""node-bench entry point: ./run <command> ...  (see README.md, or ./run -h)."""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+if __name__ == "__main__":
+    from nodebench.cli import main
+
+    sys.exit(main())

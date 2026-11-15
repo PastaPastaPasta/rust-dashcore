@@ -1,0 +1,4 @@
+# The block operator sig_not_der's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate sig_not_der
+extend main 1

@@ -1,0 +1,19 @@
+# A keeping RECONSIDER while the lock is held clears no conflict mark (validation.cpp:4180-4215),
+# so the main blocks the enforcement disconnected stay marked, above the lock's height too
+# (validation.cpp:4124-4132). Spork 19 off and on resets the lock (chainlock/handler.cpp:209-222),
+# and the marks outlive it: after an ignoring RECONSIDER, which skips a marked block with its data
+# (validation.cpp:4190), the held block on the second main block is bad-prevblk-chainlock
+# (validation.cpp:4654). The header-only child keeps that block off getchaintips' tips.
+extend main 2
+fork 0 1 headers hold
+fork 0 1 hold
+fork 2 1
+cl tip#2
+invalidate built#0
+reconsider built#0
+spork off
+cl tip#2
+spork on
+cl tip#2
+reconsider built#0 ignore_cl
+deliver b2
