@@ -1,0 +1,78 @@
+{
+ "provenance": {
+  "note": "MNHF signal txs Core mined in rc.4's test/functional/feature_mnehf.py (DashTestFramework), run with --nocleanup against the cached release binary, read back from node0's datadir with getblock 2 and getrawtransaction <txid> false <blockhash>",
+  "dashd": "the cached Dash Core v24.0.0-rc.4 release dashd (contrib/setup-dashd.py)",
+  "dashd_sha256": "e1be2564c5f98b7cb97e60953e1ed6817eeb3b5ab36cf5473f32ad75b4f823a7",
+  "datadir": "node0 of the run, kept with --nocleanup",
+  "chain_height": 256,
+  "dashd_args": [
+   "-vbparams=testdummy:1418923583:1419923583:0:4:4:4:5:1",
+   "-llmqtestparams=1:1",
+   "-llmqtestinstantsendparams=1:1",
+   "-llmqtestplatformparams=1:1",
+   "-mocktime=1418923583"
+  ],
+  "functional_test": "test/functional/feature_mnehf.py at tag v24.0.0-rc.4 (git archive), config.ini pointing at the release binaries",
+  "run": "2026-10-31, l3-a10l-mnehf-r1 under heavy.lock: 'Tests successful'",
+  "readback_args": "dashd_args are node0's last start's command-line args (debug.log); dash.conf from the datadir",
+  "use": "node-l1 MNHF_OPERATORS: OD-L3-18's MNHF witness bodies (plan \u00a79)"
+ },
+ "signals": [
+  {
+   "height": 187,
+   "block": "0a9fccb16c758341cf8a8b8218964f39951a9ae300099a18812b02059f86af8b",
+   "txid": "b10557b8cd9ca351706348fc49c9327312fd76208556c499146d0c84636bc2b7",
+   "hex": "0300070000000000000082011b5e73f5a8a23c4cf4c4ce0452b6bffc2e879ef1715b8740e81c11430219fff256b08b4e412f1ec4d0be73db42b2259a39654d6719e278501ef3e49e2b44919746874e0c739470cbca4a7bc4628e30c25c0ad6c7a48010f31ba15bf83afbf66b731a36e99b53b5e141525202ab85a9f6f3a04c316ec2f51112af1363ac2f3e76ea",
+   "mnhfTx": {
+    "version": 1,
+    "signal": {
+     "versionBit": 27,
+     "quorumHash": "56f2ff190243111ce840875b71f19e872efcbfb65204cec4f44c3ca2a8f5735e",
+     "sig": "b08b4e412f1ec4d0be73db42b2259a39654d6719e278501ef3e49e2b44919746874e0c739470cbca4a7bc4628e30c25c0ad6c7a48010f31ba15bf83afbf66b731a36e99b53b5e141525202ab85a9f6f3a04c316ec2f51112af1363ac2f3e76ea"
+    }
+   }
+  },
+  {
+   "height": 187,
+   "block": "0a9fccb16c758341cf8a8b8218964f39951a9ae300099a18812b02059f86af8b",
+   "txid": "56cd9e57a36f1afbf1663d1fec7900570eeaebd1da20bb9d106f637335d68ee7",
+   "hex": "0300070000000000000082011c5e73f5a8a23c4cf4c4ce0452b6bffc2e879ef1715b8740e81c11430219fff2568c698e38f833a213983c2ac959a65b8c9486cf8d585c5f587245913ef9ae108ad3cecc58070afd1c7032be516236d3940e241813d096f2d386854a5c4f2c6ba1f10ac4844ed7ef6362cf5a6b12f79c417c468baa5b8ffeb179571116f62effb5",
+   "mnhfTx": {
+    "version": 1,
+    "signal": {
+     "versionBit": 28,
+     "quorumHash": "56f2ff190243111ce840875b71f19e872efcbfb65204cec4f44c3ca2a8f5735e",
+     "sig": "8c698e38f833a213983c2ac959a65b8c9486cf8d585c5f587245913ef9ae108ad3cecc58070afd1c7032be516236d3940e241813d096f2d386854a5c4f2c6ba1f10ac4844ed7ef6362cf5a6b12f79c417c468baa5b8ffeb179571116f62effb5"
+    }
+   }
+  },
+  {
+   "height": 247,
+   "block": "537ef3656e6b5c3898b8c80211557b7ea10b8556bce97b7d060d8768185889d1",
+   "txid": "2b6c11822e3a4bff4bdec021b8946f76773ac54a012ee5c10f7219c4408940e6",
+   "hex": "0300070000000000000082010d5e73f5a8a23c4cf4c4ce0452b6bffc2e879ef1715b8740e81c11430219fff256931465da55781c0b65779c31535fd1999a96b4fcd8ef7b27ccaabf7277a10b3f0cb42666f8884ffa151f3d3e6848d30708b24c31911ec05e5536550753cf66f34468a12f59e593cde8a9557f9efc55e7f0e382cca6a6b86b895e1c9cf98b0f21",
+   "mnhfTx": {
+    "version": 1,
+    "signal": {
+     "versionBit": 13,
+     "quorumHash": "56f2ff190243111ce840875b71f19e872efcbfb65204cec4f44c3ca2a8f5735e",
+     "sig": "931465da55781c0b65779c31535fd1999a96b4fcd8ef7b27ccaabf7277a10b3f0cb42666f8884ffa151f3d3e6848d30708b24c31911ec05e5536550753cf66f34468a12f59e593cde8a9557f9efc55e7f0e382cca6a6b86b895e1c9cf98b0f21"
+    }
+   }
+  },
+  {
+   "height": 247,
+   "block": "537ef3656e6b5c3898b8c80211557b7ea10b8556bce97b7d060d8768185889d1",
+   "txid": "56cd9e57a36f1afbf1663d1fec7900570eeaebd1da20bb9d106f637335d68ee7",
+   "hex": "0300070000000000000082011c5e73f5a8a23c4cf4c4ce0452b6bffc2e879ef1715b8740e81c11430219fff2568c698e38f833a213983c2ac959a65b8c9486cf8d585c5f587245913ef9ae108ad3cecc58070afd1c7032be516236d3940e241813d096f2d386854a5c4f2c6ba1f10ac4844ed7ef6362cf5a6b12f79c417c468baa5b8ffeb179571116f62effb5",
+   "mnhfTx": {
+    "version": 1,
+    "signal": {
+     "versionBit": 28,
+     "quorumHash": "56f2ff190243111ce840875b71f19e872efcbfb65204cec4f44c3ca2a8f5735e",
+     "sig": "8c698e38f833a213983c2ac959a65b8c9486cf8d585c5f587245913ef9ae108ad3cecc58070afd1c7032be516236d3940e241813d096f2d386854a5c4f2c6ba1f10ac4844ed7ef6362cf5a6b12f79c417c468baa5b8ffeb179571116f62effb5"
+    }
+   }
+  }
+ ]
+}
