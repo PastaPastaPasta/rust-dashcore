@@ -1,0 +1,2059 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1800" height="462" onload="init(evt)" viewBox="0 0 1800 462" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:monospace; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1800.0" height="462.0" fill="url(#background)"  />
+<text id="title" x="900.00" y="24" >dashd v24.0.0-rc.3: startup-testnet</text>
+<text id="subtitle" x="900.00" y="48" >instructions:u (user-space instructions retired)</text>
+<text id="details" x="10.00" y="445" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1690.00" y="24" >Search</text>
+<text id="ignorecase" x="1774.00" y="24" >ic</text>
+<text id="matched" x="1690.00" y="445" > </text>
+<g id="frames">
+<g >
+<title>CDBWrapper::ReadDataStream (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="157" width="0.6" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="567.58" y="167.5" ></text>
+</g>
+<g >
+<title>CBlockIndex::BuildSkip (138,000,253 instructions, 0.39%)</title><rect x="884.2" y="349" width="7.0" height="15.0" fill="rgb(220,71,17)" rx="2" ry="2" />
+<text  x="887.22" y="359.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;int, int, std::_Identity&lt;int&gt;, std::less&lt;int&gt;, std::allocator&lt;int&gt; &gt;::_M_get_insert_unique_pos (114,000,209 instructions, 0.32%)</title><rect x="1750.5" y="365" width="5.8" height="15.0" fill="rgb(252,220,52)" rx="2" ry="2" />
+<text  x="1753.54" y="375.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (102,000,187 instructions, 0.29%)</title><rect x="1745.4" y="269" width="5.1" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1748.38" y="279.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&lt;&lt;= (30,000,055 instructions, 0.09%)</title><rect x="671.4" y="157" width="1.5" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="674.43" y="167.5" ></text>
+</g>
+<g >
+<title>operator new (18,000,033 instructions, 0.05%)</title><rect x="1089.7" y="221" width="0.9" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1092.72" y="231.5" ></text>
+</g>
+<g >
+<title>node::CompleteChainstateInitialization (9,006,016,511 instructions, 25.60%)</title><rect x="12.1" y="333" width="455.6" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="15.12" y="343.5" >node::CompleteChainstateInitialization</text>
+</g>
+<g >
+<title>int ReadVarInt&lt;CDataStream, (VarIntMode)1, int&gt; (150,000,275 instructions, 0.43%)</title><rect x="700.9" y="189" width="7.6" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="703.87" y="199.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (72,000,132 instructions, 0.20%)</title><rect x="851.4" y="285" width="3.7" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="854.43" y="295.5" ></text>
+</g>
+<g >
+<title>bufferevent_readcb (18,000,033 instructions, 0.05%)</title><rect x="10.9" y="285" width="0.9" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="13.91" y="295.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (18,000,033 instructions, 0.05%)</title><rect x="461.1" y="125" width="0.9" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="464.07" y="135.5" ></text>
+</g>
+<g >
+<title>main (5,190,009,515 instructions, 14.75%)</title><rect x="560.6" y="333" width="262.6" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="563.63" y="343.5" >main</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (114,000,209 instructions, 0.32%)</title><rect x="1744.8" y="285" width="5.7" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1747.77" y="295.5" ></text>
+</g>
+<g >
+<title>memcmp@plt (12,000,022 instructions, 0.03%)</title><rect x="741.5" y="125" width="0.7" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="744.55" y="135.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (36,000,066 instructions, 0.10%)</title><rect x="718.2" y="157" width="1.8" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="721.18" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (12,000,022 instructions, 0.03%)</title><rect x="476.6" y="269" width="0.6" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="479.55" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::AddKey (18,000,033 instructions, 0.05%)</title><rect x="507.2" y="253" width="0.9" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="510.21" y="263.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (606,001,111 instructions, 1.72%)</title><rect x="1757.5" y="285" width="30.7" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="1760.52" y="295.5" >_i..</text>
+</g>
+<g >
+<title>__GI___clone3 (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="381" width="0.6" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="13.00" y="391.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (12,000,022 instructions, 0.03%)</title><rect x="1098.2" y="333" width="0.6" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1101.22" y="343.5" ></text>
+</g>
+<g >
+<title>[unknown] (30,000,055 instructions, 0.09%)</title><rect x="10.6" y="349" width="1.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.61" y="359.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (108,000,198 instructions, 0.31%)</title><rect x="1065.1" y="269" width="5.5" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1068.13" y="279.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexWorkComparator::operator() (168,000,308 instructions, 0.48%)</title><rect x="435.0" y="301" width="8.5" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="437.97" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::Hash (18,000,033 instructions, 0.05%)</title><rect x="509.9" y="205" width="1.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="512.94" y="215.5" ></text>
+</g>
+<g >
+<title>_int_free_maybe_trim (12,000,022 instructions, 0.03%)</title><rect x="840.5" y="269" width="0.6" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="843.50" y="279.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (366,000,671 instructions, 1.04%)</title><rect x="149.6" y="269" width="18.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="152.63" y="279.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::AddMN (18,000,033 instructions, 0.05%)</title><rect x="565.2" y="141" width="0.9" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="568.19" y="151.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexWorkComparator::operator() (5,040,009,240 instructions, 14.32%)</title><rect x="168.1" y="269" width="255.0" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="171.15" y="279.5" >node::CBlockIndexWorkComparator::o..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SetDataIterator (12,000,022 instructions, 0.03%)</title><rect x="1088.2" y="253" width="0.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1091.20" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (144,000,264 instructions, 0.41%)</title><rect x="1022.3" y="301" width="7.3" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="1025.33" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (114,000,209 instructions, 0.32%)</title><rect x="1031.4" y="285" width="5.8" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1034.44" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::FindFile (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="93" width="0.6" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="567.58" y="103.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (132,000,242 instructions, 0.38%)</title><rect x="1743.9" y="301" width="6.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1746.86" y="311.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&gt;&gt;= (384,000,704 instructions, 1.09%)</title><rect x="1678.3" y="333" width="19.4" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1681.29" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Valid (12,000,022 instructions, 0.03%)</title><rect x="1094.0" y="317" width="0.6" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="1096.97" y="327.5" ></text>
+</g>
+<g >
+<title>malloc (12,000,022 instructions, 0.03%)</title><rect x="781.6" y="173" width="0.6" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="784.62" y="183.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator/= (30,000,055 instructions, 0.09%)</title><rect x="1702.0" y="349" width="1.5" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1704.97" y="359.5" ></text>
+</g>
+<g >
+<title>arith_uint256::SetCompact (102,000,187 instructions, 0.29%)</title><rect x="667.8" y="173" width="5.1" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="670.79" y="183.5" ></text>
+</g>
+<g >
+<title>GetBlockProof (11,010,020,185 instructions, 31.29%)</title><rect x="1140.7" y="349" width="557.0" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="1143.71" y="359.5" >GetBlockProof</text>
+</g>
+<g >
+<title>leveldb::GetVarint32PtrFallback (36,000,066 instructions, 0.10%)</title><rect x="751.0" y="109" width="1.8" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="753.96" y="119.5" ></text>
+</g>
+<g >
+<title>operator new (12,000,022 instructions, 0.03%)</title><rect x="798.6" y="189" width="0.6" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="801.62" y="199.5" ></text>
+</g>
+<g >
+<title>__libc_start_main@@GLIBC_2.34 (6,030,011,055 instructions, 17.14%)</title><rect x="518.1" y="365" width="305.1" height="15.0" fill="rgb(229,113,27)" rx="2" ry="2" />
+<text  x="521.14" y="375.5" >__libc_start_main@@GLIBC_2.34</text>
+</g>
+<g >
+<title>node::CompleteChainstateInitialization (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="317" width="40.4" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="826.20" y="327.5" >nod..</text>
+</g>
+<g >
+<title>pthread_mutex_unlock@plt (12,000,022 instructions, 0.03%)</title><rect x="446.2" y="301" width="0.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="449.20" y="311.5" ></text>
+</g>
+<g >
+<title>_int_malloc (30,000,055 instructions, 0.09%)</title><rect x="1119.8" y="285" width="1.5" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1122.77" y="295.5" ></text>
+</g>
+<g >
+<title>int ReadVarInt&lt;CDataStream, (VarIntMode)1, int&gt; (90,000,165 instructions, 0.26%)</title><rect x="1006.5" y="333" width="4.6" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1009.55" y="343.5" ></text>
+</g>
+<g >
+<title>node::VerifyLoadedChainstate (78,000,143 instructions, 0.22%)</title><rect x="563.4" y="285" width="3.9" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="566.37" y="295.5" ></text>
+</g>
+<g >
+<title>UintToArith256 (84,000,154 instructions, 0.24%)</title><rect x="979.2" y="317" width="4.3" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="982.23" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::InitDataBlock (66,000,121 instructions, 0.19%)</title><rect x="754.3" y="125" width="3.3" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="757.30" y="135.5" ></text>
+</g>
+<g >
+<title>__gmpn_addmul_1_coreisbr (24,000,044 instructions, 0.07%)</title><rect x="467.7" y="365" width="1.3" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="470.75" y="375.5" ></text>
+</g>
+<g >
+<title>main (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="333" width="33.4" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1759.61" y="343.5" >main</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::key (12,000,022 instructions, 0.03%)</title><rect x="1045.7" y="317" width="0.6" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="1048.70" y="327.5" ></text>
+</g>
+<g >
+<title>CheckProofOfWork (276,000,506 instructions, 0.78%)</title><rect x="661.7" y="189" width="14.0" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="664.72" y="199.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (18,000,033 instructions, 0.05%)</title><rect x="492.3" y="253" width="0.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="495.34" y="263.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (90,000,165 instructions, 0.26%)</title><rect x="1746.0" y="253" width="4.5" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1748.99" y="263.5" ></text>
+</g>
+<g >
+<title>auto AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda(auto:1&amp;&amp;)#5}::operator()&lt;AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#9}&gt; (9,006,016,511 instructions, 25.60%)</title><rect x="12.1" y="365" width="455.6" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="15.12" y="375.5" >auto AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeade..</text>
+</g>
+<g >
+<title>operator new (186,000,341 instructions, 0.53%)</title><rect x="782.2" y="173" width="9.4" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="785.22" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::PosixEnv::BackgroundThreadEntryPoint (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="333" width="43.4" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="475.61" y="343.5" >leve..</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (72,000,132 instructions, 0.20%)</title><rect x="1746.9" y="237" width="3.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1749.90" y="247.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (162,000,297 instructions, 0.46%)</title><rect x="1742.3" y="333" width="8.2" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1745.34" y="343.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&gt;&gt;= (6,840,012,540 instructions, 19.44%)</title><rect x="1331.9" y="317" width="346.1" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1334.95" y="327.5" >base_uint&lt;256u&gt;::operator&gt;&gt;=</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (156,000,286 instructions, 0.44%)</title><rect x="477.2" y="269" width="7.9" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="480.16" y="279.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (18,000,033 instructions, 0.05%)</title><rect x="475.6" y="269" width="1.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="478.64" y="279.5" ></text>
+</g>
+<g >
+<title>Chainstate::DisconnectBlock (60,000,110 instructions, 0.17%)</title><rect x="563.4" y="253" width="3.0" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="566.37" y="263.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::LoadBlockIndexDB (17,652,032,362 instructions, 50.17%)</title><rect x="863.6" y="381" width="893.0" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="866.57" y="391.5" >node::BlockManager::LoadBlockIndexDB</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (114,000,209 instructions, 0.32%)</title><rect x="456.2" y="253" width="5.8" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="459.21" y="263.5" ></text>
+</g>
+<g >
+<title>auto AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda(auto:1&amp;&amp;)#5}::operator()&lt;AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#9}&gt; (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="301" width="255.3" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="570.31" y="311.5" >auto AppInitMain(node::NodeContext..</text>
+</g>
+<g >
+<title>memory_cleanse (24,000,044 instructions, 0.07%)</title><rect x="1107.6" y="333" width="1.2" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1110.63" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Next (12,000,022 instructions, 0.03%)</title><rect x="1033.9" y="269" width="0.6" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1036.86" y="279.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::LoadBlockIndex (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="253" width="255.3" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="570.31" y="263.5" >ChainstateManager::LoadBlockIndex</text>
+</g>
+<g >
+<title>leveldb::DBImpl::DoCompactionWork (846,001,551 instructions, 2.40%)</title><rect x="473.2" y="285" width="42.8" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="476.21" y="295.5" >leve..</text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (60,000,110 instructions, 0.17%)</title><rect x="462.9" y="317" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="465.89" y="327.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::EqualTo (18,000,033 instructions, 0.05%)</title><rect x="674.5" y="173" width="0.9" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="677.46" y="183.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (12,000,022 instructions, 0.03%)</title><rect x="32.2" y="285" width="0.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="35.16" y="295.5" ></text>
+</g>
+<g >
+<title>CSHA256::Finalize (12,000,022 instructions, 0.03%)</title><rect x="561.2" y="237" width="0.6" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="564.24" y="247.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (30,000,055 instructions, 0.09%)</title><rect x="1032.3" y="269" width="1.6" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1035.35" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (18,000,033 instructions, 0.05%)</title><rect x="718.5" y="141" width="0.9" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="721.48" y="151.5" ></text>
+</g>
+<g >
+<title>arith_uint256::SetCompact (132,000,242 instructions, 0.38%)</title><rect x="1167.7" y="333" width="6.7" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1170.73" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::ForEachOverlapping (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="109" width="0.6" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="567.58" y="119.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (108,000,198 instructions, 0.31%)</title><rect x="689.9" y="189" width="5.5" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="692.95" y="199.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (24,000,044 instructions, 0.07%)</title><rect x="493.2" y="253" width="1.3" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="496.25" y="263.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (66,000,121 instructions, 0.19%)</title><rect x="811.7" y="205" width="3.3" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="814.67" y="215.5" ></text>
+</g>
+<g >
+<title>unsigned int ReadVarInt&lt;CDataStream, (VarIntMode)0, unsigned int&gt; (228,000,418 instructions, 0.65%)</title><rect x="1127.4" y="333" width="11.5" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="1130.36" y="343.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (66,000,121 instructions, 0.19%)</title><rect x="458.6" y="189" width="3.4" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="461.64" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (18,000,033 instructions, 0.05%)</title><rect x="501.7" y="221" width="1.0" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="504.75" y="231.5" ></text>
+</g>
+<g >
+<title>CheckProofOfWork (12,000,022 instructions, 0.03%)</title><rect x="809.5" y="205" width="0.7" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="812.54" y="215.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::bits (204,000,374 instructions, 0.58%)</title><rect x="1310.1" y="317" width="10.3" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1313.09" y="327.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::EqualTo (30,000,055 instructions, 0.09%)</title><rect x="1700.5" y="349" width="1.5" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="1703.45" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::value (18,000,033 instructions, 0.05%)</title><rect x="722.4" y="173" width="0.9" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="725.42" y="183.5" ></text>
+</g>
+<g >
+<title>__GI___clone3 (30,000,055 instructions, 0.09%)</title><rect x="10.6" y="381" width="1.5" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="13.61" y="391.5" ></text>
+</g>
+<g >
+<title>operator new (42,000,077 instructions, 0.12%)</title><rect x="443.5" y="301" width="2.1" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="446.47" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::GetVarint32PtrFallback (18,000,033 instructions, 0.05%)</title><rect x="1085.8" y="253" width="0.9" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1088.77" y="263.5" ></text>
+</g>
+<g >
+<title>CBlockTreeDB::LoadBlockIndexGuts (4,782,008,767 instructions, 13.59%)</title><rect x="567.3" y="205" width="241.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="570.31" y="215.5" >CBlockTreeDB::LoadBlockIndexGuts</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (30,000,055 instructions, 0.09%)</title><rect x="478.1" y="253" width="1.5" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="481.07" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (444,000,814 instructions, 1.26%)</title><rect x="1020.8" y="317" width="22.5" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1023.81" y="327.5" >l..</text>
+</g>
+<g >
+<title>node::LoadChainstate (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="333" width="40.4" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="826.20" y="343.5" >nod..</text>
+</g>
+<g >
+<title>leveldb::DBImpl::BackgroundCompaction (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="301" width="43.4" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="475.61" y="311.5" >leve..</text>
+</g>
+<g >
+<title>ProcRand (840,001,540 instructions, 2.39%)</title><rect x="518.1" y="317" width="42.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="521.14" y="327.5" >Proc..</text>
+</g>
+<g >
+<title>start_thread (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="365" width="0.6" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="13.00" y="375.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::EqualTo (24,000,044 instructions, 0.07%)</title><rect x="989.2" y="317" width="1.3" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="992.24" y="327.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (12,000,022 instructions, 0.03%)</title><rect x="445.6" y="301" width="0.6" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="448.59" y="311.5" ></text>
+</g>
+<g >
+<title>PrepareShutdown (12,000,022 instructions, 0.03%)</title><rect x="1788.5" y="301" width="0.6" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1791.48" y="311.5" ></text>
+</g>
+<g >
+<title>malloc (36,000,066 instructions, 0.10%)</title><rect x="427.7" y="285" width="1.8" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="430.68" y="295.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (18,000,033 instructions, 0.05%)</title><rect x="488.7" y="253" width="0.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="491.69" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::value (12,000,022 instructions, 0.03%)</title><rect x="1099.7" y="333" width="0.6" height="15.0" fill="rgb(208,18,4)" rx="2" ry="2" />
+<text  x="1102.73" y="343.5" ></text>
+</g>
+<g >
+<title>ShutdownRequested (18,000,033 instructions, 0.05%)</title><rect x="462.0" y="317" width="0.9" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="464.98" y="327.5" ></text>
+</g>
+<g >
+<title>bufferevent_run_readcb_ (12,000,022 instructions, 0.03%)</title><rect x="10.9" y="269" width="0.6" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.91" y="279.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::EqualTo (18,000,033 instructions, 0.05%)</title><rect x="1005.6" y="333" width="0.9" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="1008.63" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::Get (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="125" width="0.6" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="567.58" y="135.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::Next (768,001,408 instructions, 2.18%)</title><rect x="723.9" y="189" width="38.9" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="726.94" y="199.5" >lev..</text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (42,000,077 instructions, 0.12%)</title><rect x="516.0" y="381" width="2.1" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="519.01" y="391.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (30,000,055 instructions, 0.09%)</title><rect x="1070.6" y="269" width="1.5" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1073.59" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (240,000,440 instructions, 0.68%)</title><rect x="730.0" y="141" width="12.2" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="733.01" y="151.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree_insert_and_rebalance (114,000,209 instructions, 0.32%)</title><rect x="446.8" y="301" width="5.8" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="449.80" y="311.5" ></text>
+</g>
+<g >
+<title>UintToArith256 (66,000,121 instructions, 0.19%)</title><rect x="664.4" y="173" width="3.4" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="667.45" y="183.5" ></text>
+</g>
+<g >
+<title>start_thread (30,000,055 instructions, 0.09%)</title><rect x="10.6" y="365" width="1.5" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="13.61" y="375.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_find_before_node (66,000,121 instructions, 0.19%)</title><rect x="791.6" y="173" width="3.4" height="15.0" fill="rgb(250,209,49)" rx="2" ry="2" />
+<text  x="794.63" y="183.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (54,000,099 instructions, 0.15%)</title><rect x="1077.3" y="269" width="2.7" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1080.27" y="279.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (96,000,176 instructions, 0.27%)</title><rect x="457.1" y="221" width="4.9" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="460.12" y="231.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (48,000,088 instructions, 0.14%)</title><rect x="1748.1" y="205" width="2.4" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1751.11" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::EncodeVarint32 (18,000,033 instructions, 0.05%)</title><rect x="499.3" y="237" width="0.9" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="502.32" y="247.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_insert_unique_node (36,000,066 instructions, 0.10%)</title><rect x="1124.0" y="317" width="1.8" height="15.0" fill="rgb(241,168,40)" rx="2" ry="2" />
+<text  x="1127.02" y="327.5" ></text>
+</g>
+<g >
+<title>malloc (84,000,154 instructions, 0.24%)</title><rect x="768.3" y="189" width="4.2" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="771.26" y="199.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (54,000,099 instructions, 0.15%)</title><rect x="459.2" y="173" width="2.8" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="462.25" y="183.5" ></text>
+</g>
+<g >
+<title>block import / ActivateBestChain (loadblk) (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="397" width="0.6" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="13.00" y="407.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (12,000,022 instructions, 0.03%)</title><rect x="475.0" y="269" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="478.03" y="279.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::assign (30,000,055 instructions, 0.09%)</title><rect x="761.3" y="173" width="1.5" height="15.0" fill="rgb(213,37,8)" rx="2" ry="2" />
+<text  x="764.28" y="183.5" ></text>
+</g>
+<g >
+<title>GetRandHash (840,001,540 instructions, 2.39%)</title><rect x="518.1" y="333" width="42.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="521.14" y="343.5" >GetR..</text>
+</g>
+<g >
+<title>leveldb::TableBuilder::Add (438,000,803 instructions, 1.24%)</title><rect x="491.4" y="269" width="22.2" height="15.0" fill="rgb(216,50,12)" rx="2" ry="2" />
+<text  x="494.43" y="279.5" >l..</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (150,000,275 instructions, 0.43%)</title><rect x="1743.0" y="317" width="7.5" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1745.95" y="327.5" ></text>
+</g>
+<g >
+<title>_int_malloc (42,000,077 instructions, 0.12%)</title><rect x="789.5" y="141" width="2.1" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="792.51" y="151.5" ></text>
+</g>
+<g >
+<title>start_thread (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="365" width="43.4" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="475.61" y="375.5" >star..</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (138,000,253 instructions, 0.39%)</title><rect x="455.0" y="269" width="7.0" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="458.00" y="279.5" ></text>
+</g>
+<g >
+<title>CSHA512::Finalize (822,001,507 instructions, 2.34%)</title><rect x="518.7" y="285" width="41.6" height="15.0" fill="rgb(244,179,43)" rx="2" ry="2" />
+<text  x="521.74" y="295.5" >CSH..</text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_replace (30,000,055 instructions, 0.09%)</title><rect x="514.5" y="269" width="1.5" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="517.50" y="279.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (108,000,198 instructions, 0.31%)</title><rect x="456.5" y="237" width="5.5" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="459.52" y="247.5" ></text>
+</g>
+<g >
+<title>__libc_start_call_main (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="349" width="33.4" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1759.61" y="359.5" >__..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (78,000,143 instructions, 0.22%)</title><rect x="999.0" y="333" width="3.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1001.96" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (12,000,022 instructions, 0.03%)</title><rect x="1049.3" y="301" width="0.7" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1052.35" y="311.5" ></text>
+</g>
+<g >
+<title>std::thread::_State_impl&lt;std::thread::_Invoker&lt;std::tuple&lt;void (*)(std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;, std::function&lt;void ()&gt;), char const*, AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#17}&gt; &gt; &gt;::_M_run (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="333" width="0.6" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="13.00" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (72,000,132 instructions, 0.20%)</title><rect x="1038.1" y="253" width="3.7" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="1041.11" y="263.5" ></text>
+</g>
+<g >
+<title>ShutdownRequested (30,000,055 instructions, 0.09%)</title><rect x="1697.7" y="349" width="1.5" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="1700.72" y="359.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexWorkComparator::operator() (192,000,352 instructions, 0.55%)</title><rect x="841.7" y="269" width="9.7" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="844.72" y="279.5" ></text>
+</g>
+<g >
+<title>AppInitMain (9,006,016,511 instructions, 25.60%)</title><rect x="12.1" y="381" width="455.6" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="15.12" y="391.5" >AppInitMain</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (96,000,176 instructions, 0.27%)</title><rect x="1037.2" y="285" width="4.9" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1040.20" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (36,000,066 instructions, 0.10%)</title><rect x="1018.7" y="317" width="1.8" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1021.69" y="327.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::sha512::Transform (786,001,441 instructions, 2.23%)</title><rect x="520.6" y="253" width="39.7" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="523.57" y="263.5" >(an..</text>
+</g>
+<g >
+<title>AddrManImpl::CheckAddrman (12,000,022 instructions, 0.03%)</title><rect x="561.2" y="269" width="0.6" height="15.0" fill="rgb(206,9,2)" rx="2" ry="2" />
+<text  x="564.24" y="279.5" ></text>
+</g>
+<g >
+<title>node::LoadChainstate (9,006,016,511 instructions, 25.60%)</title><rect x="12.1" y="349" width="455.6" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="15.12" y="359.5" >node::LoadChainstate</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::value (30,000,055 instructions, 0.09%)</title><rect x="1043.9" y="317" width="1.5" height="15.0" fill="rgb(208,18,4)" rx="2" ry="2" />
+<text  x="1046.88" y="327.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree_rebalance_for_erase (108,000,198 instructions, 0.31%)</title><rect x="857.8" y="285" width="5.5" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="860.81" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (18,000,033 instructions, 0.05%)</title><rect x="490.5" y="253" width="0.9" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="493.52" y="263.5" ></text>
+</g>
+<g >
+<title>_int_free_maybe_trim (48,000,088 instructions, 0.14%)</title><rect x="835.6" y="253" width="2.5" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="838.65" y="263.5" ></text>
+</g>
+<g >
+<title>util::TraceThread (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="317" width="0.6" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="13.00" y="327.5" ></text>
+</g>
+<g >
+<title>node::CompleteChainstateInitialization (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="269" width="255.3" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="570.31" y="279.5" >node::CompleteChainstateInitializa..</text>
+</g>
+<g >
+<title>node::BlockManager::InsertBlockIndex (510,000,935 instructions, 1.45%)</title><rect x="772.8" y="189" width="25.8" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="775.81" y="199.5" >n..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (12,000,022 instructions, 0.03%)</title><rect x="1053.3" y="317" width="0.6" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1056.29" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::EncodeVarint32 (24,000,044 instructions, 0.07%)</title><rect x="505.7" y="221" width="1.2" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="508.69" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::key (24,000,044 instructions, 0.07%)</title><rect x="818.0" y="205" width="1.3" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="821.04" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::key (12,000,022 instructions, 0.03%)</title><rect x="759.2" y="157" width="0.6" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="762.15" y="167.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n_coreisbr (12,000,022 instructions, 0.03%)</title><rect x="469.0" y="365" width="0.6" height="15.0" fill="rgb(213,36,8)" rx="2" ry="2" />
+<text  x="471.96" y="375.5" ></text>
+</g>
+<g >
+<title>void detail::UnserializeVectorContents&lt;DefaultFormatter, CAutoFile, std::vector&lt;std::shared_ptr&lt;CTransaction const&gt;, std::allocator&lt;std::shared_ptr&lt;CTransaction const&gt; &gt; &gt; &gt; (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="221" width="0.6" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="569.40" y="231.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree&lt;CBlockIndex*, CBlockIndex*, std::_Identity&lt;CBlockIndex*&gt;, node::CBlockIndexWorkComparator, std::allocator&lt;CBlockIndex*&gt; &gt;::_M_get_insert_unique_pos (6,954,012,749 instructions, 19.76%)</title><rect x="71.3" y="285" width="351.8" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="74.32" y="295.5" >std::_Rb_tree&lt;CBlockIndex*, CBlockIndex*, std::..</text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (18,000,033 instructions, 0.05%)</title><rect x="767.3" y="173" width="1.0" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="770.35" y="183.5" ></text>
+</g>
+<g >
+<title>unsigned int ReadVarInt&lt;CDataStream, (VarIntMode)0, unsigned int&gt; (12,000,022 instructions, 0.03%)</title><rect x="822.0" y="205" width="0.6" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="824.99" y="215.5" ></text>
+</g>
+<g >
+<title>CChain::SetTip (12,000,022 instructions, 0.03%)</title><rect x="823.2" y="285" width="0.6" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="826.20" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::ReadBlock (54,000,099 instructions, 0.15%)</title><rect x="754.9" y="93" width="2.7" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="757.90" y="103.5" ></text>
+</g>
+<g >
+<title>AddrInfo::GetBucketPosition (12,000,022 instructions, 0.03%)</title><rect x="561.2" y="253" width="0.6" height="15.0" fill="rgb(222,79,19)" rx="2" ry="2" />
+<text  x="564.24" y="263.5" ></text>
+</g>
+<g >
+<title>Lloop1_30 (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="157" width="0.6" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="569.40" y="167.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_find_before_node (54,000,099 instructions, 0.15%)</title><rect x="1121.3" y="317" width="2.7" height="15.0" fill="rgb(250,209,49)" rx="2" ry="2" />
+<text  x="1124.29" y="327.5" ></text>
+</g>
+<g >
+<title>Chainstate::LoadChainTip (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="301" width="40.4" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="826.20" y="311.5" >Cha..</text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (54,000,099 instructions, 0.15%)</title><rect x="1034.5" y="269" width="2.7" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="1037.47" y="279.5" ></text>
+</g>
+<g >
+<title>operator delete (24,000,044 instructions, 0.07%)</title><rect x="1709.6" y="349" width="1.2" height="15.0" fill="rgb(247,196,46)" rx="2" ry="2" />
+<text  x="1712.56" y="359.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::UndoSpecialTxsInBlock (42,000,077 instructions, 0.12%)</title><rect x="564.0" y="237" width="2.1" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="566.97" y="247.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::EqualTo (12,000,022 instructions, 0.03%)</title><rect x="700.3" y="189" width="0.6" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="703.27" y="199.5" ></text>
+</g>
+<g >
+<title>CheckProofOfWork (270,000,495 instructions, 0.77%)</title><rect x="977.1" y="333" width="13.7" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="980.10" y="343.5" ></text>
+</g>
+<g >
+<title>__libc_start_main@@GLIBC_2.34 (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="365" width="33.4" height="15.0" fill="rgb(229,113,27)" rx="2" ry="2" />
+<text  x="1759.61" y="375.5" >__..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (300,000,550 instructions, 0.85%)</title><rect x="1056.9" y="301" width="15.2" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="1059.93" y="311.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator/= (9,942,018,227 instructions, 28.26%)</title><rect x="1175.0" y="333" width="503.0" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1178.01" y="343.5" >base_uint&lt;256u&gt;::operator/=</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (12,000,022 instructions, 0.03%)</title><rect x="719.4" y="141" width="0.6" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="722.39" y="151.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (30,000,055 instructions, 0.09%)</title><rect x="1726.6" y="349" width="1.5" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="1729.56" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (12,000,022 instructions, 0.03%)</title><rect x="723.3" y="173" width="0.6" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="726.34" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::ReadBlock (48,000,088 instructions, 0.14%)</title><rect x="1038.7" y="237" width="2.4" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="1041.72" y="247.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (30,000,055 instructions, 0.09%)</title><rect x="1028.1" y="269" width="1.5" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1031.10" y="279.5" ></text>
+</g>
+<g >
+<title>malloc (90,000,165 instructions, 0.26%)</title><rect x="32.8" y="285" width="4.5" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="35.77" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (36,000,066 instructions, 0.10%)</title><rect x="1102.2" y="317" width="1.8" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1105.16" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::TableBuilder::NumEntries (12,000,022 instructions, 0.03%)</title><rect x="513.9" y="269" width="0.6" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="516.89" y="279.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::UndoBlock (42,000,077 instructions, 0.12%)</title><rect x="564.0" y="221" width="2.1" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="566.97" y="231.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (18,000,033 instructions, 0.05%)</title><rect x="717.0" y="125" width="0.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="719.96" y="135.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_insert_unique_node (12,000,022 instructions, 0.03%)</title><rect x="799.2" y="189" width="0.6" height="15.0" fill="rgb(241,168,40)" rx="2" ry="2" />
+<text  x="802.22" y="199.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (78,000,143 instructions, 0.22%)</title><rect x="51.6" y="269" width="3.9" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="54.59" y="279.5" ></text>
+</g>
+<g >
+<title>CTransaction::CTransaction (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="205" width="0.6" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="569.40" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (18,000,033 instructions, 0.05%)</title><rect x="511.2" y="253" width="0.9" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="514.16" y="263.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexHeightOnlyComparator::operator() (54,000,099 instructions, 0.15%)</title><rect x="432.2" y="301" width="2.8" height="15.0" fill="rgb(243,177,42)" rx="2" ry="2" />
+<text  x="435.23" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::InitDataBlock (78,000,143 instructions, 0.22%)</title><rect x="1037.8" y="269" width="4.0" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1040.81" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (12,000,022 instructions, 0.03%)</title><rect x="1042.4" y="301" width="0.6" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1045.36" y="311.5" ></text>
+</g>
+<g >
+<title>__GI___clone3 (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="381" width="43.4" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="475.61" y="391.5" >__GI..</text>
+</g>
+<g >
+<title>void CDeterministicMNList::Unserialize&lt;CDataStream&gt; (18,000,033 instructions, 0.05%)</title><rect x="565.2" y="157" width="0.9" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="568.19" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (72,000,132 instructions, 0.20%)</title><rect x="480.5" y="237" width="3.6" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="483.50" y="247.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (60,000,110 instructions, 0.17%)</title><rect x="738.5" y="125" width="3.0" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="741.51" y="135.5" ></text>
+</g>
+<g >
+<title>SeedStrengthen (834,001,529 instructions, 2.37%)</title><rect x="518.4" y="301" width="42.2" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="521.44" y="311.5" >See..</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (12,000,022 instructions, 0.03%)</title><rect x="1749.9" y="173" width="0.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1752.93" y="183.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::assign (30,000,055 instructions, 0.09%)</title><rect x="1094.9" y="317" width="1.5" height="15.0" fill="rgb(213,37,8)" rx="2" ry="2" />
+<text  x="1097.88" y="327.5" ></text>
+</g>
+<g >
+<title>_int_free_chunk (300,000,550 instructions, 0.85%)</title><rect x="825.3" y="269" width="15.2" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="828.33" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (318,000,583 instructions, 0.90%)</title><rect x="742.2" y="157" width="16.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="745.16" y="167.5" ></text>
+</g>
+<g >
+<title>AppInitMain (5,184,009,504 instructions, 14.73%)</title><rect x="560.6" y="317" width="262.3" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="563.63" y="327.5" >AppInitMain</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::key (12,000,022 instructions, 0.03%)</title><rect x="759.8" y="173" width="0.6" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="762.76" y="183.5" ></text>
+</g>
+<g >
+<title>_int_malloc (78,000,143 instructions, 0.22%)</title><rect x="1722.3" y="317" width="4.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1725.31" y="327.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (12,000,022 instructions, 0.03%)</title><rect x="461.4" y="109" width="0.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="464.37" y="119.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::Get (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="141" width="0.6" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="567.58" y="151.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::FetchCoin (12,000,022 instructions, 0.03%)</title><rect x="563.4" y="205" width="0.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="566.37" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::Valid (12,000,022 instructions, 0.03%)</title><rect x="1096.4" y="333" width="0.6" height="15.0" fill="rgb(219,66,15)" rx="2" ry="2" />
+<text  x="1099.39" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (126,000,231 instructions, 0.36%)</title><rect x="1080.3" y="269" width="6.4" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="1083.31" y="279.5" ></text>
+</g>
+<g >
+<title>_int_malloc (60,000,110 instructions, 0.17%)</title><rect x="66.5" y="253" width="3.0" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="69.46" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (216,000,396 instructions, 0.61%)</title><rect x="742.8" y="141" width="10.9" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="745.76" y="151.5" ></text>
+</g>
+<g >
+<title>arith_uint256::SetCompact (108,000,198 instructions, 0.31%)</title><rect x="983.5" y="317" width="5.4" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="986.48" y="327.5" ></text>
+</g>
+<g >
+<title>__libc_start_call_main (5,190,009,515 instructions, 14.75%)</title><rect x="560.6" y="349" width="262.6" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="563.63" y="359.5" >__libc_start_call_main</text>
+</g>
+<g >
+<title>node::LoadChainstate (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="285" width="255.3" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="570.31" y="295.5" >node::LoadChainstate</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (30,000,055 instructions, 0.09%)</title><rect x="460.5" y="141" width="1.5" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="463.46" y="151.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (24,000,044 instructions, 0.07%)</title><rect x="699.1" y="189" width="1.2" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="702.05" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Valid (12,000,022 instructions, 0.03%)</title><rect x="752.8" y="125" width="0.6" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="755.78" y="135.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (186,000,341 instructions, 0.53%)</title><rect x="782.2" y="157" width="9.4" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="785.22" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (18,000,033 instructions, 0.05%)</title><rect x="478.7" y="237" width="0.9" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="481.68" y="247.5" ></text>
+</g>
+<g >
+<title>malloc (12,000,022 instructions, 0.03%)</title><rect x="1116.1" y="317" width="0.6" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1119.13" y="327.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (24,000,044 instructions, 0.07%)</title><rect x="1026.9" y="269" width="1.2" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1029.88" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (78,000,143 instructions, 0.22%)</title><rect x="716.4" y="173" width="3.9" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="719.35" y="183.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (18,000,033 instructions, 0.05%)</title><rect x="481.4" y="221" width="0.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="484.41" y="231.5" ></text>
+</g>
+<g >
+<title>operator new (18,000,033 instructions, 0.05%)</title><rect x="429.5" y="285" width="0.9" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="432.50" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::key (12,000,022 instructions, 0.03%)</title><rect x="1086.7" y="269" width="0.6" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1089.68" y="279.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::LoadBlockIndex (17,490,032,065 instructions, 49.71%)</title><rect x="865.7" y="365" width="884.8" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="868.70" y="375.5" >node::BlockManager::LoadBlockIndex</text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (24,000,044 instructions, 0.07%)</title><rect x="1749.3" y="189" width="1.2" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1752.32" y="199.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::ActiveChainstate (66,000,121 instructions, 0.19%)</title><rect x="28.8" y="285" width="3.4" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="31.82" y="295.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::ApplyDiff (12,000,022 instructions, 0.03%)</title><rect x="564.0" y="189" width="0.6" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="566.97" y="199.5" ></text>
+</g>
+<g >
+<title>unsigned int ReadVarInt&lt;CDataStream, (VarIntMode)0, unsigned int&gt; (186,000,341 instructions, 0.53%)</title><rect x="799.8" y="189" width="9.4" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="802.83" y="199.5" ></text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms_rtm (66,000,121 instructions, 0.19%)</title><rect x="695.4" y="189" width="3.3" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="698.41" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (48,000,088 instructions, 0.14%)</title><rect x="500.2" y="237" width="2.5" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="503.23" y="247.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (12,000,022 instructions, 0.03%)</title><rect x="69.5" y="285" width="0.6" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="72.50" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::BlockBuilder::Add (246,000,451 instructions, 0.70%)</title><rect x="494.5" y="253" width="12.4" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="497.46" y="263.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::GetAllBlockIndices (18,000,033 instructions, 0.05%)</title><rect x="1708.6" y="349" width="1.0" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1711.65" y="359.5" ></text>
+</g>
+<g >
+<title>Chainstate::PruneBlockIndexCandidates (546,001,001 instructions, 1.55%)</title><rect x="823.8" y="285" width="27.6" height="15.0" fill="rgb(212,33,7)" rx="2" ry="2" />
+<text  x="826.81" y="295.5" >C..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::ShardedLRUCache::Lookup (12,000,022 instructions, 0.03%)</title><rect x="1038.1" y="237" width="0.6" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1041.11" y="247.5" ></text>
+</g>
+<g >
+<title>auto AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda(auto:1&amp;&amp;)#5}::operator()&lt;AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#10}&gt; (78,000,143 instructions, 0.22%)</title><rect x="563.4" y="301" width="3.9" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="566.37" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (84,000,154 instructions, 0.24%)</title><rect x="1087.3" y="285" width="4.2" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1090.29" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (108,000,198 instructions, 0.31%)</title><rect x="747.3" y="125" width="5.5" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="750.32" y="135.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (12,000,022 instructions, 0.03%)</title><rect x="1050.0" y="317" width="0.6" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1052.95" y="327.5" ></text>
+</g>
+<g >
+<title>[unknown] (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="349" width="43.4" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="475.61" y="359.5" >[unk..</text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (48,000,088 instructions, 0.14%)</title><rect x="1016.3" y="317" width="2.4" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1019.26" y="327.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (18,000,033 instructions, 0.05%)</title><rect x="490.5" y="237" width="0.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="493.52" y="247.5" ></text>
+</g>
+<g >
+<title>[unknown] (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="349" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.00" y="359.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (90,000,165 instructions, 0.26%)</title><rect x="1116.7" y="301" width="4.6" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1119.73" y="311.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&lt;&lt;= (24,000,044 instructions, 0.07%)</title><rect x="987.7" y="301" width="1.2" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="990.73" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::value (18,000,033 instructions, 0.05%)</title><rect x="486.3" y="269" width="0.9" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="489.27" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (24,000,044 instructions, 0.07%)</title><rect x="715.1" y="173" width="1.3" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="718.14" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (60,000,110 instructions, 0.17%)</title><rect x="754.6" y="109" width="3.0" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="757.60" y="119.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::key (24,000,044 instructions, 0.07%)</title><rect x="762.8" y="189" width="1.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="765.80" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (12,000,022 instructions, 0.03%)</title><rect x="760.4" y="173" width="0.6" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="763.37" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BloomFilterPolicy::CreateFilter (54,000,099 instructions, 0.15%)</title><rect x="508.1" y="221" width="2.8" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="511.12" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::BackgroundCall (858,001,573 instructions, 2.44%)</title><rect x="472.6" y="317" width="43.4" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="475.61" y="327.5" >leve..</text>
+</g>
+<g >
+<title>leveldb::PutVarint32 (84,000,154 instructions, 0.24%)</title><rect x="502.7" y="237" width="4.2" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="505.66" y="247.5" ></text>
+</g>
+<g >
+<title>leveldb::Compaction::ShouldStopBefore (30,000,055 instructions, 0.09%)</title><rect x="489.9" y="269" width="1.5" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="492.91" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::key (12,000,022 instructions, 0.03%)</title><rect x="1043.3" y="317" width="0.6" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1046.27" y="327.5" ></text>
+</g>
+<g >
+<title>CTransaction::ComputeHash (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="189" width="0.6" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="569.40" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::key (18,000,033 instructions, 0.05%)</title><rect x="1098.8" y="333" width="0.9" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1101.82" y="343.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexWorkComparator::operator() (18,000,033 instructions, 0.05%)</title><rect x="466.5" y="317" width="0.9" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="469.53" y="327.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::LoadBlockIndex (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="221" width="255.3" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="570.31" y="231.5" >node::BlockManager::LoadBlockIndex</text>
+</g>
+<g >
+<title>AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#17}::operator() (12,000,022 instructions, 0.03%)</title><rect x="10.0" y="301" width="0.6" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="13.00" y="311.5" ></text>
+</g>
+<g >
+<title>event_base_loop (24,000,044 instructions, 0.07%)</title><rect x="10.9" y="317" width="1.2" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="13.91" y="327.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&lt;&lt;= (48,000,088 instructions, 0.14%)</title><rect x="1172.0" y="317" width="2.4" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1174.98" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (660,001,210 instructions, 1.88%)</title><rect x="726.4" y="173" width="33.4" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="729.37" y="183.5" >le..</text>
+</g>
+<g >
+<title>AppInitMain (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="365" width="40.4" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="826.20" y="375.5" >App..</text>
+</g>
+<g >
+<title>leveldb::Compaction::IsBaseLevelForKey (54,000,099 instructions, 0.15%)</title><rect x="487.2" y="269" width="2.7" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="490.18" y="279.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="253" width="0.6" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="569.40" y="263.5" ></text>
+</g>
+<g >
+<title>node::CBlockIndexWorkComparator::operator() (360,000,660 instructions, 1.02%)</title><rect x="37.3" y="285" width="18.2" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="40.32" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::FindNextUserEntry (306,000,561 instructions, 0.87%)</title><rect x="708.5" y="189" width="15.4" height="15.0" fill="rgb(250,211,50)" rx="2" ry="2" />
+<text  x="711.46" y="199.5" ></text>
+</g>
+<g >
+<title>__libc_malloc2 (234,000,429 instructions, 0.67%)</title><rect x="57.7" y="269" width="11.8" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="60.66" y="279.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (42,000,077 instructions, 0.12%)</title><rect x="1703.5" y="349" width="2.1" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1706.49" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::value (72,000,132 instructions, 0.20%)</title><rect x="1100.3" y="333" width="3.7" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="1103.34" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (90,000,165 instructions, 0.26%)</title><rect x="1025.1" y="285" width="4.5" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1028.06" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (12,000,022 instructions, 0.03%)</title><rect x="1092.1" y="301" width="0.7" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1095.15" y="311.5" ></text>
+</g>
+<g >
+<title>CSHA512::Write (822,001,507 instructions, 2.34%)</title><rect x="518.7" y="269" width="41.6" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="521.74" y="279.5" >CSH..</text>
+</g>
+<g >
+<title>all (35,184,064,504 instructions, 100%)</title><rect x="10.0" y="413" width="1780.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="423.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::GetAllBlockIndices (18,000,033 instructions, 0.05%)</title><rect x="431.3" y="301" width="0.9" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="434.32" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (96,000,176 instructions, 0.27%)</title><rect x="479.6" y="253" width="4.8" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="482.59" y="263.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (18,000,033 instructions, 0.05%)</title><rect x="725.5" y="173" width="0.9" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="728.46" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (396,000,726 instructions, 1.13%)</title><rect x="1072.1" y="301" width="20.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1075.11" y="311.5" ></text>
+</g>
+<g >
+<title>CCoinsViewCache::HaveCoin (12,000,022 instructions, 0.03%)</title><rect x="563.4" y="221" width="0.6" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="566.37" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::key (24,000,044 instructions, 0.07%)</title><rect x="1097.0" y="333" width="1.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1100.00" y="343.5" ></text>
+</g>
+<g >
+<title>memory_cleanse (12,000,022 instructions, 0.03%)</title><rect x="1708.0" y="349" width="0.6" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1711.04" y="359.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex*&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex*&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, false&gt; &gt;::_M_insert_multi_node (228,000,418 instructions, 0.65%)</title><rect x="1728.7" y="349" width="11.5" height="15.0" fill="rgb(212,33,7)" rx="2" ry="2" />
+<text  x="1731.68" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (30,000,055 instructions, 0.09%)</title><rect x="716.7" y="141" width="1.5" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="719.66" y="151.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (174,000,319 instructions, 0.49%)</title><rect x="453.2" y="285" width="8.8" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="456.18" y="295.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::GetListForBlockInternal (42,000,077 instructions, 0.12%)</title><rect x="564.0" y="205" width="2.1" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="566.97" y="215.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (12,000,022 instructions, 0.03%)</title><rect x="511.2" y="237" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="514.16" y="247.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_rehash (24,000,044 instructions, 0.07%)</title><rect x="1124.6" y="301" width="1.2" height="15.0" fill="rgb(245,188,45)" rx="2" ry="2" />
+<text  x="1127.62" y="311.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="61" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="567.58" y="71.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::value (12,000,022 instructions, 0.03%)</title><rect x="764.0" y="189" width="0.6" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="767.01" y="199.5" ></text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms_rtm (12,000,022 instructions, 0.03%)</title><rect x="1699.8" y="349" width="0.7" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="1702.85" y="359.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (42,000,077 instructions, 0.12%)</title><rect x="459.9" y="157" width="2.1" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="462.86" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (252,000,462 instructions, 0.72%)</title><rect x="1029.6" y="301" width="12.8" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1032.61" y="311.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (18,000,033 instructions, 0.05%)</title><rect x="1126.1" y="333" width="1.0" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="1129.14" y="343.5" ></text>
+</g>
+<g >
+<title>operator delete(void*, unsigned long)@plt (18,000,033 instructions, 0.05%)</title><rect x="819.9" y="205" width="0.9" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="822.86" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::key (12,000,022 instructions, 0.03%)</title><rect x="765.2" y="189" width="0.6" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="768.23" y="199.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::UpdateMN (12,000,022 instructions, 0.03%)</title><rect x="564.0" y="173" width="0.6" height="15.0" fill="rgb(209,18,4)" rx="2" ry="2" />
+<text  x="566.97" y="183.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::operator&lt;&lt;= (228,000,418 instructions, 0.65%)</title><rect x="1320.4" y="317" width="11.5" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1323.41" y="327.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (12,000,022 instructions, 0.03%)</title><rect x="841.1" y="269" width="0.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="844.11" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::key (30,000,055 instructions, 0.09%)</title><rect x="720.6" y="173" width="1.5" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="723.60" y="183.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::InsertBlockIndex (330,000,605 instructions, 0.94%)</title><rect x="1109.1" y="333" width="16.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1112.14" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (768,001,408 instructions, 2.18%)</title><rect x="1054.2" y="317" width="38.9" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1057.20" y="327.5" >lev..</text>
+</g>
+<g >
+<title>CBlockTreeDB::LoadBlockIndexGuts (4,896,008,976 instructions, 13.92%)</title><rect x="891.2" y="349" width="247.7" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="894.20" y="359.5" >CBlockTreeDB::LoadBlockIndexGuts</text>
+</g>
+<g >
+<title>__libc_malloc2 (300,000,550 instructions, 0.85%)</title><rect x="1711.4" y="333" width="15.2" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1714.38" y="343.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::GetAll (126,000,231 instructions, 0.36%)</title><rect x="424.3" y="301" width="6.4" height="15.0" fill="rgb(232,125,30)" rx="2" ry="2" />
+<text  x="427.34" y="311.5" ></text>
+</g>
+<g >
+<title>CBlockIndex::GetAncestor (132,000,242 instructions, 0.38%)</title><rect x="884.5" y="333" width="6.7" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="887.52" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::GenerateFilter (60,000,110 instructions, 0.17%)</title><rect x="508.1" y="237" width="3.1" height="15.0" fill="rgb(236,146,34)" rx="2" ry="2" />
+<text  x="511.12" y="247.5" ></text>
+</g>
+<g >
+<title>operator new (90,000,165 instructions, 0.26%)</title><rect x="1116.7" y="317" width="4.6" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1119.73" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (12,000,022 instructions, 0.03%)</title><rect x="1090.6" y="269" width="0.6" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="1093.63" y="279.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_rehash (36,000,066 instructions, 0.10%)</title><rect x="796.8" y="157" width="1.8" height="15.0" fill="rgb(245,188,45)" rx="2" ry="2" />
+<text  x="799.79" y="167.5" ></text>
+</g>
+<g >
+<title>DataStream::read (24,000,044 instructions, 0.07%)</title><rect x="810.2" y="205" width="1.2" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="813.15" y="215.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (12,000,022 instructions, 0.03%)</title><rect x="31.6" y="269" width="0.6" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="34.55" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::InitDataBlock (48,000,088 instructions, 0.14%)</title><rect x="1088.2" y="269" width="2.4" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1091.20" y="279.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (54,000,099 instructions, 0.15%)</title><rect x="1747.8" y="221" width="2.7" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1750.81" y="231.5" ></text>
+</g>
+<g >
+<title>node::BlockManager::LoadBlockIndexDB (5,046,009,251 instructions, 14.34%)</title><rect x="567.3" y="237" width="255.3" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="570.31" y="247.5" >node::BlockManager::LoadBlockIndexDB</text>
+</g>
+<g >
+<title>Chainstate::TryAddBlockIndexCandidate (7,872,014,432 instructions, 22.37%)</title><rect x="24.9" y="301" width="398.2" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="27.87" y="311.5" >Chainstate::TryAddBlockIndexCandidate</text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (144,000,264 instructions, 0.41%)</title><rect x="436.2" y="285" width="7.3" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="439.18" y="295.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (168,000,308 instructions, 0.48%)</title><rect x="842.9" y="253" width="8.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="845.93" y="263.5" ></text>
+</g>
+<g >
+<title>_start (6,030,011,055 instructions, 17.14%)</title><rect x="518.1" y="381" width="305.1" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="521.14" y="391.5" >_start</text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (198,000,363 instructions, 0.56%)</title><rect x="1062.1" y="285" width="10.0" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1065.09" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (12,000,022 instructions, 0.03%)</title><rect x="482.6" y="221" width="0.6" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="485.62" y="231.5" ></text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (12,000,022 instructions, 0.03%)</title><rect x="1089.1" y="221" width="0.6" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1092.11" y="231.5" ></text>
+</g>
+<g >
+<title>unsigned int ReadVarInt&lt;CDataStream, (VarIntMode)0, unsigned int&gt; (12,000,022 instructions, 0.03%)</title><rect x="1740.5" y="349" width="0.6" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="1743.52" y="359.5" ></text>
+</g>
+<g >
+<title>CVerifyDB::VerifyDB (78,000,143 instructions, 0.22%)</title><rect x="563.4" y="269" width="3.9" height="15.0" fill="rgb(223,85,20)" rx="2" ry="2" />
+<text  x="566.37" y="279.5" ></text>
+</g>
+<g >
+<title>LoadAddrman (24,000,044 instructions, 0.07%)</title><rect x="560.9" y="301" width="1.3" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="563.94" y="311.5" ></text>
+</g>
+<g >
+<title>malloc (72,000,132 instructions, 0.20%)</title><rect x="1104.0" y="333" width="3.6" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1106.98" y="343.5" ></text>
+</g>
+<g >
+<title>main (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="381" width="40.4" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="826.20" y="391.5" >main</text>
+</g>
+<g >
+<title>ThreadHTTP (24,000,044 instructions, 0.07%)</title><rect x="10.9" y="333" width="1.2" height="15.0" fill="rgb(220,71,16)" rx="2" ry="2" />
+<text  x="13.91" y="343.5" ></text>
+</g>
+<g >
+<title>void AddrManImpl::Unserialize&lt;CHashVerifier&lt;CAutoFile&gt; &gt; (24,000,044 instructions, 0.07%)</title><rect x="560.9" y="285" width="1.3" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="563.94" y="295.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (36,000,066 instructions, 0.10%)</title><rect x="745.2" y="125" width="1.8" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="748.19" y="135.5" ></text>
+</g>
+<g >
+<title>operator new (276,000,506 instructions, 0.78%)</title><rect x="55.5" y="285" width="14.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="58.53" y="295.5" ></text>
+</g>
+<g >
+<title>http/rpc workers (30,000,055 instructions, 0.09%)</title><rect x="10.6" y="397" width="1.5" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="13.61" y="407.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::value (12,000,022 instructions, 0.03%)</title><rect x="722.7" y="157" width="0.6" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="725.73" y="167.5" ></text>
+</g>
+<g >
+<title>int ReadVarInt&lt;CDataStream, (VarIntMode)1, int&gt; (18,000,033 instructions, 0.05%)</title><rect x="1705.9" y="349" width="0.9" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1708.92" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (12,000,022 instructions, 0.03%)</title><rect x="564.6" y="77" width="0.6" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="567.58" y="87.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::Next (906,001,661 instructions, 2.58%)</title><rect x="1050.6" y="333" width="45.8" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1053.56" y="343.5" >leve..</text>
+</g>
+<g >
+<title>event_process_active_single_queue (24,000,044 instructions, 0.07%)</title><rect x="10.9" y="301" width="1.2" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="13.91" y="311.5" ></text>
+</g>
+<g >
+<title>DataStream::read (270,000,495 instructions, 0.77%)</title><rect x="675.7" y="189" width="13.6" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="678.68" y="199.5" ></text>
+</g>
+<g >
+<title>immer::detail::hamts::node&lt;std::pair&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt; &gt;, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::hash_key, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::equal_key, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::copy_inner_replace (12,000,022 instructions, 0.03%)</title><rect x="564.0" y="125" width="0.6" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="566.97" y="135.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (186,000,341 instructions, 0.53%)</title><rect x="1741.1" y="349" width="9.4" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1744.13" y="359.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (30,000,055 instructions, 0.09%)</title><rect x="672.9" y="173" width="1.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="675.95" y="183.5" ></text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms_rtm (24,000,044 instructions, 0.07%)</title><rect x="1002.9" y="333" width="1.2" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="1005.90" y="343.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (186,000,341 instructions, 0.53%)</title><rect x="452.6" y="301" width="9.4" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="455.57" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BytewiseComparatorImpl::Compare (12,000,022 instructions, 0.03%)</title><rect x="1061.5" y="285" width="0.6" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="1064.49" y="295.5" ></text>
+</g>
+<g >
+<title>cfree@GLIBC_2.2.5 (12,000,022 instructions, 0.03%)</title><rect x="1789.4" y="301" width="0.6" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1792.39" y="311.5" ></text>
+</g>
+<g >
+<title>CDBIterator::Next (30,000,055 instructions, 0.09%)</title><rect x="660.2" y="189" width="1.5" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="663.20" y="199.5" ></text>
+</g>
+<g >
+<title>bool CEvoDB::Read&lt;std::pair&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, uint256&gt;, CDeterministicMNList&gt; (30,000,055 instructions, 0.09%)</title><rect x="564.6" y="189" width="1.5" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="567.58" y="199.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::~ChainstateManager (630,001,155 instructions, 1.79%)</title><rect x="1756.6" y="301" width="31.9" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="1759.61" y="311.5" >Ch..</text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (48,000,088 instructions, 0.14%)</title><rect x="754.9" y="77" width="2.4" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="757.90" y="87.5" ></text>
+</g>
+<g >
+<title>std::_Hashtable&lt;uint256, std::pair&lt;uint256 const, CBlockIndex&gt;, std::allocator&lt;std::pair&lt;uint256 const, CBlockIndex&gt; &gt;, std::__detail::_Select1st, std::equal_to&lt;uint256&gt;, BlockHasher, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits&lt;true, false, true&gt; &gt;::_M_insert_unique_node (72,000,132 instructions, 0.20%)</title><rect x="795.0" y="173" width="3.6" height="15.0" fill="rgb(241,168,40)" rx="2" ry="2" />
+<text  x="797.97" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (84,000,154 instructions, 0.24%)</title><rect x="753.7" y="141" width="4.2" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="756.69" y="151.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (12,000,022 instructions, 0.03%)</title><rect x="758.2" y="157" width="0.7" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="761.24" y="167.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::UpdateMN (12,000,022 instructions, 0.03%)</title><rect x="564.0" y="157" width="0.6" height="15.0" fill="rgb(209,18,4)" rx="2" ry="2" />
+<text  x="566.97" y="167.5" ></text>
+</g>
+<g >
+<title>ApplyTxInUndo (12,000,022 instructions, 0.03%)</title><rect x="563.4" y="237" width="0.6" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="566.37" y="247.5" ></text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (24,000,044 instructions, 0.07%)</title><rect x="1039.9" y="221" width="1.2" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1042.94" y="231.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (3,396,006,226 instructions, 9.65%)</title><rect x="251.3" y="253" width="171.8" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="254.32" y="263.5" >base_uint&lt;256u&gt;::Compa..</text>
+</g>
+<g >
+<title>operator new (300,000,550 instructions, 0.85%)</title><rect x="1711.4" y="349" width="15.2" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1714.38" y="359.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::value (42,000,077 instructions, 0.12%)</title><rect x="766.1" y="189" width="2.2" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="769.14" y="199.5" ></text>
+</g>
+<g >
+<title>int ReadVarInt&lt;CDataStream, (VarIntMode)1, int&gt; (48,000,088 instructions, 0.14%)</title><rect x="815.3" y="205" width="2.4" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="818.31" y="215.5" ></text>
+</g>
+<g >
+<title>CSHA256::Write (12,000,022 instructions, 0.03%)</title><rect x="561.2" y="221" width="0.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="564.24" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (246,000,451 instructions, 0.70%)</title><rect x="1074.8" y="285" width="12.5" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1077.84" y="295.5" ></text>
+</g>
+<g >
+<title>malloc (12,000,022 instructions, 0.03%)</title><rect x="1707.4" y="349" width="0.6" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1710.44" y="359.5" ></text>
+</g>
+<g >
+<title>Shutdown (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="317" width="33.4" height="15.0" fill="rgb(208,13,3)" rx="2" ry="2" />
+<text  x="1759.61" y="327.5" >Sh..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::value (72,000,132 instructions, 0.20%)</title><rect x="1046.3" y="317" width="3.7" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="1049.31" y="327.5" ></text>
+</g>
+<g >
+<title>_start (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="381" width="33.4" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="1759.61" y="391.5" >_s..</text>
+</g>
+<g >
+<title>__libc_malloc2 (12,000,022 instructions, 0.03%)</title><rect x="1090.0" y="205" width="0.6" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1093.02" y="215.5" ></text>
+</g>
+<g >
+<title>auto AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda(auto:1&amp;&amp;)#5}::operator()&lt;AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#9}&gt; (798,001,463 instructions, 2.27%)</title><rect x="823.2" y="349" width="40.4" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="826.20" y="359.5" >aut..</text>
+</g>
+<g >
+<title>DataStream::read (150,000,275 instructions, 0.43%)</title><rect x="990.8" y="333" width="7.5" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="993.76" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (36,000,066 instructions, 0.10%)</title><rect x="1088.8" y="253" width="1.8" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="1091.81" y="263.5" ></text>
+</g>
+<g >
+<title>DataStream::read (30,000,055 instructions, 0.09%)</title><rect x="1139.2" y="349" width="1.5" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1142.20" y="359.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock@@GLIBC_2.2.5 (24,000,044 instructions, 0.07%)</title><rect x="70.1" y="285" width="1.2" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="73.10" y="295.5" ></text>
+</g>
+<g >
+<title>std::_Rb_tree_increment (36,000,066 instructions, 0.10%)</title><rect x="856.0" y="285" width="1.8" height="15.0" fill="rgb(247,196,46)" rx="2" ry="2" />
+<text  x="858.99" y="295.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (264,000,484 instructions, 0.75%)</title><rect x="1774.8" y="269" width="13.4" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1777.82" y="279.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::LoadBlockIndex (8,886,016,291 instructions, 25.26%)</title><rect x="12.4" y="317" width="449.6" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="15.43" y="327.5" >ChainstateManager::LoadBlockIndex</text>
+</g>
+<g >
+<title>CSHA256::Write (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="173" width="0.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="569.40" y="183.5" ></text>
+</g>
+<g >
+<title>shutdown (660,001,210 instructions, 1.88%)</title><rect x="1756.6" y="397" width="33.4" height="15.0" fill="rgb(251,213,50)" rx="2" ry="2" />
+<text  x="1759.61" y="407.5" >sh..</text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (24,000,044 instructions, 0.07%)</title><rect x="500.5" y="221" width="1.2" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="503.53" y="231.5" ></text>
+</g>
+<g >
+<title>ChainstateManager::ActiveChainstate (24,000,044 instructions, 0.07%)</title><rect x="423.1" y="301" width="1.2" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="426.13" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::FindNextUserEntry (780,001,430 instructions, 2.22%)</title><rect x="1011.1" y="333" width="39.5" height="15.0" fill="rgb(250,211,50)" rx="2" ry="2" />
+<text  x="1014.10" y="343.5" >lev..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (288,000,528 instructions, 0.82%)</title><rect x="727.6" y="157" width="14.6" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="730.59" y="167.5" ></text>
+</g>
+<g >
+<title>init / main thread (34,482,063,217 instructions, 98.00%)</title><rect x="12.1" y="397" width="1744.5" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="15.12" y="407.5" >init / main thread</text>
+</g>
+<g >
+<title>pthread_mutex_lock@@GLIBC_2.2.5 (18,000,033 instructions, 0.05%)</title><rect x="30.6" y="269" width="1.0" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="33.64" y="279.5" ></text>
+</g>
+<g >
+<title>base_uint&lt;256u&gt;::CompareTo (30,000,055 instructions, 0.09%)</title><rect x="1004.1" y="333" width="1.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="1007.12" y="343.5" ></text>
+</g>
+<g >
+<title>_GLOBAL__sub_I__Z18InitSignatureCachem (840,001,540 instructions, 2.39%)</title><rect x="518.1" y="349" width="42.5" height="15.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="521.14" y="359.5" >_GLO..</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (36,000,066 instructions, 0.10%)</title><rect x="716.4" y="157" width="1.8" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="719.35" y="167.5" ></text>
+</g>
+<g >
+<title>[unknown] (96,000,176 instructions, 0.27%)</title><rect x="467.7" y="381" width="4.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="470.75" y="391.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::key (18,000,033 instructions, 0.05%)</title><rect x="483.2" y="221" width="0.9" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="486.23" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Next (12,000,022 instructions, 0.03%)</title><rect x="1091.5" y="285" width="0.6" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1094.54" y="295.5" ></text>
+</g>
+<g >
+<title>void std::__introsort_loop&lt;__gnu_cxx::__normal_iterator&lt;CBlockIndex**, std::vector&lt;CBlockIndex*, std::allocator&lt;CBlockIndex*&gt; &gt; &gt;, long, __gnu_cxx::__ops::_Iter_comp_iter&lt;node::CBlockIndexHeightOnlyComparator&gt; &gt; (84,000,154 instructions, 0.24%)</title><rect x="457.7" y="205" width="4.3" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="460.73" y="215.5" ></text>
+</g>
+<g >
+<title>CDBIterator::Next (36,000,066 instructions, 0.10%)</title><rect x="975.3" y="333" width="1.8" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="978.28" y="343.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (12,000,022 instructions, 0.03%)</title><rect x="566.4" y="237" width="0.6" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="569.40" y="247.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::StartBlock (60,000,110 instructions, 0.17%)</title><rect x="508.1" y="253" width="3.1" height="15.0" fill="rgb(222,80,19)" rx="2" ry="2" />
+<text  x="511.12" y="263.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (48,000,088 instructions, 0.14%)</title><rect x="838.1" y="253" width="2.4" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="841.08" y="263.5" ></text>
+</g>
+<g >
+<title>CCoinsViewDB::GetCoin (12,000,022 instructions, 0.03%)</title><rect x="563.4" y="189" width="0.6" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="566.37" y="199.5" ></text>
+</g>
+<g >
+<title>bool CDBTransaction&lt;CDBWrapper, CDBBatch&gt;::Read&lt;CDeterministicMNList&gt; (30,000,055 instructions, 0.09%)</title><rect x="564.6" y="173" width="1.5" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="567.58" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::ReadBlock (30,000,055 instructions, 0.09%)</title><rect x="1089.1" y="237" width="1.5" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="1092.11" y="247.5" ></text>
+</g>
+<g >
+<title>unlink_chunk.isra.0 (60,000,110 instructions, 0.17%)</title><rect x="1785.1" y="253" width="3.1" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1788.14" y="263.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (84,000,154 instructions, 0.24%)</title><rect x="734.3" y="125" width="4.2" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="737.26" y="135.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (36,000,066 instructions, 0.10%)</title><rect x="713.3" y="173" width="1.8" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="716.32" y="183.5" ></text>
+</g>
+<g >
+<title>immer::detail::hamts::champ&lt;std::pair&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt; &gt;, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::hash_key, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::equal_key, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::do_add (12,000,022 instructions, 0.03%)</title><rect x="564.0" y="141" width="0.6" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="566.97" y="151.5" ></text>
+</g>
+</g>
+</svg>
