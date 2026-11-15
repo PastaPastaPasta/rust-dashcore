@@ -1,0 +1,35 @@
+diff --git a/dash-mnlist/src/engine.rs b/dash-mnlist/src/engine.rs
+index b247d47ad266dc66faf112553e0809c2443a7ec0..ff38c6692020a70926cd878fd6b261f5292e5679 100644
+--- a/dash-mnlist/src/engine.rs
++++ b/dash-mnlist/src/engine.rs
+@@ -1608,7 +1608,7 @@ impl MasternodeListEngine {
+         let root = chain.merkle_root(target)?.ok_or(MnReject::UnknownTarget(d.block_hash()))?;
+         verify_cbtx_proof(&proof_tree(d.cb_tx_merkle_tree()), &root, &tx.txid())
+             .map_err(MnReject::CbTxProof)?;
+-        if i64::from(cbtx.height()) != i64::from(height) {
++        if i64::from(cbtx.height().to_u32().cast_signed()) != i64::from(height) {
+             return Err(MnReject::BadCoinbase("its height is not the target's"));
+         }
+ 
+@@ -1645,7 +1645,7 @@ impl MasternodeListEngine {
+         // A version-2 root commits to the whole resulting set, whatever the base's CbTx carried
+         // (`evo/specialtxman.cpp` rc.3:943-952): the first rooted target is authenticated even
+         // from a version-1 base (D19).
+-        let authenticated = cbtx.version() >= CBTX_VERSION_MERKLE_ROOT_QUORUMS;
++        let authenticated = cbtx.version().to_base() >= CBTX_VERSION_MERKLE_ROOT_QUORUMS;
+ 
+         Ok(Staged {
+             target,
+diff --git a/dash-mnlist/src/engine/store.rs b/dash-mnlist/src/engine/store.rs
+index 626bebd2337ce44aef2d97b74f6a04015bd0aaca..01f8b6a338c86f7932b991452ea5928fe2f03396 100644
+--- a/dash-mnlist/src/engine/store.rs
++++ b/dash-mnlist/src/engine/store.rs
+@@ -902,7 +902,7 @@ fn check_roots(
+     };
+     let cbtx = cbtx_payload(tx).map_err(|_| CodecError::Invalid("its coinbase is not a CbTx"))?;
+     // Else a list stored under another block's key loads (Opus s3 r1 nit 1).
+-    if i64::from(cbtx.height()) != i64::from(height) {
++    if i64::from(cbtx.height().to_u32().cast_signed()) != i64::from(height) {
+         return Err(CodecError::Invalid("its CbTx is another height's"));
+     }
+     let root = sml.merkle_root().map_err(|_| CodecError::Invalid("its entries do not hash"))?;

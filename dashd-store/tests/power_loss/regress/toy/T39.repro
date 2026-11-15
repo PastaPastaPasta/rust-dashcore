@@ -1,0 +1,9 @@
+# ToyChain planted bug T39 (ST3a §6.2), minimised in 10 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=8:2:- sub=- bug=T39
+workload c200;A18007364;F0:1
+adversary realistic
+granularity write
+expect FA2
+minimality verified
