@@ -1,0 +1,120 @@
+{
+  "version": {
+    // Sent version: services=7173, relay=false, addr_you=148.251.73.231:9999
+    "5734ce96956d96dd3aeb8b6980a3b3cb39565bcfd97322d58e837b919f5895e8": {
+      "raw": "60120100051c000000000000322afe6900000000451c00000000000000000000000000000000ffff94fb49e7270f051c000000000000000000000000000000000000000000000000038a32aa77c41898122f4461736820436f72653a32332e312e322f1aa9250000faef8ac8337225ff06c991a21146600aa794a6152b9ef62a16c7b8a96e38b7a300",
+      "details": {
+        "protocol_version": 70240,
+        "services": 7173,
+        "timestamp": 1778264626,
+        "addr_recv": {
+          "services": 7237,
+          "addr": {
+            "addr": "00000000000000000000ffff94fb49e7",
+            "port": 9999
+          }
+        },
+        "addr_send": {
+          "services": 7173,
+          "addr": {
+            "addr": "00000000000000000000000000000000",
+            "port": 0
+          }
+        },
+        "nonce": "10959725711441693187",
+        "user_agent": "/Dash Core:23.1.2/",
+        "start_height": 2468122,
+        "relay": false,
+        "mnauth_challenge": "a3b7386ea9b8c7162af69e2b15a694a70a604611a291c906ff257233c88aeffa",
+        "mn_connection": false
+      }
+    },
+    // Sent version: services=7173, relay=true, addr_you=74.50.90.113:9999
+    "f6d03ec7d77ae060b0744c4279f895387700a6bd68cac21412059fb966bbb36f": {
+      "raw": "60120100051c000000000000332afe6900000000451c00000000000000000000000000000000ffff4a325a71270f051c00000000000000000000000000000000000000000000000091b5325f316b039e122f4461736820436f72653a32332e312e322f1aa925000158ebc6ab7f171b7c9da77c1884a977132c441cde962257c258883d5fe8bb8abd00",
+      "details": {
+        "protocol_version": 70240,
+        "services": 7173,
+        "timestamp": 1778264627,
+        "addr_recv": {
+          "services": 7237,
+          "addr": {
+            "addr": "00000000000000000000ffff4a325a71",
+            "port": 9999
+          }
+        },
+        "addr_send": {
+          "services": 7173,
+          "addr": {
+            "addr": "00000000000000000000000000000000",
+            "port": 0
+          }
+        },
+        "nonce": "11386062142717474193",
+        "user_agent": "/Dash Core:23.1.2/",
+        "start_height": 2468122,
+        "relay": true,
+        "mnauth_challenge": "bd8abbe85f3d8858c2572296de1c442c1377a984187ca79d7c1b177fabc6eb58",
+        "mn_connection": false
+      }
+    },
+    // Received version: services=7237, addr_me=194.126.177.218:59546
+    "1317df8a7858b69275d1bb79daa855766fcb1f69cc6a66c515da3c132df737fd": {
+      "raw": "60120100451c000000000000332afe6900000000000000000000000000000000000000000000ffffc27eb1dae89a451c00000000000000000000000000000000000000000000000057cab09b90ab6d87122f4461736820436f72653a32332e312e322f1aa9250001da81ba88aacdb0412d73ae70b9cec14e06bc4805e89f8b89533d55437b80cad800",
+      "details": {
+        "protocol_version": 70240,
+        "services": 7237,
+        "timestamp": 1778264627,
+        "addr_recv": {
+          "services": 0,
+          "addr": {
+            "addr": "00000000000000000000ffffc27eb1da",
+            "port": 59546
+          }
+        },
+        "addr_send": {
+          "services": 7237,
+          "addr": {
+            "addr": "00000000000000000000000000000000",
+            "port": 0
+          }
+        },
+        "nonce": "9758644605157427799",
+        "user_agent": "/Dash Core:23.1.2/",
+        "start_height": 2468122,
+        "relay": true,
+        "mnauth_challenge": "d8ca807b43553d53898b9fe80548bc064ec1ceb970ae732d41b0cdaa88ba81da",
+        "mn_connection": false
+      }
+    },
+    // Received version: services=7237, subver=/Dash Core:23.1.0/
+    "2a986fe4da7a40e0e1ae938c03a8c35f1eb6b11cff3d8951d7e4177c24cc3aa4": {
+      "raw": "60120100451c000000000000342afe6900000000000000000000000000000000000000000000ffffc27eb1dae577451c0000000000000000000000000000000000000000000000003cca8b77406f34ad122f4461736820436f72653a32332e312e302f1aa925000166cb5405561452f492360d7b77485b42da0dc9a0284116788e11729b0f256e4200",
+      "details": {
+        "protocol_version": 70240,
+        "services": 7237,
+        "timestamp": 1778264628,
+        "addr_recv": {
+          "services": 0,
+          "addr": {
+            "addr": "00000000000000000000ffffc27eb1da",
+            "port": 58743
+          }
+        },
+        "addr_send": {
+          "services": 7237,
+          "addr": {
+            "addr": "00000000000000000000000000000000",
+            "port": 0
+          }
+        },
+        "nonce": "12480722790024727100",
+        "user_agent": "/Dash Core:23.1.0/",
+        "start_height": 2468122,
+        "relay": true,
+        "mnauth_challenge": "426e250f9b72118e78164128a0c90dda425b48777b0d3692f45214560554cb66",
+        "mn_connection": false
+      }
+    },
+  }
+}

@@ -1,0 +1,10 @@
+# CRASH planted bug T25 (CH2 §6.4), minimised in 10 replays.
+harness st3a/1
+sut chainsut
+config sub=50000 invalid=- effects=- presumed=- crash=- replay=- prune=0 planted=T25
+workload c5;f;c100;i;c305;p410
+fault nth db:chainstate append-durable 3 io applied
+adversary realistic
+granularity write
+expect R8
+minimality verified
