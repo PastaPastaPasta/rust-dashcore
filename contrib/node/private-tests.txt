@@ -1,0 +1,5 @@
+# The private tests: they read the private tree through node_sink::private_tree and skip without
+# it. "<test file> <test function>"; the package is the file's first directory and the test target
+# its file name. Read by check-private-tests.sh --expect-skipped and check-fork-push.sh (check 8).
+dash-consensus/tests/quirk_01_embargo_1.rs quirk_01_embargo_1
+node-l1/tests/private_seed_replay.rs private_seed_replay
