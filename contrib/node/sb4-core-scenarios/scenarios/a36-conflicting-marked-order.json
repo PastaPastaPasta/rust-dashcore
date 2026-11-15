@@ -1,0 +1,54 @@
+{
+ "name": "a36-conflicting-marked-order",
+ "description": "B110 active (fork 80), A81..A100 with data (the floor's branch), stale header-only C90 under A89, not in IBD; lock A100: C90 marked with (B110, null), B110..B81 disconnected, B81 marked with (80, null)",
+ "rows": [
+  "A-36"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 89,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A89",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A89",
+   "count": 11,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A80",
+   "count": 30,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  }
+ ]
+}

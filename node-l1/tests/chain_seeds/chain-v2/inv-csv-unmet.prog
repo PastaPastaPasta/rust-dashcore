@@ -1,0 +1,4 @@
+# The block operator csv_unmet's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate csv_unmet
+extend main 1

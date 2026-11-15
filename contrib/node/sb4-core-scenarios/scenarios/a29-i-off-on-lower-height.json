@@ -1,0 +1,50 @@
+{
+ "name": "a29-i-off-on-lower-height",
+ "description": "height 100 recorded while observed off (submitchainlock has no spork gate); spork enabled; a lock at 90 is accepted because the initial check clears 100",
+ "rows": [
+  "A-29(i)",
+  "smoke"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100",
+   "via": "submitchainlock"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A90"
+  }
+ ]
+}

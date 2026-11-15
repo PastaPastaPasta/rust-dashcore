@@ -1,0 +1,117 @@
+diff --git a/dashd-chainstate/benches/coins_flush.rs b/dashd-chainstate/benches/coins_flush.rs
+index 3dba7b2a7e70d688d32896c9177131ddbf5f3377..6c98d368b4e5cb99c0782a00651336851596d188 100644
+--- a/dashd-chainstate/benches/coins_flush.rs
++++ b/dashd-chainstate/benches/coins_flush.rs
+@@ -304,7 +304,7 @@ fn block(prev: BlockHash, txs: Vec<Arc<Tx>>) -> Block {
+         bits: 0x207f_ffff,
+         nonce: 0,
+     };
+-    (header.merkle_root, _) = Block::new(Header::new(header), txs.clone()).merkle();
++    header.set_merkle_root(Block::new(Header::new(header), txs.clone()).merkle().0);
+     loop {
+         let block = Block::new(Header::new(header), txs.clone());
+         if check_proof_of_work(block.hash().as_bytes(), CompactTarget::new(header.bits()), &pow()) {
+diff --git a/dashd-chainstate/benches/connect_block_micro.rs b/dashd-chainstate/benches/connect_block_micro.rs
+index fc3ca29e3ce80fef8b18888c1cc0b22bac2376ba..a195fd5ffb587a7859926f29ca5b372e120a9301 100644
+--- a/dashd-chainstate/benches/connect_block_micro.rs
++++ b/dashd-chainstate/benches/connect_block_micro.rs
+@@ -374,9 +374,22 @@ fn spend(inputs: &[(OutPoint, Lock)], outputs: Vec<TxOut>, signed: bool) -> Tx {
+     // Every input's signature hash blanks the other scriptSigs, so sign before filling any.
+     let script_sigs: Vec<Vec<u8>> =
+         inputs.iter().enumerate().map(|(i, (_, lock))| lock.unlock(&raw, i, signed)).collect();
+-    for (input, script_sig) in raw.inputs.iter_mut().zip(script_sigs) {
+-        input.script_sig = script_sig.into();
+-    }
++    let inputs = raw
++        .inputs()
++        .iter()
++        .zip(script_sigs)
++        .map(|(input, script_sig)| {
++            dash_primitives::TxIn::new(input.prevout(), script_sig.into(), input.sequence())
++        })
++        .collect();
++    raw = dash_primitives::Transaction::new(
++        raw.version(),
++        raw.tx_type(),
++        inputs,
++        raw.outputs().clone(),
++        raw.lock_time(),
++        raw.extra_payload().clone(),
++    );
+     Tx::new(raw)
+ }
+ 
+diff --git a/dashd-chainstate/src/chain/tests/node_evo.rs b/dashd-chainstate/src/chain/tests/node_evo.rs
+index 652cb7801011e2157c3b6708e0d7d269a3011b0d..7ebd0a0a3546c38fedb847048815b4d489e71f2f 100644
+--- a/dashd-chainstate/src/chain/tests/node_evo.rs
++++ b/dashd-chainstate/src/chain/tests/node_evo.rs
+@@ -1550,9 +1550,23 @@ fn null_commitments_connect_through_type_6s_seams() {
+                 })
+             };
+             let mut wrong_size = qcs.clone();
+-            let signers = &mut wrong_size[0].signers;
+-            signers.num_bits += 8;
+-            signers.data.push(0);
++            let mut data = wrong_size[0].signers().data().clone();
++            data.push(0);
++            let signers =
++                dash_primitives::DynBitset::new(wrong_size[0].signers().num_bits() + 8, data)
++                    .expect("8 more zero bits");
++            wrong_size[0] = dash_primitives::Commitment::new(
++                wrong_size[0].version(),
++                wrong_size[0].llmq_type(),
++                wrong_size[0].quorum_hash(),
++                wrong_size[0].quorum_index(),
++                signers,
++                wrong_size[0].valid_members().clone(),
++                wrong_size[0].quorum_public_key().clone(),
++                wrong_size[0].quorum_vvec_hash(),
++                wrong_size[0].quorum_sig().clone(),
++                wrong_size[0].members_sig().clone(),
++            );
+             assert!(wrong_size[0].is_null(), "still null");
+             // No valid member: `Verify` rejects it before it reads the members.
+             let mut non_null = qcs.clone();
+diff --git a/dashd-chainstate/src/recovery/tests.rs b/dashd-chainstate/src/recovery/tests.rs
+index 54c780538971d106d958e4c247c8be05355a4b2d..bcedb208a18d6327ffe91e22b24d308679f7c914 100644
+--- a/dashd-chainstate/src/recovery/tests.rs
++++ b/dashd-chainstate/src/recovery/tests.rs
+@@ -507,7 +507,7 @@ fn block(prev: BlockHash, txs: Vec<Arc<Tx>>) -> Block {
+ /// `txs` under `header` and their merkle root, at the first nonce from `header`'s whose hash
+ /// meets regtest's limit, whatever `header`'s own `nBits` claims.
+ fn mine(mut header: BlockHeader, txs: Vec<Arc<Tx>>) -> Block {
+-    (header.merkle_root, _) = Block::new(Header::new(header), txs.clone()).merkle();
++    header.set_merkle_root(Block::new(Header::new(header), txs.clone()).merkle().0);
+     loop {
+         let block = Block::new(Header::new(header), txs.clone());
+         if meets(&block.hash(), REGTEST_BITS) {
+diff --git a/dashd-chainstate/tests/support/signed.rs b/dashd-chainstate/tests/support/signed.rs
+index 77d9fd8a9bf49d57bf6bf33ed228809dce78e562..62bfc82cdd5d85b6505d4838436f30c4c089f263 100644
+--- a/dashd-chainstate/tests/support/signed.rs
++++ b/dashd-chainstate/tests/support/signed.rs
+@@ -126,9 +126,22 @@ pub fn spend_scripts(spent: Vec<Vec<u8>>, unlocks: &[Unlock], tag: u32) -> Spend
+             script_sig
+         })
+         .collect();
+-    for (input, script_sig) in raw.inputs.iter_mut().zip(script_sigs) {
+-        input.script_sig = script_sig.into();
+-    }
++    let inputs = raw
++        .inputs()
++        .iter()
++        .zip(script_sigs)
++        .map(|(input, script_sig)| {
++            dash_primitives::TxIn::new(input.prevout(), script_sig.into(), input.sequence())
++        })
++        .collect();
++    raw = dash_primitives::Transaction::new(
++        raw.version(),
++        raw.tx_type(),
++        inputs,
++        raw.outputs().clone(),
++        raw.lock_time(),
++        raw.extra_payload().clone(),
++    );
+     Spend {
+         credit,
+         tx: Tx::new(raw),
