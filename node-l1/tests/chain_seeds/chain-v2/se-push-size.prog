@@ -1,0 +1,4 @@
+# script error "Push value size limit exceeded" (bank slot 20, se_push_size): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_push_size
+extend main 1

@@ -1,0 +1,98 @@
+#!/bin/busybox sh
+# ST3b S7's guest init (PID 1 of the initramfs mkguest.sh builds; PLAN-ST3b-S7 §2.1).
+#
+# It mounts the virtio data disk on /data with the filesystem's defaults and no fsck, so the
+# filesystem's own journal recovery runs at the mount, brings up the user-mode network
+# (10.0.2.15/24, the host at 10.0.2.2), and runs rdashd on /data/node with -printtoconsole and the
+# arguments the harness put on the kernel command line:
+#
+#   quiet                kernel lines stay off the console, out of rdashd's lines
+#   st3b.fs=ext4|xfs     the data disk's filesystem (xfs loads /xfs.ko first)
+#   st3b.args=<base64>   rdashd's arguments, one per line, base64 encoded
+#
+# The kernel's filesystem and block lines of every level are copied from /dev/kmsg to the console
+# as `ST3B-GUEST: kmsg <line>` (`quiet` keeps warnings off it), and ext4's errors_count is printed
+# after the mount. When rdashd exits it prints `ST3B-GUEST: rdashd exited <code>` (first, so a kill
+# racing the exit still finds it), syncs, unmounts /data (a cleanly stopped disk then checks clean
+# on the host) and powers off; QEMU runs with -no-reboot, so the container ends with it. Every line
+# of its own starts `ST3B-GUEST: `.
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+# The serial console, whatever the kernel gave PID 1.
+exec 0</dev/console 1>/dev/console 2>&1
+
+say() {
+	echo "ST3B-GUEST: $*"
+}
+
+# Ends the guest: nothing after this runs.
+halt() {
+	say "$*"
+	sync
+	if grep -q ' /data ' /proc/mounts; then
+		umount /data || say "umount /data failed"
+	fi
+	# The lines must leave the serial port before the power does.
+	sleep 1
+	poweroff -f
+	sleep 60
+}
+
+# The kernel's filesystem and block lines, from the start of its log: `PRI,SEQ,TS,FLAGS;TEXT`.
+# cat, not the shell's read: /dev/kmsg hands out whole records only. A reader that falls behind
+# the ring gets EPIPE once and cat exits on it, so cat runs again a second later (S7 r2 N-f); a
+# new cat reads from the oldest record, which only repeats lines.
+while :; do
+	cat /dev/kmsg
+	sleep 1
+done | while read -r line; do
+	case $line in
+	*EXT4-fs* | *XFS* | *JBD2* | *vda* | *'I/O error'* | *'Kernel panic'*) say "kmsg ${line#*;}" ;;
+	esac
+done &
+
+fs=
+args=
+# The command line is words, not lines.
+# shellcheck disable=SC2013
+for p in $(cat /proc/cmdline); do
+	case $p in
+	st3b.fs=*) fs=${p#st3b.fs=} ;;
+	st3b.args=*) args=${p#st3b.args=} ;;
+	esac
+done
+
+case $fs in
+ext4) ;;
+xfs) insmod /xfs.ko || halt "insmod /xfs.ko failed" ;;
+*) halt "bad st3b.fs=$fs" ;;
+esac
+mount -t "$fs" /dev/vda /data || halt "mounting /dev/vda ($fs) failed"
+say "mounted $(grep ' /data ' /proc/mounts)"
+# Errors an earlier boot recorded in the superblock (its lines may have died with it): the harness
+# fails C1 on anything but 0.
+if [ -r /sys/fs/ext4/vda/errors_count ]; then
+	say "ext4 errors_count $(cat /sys/fs/ext4/vda/errors_count)"
+fi
+
+ip link set lo up
+ip addr add 10.0.2.15/24 dev eth0 || halt "no eth0"
+ip link set eth0 up
+ip route add default via 10.0.2.2
+
+mkdir -p /data/node || halt "mkdir /data/node failed"
+printf '%s' "$args" | base64 -d >/args || halt "st3b.args is not base64"
+say "booted fs=$fs, $(grep -c "" /args) rdashd arguments"
+# One argument per line, none empty, no globbing.
+set -f
+IFS='
+'
+# shellcheck disable=SC2046
+set -- $(cat /args)
+unset IFS
+set +f
+export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
+/usr/bin/rdashd -datadir=/data/node -printtoconsole "$@"
+halt "rdashd exited $?"

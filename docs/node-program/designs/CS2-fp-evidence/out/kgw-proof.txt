@@ -1,0 +1,16 @@
+# 1. measured shipped combinations vs the implementation (CR table, separate rounding)
+  linux-x86_64-glibc-fma       sep    pow differs from CR at    6 masses; threshold mismatches: 0
+  linux-x86_64-glibc-sse2      sep    pow differs from CR at    5 masses; threshold mismatches: 0
+  linux-aarch64-glibc          fused  pow differs from CR at    6 masses; threshold mismatches: 0
+  linux-riscv64-glibc          fused  pow differs from CR at    6 masses; threshold mismatches: 0
+  win64-mingw-pc64             sep    pow differs from CR at    4 masses; threshold mismatches: 0
+  win64-mingw-pc53             sep    pow differs from CR at 3073 masses; threshold mismatches: 0
+  masses (14..4032) where (d, s) differs between the measured combinations: 41
+    [14, 15, 17, 20, 21, 29, 30, 37, 38, 39, 49, 61, 78, 83, 86, 90, 95, 97, 98, 99, 124, 156, 200, 201, 268, 342, 364, 454, 591, 956, 1066, 1458, 1548, 1601, 1807, 1850, 1996, 2479, 2855, 3007, 3062]
+
+# 2. two-endpoint check, EPS = 1e-09, endpoints widened by 4 ulps
+  16076 endpoint evaluations, failures: 0
+
+# 3. margins
+  smallest distance to a boundary: 35751.0 ulps (m=2712, a=407858)
+  largest relative pow error tolerated at every mass: 1.534e-09 (binding mass m=2712)

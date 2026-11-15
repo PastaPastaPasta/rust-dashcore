@@ -1,0 +1,16 @@
+diff --git a/dash-dml/src/blockprocessor/tests.rs b/dash-dml/src/blockprocessor/tests.rs
+index 2d0b90942def6e704c921085ecbc305b5812b573..86fe8a693e183e5d2fd9d80f325bb6c6c53feba5 100644
+--- a/dash-dml/src/blockprocessor/tests.rs
++++ b/dash-dml/src/blockprocessor/tests.rs
+@@ -117,10 +117,7 @@ fn bits(size: usize, set: &[usize]) -> DynBitset {
+     for &i in set {
+         data[i / 8] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: size as u64,
+-        data,
+-    }
++    DynBitset::new(size as u64, data).expect("a bitset of `size` bits")
+ }
+ 
+ /// Signs `qc` as it stands, in the basic scheme: `membersSig` the secure aggregate of the

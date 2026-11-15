@@ -1,0 +1,44 @@
+[package]
+name = "dashd-mining"
+description = "The Rust Dash node's block template source and regtest miner: Dash Core's CreateNewBlock and GenerateBlock's proof-of-work loop"
+publish = false
+# Ports Dash Core code (MIT): node/miner.cpp (BlockAssembler::CreateNewBlock, UpdateTime) and
+# rpc/mining.cpp (GenerateBlock's nonce loop).
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# `-blockversion` (`gArgs.GetIntArg`).
+dash-args = { path = "../dash-args" }
+# `NodeClock::now()`, the mock time under `setmocktime`.
+dash-clock = { path = "../dash-clock" }
+# Blocks, transactions, the subsidy, `GetNextWorkRequired` and `CheckProofOfWork`.
+dash-consensus = { path = "../dash-consensus" }
+# The CbTx's roots, the credit pool, the payments and the mineable commitments (MN0-2a).
+dash-dml = { path = "../dash-dml" }
+# `GetEnabledQuorumParams`.
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# The CbTx's null ChainLock signature.
+dash-pkc = { workspace = true }
+dash-primitives = { workspace = true, features = ["std"] }
+# `Numeric::to_base` for `CompactTarget`.
+dash-types = { workspace = true }
+# V: the tip, its deployments and `TestBlockValidity`, and the readiness guard's rule (G1).
+dashd-chainstate = { path = "../dashd-chainstate" }
+tracing = "0.1"
+
+[dev-dependencies]
+# `testkit::dmn` and `MnList::insert_for_tests`, for the registered-masternode refusal.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# The dashd capture's JSON (tests/evo_dashd.rs).
+serde_json = "1.0"
+
+[features]
+# `ChainTemplateSource::set_between_turns`, for tests of the two-turn window.
+test-support = []
