@@ -1,0 +1,4 @@
+# script error "Division by zero error" (bank slot 35, se_div_by_zero): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_div_by_zero
+extend main 1
