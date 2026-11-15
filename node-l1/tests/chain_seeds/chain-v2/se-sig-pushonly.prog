@@ -1,0 +1,4 @@
+# script error "Only push operators allowed in signatures" (bank slot 38, se_sig_pushonly): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_sig_pushonly
+extend main 1

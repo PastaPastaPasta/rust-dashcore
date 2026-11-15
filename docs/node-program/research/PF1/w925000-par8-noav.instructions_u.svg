@@ -1,0 +1,2111 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1800" height="526" onload="init(evt)" viewBox="0 0 1800 526" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:monospace; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1800.0" height="526.0" fill="url(#background)"  />
+<text id="title" x="900.00" y="24" >dashd v24.0.0-rc.3: w925000-par8-noav</text>
+<text id="subtitle" x="900.00" y="48" >instructions:u (user-space instructions retired)</text>
+<text id="details" x="10.00" y="509" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1690.00" y="24" >Search</text>
+<text id="ignorecase" x="1774.00" y="24" >ic</text>
+<text id="matched" x="1690.00" y="509" > </text>
+<g id="frames">
+<g >
+<title>__memcmp_avx2_movbe_rtm (84,000,154 instructions, 0.02%)</title><rect x="571.9" y="173" width="0.4" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="574.89" y="183.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::GetListForBlockInternal (90,000,165 instructions, 0.03%)</title><rect x="566.4" y="173" width="0.4" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="569.39" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (1,488,002,728 instructions, 0.41%)</title><rect x="1360.8" y="413" width="7.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1363.77" y="423.5" ></text>
+</g>
+<g >
+<title>fp_sqrn_low (300,000,550 instructions, 0.08%)</title><rect x="1488.6" y="429" width="1.5" height="15.0" fill="rgb(250,209,49)" rx="2" ry="2" />
+<text  x="1491.64" y="439.5" ></text>
+</g>
+<g >
+<title>fp_subc_low (684,001,254 instructions, 0.19%)</title><rect x="534.9" y="429" width="3.4" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="537.89" y="439.5" ></text>
+</g>
+<g >
+<title>CSHA256::Write (90,000,165 instructions, 0.03%)</title><rect x="588.2" y="189" width="0.5" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="591.24" y="199.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Seek (132,000,242 instructions, 0.04%)</title><rect x="582.7" y="173" width="0.7" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="585.73" y="183.5" ></text>
+</g>
+<g >
+<title>secp256k1_fe_mul_inner (156,000,286 instructions, 0.04%)</title><rect x="1502.2" y="205" width="0.8" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="1505.19" y="215.5" ></text>
+</g>
+<g >
+<title>core_get (6,888,012,628 instructions, 1.92%)</title><rect x="279.4" y="429" width="34.2" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="282.38" y="439.5" >co..</text>
+</g>
+<g >
+<title>EvalChecksig (168,000,308 instructions, 0.05%)</title><rect x="555.7" y="205" width="0.9" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="558.73" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::Seek (144,000,264 instructions, 0.04%)</title><rect x="582.7" y="189" width="0.7" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="585.67" y="199.5" ></text>
+</g>
+<g >
+<title>bool CDeterministicMNList::AddUniqueProperty&lt;COutPoint&gt; (84,000,154 instructions, 0.02%)</title><rect x="592.6" y="173" width="0.4" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="595.59" y="183.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (96,000,176 instructions, 0.03%)</title><rect x="1786.4" y="301" width="0.5" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1789.43" y="311.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogTimestampStr (102,000,187 instructions, 0.03%)</title><rect x="604.1" y="253" width="0.5" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="607.08" y="263.5" ></text>
+</g>
+<g >
+<title>CBlockHeader::GetHash (306,000,561 instructions, 0.09%)</title><rect x="554.2" y="269" width="1.5" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="557.18" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::NewInternalIterator (108,000,198 instructions, 0.03%)</title><rect x="577.4" y="141" width="0.6" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="580.43" y="151.5" ></text>
+</g>
+<g >
+<title>uint256 HashX11&lt;char const*&gt; (402,000,737 instructions, 0.11%)</title><rect x="551.8" y="237" width="2.0" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="554.77" y="247.5" ></text>
+</g>
+<g >
+<title>core_get (8,946,016,401 instructions, 2.49%)</title><rect x="1148.9" y="429" width="44.4" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="1151.94" y="439.5" >core..</text>
+</g>
+<g >
+<title>bn_is_zero (90,000,165 instructions, 0.03%)</title><rect x="1146.7" y="429" width="0.5" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="1149.71" y="439.5" ></text>
+</g>
+<g >
+<title>fp_sub_integ (252,000,462 instructions, 0.07%)</title><rect x="1490.1" y="429" width="1.3" height="15.0" fill="rgb(215,50,12)" rx="2" ry="2" />
+<text  x="1493.13" y="439.5" ></text>
+</g>
+<g >
+<title>sph_cubehash512_addbits_and_close (96,000,176 instructions, 0.03%)</title><rect x="554.7" y="237" width="0.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="557.72" y="247.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::BuildDiff (348,000,638 instructions, 0.10%)</title><rect x="560.8" y="237" width="1.7" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="563.82" y="247.5" ></text>
+</g>
+<g >
+<title>fp_dblm_low (636,001,166 instructions, 0.18%)</title><rect x="431.4" y="429" width="3.1" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="434.37" y="439.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogTimestampStr (174,000,319 instructions, 0.05%)</title><rect x="599.3" y="237" width="0.8" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="602.28" y="247.5" ></text>
+</g>
+<g >
+<title>util_bits_dig (138,000,253 instructions, 0.04%)</title><rect x="1757.5" y="445" width="0.7" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="1760.55" y="455.5" ></text>
+</g>
+<g >
+<title>bn_rshb_low (132,000,242 instructions, 0.04%)</title><rect x="278.6" y="429" width="0.7" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="281.64" y="439.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecmult_strauss_wnaf.constprop.0 (606,001,111 instructions, 0.17%)</title><rect x="1500.8" y="237" width="3.0" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="1503.79" y="247.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetQcHashes (2,940,005,390 instructions, 0.82%)</title><rect x="570.7" y="237" width="14.6" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="573.67" y="247.5" ></text>
+</g>
+<g >
+<title>__gmpn_add_n_coreisbr (8,898,016,313 instructions, 2.48%)</title><rect x="14.9" y="429" width="44.2" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="17.94" y="439.5" >__gm..</text>
+</g>
+<g >
+<title>tinyformat::detail::formatImpl (90,000,165 instructions, 0.03%)</title><rect x="599.5" y="205" width="0.4" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="602.46" y="215.5" ></text>
+</g>
+<g >
+<title>[unknown] (126,000,231 instructions, 0.04%)</title><rect x="11.2" y="429" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="14.22" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (456,000,836 instructions, 0.13%)</title><rect x="531.0" y="413" width="2.3" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="534.05" y="423.5" ></text>
+</g>
+<g >
+<title>bn_rec_slw (174,000,319 instructions, 0.05%)</title><rect x="1147.6" y="429" width="0.9" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1150.60" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::ParseNextKey (174,000,319 instructions, 0.05%)</title><rect x="1766.2" y="285" width="0.9" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="1769.24" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (156,000,286 instructions, 0.04%)</title><rect x="573.4" y="93" width="0.8" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="576.41" y="103.5" ></text>
+</g>
+<g >
+<title>UpdateTipLog (90,000,165 instructions, 0.03%)</title><rect x="601.0" y="269" width="0.4" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="603.95" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Next (1,674,003,069 instructions, 0.47%)</title><rect x="1761.8" y="333" width="8.3" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1764.78" y="343.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogPrintStr (228,000,418 instructions, 0.06%)</title><rect x="594.7" y="237" width="1.2" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="597.73" y="247.5" ></text>
+</g>
+<g >
+<title>[unknown] (138,156,253,286 instructions, 38.51%)</title><rect x="815.0" y="445" width="685.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="818.04" y="455.5" >[unknown]</text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (342,000,627 instructions, 0.10%)</title><rect x="529.3" y="413" width="1.7" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="532.35" y="423.5" ></text>
+</g>
+<g >
+<title>void LogPrintf_&lt;double, double, double&gt; (396,000,726 instructions, 0.11%)</title><rect x="599.0" y="269" width="2.0" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="601.99" y="279.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::BackgroundCall (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="381" width="31.8" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="1761.23" y="391.5" >le..</text>
+</g>
+<g >
+<title>CBlockHeader::GetHash (402,000,737 instructions, 0.11%)</title><rect x="551.8" y="253" width="2.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="554.77" y="263.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetMinedCommitmentsUntilBlock (96,000,176 instructions, 0.03%)</title><rect x="588.8" y="173" width="0.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="591.77" y="183.5" ></text>
+</g>
+<g >
+<title>std::thread::_State_impl&lt;std::thread::_Invoker&lt;std::tuple&lt;void (*)(std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;, std::function&lt;void ()&gt;), char const*, AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#17}&gt; &gt; &gt;::_M_run (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="397" width="54.2" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="554.17" y="407.5" >std::..</text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (48,702,089,287 instructions, 13.58%)</title><rect x="1504.8" y="445" width="241.7" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1507.81" y="455.5" >__gmpn_mul_basecase_coreisbr</text>
+</g>
+<g >
+<title>__gmpn_mul_n (186,000,341 instructions, 0.05%)</title><rect x="1120.8" y="429" width="1.0" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1123.84" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::Seek (714,001,309 instructions, 0.20%)</title><rect x="573.1" y="157" width="3.5" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="576.05" y="167.5" ></text>
+</g>
+<g >
+<title>llmq::utils::GetAllQuorumMembers (300,000,550 instructions, 0.08%)</title><rect x="566.0" y="205" width="1.5" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="569.00" y="215.5" ></text>
+</g>
+<g >
+<title>fp_mulm_low (4,830,008,855 instructions, 1.35%)</title><rect x="1352.6" y="429" width="24.0" height="15.0" fill="rgb(208,16,3)" rx="2" ry="2" />
+<text  x="1355.58" y="439.5" >f..</text>
+</g>
+<g >
+<title>tinyformat::detail::formatImpl (126,000,231 instructions, 0.04%)</title><rect x="600.3" y="253" width="0.7" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="603.33" y="263.5" ></text>
+</g>
+<g >
+<title>Chainstate::ConnectTip (10,854,019,899 instructions, 3.03%)</title><rect x="551.3" y="301" width="53.8" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="554.26" y="311.5" >Chain..</text>
+</g>
+<g >
+<title>CCreditPoolManager::GetCreditPool (528,000,968 instructions, 0.15%)</title><rect x="558.2" y="253" width="2.6" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="561.20" y="263.5" ></text>
+</g>
+<g >
+<title>std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; std::num_put&lt;char, std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; &gt;::_M_insert_float&lt;double&gt; (84,000,154 instructions, 0.02%)</title><rect x="600.4" y="221" width="0.4" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="603.36" y="231.5" ></text>
+</g>
+<g >
+<title>SHA256D64 (570,001,045 instructions, 0.16%)</title><rect x="567.8" y="221" width="2.8" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="570.79" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::BlockReader (150,000,275 instructions, 0.04%)</title><rect x="1768.0" y="269" width="0.7" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="1771.00" y="279.5" ></text>
+</g>
+<g >
+<title>fp_prime_get_rdc (1,182,002,167 instructions, 0.33%)</title><rect x="1415.3" y="429" width="5.9" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="1418.34" y="439.5" ></text>
+</g>
+<g >
+<title>__printf_buffer (84,000,154 instructions, 0.02%)</title><rect x="596.0" y="157" width="0.4" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="598.98" y="167.5" ></text>
+</g>
+<g >
+<title>__gmpn_gcdext (1,482,002,717 instructions, 0.41%)</title><rect x="1334.9" y="413" width="7.4" height="15.0" fill="rgb(241,165,39)" rx="2" ry="2" />
+<text  x="1337.93" y="423.5" ></text>
+</g>
+<g >
+<title>void LogPrintf_&lt;double, double&gt; (90,000,165 instructions, 0.03%)</title><rect x="585.7" y="237" width="0.5" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="588.71" y="247.5" ></text>
+</g>
+<g >
+<title>__gmpn_tdiv_qr (96,000,176 instructions, 0.03%)</title><rect x="1342.3" y="413" width="0.5" height="15.0" fill="rgb(252,220,52)" rx="2" ry="2" />
+<text  x="1345.34" y="423.5" ></text>
+</g>
+<g >
+<title>CTransaction::CTransaction (114,000,209 instructions, 0.03%)</title><rect x="603.3" y="237" width="0.6" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="606.33" y="247.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (438,000,803 instructions, 0.12%)</title><rect x="398.7" y="413" width="2.2" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="401.74" y="423.5" ></text>
+</g>
+<g >
+<title>fp_exp_slide (264,000,484 instructions, 0.07%)</title><rect x="1753.8" y="445" width="1.3" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="1756.83" y="455.5" ></text>
+</g>
+<g >
+<title>ep_mul_glv_imp (108,000,198 instructions, 0.03%)</title><rect x="1283.8" y="429" width="0.5" height="15.0" fill="rgb(207,12,2)" rx="2" ry="2" />
+<text  x="1286.81" y="439.5" ></text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (102,000,187 instructions, 0.03%)</title><rect x="1768.2" y="237" width="0.5" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1771.18" y="247.5" ></text>
+</g>
+<g >
+<title>fp12_exp_cyc_sps (96,000,176 instructions, 0.03%)</title><rect x="549.0" y="413" width="0.5" height="15.0" fill="rgb(229,112,26)" rx="2" ry="2" />
+<text  x="552.00" y="423.5" ></text>
+</g>
+<g >
+<title>start_thread (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="429" width="54.2" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="554.17" y="439.5" >start..</text>
+</g>
+<g >
+<title>fp_addm_low (3,660,006,710 instructions, 1.02%)</title><rect x="409.2" y="429" width="18.1" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="412.19" y="439.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (306,000,561 instructions, 0.09%)</title><rect x="267.0" y="429" width="1.5" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="269.99" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Seek (132,000,242 instructions, 0.04%)</title><rect x="580.4" y="61" width="0.7" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="583.44" y="71.5" ></text>
+</g>
+<g >
+<title>__gmpn_lshift_coreisbr (384,000,704 instructions, 0.11%)</title><rect x="236.4" y="429" width="1.9" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="239.39" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n_coreisbr (108,000,198 instructions, 0.03%)</title><rect x="802.9" y="445" width="0.6" height="15.0" fill="rgb(213,36,8)" rx="2" ry="2" />
+<text  x="805.93" y="455.5" ></text>
+</g>
+<g >
+<title>fp_addm_low (4,788,008,778 instructions, 1.33%)</title><rect x="1299.3" y="429" width="23.8" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1302.32" y="439.5" >f..</text>
+</g>
+<g >
+<title>lzcnt64_hard (162,000,297 instructions, 0.05%)</title><rect x="548.0" y="429" width="0.8" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="550.99" y="439.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecmult_strauss_wnaf.constprop.0 (102,000,187 instructions, 0.03%)</title><rect x="555.9" y="109" width="0.5" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="558.94" y="119.5" ></text>
+</g>
+<g >
+<title>fp_exp_slide (510,000,935 instructions, 0.14%)</title><rect x="806.8" y="445" width="2.5" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="809.77" y="455.5" ></text>
+</g>
+<g >
+<title>fp2_sub_integ (114,000,209 instructions, 0.03%)</title><rect x="403.5" y="429" width="0.6" height="15.0" fill="rgb(242,174,41)" rx="2" ry="2" />
+<text  x="406.53" y="439.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::CalculateScoresForQuorum (120,000,220 instructions, 0.03%)</title><rect x="566.9" y="173" width="0.6" height="15.0" fill="rgb(237,151,36)" rx="2" ry="2" />
+<text  x="569.86" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_add_n (696,001,276 instructions, 0.19%)</title><rect x="816.9" y="429" width="3.4" height="15.0" fill="rgb(226,96,23)" rx="2" ry="2" />
+<text  x="819.86" y="439.5" ></text>
+</g>
+<g >
+<title>void LogPrintf_&lt;double, double&gt; (366,000,671 instructions, 0.10%)</title><rect x="594.7" y="253" width="1.8" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="597.70" y="263.5" ></text>
+</g>
+<g >
+<title>EvalScript (786,001,441 instructions, 0.22%)</title><rect x="1500.6" y="349" width="3.9" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="1503.58" y="359.5" ></text>
+</g>
+<g >
+<title>fp_sqr_integ (168,000,308 instructions, 0.05%)</title><rect x="1481.7" y="429" width="0.8" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="1484.68" y="439.5" ></text>
+</g>
+<g >
+<title>secp256k1_gej_add_ge_var (138,000,253 instructions, 0.04%)</title><rect x="1501.1" y="221" width="0.7" height="15.0" fill="rgb(214,42,10)" rx="2" ry="2" />
+<text  x="1504.09" y="231.5" ></text>
+</g>
+<g >
+<title>__gmpn_addmul_1_coreisbr (50,346,092,301 instructions, 14.03%)</title><rect x="870.4" y="429" width="249.8" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="873.42" y="439.5" >__gmpn_addmul_1_coreisbr</text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::~MergingIterator (84,000,154 instructions, 0.02%)</title><rect x="576.7" y="157" width="0.4" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="579.72" y="167.5" ></text>
+</g>
+<g >
+<title>bn_trim (162,000,297 instructions, 0.05%)</title><rect x="1752.6" y="445" width="0.8" height="15.0" fill="rgb(238,151,36)" rx="2" ry="2" />
+<text  x="1755.61" y="455.5" ></text>
+</g>
+<g >
+<title>arch_lzcnt (120,000,220 instructions, 0.03%)</title><rect x="1747.5" y="445" width="0.6" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1750.49" y="455.5" ></text>
+</g>
+<g >
+<title>fp_copy (84,000,154 instructions, 0.02%)</title><rect x="1324.0" y="429" width="0.4" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1327.03" y="439.5" ></text>
+</g>
+<g >
+<title>bn_hlv (120,000,220 instructions, 0.03%)</title><rect x="1749.2" y="445" width="0.5" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1752.15" y="455.5" ></text>
+</g>
+<g >
+<title>fp_addc_low (438,000,803 instructions, 0.12%)</title><rect x="406.7" y="429" width="2.2" height="15.0" fill="rgb(212,33,7)" rx="2" ry="2" />
+<text  x="409.69" y="439.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::ComputeQuorumMembersByQuarterRotation (906,001,661 instructions, 0.25%)</title><rect x="589.8" y="205" width="4.5" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="592.79" y="215.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogPrintStr (240,000,440 instructions, 0.07%)</title><rect x="599.0" y="253" width="1.2" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="602.05" y="263.5" ></text>
+</g>
+<g >
+<title>CMainSignals::BlockChecked (408,000,748 instructions, 0.11%)</title><rect x="551.8" y="285" width="2.0" height="15.0" fill="rgb(252,220,52)" rx="2" ry="2" />
+<text  x="554.77" y="295.5" ></text>
+</g>
+<g >
+<title>SHA224_256ProcessMessageBlock (228,000,418 instructions, 0.06%)</title><rect x="815.0" y="429" width="1.2" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="818.04" y="439.5" ></text>
+</g>
+<g >
+<title>CMNPaymentsProcessor::GetBlockTxOuts (282,000,517 instructions, 0.08%)</title><rect x="556.7" y="237" width="1.4" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="559.71" y="247.5" ></text>
+</g>
+<g >
+<title>__gmpn_hgcd2 (588,001,078 instructions, 0.16%)</title><rect x="1335.5" y="381" width="2.9" height="15.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="1338.50" y="391.5" ></text>
+</g>
+<g >
+<title>fp2_sqr_integ (114,000,209 instructions, 0.03%)</title><rect x="395.8" y="429" width="0.6" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="398.79" y="439.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::GetMN (234,000,429 instructions, 0.07%)</title><rect x="560.9" y="221" width="1.2" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="563.94" y="231.5" ></text>
+</g>
+<g >
+<title>fp2_mulc_low (222,000,407 instructions, 0.06%)</title><rect x="1287.6" y="429" width="1.1" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="1290.56" y="439.5" ></text>
+</g>
+<g >
+<title>[unknown] (108,996,199,826 instructions, 30.38%)</title><rect x="10.3" y="445" width="540.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.33" y="455.5" >[unknown]</text>
+</g>
+<g >
+<title>fp_is_zero (144,000,264 instructions, 0.04%)</title><rect x="440.8" y="429" width="0.7" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="443.78" y="439.5" ></text>
+</g>
+<g >
+<title>Lloop1_30 (240,000,440 instructions, 0.07%)</title><rect x="586.7" y="157" width="1.2" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="589.66" y="167.5" ></text>
+</g>
+<g >
+<title>fp_subc_low (186,000,341 instructions, 0.05%)</title><rect x="1491.4" y="429" width="0.9" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="1494.38" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::TableBuilder::Add (2,952,005,412 instructions, 0.82%)</title><rect x="1773.4" y="333" width="14.7" height="15.0" fill="rgb(216,50,12)" rx="2" ry="2" />
+<text  x="1776.42" y="343.5" ></text>
+</g>
+<g >
+<title>__gmpn_gcdext (930,001,705 instructions, 0.26%)</title><rect x="435.9" y="413" width="4.6" height="15.0" fill="rgb(241,165,39)" rx="2" ry="2" />
+<text  x="438.86" y="423.5" ></text>
+</g>
+<g >
+<title>CDBWrapper::ReadDataStream (306,000,561 instructions, 0.09%)</title><rect x="580.1" y="173" width="1.5" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="583.05" y="183.5" ></text>
+</g>
+<g >
+<title>node::ThreadImport (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="349" width="54.2" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="554.17" y="359.5" >node:..</text>
+</g>
+<g >
+<title>[unknown] (84,000,154 instructions, 0.02%)</title><rect x="596.0" y="189" width="0.4" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="598.98" y="199.5" ></text>
+</g>
+<g >
+<title>secp256k1_gej_double (336,000,616 instructions, 0.09%)</title><rect x="1502.1" y="221" width="1.6" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1505.07" y="231.5" ></text>
+</g>
+<g >
+<title>CTransaction::CTransaction (90,000,165 instructions, 0.03%)</title><rect x="560.2" y="157" width="0.5" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="563.22" y="167.5" ></text>
+</g>
+<g >
+<title>fp_addn_low (192,000,352 instructions, 0.05%)</title><rect x="1323.1" y="429" width="0.9" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="1326.08" y="439.5" ></text>
+</g>
+<g >
+<title>CachingTransactionSignatureChecker::VerifySignature (144,000,264 instructions, 0.04%)</title><rect x="555.7" y="173" width="0.7" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="558.73" y="183.5" ></text>
+</g>
+<g >
+<title>fp_dbl_integ (642,001,177 instructions, 0.18%)</title><rect x="1324.4" y="429" width="3.2" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1327.45" y="439.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::DecreaseScores (174,000,319 instructions, 0.05%)</title><rect x="563.1" y="221" width="0.8" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="566.08" y="231.5" ></text>
+</g>
+<g >
+<title>bool CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt;::Read&lt;std::pair&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;, std::pair&lt;Consensus::LLMQType, uint256&gt; &gt;, std::pair&lt;llmq::CFinalCommitment, uint256&gt; &gt; (84,000,154 instructions, 0.02%)</title><rect x="584.0" y="205" width="0.4" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="587.01" y="215.5" ></text>
+</g>
+<g >
+<title>llmq::VerifyRecoveredSig (648,001,188 instructions, 0.18%)</title><rect x="586.2" y="221" width="3.3" height="15.0" fill="rgb(253,222,53)" rx="2" ry="2" />
+<text  x="589.24" y="231.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetMinedAndActiveCommitmentsUntilBlock (2,682,004,917 instructions, 0.75%)</title><rect x="570.7" y="221" width="13.3" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="573.67" y="231.5" ></text>
+</g>
+<g >
+<title>CSHA256::Write (102,000,187 instructions, 0.03%)</title><rect x="1503.9" y="285" width="0.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1506.95" y="295.5" ></text>
+</g>
+<g >
+<title>all (358,722,657,657 instructions, 100%)</title><rect x="10.0" y="477" width="1780.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="487.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (354,000,649 instructions, 0.10%)</title><rect x="389.5" y="413" width="1.8" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="392.54" y="423.5" ></text>
+</g>
+<g >
+<title>fp_rdcn_low (12,150,022,275 instructions, 3.39%)</title><rect x="1421.3" y="429" width="60.3" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="1424.33" y="439.5" >fp_rdc..</text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetLastMinedCommitmentsPerQuorumIndexUntilBlock (1,518,002,783 instructions, 0.42%)</title><rect x="570.9" y="205" width="7.5" height="15.0" fill="rgb(226,96,23)" rx="2" ry="2" />
+<text  x="573.85" y="215.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumManager::ScanQuorums (114,000,209 instructions, 0.03%)</title><rect x="588.8" y="189" width="0.5" height="15.0" fill="rgb(246,190,45)" rx="2" ry="2" />
+<text  x="591.77" y="199.5" ></text>
+</g>
+<g >
+<title>dv_copy (144,000,264 instructions, 0.04%)</title><rect x="1271.3" y="429" width="0.7" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="1274.31" y="439.5" ></text>
+</g>
+<g >
+<title>CMNPaymentsProcessor::IsBlockPayeeValid (282,000,517 instructions, 0.08%)</title><rect x="556.7" y="269" width="1.4" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="559.71" y="279.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (492,000,902 instructions, 0.14%)</title><rect x="601.5" y="285" width="2.4" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="604.46" y="295.5" ></text>
+</g>
+<g >
+<title>[unknown] (96,000,176 instructions, 0.03%)</title><rect x="590.9" y="125" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="593.92" y="135.5" ></text>
+</g>
+<g >
+<title>__gmpn_addmul_1 (1,080,001,980 instructions, 0.30%)</title><rect x="59.5" y="429" width="5.3" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="62.45" y="439.5" ></text>
+</g>
+<g >
+<title>CMNPaymentsProcessor::IsTransactionValid (282,000,517 instructions, 0.08%)</title><rect x="556.7" y="253" width="1.4" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="559.71" y="263.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Seek (108,000,198 instructions, 0.03%)</title><rect x="582.8" y="141" width="0.5" height="15.0" fill="rgb(243,175,42)" rx="2" ry="2" />
+<text  x="585.79" y="151.5" ></text>
+</g>
+<g >
+<title>fp2_muln_low (234,000,429 instructions, 0.07%)</title><rect x="1288.8" y="429" width="1.2" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1291.84" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Block::Iter::Seek (306,000,561 instructions, 0.09%)</title><rect x="574.2" y="109" width="1.5" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="577.22" y="119.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::BackgroundCompaction (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="365" width="31.8" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="1761.23" y="375.5" >le..</text>
+</g>
+<g >
+<title>leveldb::TableBuilder::Flush (156,000,286 instructions, 0.04%)</title><rect x="1787.3" y="317" width="0.7" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
+<text  x="1790.26" y="327.5" ></text>
+</g>
+<g >
+<title>fp_dblm_low (1,404,002,574 instructions, 0.39%)</title><rect x="1327.6" y="429" width="7.0" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1330.64" y="439.5" ></text>
+</g>
+<g >
+<title>void (anonymous namespace)::TransformD64Wrapper&lt;&amp;sha256_sse4::Transform&gt; (150,000,275 instructions, 0.04%)</title><rect x="569.9" y="205" width="0.7" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="572.87" y="215.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (492,000,902 instructions, 0.14%)</title><rect x="601.5" y="269" width="2.4" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="604.46" y="279.5" ></text>
+</g>
+<g >
+<title>dv_cmp (84,000,154 instructions, 0.02%)</title><rect x="805.7" y="445" width="0.4" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="808.67" y="455.5" ></text>
+</g>
+<g >
+<title>arch_lzcnt (138,000,253 instructions, 0.04%)</title><rect x="1141.5" y="429" width="0.7" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1144.53" y="439.5" ></text>
+</g>
+<g >
+<title>fp_subd_low (96,000,176 instructions, 0.03%)</title><rect x="1492.3" y="429" width="0.5" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="1495.31" y="439.5" ></text>
+</g>
+<g >
+<title>CCheckQueue&lt;CScriptCheck&gt;::Loop (180,000,330 instructions, 0.05%)</title><rect x="555.7" y="269" width="0.9" height="15.0" fill="rgb(233,129,31)" rx="2" ry="2" />
+<text  x="558.73" y="279.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::calculateQuorumScore (90,000,165 instructions, 0.03%)</title><rect x="567.0" y="141" width="0.5" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="570.01" y="151.5" ></text>
+</g>
+<g >
+<title>fp2_sqrm_low (96,000,176 instructions, 0.03%)</title><rect x="396.4" y="429" width="0.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="399.36" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::AddKey (108,000,198 instructions, 0.03%)</title><rect x="1782.3" y="317" width="0.6" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="1785.32" y="327.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecdsa_sig_verify (102,000,187 instructions, 0.03%)</title><rect x="555.9" y="125" width="0.5" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="558.94" y="135.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::GetCounts (108,000,198 instructions, 0.03%)</title><rect x="556.7" y="221" width="0.5" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="559.71" y="231.5" ></text>
+</g>
+<g >
+<title>_Unwind_RaiseException (270,000,495 instructions, 0.08%)</title><rect x="590.4" y="157" width="1.3" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="593.35" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::~DBIter (114,000,209 instructions, 0.03%)</title><rect x="576.7" y="173" width="0.5" height="15.0" fill="rgb(234,133,32)" rx="2" ry="2" />
+<text  x="579.66" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (1,680,003,080 instructions, 0.47%)</title><rect x="1368.2" y="413" width="8.3" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1371.16" y="423.5" ></text>
+</g>
+<g >
+<title>__gmpn_lshift_coreisbr (102,000,187 instructions, 0.03%)</title><rect x="1120.3" y="429" width="0.5" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1123.33" y="439.5" ></text>
+</g>
+<g >
+<title>fp2_addc_low (264,000,484 instructions, 0.07%)</title><rect x="378.4" y="429" width="1.3" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="381.37" y="439.5" ></text>
+</g>
+<g >
+<title>ComputeMerkleRoot (570,001,045 instructions, 0.16%)</title><rect x="567.8" y="237" width="2.8" height="15.0" fill="rgb(237,150,35)" rx="2" ry="2" />
+<text  x="570.79" y="247.5" ></text>
+</g>
+<g >
+<title>CalcCbTxMerkleRootQuorums (3,738,006,853 instructions, 1.04%)</title><rect x="567.7" y="253" width="18.5" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="570.67" y="263.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n (300,000,550 instructions, 0.08%)</title><rect x="242.0" y="429" width="1.4" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="244.96" y="439.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::GetListForBlock (90,000,165 instructions, 0.03%)</title><rect x="589.9" y="173" width="0.4" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="592.88" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_addmul_1 (1,548,002,838 instructions, 0.43%)</title><rect x="862.7" y="429" width="7.7" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="865.74" y="439.5" ></text>
+</g>
+<g >
+<title>CBlockHeader::GetHash (354,000,649 instructions, 0.10%)</title><rect x="596.5" y="253" width="1.8" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="599.55" y="263.5" ></text>
+</g>
+<g >
+<title>fp_dbl_integ (162,000,297 instructions, 0.05%)</title><rect x="430.6" y="429" width="0.8" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="433.56" y="439.5" ></text>
+</g>
+<g >
+<title>fp2_rdcn_low (108,000,198 instructions, 0.03%)</title><rect x="1290.7" y="429" width="0.6" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="1293.75" y="439.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (114,000,209 instructions, 0.03%)</title><rect x="1774.2" y="317" width="0.5" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1777.16" y="327.5" ></text>
+</g>
+<g >
+<title>bn_is_zero (210,000,385 instructions, 0.06%)</title><rect x="275.2" y="429" width="1.0" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="278.18" y="439.5" ></text>
+</g>
+<g >
+<title>dv_cmp (15,702,028,787 instructions, 4.38%)</title><rect x="1193.3" y="429" width="77.9" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1196.33" y="439.5" >dv_cmp</text>
+</g>
+<g >
+<title>llmq::SelectQuorumForSigning (558,001,023 instructions, 0.16%)</title><rect x="586.6" y="205" width="2.8" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="589.60" y="215.5" ></text>
+</g>
+<g >
+<title>fp_prime_get (5,280,009,680 instructions, 1.47%)</title><rect x="450.7" y="429" width="26.2" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="453.69" y="439.5" >f..</text>
+</g>
+<g >
+<title>fp_subn_low (144,000,264 instructions, 0.04%)</title><rect x="1497.1" y="429" width="0.7" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="1500.13" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (120,000,220 instructions, 0.03%)</title><rect x="385.5" y="413" width="0.6" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="388.52" y="423.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::ProcessSpecialTxsInBlock (7,740,014,190 instructions, 2.16%)</title><rect x="558.1" y="269" width="38.4" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="561.11" y="279.5" >CSp..</text>
+</g>
+<g >
+<title>__GI___clone3 (846,001,551 instructions, 0.24%)</title><rect x="1500.6" y="445" width="4.2" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="1503.58" y="455.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogPrintStr (132,000,242 instructions, 0.04%)</title><rect x="603.9" y="269" width="0.7" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="606.93" y="279.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (270,000,495 instructions, 0.08%)</title><rect x="444.3" y="413" width="1.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="447.35" y="423.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (204,000,374 instructions, 0.06%)</title><rect x="1786.0" y="317" width="1.0" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1789.01" y="327.5" ></text>
+</g>
+<g >
+<title>fp_sqrm_low (126,000,231 instructions, 0.04%)</title><rect x="1756.5" y="445" width="0.6" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1759.51" y="455.5" ></text>
+</g>
+<g >
+<title>bn_bits (270,000,495 instructions, 0.08%)</title><rect x="1142.3" y="429" width="1.3" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="1145.30" y="439.5" ></text>
+</g>
+<g >
+<title>arch_lzcnt (192,000,352 instructions, 0.05%)</title><rect x="803.5" y="445" width="0.9" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="806.49" y="455.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (126,000,231 instructions, 0.04%)</title><rect x="1763.8" y="285" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1766.77" y="295.5" ></text>
+</g>
+<g >
+<title>fp_subm_low (876,001,606 instructions, 0.24%)</title><rect x="1492.8" y="429" width="4.3" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="1495.78" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_rshift_coreisbr (114,000,209 instructions, 0.03%)</title><rect x="1746.7" y="445" width="0.5" height="15.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="1749.65" y="455.5" ></text>
+</g>
+<g >
+<title>CSHA256::Write (300,000,550 instructions, 0.08%)</title><rect x="586.6" y="173" width="1.5" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="589.63" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (378,000,693 instructions, 0.11%)</title><rect x="1483.9" y="413" width="1.9" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1486.91" y="423.5" ></text>
+</g>
+<g >
+<title>llmq::CheckLLMQCommitment (300,000,550 instructions, 0.08%)</title><rect x="566.0" y="237" width="1.5" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="569.00" y="247.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_basecase_coreisbr (39,690,072,765 instructions, 11.06%)</title><rect x="605.7" y="445" width="197.0" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="608.72" y="455.5" >__gmpn_mul_basecase_corei..</text>
+</g>
+<g >
+<title>__gmpn_gcdext_lehmer_n (1,440,002,640 instructions, 0.40%)</title><rect x="1335.0" y="397" width="7.2" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="1338.02" y="407.5" ></text>
+</g>
+<g >
+<title>fp_sqrm_low (948,001,738 instructions, 0.26%)</title><rect x="528.6" y="429" width="4.7" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="531.63" y="439.5" ></text>
+</g>
+<g >
+<title>fp_sqr_integ (204,000,374 instructions, 0.06%)</title><rect x="1755.5" y="445" width="1.0" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="1758.49" y="455.5" ></text>
+</g>
+<g >
+<title>[unknown] (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="413" width="54.2" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="554.17" y="423.5" >[unkn..</text>
+</g>
+<g >
+<title>fp_sqrm_low (234,000,429 instructions, 0.07%)</title><rect x="811.2" y="445" width="1.1" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="814.17" y="455.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::StartBlock (636,001,166 instructions, 0.18%)</title><rect x="1782.9" y="317" width="3.1" height="15.0" fill="rgb(222,80,19)" rx="2" ry="2" />
+<text  x="1785.85" y="327.5" ></text>
+</g>
+<g >
+<title>bool CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt;::Read&lt;int&gt; (522,000,957 instructions, 0.15%)</title><rect x="580.1" y="189" width="2.5" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="583.05" y="199.5" ></text>
+</g>
+<g >
+<title>ep_dbl_projc (132,000,242 instructions, 0.04%)</title><rect x="1278.5" y="429" width="0.7" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="1281.54" y="439.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (84,000,154 instructions, 0.02%)</title><rect x="575.1" y="77" width="0.4" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="578.08" y="87.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (282,000,517 instructions, 0.08%)</title><rect x="1763.4" y="301" width="1.4" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1766.38" y="311.5" ></text>
+</g>
+<g >
+<title>GetCreditDataFromBlock (510,000,935 instructions, 0.14%)</title><rect x="558.2" y="221" width="2.6" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="561.23" y="231.5" ></text>
+</g>
+<g >
+<title>CSHA256::Finalize (324,000,594 instructions, 0.09%)</title><rect x="586.6" y="189" width="1.6" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="589.63" y="199.5" ></text>
+</g>
+<g >
+<title>CScriptCheck::operator() (180,000,330 instructions, 0.05%)</title><rect x="555.7" y="253" width="0.9" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="558.73" y="263.5" ></text>
+</g>
+<g >
+<title>[unknown] (846,001,551 instructions, 0.24%)</title><rect x="1500.6" y="413" width="4.2" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1503.58" y="423.5" ></text>
+</g>
+<g >
+<title>bn_copy (168,000,308 instructions, 0.05%)</title><rect x="1748.1" y="445" width="0.8" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="1751.08" y="455.5" ></text>
+</g>
+<g >
+<title>fp2_rdcn_low (300,000,550 instructions, 0.08%)</title><rect x="394.3" y="429" width="1.5" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="397.30" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Table::InternalGet (246,000,451 instructions, 0.07%)</title><rect x="580.3" y="77" width="1.2" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="583.32" y="87.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (366,000,671 instructions, 0.10%)</title><rect x="391.3" y="413" width="1.8" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="394.29" y="423.5" ></text>
+</g>
+<g >
+<title>fp2_nord_low (90,000,165 instructions, 0.03%)</title><rect x="393.2" y="429" width="0.4" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="396.17" y="439.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::GetMNPayee (132,000,242 instructions, 0.04%)</title><rect x="557.2" y="221" width="0.7" height="15.0" fill="rgb(215,49,11)" rx="2" ry="2" />
+<text  x="560.25" y="231.5" ></text>
+</g>
+<g >
+<title>Chainstate::UpdateTip (90,000,165 instructions, 0.03%)</title><rect x="601.0" y="285" width="0.4" height="15.0" fill="rgb(232,124,29)" rx="2" ry="2" />
+<text  x="603.95" y="295.5" ></text>
+</g>
+<g >
+<title>bn_bits (372,000,682 instructions, 0.10%)</title><rect x="269.5" y="429" width="1.8" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="272.50" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_addmul_1_coreisbr (34,572,063,382 instructions, 9.64%)</title><rect x="64.8" y="429" width="171.6" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="67.81" y="439.5" >__gmpn_addmul_1_coreisbr</text>
+</g>
+<g >
+<title>std::_Function_handler&lt;void (std::shared_ptr&lt;CDeterministicMN const&gt; const&amp;), (anonymous namespace)::CalculateScoresForQuorum(CDeterministicMNList const&amp;, uint256 const&amp;, bool)::{lambda(auto:1 const&amp;)#1}&gt;::_M_invoke (90,000,165 instructions, 0.03%)</title><rect x="567.0" y="157" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="570.01" y="167.5" ></text>
+</g>
+<g >
+<title>ep2_dbl_projc_imp (126,000,231 instructions, 0.04%)</title><rect x="372.7" y="429" width="0.6" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="375.72" y="439.5" ></text>
+</g>
+<g >
+<title>lzcnt64_hard (132,000,242 instructions, 0.04%)</title><rect x="812.6" y="445" width="0.7" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="815.60" y="455.5" ></text>
+</g>
+<g >
+<title>Lloop1_30 (108,000,198 instructions, 0.03%)</title><rect x="569.9" y="189" width="0.5" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="572.90" y="199.5" ></text>
+</g>
+<g >
+<title>fp_mul_integ (228,000,418 instructions, 0.06%)</title><rect x="441.5" y="429" width="1.1" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="444.49" y="439.5" ></text>
+</g>
+<g >
+<title>uint256 HashX11&lt;char const*&gt; (354,000,649 instructions, 0.10%)</title><rect x="596.5" y="237" width="1.8" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="599.55" y="247.5" ></text>
+</g>
+<g >
+<title>leveldb::EncodeVarint32 (102,000,187 instructions, 0.03%)</title><rect x="1781.8" y="285" width="0.5" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1784.78" y="295.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (222,000,407 instructions, 0.06%)</title><rect x="1774.7" y="317" width="1.1" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1777.73" y="327.5" ></text>
+</g>
+<g >
+<title>CheckCbTxBestChainlock (654,001,199 instructions, 0.18%)</title><rect x="586.2" y="253" width="3.3" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="589.21" y="263.5" ></text>
+</g>
+<g >
+<title>std::__detail::_MakeUniq&lt;CDBTransactionIterator&lt;CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt; &gt; &gt;::__single_object std::make_unique&lt;CDBTransactionIterator&lt;CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt; &gt;, CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt;&amp;&gt; (138,000,253 instructions, 0.04%)</title><rect x="577.4" y="173" width="0.7" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="580.43" y="183.5" ></text>
+</g>
+<g >
+<title>FormatISO8601DateTime[abi:cxx11] (114,000,209 instructions, 0.03%)</title><rect x="594.9" y="205" width="0.6" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="597.94" y="215.5" ></text>
+</g>
+<g >
+<title>CTransaction::ComputeHash (114,000,209 instructions, 0.03%)</title><rect x="603.3" y="221" width="0.6" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="606.33" y="231.5" ></text>
+</g>
+<g >
+<title>__cxa_throw (270,000,495 instructions, 0.08%)</title><rect x="590.4" y="173" width="1.3" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="593.35" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::InitDataBlock (186,000,341 instructions, 0.05%)</title><rect x="1767.8" y="285" width="1.0" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1770.85" y="295.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::ProcessBlock (1,038,001,903 instructions, 0.29%)</title><rect x="589.5" y="253" width="5.2" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="592.52" y="263.5" ></text>
+</g>
+<g >
+<title>fp12_sqr_pck_lazyr (120,000,220 instructions, 0.03%)</title><rect x="376.6" y="429" width="0.6" height="15.0" fill="rgb(206,7,1)" rx="2" ry="2" />
+<text  x="379.59" y="439.5" ></text>
+</g>
+<g >
+<title>fp2_norh_low (132,000,242 instructions, 0.04%)</title><rect x="393.6" y="429" width="0.7" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="396.62" y="439.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::GetListForBlockInternal (90,000,165 instructions, 0.03%)</title><rect x="589.9" y="157" width="0.4" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="592.88" y="167.5" ></text>
+</g>
+<g >
+<title>fp_subm_low (1,314,002,409 instructions, 0.37%)</title><rect x="540.3" y="429" width="6.6" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="543.34" y="439.5" ></text>
+</g>
+<g >
+<title>uint256 HashX11&lt;char const*&gt; (330,000,605 instructions, 0.09%)</title><rect x="601.5" y="237" width="1.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="604.49" y="247.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecdsa_verify (630,001,155 instructions, 0.18%)</title><rect x="1500.8" y="269" width="3.1" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1503.79" y="279.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNManager::GetListForBlock (90,000,165 instructions, 0.03%)</title><rect x="566.4" y="189" width="0.4" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="569.39" y="199.5" ></text>
+</g>
+<g >
+<title>VerifyScript (786,001,441 instructions, 0.22%)</title><rect x="1500.6" y="365" width="3.9" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1503.58" y="375.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (126,000,231 instructions, 0.04%)</title><rect x="581.6" y="173" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="584.60" y="183.5" ></text>
+</g>
+<g >
+<title>fp_sqrn_low (276,000,506 instructions, 0.08%)</title><rect x="533.3" y="429" width="1.4" height="15.0" fill="rgb(250,209,49)" rx="2" ry="2" />
+<text  x="536.34" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (300,000,550 instructions, 0.08%)</title><rect x="445.7" y="413" width="1.5" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="448.69" y="423.5" ></text>
+</g>
+<g >
+<title>fp2_addm_low (534,000,979 instructions, 0.15%)</title><rect x="379.8" y="429" width="2.6" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="382.77" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_rshift_coreisbr (144,000,264 instructions, 0.04%)</title><rect x="1121.8" y="429" width="0.7" height="15.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="1124.79" y="439.5" ></text>
+</g>
+<g >
+<title>SHA224_256ProcessMessageBlock (138,000,253 instructions, 0.04%)</title><rect x="10.3" y="429" width="0.7" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="13.33" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (930,001,705 instructions, 0.26%)</title><rect x="1764.8" y="317" width="4.6" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1767.78" y="327.5" ></text>
+</g>
+<g >
+<title>EvalChecksig (786,001,441 instructions, 0.22%)</title><rect x="1500.6" y="333" width="3.9" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1503.58" y="343.5" ></text>
+</g>
+<g >
+<title>CBlockIndex::GetAncestor (102,000,187 instructions, 0.03%)</title><rect x="578.7" y="189" width="0.5" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="581.65" y="199.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::GetQuorumQuarterMembersBySnapshot (108,000,198 instructions, 0.03%)</title><rect x="589.8" y="189" width="0.6" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="592.82" y="199.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (504,000,924 instructions, 0.14%)</title><rect x="558.3" y="189" width="2.5" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="561.26" y="199.5" ></text>
+</g>
+<g >
+<title>GenericTransactionSignatureChecker&lt;CTransaction&gt;::CheckSig (780,001,430 instructions, 0.22%)</title><rect x="1500.6" y="317" width="3.9" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="1503.61" y="327.5" ></text>
+</g>
+<g >
+<title>util::TraceThread (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="381" width="54.2" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="554.17" y="391.5" >util:..</text>
+</g>
+<g >
+<title>CSHA256::Write (96,000,176 instructions, 0.03%)</title><rect x="584.7" y="205" width="0.4" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="587.67" y="215.5" ></text>
+</g>
+<g >
+<title>VerifyScript (180,000,330 instructions, 0.05%)</title><rect x="555.7" y="237" width="0.9" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="558.73" y="247.5" ></text>
+</g>
+<g >
+<title>util_bits_dig (222,000,407 instructions, 0.06%)</title><rect x="813.3" y="445" width="1.1" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="816.26" y="455.5" ></text>
+</g>
+<g >
+<title>start_thread (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="429" width="31.8" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="1761.23" y="439.5" >st..</text>
+</g>
+<g >
+<title>leveldb::ReadBlock (132,000,242 instructions, 0.04%)</title><rect x="573.5" y="77" width="0.7" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="576.53" y="87.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetMinedCommitmentsUntilBlock (1,116,002,046 instructions, 0.31%)</title><rect x="578.4" y="205" width="5.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="581.38" y="215.5" ></text>
+</g>
+<g >
+<title>std::ostream&amp; std::ostream::_M_insert&lt;double&gt; (102,000,187 instructions, 0.03%)</title><rect x="595.9" y="221" width="0.6" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="598.95" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (240,000,440 instructions, 0.07%)</title><rect x="1779.2" y="301" width="1.2" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1782.19" y="311.5" ></text>
+</g>
+<g >
+<title>fp2_sqrn_low (282,000,517 instructions, 0.08%)</title><rect x="1291.6" y="429" width="1.4" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1294.55" y="439.5" ></text>
+</g>
+<g >
+<title>div2 (600,001,100 instructions, 0.17%)</title><rect x="1339.2" y="381" width="3.0" height="15.0" fill="rgb(254,225,53)" rx="2" ry="2" />
+<text  x="1342.19" y="391.5" ></text>
+</g>
+<g >
+<title>leveldb::TableBuilder::WriteBlock (138,000,253 instructions, 0.04%)</title><rect x="1787.4" y="301" width="0.6" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1790.35" y="311.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::MergingIterator::FindSmallest (492,000,902 instructions, 0.14%)</title><rect x="1762.3" y="317" width="2.5" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="1765.34" y="327.5" ></text>
+</g>
+<g >
+<title>sph_cubehash512_addbits_and_close (96,000,176 instructions, 0.03%)</title><rect x="602.1" y="221" width="0.4" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="605.05" y="231.5" ></text>
+</g>
+<g >
+<title>sha256d64_sse41::Transform_4way (162,000,297 instructions, 0.05%)</title><rect x="569.1" y="205" width="0.8" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="572.07" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Seek (126,000,231 instructions, 0.04%)</title><rect x="582.7" y="157" width="0.7" height="15.0" fill="rgb(243,175,42)" rx="2" ry="2" />
+<text  x="585.73" y="167.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::NewIterator (114,000,209 instructions, 0.03%)</title><rect x="577.4" y="157" width="0.6" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="580.43" y="167.5" ></text>
+</g>
+<g >
+<title>AppInitMain(node::NodeContext&amp;, interfaces::BlockAndHeaderTipInfo*)::{lambda()#17}::operator() (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="365" width="54.2" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="554.17" y="375.5" >AppIn..</text>
+</g>
+<g >
+<title>fp_addn_low (570,001,045 instructions, 0.16%)</title><rect x="427.3" y="429" width="2.9" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="430.35" y="439.5" ></text>
+</g>
+<g >
+<title>chainlock::VerifyChainLock (654,001,199 instructions, 0.18%)</title><rect x="586.2" y="237" width="3.3" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="589.21" y="247.5" ></text>
+</g>
+<g >
+<title>fp_muln_low (1,086,001,991 instructions, 0.30%)</title><rect x="1376.6" y="429" width="5.3" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1379.55" y="439.5" ></text>
+</g>
+<g >
+<title>util_bits_dig (324,000,594 instructions, 0.09%)</title><rect x="549.6" y="429" width="1.6" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="552.56" y="439.5" ></text>
+</g>
+<g >
+<title>fp2_subc_low (144,000,264 instructions, 0.04%)</title><rect x="404.1" y="429" width="0.7" height="15.0" fill="rgb(226,96,23)" rx="2" ry="2" />
+<text  x="407.10" y="439.5" ></text>
+</g>
+<g >
+<title>fp12_mul_dxs_lazyr (90,000,165 instructions, 0.03%)</title><rect x="375.9" y="429" width="0.4" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="378.87" y="439.5" ></text>
+</g>
+<g >
+<title>CScriptCheck::operator() (786,001,441 instructions, 0.22%)</title><rect x="1500.6" y="381" width="3.9" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1503.58" y="391.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::CheckSpecialTxInner (306,000,561 instructions, 0.09%)</title><rect x="566.0" y="253" width="1.5" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="569.00" y="263.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n_coreisbr (3,420,006,270 instructions, 0.95%)</title><rect x="1123.4" y="429" width="17.0" height="15.0" fill="rgb(213,36,8)" rx="2" ry="2" />
+<text  x="1126.43" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n (186,000,341 instructions, 0.05%)</title><rect x="1122.5" y="429" width="0.9" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="1125.50" y="439.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (120,000,220 instructions, 0.03%)</title><rect x="1779.6" y="285" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1782.58" y="295.5" ></text>
+</g>
+<g >
+<title>__gmpn_add_n (624,001,144 instructions, 0.17%)</title><rect x="11.8" y="429" width="3.1" height="15.0" fill="rgb(226,96,23)" rx="2" ry="2" />
+<text  x="14.85" y="439.5" ></text>
+</g>
+<g >
+<title>void detail::UnserializeVectorContents&lt;DefaultFormatter, CAutoFile, std::vector&lt;std::shared_ptr&lt;CTransaction const&gt;, std::allocator&lt;std::shared_ptr&lt;CTransaction const&gt; &gt; &gt; &gt; (120,000,220 instructions, 0.03%)</title><rect x="603.3" y="253" width="0.6" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="606.30" y="263.5" ></text>
+</g>
+<g >
+<title>std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;::_M_replace (180,000,330 instructions, 0.05%)</title><rect x="1788.8" y="333" width="0.9" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="1791.78" y="343.5" ></text>
+</g>
+<g >
+<title>ep_add_projc_imp (600,001,100 instructions, 0.17%)</title><rect x="1272.8" y="429" width="2.9" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="1275.76" y="439.5" ></text>
+</g>
+<g >
+<title>ep_curve_opt_a (204,000,374 instructions, 0.06%)</title><rect x="1277.5" y="429" width="1.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1280.53" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::ReadBlock (120,000,220 instructions, 0.03%)</title><rect x="1768.1" y="253" width="0.6" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="1771.12" y="263.5" ></text>
+</g>
+<g >
+<title>bn_rec_slw (378,000,693 instructions, 0.11%)</title><rect x="276.7" y="429" width="1.9" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="279.70" y="439.5" ></text>
+</g>
+<g >
+<title>fp2_add_integ (210,000,385 instructions, 0.06%)</title><rect x="377.3" y="429" width="1.1" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="380.33" y="439.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (228,000,418 instructions, 0.06%)</title><rect x="1140.4" y="429" width="1.1" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1143.40" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (108,000,198 instructions, 0.03%)</title><rect x="1769.4" y="317" width="0.5" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1772.40" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::Hash (204,000,374 instructions, 0.06%)</title><rect x="1784.7" y="269" width="1.0" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1787.70" y="279.5" ></text>
+</g>
+<g >
+<title>fp_prime_get_rdc (864,001,584 instructions, 0.24%)</title><rect x="476.9" y="429" width="4.3" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="479.89" y="439.5" ></text>
+</g>
+<g >
+<title>fp_subd_low (414,000,759 instructions, 0.12%)</title><rect x="538.3" y="429" width="2.0" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="541.28" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::SkipEmptyDataBlocksForward (312,000,572 instructions, 0.09%)</title><rect x="1767.5" y="301" width="1.5" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1770.46" y="311.5" ></text>
+</g>
+<g >
+<title>block import / ActivateBestChain (loadblk) (162,102,297,187 instructions, 45.19%)</title><rect x="10.0" y="461" width="804.4" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="13.00" y="471.5" >block import / ActivateBestChain (loadblk)</text>
+</g>
+<g >
+<title>CDeterministicMNManager::ProcessBlock (414,000,759 instructions, 0.12%)</title><rect x="560.8" y="253" width="2.1" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="563.82" y="263.5" ></text>
+</g>
+<g >
+<title>bn_is_even (132,000,242 instructions, 0.04%)</title><rect x="1749.7" y="445" width="0.7" height="15.0" fill="rgb(243,177,42)" rx="2" ry="2" />
+<text  x="1752.75" y="455.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Seek (672,001,232 instructions, 0.19%)</title><rect x="573.1" y="141" width="3.3" height="15.0" fill="rgb(243,175,42)" rx="2" ry="2" />
+<text  x="576.11" y="151.5" ></text>
+</g>
+<g >
+<title>fp2_mulc_low (486,000,891 instructions, 0.14%)</title><rect x="384.2" y="429" width="2.4" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="387.21" y="439.5" ></text>
+</g>
+<g >
+<title>dv_copy (156,000,286 instructions, 0.04%)</title><rect x="371.3" y="429" width="0.8" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="374.32" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::FilterBlockBuilder::GenerateFilter (636,001,166 instructions, 0.18%)</title><rect x="1782.9" y="301" width="3.1" height="15.0" fill="rgb(236,146,34)" rx="2" ry="2" />
+<text  x="1785.85" y="311.5" ></text>
+</g>
+<g >
+<title>vsnprintf (84,000,154 instructions, 0.02%)</title><rect x="596.0" y="173" width="0.4" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="598.98" y="183.5" ></text>
+</g>
+<g >
+<title>fp_sqr_integ (204,000,374 instructions, 0.06%)</title><rect x="810.2" y="445" width="1.0" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="813.16" y="455.5" ></text>
+</g>
+<g >
+<title>fp2_addc_low (138,000,253 instructions, 0.04%)</title><rect x="1285.6" y="429" width="0.7" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1288.57" y="439.5" ></text>
+</g>
+<g >
+<title>fp_dbln_low (228,000,418 instructions, 0.06%)</title><rect x="434.5" y="429" width="1.2" height="15.0" fill="rgb(232,128,30)" rx="2" ry="2" />
+<text  x="437.52" y="439.5" ></text>
+</g>
+<g >
+<title>fp_subn_low (96,000,176 instructions, 0.03%)</title><rect x="546.9" y="429" width="0.4" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="549.86" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_hgcd2 (372,000,682 instructions, 0.10%)</title><rect x="436.2" y="381" width="1.8" height="15.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="439.19" y="391.5" ></text>
+</g>
+<g >
+<title>arch_lzcnt (186,000,341 instructions, 0.05%)</title><rect x="268.6" y="429" width="0.9" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="271.57" y="439.5" ></text>
+</g>
+<g >
+<title>crc32c::ExtendSse42 (96,000,176 instructions, 0.03%)</title><rect x="1787.5" y="269" width="0.4" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1790.47" y="279.5" ></text>
+</g>
+<g >
+<title>fp2_subm_low (162,000,297 instructions, 0.05%)</title><rect x="404.8" y="429" width="0.8" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="407.81" y="439.5" ></text>
+</g>
+<g >
+<title>PreComputeQuorumMembers (918,001,683 instructions, 0.26%)</title><rect x="589.8" y="237" width="4.5" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="592.79" y="247.5" ></text>
+</g>
+<g >
+<title>CBlockHeader::GetHash (330,000,605 instructions, 0.09%)</title><rect x="601.5" y="253" width="1.6" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="604.49" y="263.5" ></text>
+</g>
+<g >
+<title>fp2_sqrn_low (1,344,002,464 instructions, 0.37%)</title><rect x="396.8" y="429" width="6.7" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="399.83" y="439.5" ></text>
+</g>
+<g >
+<title>sph_cubehash512_addbits_and_close (102,000,187 instructions, 0.03%)</title><rect x="559.0" y="141" width="0.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="562.00" y="151.5" ></text>
+</g>
+<g >
+<title>void LogPrintf_&lt;double, double, double&gt; (216,000,396 instructions, 0.06%)</title><rect x="603.9" y="285" width="1.1" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="606.93" y="295.5" ></text>
+</g>
+<g >
+<title>std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; std::num_put&lt;char, std::ostreambuf_iterator&lt;char, std::char_traits&lt;char&gt; &gt; &gt;::_M_insert_float&lt;double&gt; (96,000,176 instructions, 0.03%)</title><rect x="596.0" y="205" width="0.5" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="598.98" y="215.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::DBIter::Seek (744,001,364 instructions, 0.21%)</title><rect x="573.0" y="173" width="3.7" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="575.97" y="183.5" ></text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms_rtm (192,000,352 instructions, 0.05%)</title><rect x="1760.5" y="333" width="1.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1763.53" y="343.5" ></text>
+</g>
+<g >
+<title>CheckBlock (384,000,704 instructions, 0.11%)</title><rect x="596.5" y="269" width="1.9" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="599.52" y="279.5" ></text>
+</g>
+<g >
+<title>fp_sqrm_low (1,236,002,266 instructions, 0.34%)</title><rect x="1482.5" y="429" width="6.1" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1485.51" y="439.5" ></text>
+</g>
+<g >
+<title>GenericTransactionSignatureChecker&lt;CTransaction&gt;::CheckSig (168,000,308 instructions, 0.05%)</title><rect x="555.7" y="189" width="0.9" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="558.73" y="199.5" ></text>
+</g>
+<g >
+<title>fp_mulm_low (918,001,683 instructions, 0.26%)</title><rect x="442.6" y="429" width="4.6" height="15.0" fill="rgb(208,16,3)" rx="2" ry="2" />
+<text  x="445.62" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::BloomFilterPolicy::CreateFilter (564,001,034 instructions, 0.16%)</title><rect x="1782.9" y="285" width="2.8" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="1785.91" y="295.5" ></text>
+</g>
+<g >
+<title>bn_get_bit (732,001,342 instructions, 0.20%)</title><rect x="271.5" y="429" width="3.6" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="274.49" y="439.5" ></text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetMinedCommitment (96,000,176 instructions, 0.03%)</title><rect x="584.0" y="221" width="0.5" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="586.98" y="231.5" ></text>
+</g>
+<g >
+<title>fp_prime_get (6,678,012,243 instructions, 1.86%)</title><rect x="1382.1" y="429" width="33.2" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="1385.15" y="439.5" >fp..</text>
+</g>
+<g >
+<title>ep_curve_mul_b3 (294,000,539 instructions, 0.08%)</title><rect x="1276.1" y="429" width="1.4" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="1279.07" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::TableBuilder::WriteRawBlock (114,000,209 instructions, 0.03%)</title><rect x="1787.4" y="285" width="0.6" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="1790.44" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::InternalKeyComparator::Compare (198,000,363 instructions, 0.06%)</title><rect x="574.8" y="93" width="0.9" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="577.75" y="103.5" ></text>
+</g>
+<g >
+<title>sha256d64_avx2::Transform_8way (258,000,473 instructions, 0.07%)</title><rect x="567.8" y="205" width="1.3" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="570.79" y="215.5" ></text>
+</g>
+<g >
+<title>tinyformat::detail::formatImpl (120,000,220 instructions, 0.03%)</title><rect x="595.9" y="237" width="0.6" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="598.92" y="247.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::AddMN (756,001,386 instructions, 0.21%)</title><rect x="590.4" y="189" width="3.7" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="593.35" y="199.5" ></text>
+</g>
+<g >
+<title>__gmpn_sub_n_coreisbr (4,746,008,701 instructions, 1.32%)</title><rect x="243.4" y="429" width="23.6" height="15.0" fill="rgb(213,36,8)" rx="2" ry="2" />
+<text  x="246.45" y="439.5" >_..</text>
+</g>
+<g >
+<title>script/BLS check workers (scriptch.N) (190,164,348,634 instructions, 53.01%)</title><rect x="814.6" y="461" width="943.6" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="817.63" y="471.5" >script/BLS check workers (scriptch.N)</text>
+</g>
+<g >
+<title>leveldb::BlockBuilder::Add (1,278,002,343 instructions, 0.36%)</title><rect x="1775.9" y="317" width="6.4" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="1778.95" y="327.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::InitDataBlock (174,000,319 instructions, 0.05%)</title><rect x="573.3" y="109" width="0.9" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="576.32" y="119.5" ></text>
+</g>
+<g >
+<title>secp256k1_fe_mul_inner (102,000,187 instructions, 0.03%)</title><rect x="1501.1" y="205" width="0.5" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="1504.12" y="215.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (102,000,187 instructions, 0.03%)</title><rect x="386.1" y="413" width="0.5" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="389.11" y="423.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::AddIterators (84,000,154 instructions, 0.02%)</title><rect x="577.5" y="125" width="0.4" height="15.0" fill="rgb(236,142,34)" rx="2" ry="2" />
+<text  x="580.52" y="135.5" ></text>
+</g>
+<g >
+<title>__GI___clone3 (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="445" width="31.8" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="1761.23" y="455.5" >__..</text>
+</g>
+<g >
+<title>fp2_mulm_low (108,000,198 instructions, 0.03%)</title><rect x="386.6" y="429" width="0.6" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="389.62" y="439.5" ></text>
+</g>
+<g >
+<title>start_thread (846,001,551 instructions, 0.24%)</title><rect x="1500.6" y="429" width="4.2" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="1503.58" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_add_n_coreisbr (8,526,015,631 instructions, 2.38%)</title><rect x="820.3" y="429" width="42.3" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="823.31" y="439.5" >__g..</text>
+</g>
+<g >
+<title>CPubKey::Verify (144,000,264 instructions, 0.04%)</title><rect x="555.7" y="157" width="0.7" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="558.73" y="167.5" ></text>
+</g>
+<g >
+<title>dv_cmp (11,640,021,340 instructions, 3.24%)</title><rect x="313.6" y="429" width="57.7" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="316.56" y="439.5" >dv_cmp</text>
+</g>
+<g >
+<title>fp_add_integ (114,000,209 instructions, 0.03%)</title><rect x="406.1" y="429" width="0.6" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="409.12" y="439.5" ></text>
+</g>
+<g >
+<title>CSpecialTxProcessor::RebuildListFromBlock (576,001,056 instructions, 0.16%)</title><rect x="563.1" y="237" width="2.8" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="566.08" y="247.5" ></text>
+</g>
+<g >
+<title>std::ostream&amp; std::ostream::_M_insert&lt;double&gt; (90,000,165 instructions, 0.03%)</title><rect x="600.3" y="237" width="0.5" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="603.33" y="247.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="413" width="31.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1761.23" y="423.5" >[u..</text>
+</g>
+<g >
+<title>sph_cubehash512_addbits_and_close (90,000,165 instructions, 0.03%)</title><rect x="552.6" y="221" width="0.4" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="555.60" y="231.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::ForEachMN (150,000,275 instructions, 0.04%)</title><rect x="563.9" y="221" width="0.8" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="566.94" y="231.5" ></text>
+</g>
+<g >
+<title>CDBTransactionIterator&lt;CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt; &gt;::Next (138,000,253 instructions, 0.04%)</title><rect x="579.2" y="189" width="0.6" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="582.16" y="199.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (522,000,957 instructions, 0.15%)</title><rect x="400.9" y="413" width="2.6" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="403.91" y="423.5" ></text>
+</g>
+<g >
+<title>CachingTransactionSignatureChecker::VerifySignature (666,001,221 instructions, 0.19%)</title><rect x="1500.6" y="301" width="3.3" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="1503.61" y="311.5" ></text>
+</g>
+<g >
+<title>llmq::utils::GetAllQuorumMembers (918,001,683 instructions, 0.26%)</title><rect x="589.8" y="221" width="4.5" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="592.79" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::PosixEnv::BackgroundThreadEntryPoint (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="397" width="31.8" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1761.23" y="407.5" >le..</text>
+</g>
+<g >
+<title>llmq::CQuorumBlockProcessor::GetLastMinedCommitmentsByQuorumIndexUntilBlock (1,458,002,673 instructions, 0.41%)</title><rect x="571.0" y="189" width="7.3" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="574.03" y="199.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (114,000,209 instructions, 0.03%)</title><rect x="1292.4" y="413" width="0.6" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1295.38" y="423.5" ></text>
+</g>
+<g >
+<title>Chainstate::ActivateBestChainStep (10,908,019,998 instructions, 3.04%)</title><rect x="551.2" y="317" width="54.2" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="554.23" y="327.5" >Chain..</text>
+</g>
+<g >
+<title>div2 (384,000,704 instructions, 0.11%)</title><rect x="438.5" y="381" width="1.9" height="15.0" fill="rgb(254,225,53)" rx="2" ry="2" />
+<text  x="441.54" y="391.5" ></text>
+</g>
+<g >
+<title>bn_is_zero (168,000,308 instructions, 0.05%)</title><rect x="1750.4" y="445" width="0.8" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="1753.40" y="455.5" ></text>
+</g>
+<g >
+<title>llmq::CFinalCommitment::Verify (300,000,550 instructions, 0.08%)</title><rect x="566.0" y="221" width="1.5" height="15.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="569.00" y="231.5" ></text>
+</g>
+<g >
+<title>leveldb::Compaction::ShouldStopBefore (168,000,308 instructions, 0.05%)</title><rect x="1772.2" y="333" width="0.8" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1775.17" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::Get (300,000,550 instructions, 0.08%)</title><rect x="580.1" y="157" width="1.5" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="583.08" y="167.5" ></text>
+</g>
+<g >
+<title>decltype(auto) immer::detail::hamts::champ&lt;std::pair&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt; &gt;, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::hash_key, immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::equal_key, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::get&lt;immer::map&lt;uint256, std::shared_ptr&lt;CDeterministicMN const&gt;, CDeterministicMNList::ImmerHasher, std::equal_to&lt;uint256&gt;, immer::memory_policy&lt;immer::free_list_heap_policy&lt;immer::cpp_heap, 1024ul&gt;, immer::refcount_policy, immer::spinlock_policy, immer::no_transience_policy, false, true&gt;, 5u&gt;::project_value_ptr, immer::detail::constantly&lt;std::shared_ptr&lt;CDeterministicMN const&gt; const*, (std::shared_ptr&lt;CDeterministicMN const&gt; const*)0&gt;, uint256&gt; (138,000,253 instructions, 0.04%)</title><rect x="561.4" y="205" width="0.7" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="564.41" y="215.5" ></text>
+</g>
+<g >
+<title>ep_dbl_projc_imp (732,001,342 instructions, 0.20%)</title><rect x="1279.2" y="429" width="3.6" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1282.20" y="439.5" ></text>
+</g>
+<g >
+<title>get_bits (114,000,209 instructions, 0.03%)</title><rect x="547.4" y="429" width="0.6" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="550.42" y="439.5" ></text>
+</g>
+<g >
+<title>secp256k1_fe_sqr_inner (156,000,286 instructions, 0.04%)</title><rect x="1503.0" y="205" width="0.7" height="15.0" fill="rgb(233,129,31)" rx="2" ry="2" />
+<text  x="1505.96" y="215.5" ></text>
+</g>
+<g >
+<title>CBlockHeader::GetHash (354,000,649 instructions, 0.10%)</title><rect x="558.3" y="173" width="1.8" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="561.35" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::TableCache::Get (264,000,484 instructions, 0.07%)</title><rect x="580.2" y="93" width="1.3" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="583.23" y="103.5" ></text>
+</g>
+<g >
+<title>Chainstate::ConnectBlock (9,498,017,413 instructions, 2.65%)</title><rect x="553.8" y="285" width="47.2" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="556.82" y="295.5" >Chai..</text>
+</g>
+<g >
+<title>CPubKey::Verify (666,001,221 instructions, 0.19%)</title><rect x="1500.6" y="285" width="3.3" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="1503.61" y="295.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::Get (294,000,539 instructions, 0.08%)</title><rect x="580.1" y="141" width="1.4" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="583.08" y="151.5" ></text>
+</g>
+<g >
+<title>uint256 HashX11&lt;char const*&gt; (300,000,550 instructions, 0.08%)</title><rect x="554.2" y="253" width="1.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="557.21" y="263.5" ></text>
+</g>
+<g >
+<title>CCheckQueue&lt;CScriptCheck&gt;::Loop (786,001,441 instructions, 0.22%)</title><rect x="1500.6" y="397" width="3.9" height="15.0" fill="rgb(233,129,31)" rx="2" ry="2" />
+<text  x="1503.58" y="407.5" ></text>
+</g>
+<g >
+<title>util_bits_dig (162,000,297 instructions, 0.05%)</title><rect x="1499.8" y="429" width="0.8" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="1502.78" y="439.5" ></text>
+</g>
+<g >
+<title>fp_muln_low (672,001,232 instructions, 0.19%)</title><rect x="447.2" y="429" width="3.3" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="450.18" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::ForEachOverlapping (294,000,539 instructions, 0.08%)</title><rect x="580.1" y="125" width="1.4" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="583.08" y="135.5" ></text>
+</g>
+<g >
+<title>fp_invm_low (1,596,002,926 instructions, 0.44%)</title><rect x="1334.9" y="429" width="7.9" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="1337.90" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::DBImpl::DoCompactionWork (6,240,011,440 instructions, 1.74%)</title><rect x="1758.7" y="349" width="31.0" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1761.71" y="359.5" >le..</text>
+</g>
+<g >
+<title>CSpecialTxProcessor::BuildNewListFromBlock (594,001,089 instructions, 0.17%)</title><rect x="563.1" y="253" width="2.9" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="566.05" y="263.5" ></text>
+</g>
+<g >
+<title>void detail::UnserializeVectorContents&lt;DefaultFormatter, CAutoFile, std::vector&lt;std::shared_ptr&lt;CTransaction const&gt;, std::allocator&lt;std::shared_ptr&lt;CTransaction const&gt; &gt; &gt; &gt; (108,000,198 instructions, 0.03%)</title><rect x="560.2" y="173" width="0.6" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="563.22" y="183.5" ></text>
+</g>
+<g >
+<title>leveldb::PutVarint32 (384,000,704 instructions, 0.11%)</title><rect x="1780.4" y="301" width="1.9" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="1783.38" y="311.5" ></text>
+</g>
+<g >
+<title>fp_add_integ (792,001,452 instructions, 0.22%)</title><rect x="1293.9" y="429" width="4.0" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1296.93" y="439.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecdsa_sig_verify (624,001,144 instructions, 0.17%)</title><rect x="1500.8" y="253" width="3.1" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="1503.79" y="263.5" ></text>
+</g>
+<g >
+<title>[unknown] (216,000,396 instructions, 0.06%)</title><rect x="590.4" y="141" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="593.38" y="151.5" ></text>
+</g>
+<g >
+<title>ep_dbl_projc_imp (114,000,209 instructions, 0.03%)</title><rect x="375.0" y="429" width="0.5" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="377.98" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Seek (498,000,913 instructions, 0.14%)</title><rect x="573.3" y="125" width="2.5" height="15.0" fill="rgb(243,175,42)" rx="2" ry="2" />
+<text  x="576.29" y="135.5" ></text>
+</g>
+<g >
+<title>ep_is_infty (198,000,363 instructions, 0.06%)</title><rect x="1282.8" y="429" width="1.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1285.83" y="439.5" ></text>
+</g>
+<g >
+<title>BCLog::Logger::LogTimestampStr (168,000,308 instructions, 0.05%)</title><rect x="594.9" y="221" width="0.8" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="597.91" y="231.5" ></text>
+</g>
+<g >
+<title>fp_mul_integ (1,512,002,772 instructions, 0.42%)</title><rect x="1345.1" y="429" width="7.5" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="1348.08" y="439.5" ></text>
+</g>
+<g >
+<title>bn_rec_naf (204,000,374 instructions, 0.06%)</title><rect x="1751.2" y="445" width="1.0" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="1754.24" y="455.5" ></text>
+</g>
+<g >
+<title>lzcnt64_hard (180,000,330 instructions, 0.05%)</title><rect x="1498.4" y="429" width="0.9" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="1501.38" y="439.5" ></text>
+</g>
+<g >
+<title>(anonymous namespace)::PeerManagerImpl::BlockChecked (402,000,737 instructions, 0.11%)</title><rect x="551.8" y="269" width="2.0" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="554.77" y="279.5" ></text>
+</g>
+<g >
+<title>FormatISO8601DateTime[abi:cxx11] (114,000,209 instructions, 0.03%)</title><rect x="599.3" y="221" width="0.6" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="602.34" y="231.5" ></text>
+</g>
+<g >
+<title>__memcmp_avx2_movbe_rtm (150,000,275 instructions, 0.04%)</title><rect x="1759.8" y="333" width="0.7" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1762.78" y="343.5" ></text>
+</g>
+<g >
+<title>leveldb::Compaction::IsBaseLevelForKey (120,000,220 instructions, 0.03%)</title><rect x="1771.6" y="333" width="0.6" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1774.57" y="343.5" ></text>
+</g>
+<g >
+<title>CDeterministicMNList::GetMNPayee (114,000,209 instructions, 0.03%)</title><rect x="564.7" y="221" width="0.6" height="15.0" fill="rgb(215,49,11)" rx="2" ry="2" />
+<text  x="567.75" y="231.5" ></text>
+</g>
+<g >
+<title>unnamed background thread (LevelDB compaction) (6,402,011,737 instructions, 1.78%)</title><rect x="1758.2" y="461" width="31.8" height="15.0" fill="rgb(225,96,23)" rx="2" ry="2" />
+<text  x="1761.23" y="471.5" >un..</text>
+</g>
+<g >
+<title>uint256 HashX11&lt;char const*&gt; (354,000,649 instructions, 0.10%)</title><rect x="558.3" y="157" width="1.8" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="561.35" y="167.5" ></text>
+</g>
+<g >
+<title>fp_addc_low (252,000,462 instructions, 0.07%)</title><rect x="1297.9" y="429" width="1.2" height="15.0" fill="rgb(212,33,7)" rx="2" ry="2" />
+<text  x="1300.86" y="439.5" ></text>
+</g>
+<g >
+<title>EvalScript (180,000,330 instructions, 0.05%)</title><rect x="555.7" y="221" width="0.9" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="558.73" y="231.5" ></text>
+</g>
+<g >
+<title>SHA256Input (84,000,154 instructions, 0.02%)</title><rect x="816.2" y="429" width="0.4" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="819.18" y="439.5" ></text>
+</g>
+<g >
+<title>CCreditPoolManager::ConstructCreditPool (522,000,957 instructions, 0.15%)</title><rect x="558.2" y="237" width="2.6" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="561.20" y="247.5" ></text>
+</g>
+<g >
+<title>CTransaction::ComputeHash (90,000,165 instructions, 0.03%)</title><rect x="560.2" y="141" width="0.5" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="563.22" y="151.5" ></text>
+</g>
+<g >
+<title>FormatISO8601DateTime[abi:cxx11] (84,000,154 instructions, 0.02%)</title><rect x="604.1" y="237" width="0.4" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="607.08" y="247.5" ></text>
+</g>
+<g >
+<title>bn_get_bit (534,000,979 instructions, 0.15%)</title><rect x="1144.0" y="429" width="2.7" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="1147.03" y="439.5" ></text>
+</g>
+<g >
+<title>leveldb::Version::Get(leveldb::ReadOptions const&amp;, leveldb::LookupKey const&amp;, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;*, leveldb::Version::GetStats*)::State::Match (264,000,484 instructions, 0.07%)</title><rect x="580.2" y="109" width="1.3" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="583.23" y="119.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;std::shared_ptr&lt;CDeterministicMN const&gt;, std::allocator&lt;std::shared_ptr&lt;CDeterministicMN const&gt; &gt; &gt; (anonymous namespace)::CalculateQuorum&lt;CDeterministicMNList const&amp;&gt; (126,000,231 instructions, 0.04%)</title><rect x="566.9" y="189" width="0.6" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="569.86" y="199.5" ></text>
+</g>
+<g >
+<title>__GI___clone3 (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="445" width="54.2" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="554.17" y="455.5" >__GI_..</text>
+</g>
+<g >
+<title>__gmpn_mul_n (144,000,264 instructions, 0.04%)</title><rect x="238.3" y="429" width="0.7" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="241.29" y="439.5" ></text>
+</g>
+<g >
+<title>node::ReadBlockFromDisk (504,000,924 instructions, 0.14%)</title><rect x="558.3" y="205" width="2.5" height="15.0" fill="rgb(250,207,49)" rx="2" ry="2" />
+<text  x="561.26" y="215.5" ></text>
+</g>
+<g >
+<title>secp256k1_ecdsa_verify (102,000,187 instructions, 0.03%)</title><rect x="555.9" y="141" width="0.5" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="558.94" y="151.5" ></text>
+</g>
+<g >
+<title>leveldb::(anonymous namespace)::TwoLevelIterator::Next (402,000,737 instructions, 0.11%)</title><rect x="1765.5" y="301" width="2.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1768.47" y="311.5" ></text>
+</g>
+<g >
+<title>uint256 SerializeHash&lt;llmq::CFinalCommitment&gt; (144,000,264 instructions, 0.04%)</title><rect x="584.5" y="221" width="0.8" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="587.55" y="231.5" ></text>
+</g>
+<g >
+<title>bool CDeterministicMNList::AddUniqueProperty&lt;CBLSLazyWrapper&lt;CBLSPublicKey&gt; &gt; (108,000,198 instructions, 0.03%)</title><rect x="591.7" y="173" width="0.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="594.72" y="183.5" ></text>
+</g>
+<g >
+<title>__gmpn_mul_n (576,001,056 instructions, 0.16%)</title><rect x="1485.8" y="413" width="2.8" height="15.0" fill="rgb(237,147,35)" rx="2" ry="2" />
+<text  x="1488.79" y="423.5" ></text>
+</g>
+<g >
+<title>fp2_mul_integ (96,000,176 instructions, 0.03%)</title><rect x="383.7" y="429" width="0.5" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="386.73" y="439.5" ></text>
+</g>
+<g >
+<title>fp_is_zero (456,000,836 instructions, 0.13%)</title><rect x="1342.8" y="429" width="2.3" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1345.82" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_rshift_coreisbr (582,001,067 instructions, 0.16%)</title><rect x="239.1" y="429" width="2.9" height="15.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="242.07" y="439.5" ></text>
+</g>
+<g >
+<title>ep_add_projc (114,000,209 instructions, 0.03%)</title><rect x="1272.2" y="429" width="0.6" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1275.20" y="439.5" ></text>
+</g>
+<g >
+<title>__gmpn_gcdext_lehmer_n (918,001,683 instructions, 0.26%)</title><rect x="435.9" y="397" width="4.5" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="438.89" y="407.5" ></text>
+</g>
+<g >
+<title>fp2_muln_low (1,200,002,200 instructions, 0.33%)</title><rect x="387.2" y="429" width="5.9" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="390.16" y="439.5" ></text>
+</g>
+<g >
+<title>Chainstate::ActivateBestChain (10,920,020,020 instructions, 3.04%)</title><rect x="551.2" y="333" width="54.2" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="554.17" y="343.5" >Chain..</text>
+</g>
+<g >
+<title>uint256 SignatureHash&lt;CTransaction&gt; (108,000,198 instructions, 0.03%)</title><rect x="1503.9" y="301" width="0.6" height="15.0" fill="rgb(229,113,27)" rx="2" ry="2" />
+<text  x="1506.92" y="311.5" ></text>
+</g>
+<g >
+<title>pp_exp_b12 (114,000,209 instructions, 0.03%)</title><rect x="549.0" y="429" width="0.6" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="552.00" y="439.5" ></text>
+</g>
+<g >
+<title>fp_rdcn_low (9,516,017,446 instructions, 2.65%)</title><rect x="481.3" y="429" width="47.2" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="484.27" y="439.5" >fp_r..</text>
+</g>
+<g >
+<title>fp_invm_low (996,001,826 instructions, 0.28%)</title><rect x="435.8" y="429" width="5.0" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="438.83" y="439.5" ></text>
+</g>
+<g >
+<title>bool CDBTransaction&lt;CDBTransaction&lt;CDBWrapper, CDBBatch&gt;, CDBTransaction&lt;CDBWrapper, CDBBatch&gt; &gt;::Read&lt;int&gt; (114,000,209 instructions, 0.03%)</title><rect x="572.3" y="173" width="0.6" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="575.34" y="183.5" ></text>
+</g>
+<g >
+<title>fp2_addm_low (96,000,176 instructions, 0.03%)</title><rect x="1286.3" y="429" width="0.5" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="1289.34" y="439.5" ></text>
+</g>
+</g>
+</svg>
