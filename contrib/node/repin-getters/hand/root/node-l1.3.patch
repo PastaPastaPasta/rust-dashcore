@@ -1,0 +1,83 @@
+diff --git a/node-l1/src/bsdk_decode.rs b/node-l1/src/bsdk_decode.rs
+index 424cb05d3506d47e7832df9986805093044595de..77c9a80b8ec3f9aa67e28dfc79a676b2a8e2a7f6 100644
+--- a/node-l1/src/bsdk_decode.rs
++++ b/node-l1/src/bsdk_decode.rs
+@@ -370,22 +370,21 @@ fn slots(payload: &SpecialPayload, ctx: BlsCtx, written: usize) -> Vec<Slot> {
+         SpecialPayload::ProviderUpdateSharedRegistrar(p) => operator_key!(p, ProUpSharedRegTx),
+         // The signature is followed by the credit pool balance (an i64) and, from version 4, the
+         // asset unlocks root (32 bytes).
+-        SpecialPayload::CoinbaseCommitment(CoinbaseCommitment {
+-            version,
+-            best_cl_signature: Some(sig),
+-            ..
+-        }) => global(
+-            sig,
+-            ctx,
+-            written,
+-            if *version >= 4 {
+-                8 + 32
+-            } else {
+-                8
+-            },
+-        )
+-        .into_iter()
+-        .collect(),
++        SpecialPayload::CoinbaseCommitment(cbtx) => match cbtx.best_cl_signature() {
++            Some(sig) => global(
++                sig,
++                ctx,
++                written,
++                if cbtx.version() >= 4 {
++                    8 + 32
++                } else {
++                    8
++                },
++            )
++            .into_iter()
++            .collect(),
++            None => Vec::new(),
++        },
+         // The signature ends the payload.
+         SpecialPayload::AssetUnlock(unlock) => {
+             global(unlock.quorum_sig(), ctx, written, 0).into_iter().collect()
+diff --git a/node-l1/src/dml_apply/checked.rs b/node-l1/src/dml_apply/checked.rs
+index 947de9a45b6d6355e863f82a5aacc27f33a03789..00322cc8a3351706cecf57956a13c526fdc91e9a 100644
+--- a/node-l1/src/dml_apply/checked.rs
++++ b/node-l1/src/dml_apply/checked.rs
+@@ -154,10 +154,10 @@ fn services(net_info: &NetInfo) -> Vec<Service> {
+             .iter()
+             .flat_map(|(_, entries)| entries)
+             .filter_map(|e| match e {
+-                NIEntry::Service(ServiceV2 {
+-                    addr: AddrV2::Ipv4(ip),
+-                    port,
+-                }) => Some((*ip, *port)),
++                NIEntry::Service(s) => match s.addr() {
++                    AddrV2::Ipv4(ip) => Some((*ip, s.port())),
++                    _ => None,
++                },
+                 _ => None,
+             })
+             .collect(),
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index d40f093f09e01c7224b4974d828aaa22168fe6a3..19630e7c601a99112cda63d0a5697f826c8b4b8b 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -2431,10 +2431,13 @@ const SHARE_LIST: &[Mutation] = &[
+             shares.truncate(1);
+         } else {
+             let first = shares.first()?.clone();
+-            let more = (shares.len()..9).map(|i| CollateralShare {
+-                key_id_owner: share_id(0xe0, i, 2).into(),
+-                script_refund: p2pkh(share_id(0xe0, i, 0)).into(),
+-                ..first.clone()
++            let more = (shares.len()..9).map(|i| {
++                CollateralShare::new(
++                    first.amount(),
++                    p2pkh(share_id(0xe0, i, 0)).into(),
++                    first.script_reward().clone(),
++                    share_id(0xe0, i, 2).into(),
++                )
+             });
+             let more: Vec<_> = more.collect();
+             shares.extend(more);

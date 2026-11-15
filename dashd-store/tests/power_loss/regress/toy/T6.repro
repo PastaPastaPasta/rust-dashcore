@@ -1,0 +1,11 @@
+# ToyChain planted bug T6 (ST3a §6.2), minimised in 267 replays.
+harness st3a/1
+sut toychain
+config block=900 undo=240 subbatches=0 invalid=- effects=- presumed=-:- prune=- sub=- bug=T6
+workload c60;f;a20;c5;f
+crash 255 power-loss
+decide 1:fs:i2:u34=1
+adversary realistic
+granularity sector
+expect R1
+minimality verified
