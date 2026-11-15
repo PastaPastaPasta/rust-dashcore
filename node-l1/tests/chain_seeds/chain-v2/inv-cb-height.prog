@@ -1,0 +1,4 @@
+# The block operator cb_height's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate cb_height
+extend main 1
