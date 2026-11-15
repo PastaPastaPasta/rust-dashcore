@@ -21,7 +21,7 @@ The wallet is not in this crate. The client drives any `key_wallet_manager::Wall
 - Send requests with `SendRequest::send` or `NetworkManager::enqueue`. The broker de-duplicates keyed requests and handles timeouts and retries. A key stays registered until the manager calls `release_request`, and enqueuing it again before that is a no-op. Release a key once its answer arrives or the data is no longer wanted.
 - `on_disconnect` drops only state tied to the lost peer. Progress that storage or batch bookkeeping can rebuild must survive, so a reconnect resumes instead of restarting.
 - Time-based work (expiry, retries the broker does not own) belongs in `tick`, which runs every 100 ms.
-- Use `tokio::sync` locks. `std::sync::Mutex` and `std::sync::RwLock` are denied by `clippy.toml`.
+- Use `tokio::sync` locks. `std::sync::Mutex` and `std::sync::RwLock` are denied by `clippy.toml`. A `parking_lot::Mutex` is allowed for short critical sections that never span an `.await`, as in `network/hub.rs`.
 - Changing the on-disk format needs a new migrator in `storage/migrator/` and a bump of `CURRENT_VERSION`. A migration that hits corrupt data wipes the storage and syncs again.
 - The store has no sentinel values: a missing item is `None` or an error, and an all-zero record is data. Only the `migrator/` readers of older segment files treat sentinel records (such as an all-zero filter header) as missing.
 

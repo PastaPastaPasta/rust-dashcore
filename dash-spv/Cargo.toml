@@ -55,6 +55,8 @@ tokio = { workspace = true, features = [
     "time",
 ] }
 tokio-util = { workspace = true }
+# The hub shell's sync mutex, never held across an await
+parking_lot = "0.12"
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = { workspace = true }
 futures = { workspace = true }

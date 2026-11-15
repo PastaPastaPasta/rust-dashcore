@@ -7,7 +7,8 @@ use std::num::NonZeroUsize;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
-use tokio::sync::{mpsc, Mutex, Notify};
+use parking_lot::Mutex;
+use tokio::sync::{mpsc, Notify};
 use tokio::time::Instant;
 
 use super::{InboundMessage, MessageType};
@@ -486,28 +487,23 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> SubscriptionHub<R, A, F, P> {
     }
 }
 
-struct AsyncState<R, A, F, P> {
+struct Shared<R, A, F, P> {
     core: SubscriptionHub<R, A, F, P>,
     ready: BTreeMap<SubId, mpsc::Sender<()>>,
     resumed: BTreeMap<ConnId, P>,
 }
 
-impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncState<R, A, F, P> {
-    fn maintain(&mut self) {
-        let dropped: Vec<_> =
-            self.ready.iter().filter_map(|(id, tx)| tx.is_closed().then_some(*id)).collect();
-        for id in dropped {
-            self.ready.remove(&id);
-            let resumed = self.core.remove(id);
-            self.resume(resumed);
-        }
-        self.wake();
-    }
-
-    fn resume(&mut self, peers: Vec<P>) {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> Shared<R, A, F, P> {
+    /// Records resumed connections and returns whether the driver has new space to act on.
+    fn resume(&mut self, peers: Vec<P>) -> bool {
+        let space_wake = self.core.take_space_wake();
+        let space = space_wake || !peers.is_empty();
         self.resumed.extend(peers.into_iter().map(|peer| (peer.key(), peer)));
+        space
     }
 
+    /// Sends a token to every subscription with queued items. Called under the lock, so a
+    /// receiver that found its queue empty under the same lock always finds the token.
     fn wake(&self) {
         for (id, tx) in &self.ready {
             if self.core.subscribers.get(id).is_some_and(|sub| !sub.queue.is_empty()) {
@@ -517,10 +513,15 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncState<R, A, F, P> {
     }
 }
 
+struct Inner<R, A, F, P> {
+    shared: Mutex<Shared<R, A, F, P>>,
+    space: Notify,
+}
+
 /// A thin async shell. Payloads remain in the bounded core; channels carry only wake tokens.
+/// The lock is never held across an await.
 pub struct AsyncHub<R, A, F, P> {
-    state: Arc<Mutex<AsyncState<R, A, F, P>>>,
-    space: Arc<Notify>,
+    inner: Arc<Inner<R, A, F, P>>,
 }
 
 impl<R: Clone, A: Clone, F, P: Clone + Conn> Default for AsyncHub<R, A, F, P> {
@@ -531,38 +532,35 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> Default for AsyncHub<R, A, F, P> {
 
 impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncHub<R, A, F, P> {
     pub fn new() -> Self {
-        Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
+        Self::from_core(SubscriptionHub::new())
     }
 
-    pub fn with_clock(
-        stall_report: Duration,
-        clock: Arc<dyn Fn() -> Instant + Send + Sync>,
-    ) -> Self {
+    pub fn from_core(core: SubscriptionHub<R, A, F, P>) -> Self {
         Self {
-            state: Arc::new(Mutex::new(AsyncState {
-                core: SubscriptionHub::with_clock(stall_report, clock),
-                ready: BTreeMap::new(),
-                resumed: BTreeMap::new(),
-            })),
-            space: Arc::new(Notify::new()),
+            inner: Arc::new(Inner {
+                shared: Mutex::new(Shared {
+                    core,
+                    ready: BTreeMap::new(),
+                    resumed: BTreeMap::new(),
+                }),
+                space: Notify::new(),
+            }),
         }
     }
 
-    pub async fn subscribe(&self, kinds: &[MessageType], cap: SubCap) -> Subscription<R, A, F, P> {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        let sub = state.core.subscribe(kinds, cap);
+    pub fn subscribe(&self, kinds: &[MessageType], cap: SubCap) -> Subscription<R, A, F, P> {
+        let mut shared = self.inner.shared.lock();
+        let sub = shared.core.subscribe(kinds, cap);
         let (tx, rx) = mpsc::channel(1);
-        state.ready.insert(sub, tx);
+        shared.ready.insert(sub, tx);
         Subscription {
             rx,
-            state: Arc::downgrade(&self.state),
-            space: Arc::clone(&self.space),
+            inner: Arc::downgrade(&self.inner),
             sub,
         }
     }
 
-    pub async fn offer(
+    pub fn offer(
         &self,
         peer: P,
         kind: MessageType,
@@ -570,69 +568,60 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncHub<R, A, F, P> {
         bytes: usize,
         request: Option<(R, A)>,
     ) -> Result<Offer, AlreadyParked<R, A, P>> {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        let result = state.core.offer(peer, kind, msg, bytes, request);
-        state.wake();
+        let mut shared = self.inner.shared.lock();
+        let result = shared.core.offer(peer, kind, msg, bytes, request);
+        shared.wake();
         result
     }
 
-    pub async fn acquire_or_want(&self, sub: SubId) -> bool {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        state.core.acquire_or_want(sub)
+    pub fn acquire_or_want(&self, sub: SubId) -> bool {
+        self.inner.shared.lock().core.acquire_or_want(sub)
     }
 
-    pub async fn release(&self, sub: SubId) {
-        let mut state = self.state.lock().await;
-        state.core.release(sub);
-        state.wake();
+    pub fn release(&self, sub: SubId) {
+        let mut shared = self.inner.shared.lock();
+        shared.core.release(sub);
+        shared.wake();
     }
 
-    pub async fn failed(&self, sub: SubId, failure: F) -> bool {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        let result = state.core.failed(sub, failure);
-        state.wake();
+    pub fn failed(&self, sub: SubId, failure: F) -> bool {
+        let mut shared = self.inner.shared.lock();
+        let result = shared.core.failed(sub, failure);
+        shared.wake();
         result
     }
 
     /// Whether the driver may poll another message under the global budget.
-    pub async fn may_poll(&self) -> bool {
-        self.state.lock().await.core.may_poll()
+    pub fn may_poll(&self) -> bool {
+        self.inner.shared.lock().core.may_poll()
     }
 
     /// Wakes the driver when a parked connection resumes, global use falls below the budget,
-    /// or a subscriber drops its receiver.
+    /// or a subscription is removed.
     pub fn space(&self) -> &Notify {
-        &self.space
+        &self.inner.space
     }
 
-    pub async fn resumed(&self) -> Vec<P> {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        state.wake();
-        mem::take(&mut state.resumed).into_values().collect()
+    pub fn resumed(&self) -> Vec<P> {
+        mem::take(&mut self.inner.shared.lock().resumed).into_values().collect()
     }
 
-    pub async fn stalled(&self, now: Instant) -> Vec<SubscriberStalled> {
-        let mut state = self.state.lock().await;
-        state.maintain();
-        state.core.stalled(now)
+    pub fn stalled(&self, now: Instant) -> Vec<SubscriberStalled> {
+        self.inner.shared.lock().core.stalled(now)
     }
 
-    pub async fn disconnect(&self, conn: ConnId) {
-        let mut state = self.state.lock().await;
-        state.core.disconnect(conn);
-        state.resumed.remove(&conn);
+    pub fn disconnect(&self, conn: ConnId) {
+        let mut shared = self.inner.shared.lock();
+        shared.core.disconnect(conn);
+        shared.resumed.remove(&conn);
     }
 }
 
 /// Receives bounded messages and releases their payload bytes before returning them.
-pub struct Subscription<R, A, F, P> {
+/// Dropping it removes the subscription.
+pub struct Subscription<R: Clone, A: Clone, F, P: Clone + Conn> {
     rx: mpsc::Receiver<()>,
-    state: Weak<Mutex<AsyncState<R, A, F, P>>>,
-    space: Arc<Notify>,
+    inner: Weak<Inner<R, A, F, P>>,
     sub: SubId,
 }
 
@@ -641,19 +630,19 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> Subscription<R, A, F, P> {
         self.sub
     }
 
+    /// Returns the next item, or `None` once the hub is gone.
     pub async fn recv(&mut self) -> Option<Inbound<R, A, F, P>> {
         loop {
             {
-                let state = self.state.upgrade()?;
-                let mut state = state.lock().await;
-                if let Some(inbound) = state.core.recv(self.sub) {
-                    let resumed = state.core.on_space(self.sub);
-                    let space_wake = state.core.take_space_wake();
-                    let space = space_wake || !resumed.is_empty();
-                    state.resume(resumed);
-                    state.wake();
+                let inner = self.inner.upgrade()?;
+                let mut shared = inner.shared.lock();
+                if let Some(inbound) = shared.core.recv(self.sub) {
+                    let resumed = shared.core.on_space(self.sub);
+                    let space = shared.resume(resumed);
+                    shared.wake();
+                    drop(shared);
                     if space {
-                        self.space.notify_one();
+                        inner.space.notify_one();
                     }
                     return Some(inbound);
                 }
@@ -663,10 +652,19 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> Subscription<R, A, F, P> {
     }
 }
 
-impl<R, A, F, P> Drop for Subscription<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> Drop for Subscription<R, A, F, P> {
     fn drop(&mut self) {
         self.rx.close();
-        self.space.notify_one();
+        let Some(inner) = self.inner.upgrade() else {
+            return;
+        };
+        let mut shared = inner.shared.lock();
+        shared.ready.remove(&self.sub);
+        let resumed = shared.core.remove(self.sub);
+        shared.resume(resumed);
+        shared.wake();
+        drop(shared);
+        inner.space.notify_one();
     }
 }
 
@@ -679,8 +677,8 @@ mod tests {
     use tokio::time::{advance, timeout, Instant};
 
     use dashcore::network::message::NetworkMessage;
-    use tokio::spawn;
     use tokio::task::yield_now;
+    use tokio::{pin, spawn};
 
     use super::{
         AsyncHub, Conn, ConnId, Inbound, Offer, SubCap, SubId, SubscriptionHub, HUB_BYTES,
@@ -1112,31 +1110,31 @@ mod tests {
     #[tokio::test]
     async fn async_recv_releases_space_and_drop_resumes_peers() {
         let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
-        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));
         let waiting = spawn(async move {
             let inbound = sub.recv().await;
             (sub, inbound)
         });
         yield_now().await;
-        hub.offer(1, MessageType::Inv, msg(0), 1, None).await.unwrap();
+        hub.offer(1, MessageType::Inv, msg(0), 1, None).unwrap();
         let (mut sub, inbound) = waiting.await.unwrap();
         assert!(matches!(inbound, Some(Inbound::Message { .. })));
         let id = sub.id();
-        assert!(hub.acquire_or_want(id).await);
-        hub.offer(1, MessageType::Inv, msg(1), 1, None).await.unwrap();
-        hub.offer(1, MessageType::Inv, msg(2), 1, None).await.unwrap();
-        assert!(hub.failed(id, "timeout").await);
+        assert!(hub.acquire_or_want(id));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
+        assert!(hub.failed(id, "timeout"));
         assert!(matches!(sub.recv().await, Some(Inbound::Message { .. })));
-        hub.space().notified().await;
-        assert_eq!(hub.resumed().await, vec![1]);
+        timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
+        assert_eq!(hub.resumed(), vec![1]);
         assert!(matches!(sub.recv().await, Some(Inbound::RequestFailed("timeout"))));
         assert!(matches!(sub.recv().await, Some(Inbound::Message { .. })));
-        hub.offer(1, MessageType::Inv, msg(3), 1, None).await.unwrap();
-        hub.offer(1, MessageType::Inv, msg(4), 1, None).await.unwrap();
+        hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(4), 1, None).unwrap();
         drop(sub);
-        hub.space().notified().await;
-        assert_eq!(hub.resumed().await, vec![1]);
-        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
+        timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
+        assert_eq!(hub.resumed(), vec![1]);
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));
         drop(hub);
         assert!(sub.recv().await.is_none());
     }
@@ -1198,15 +1196,15 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn async_shell_reports_stalls() {
         let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
-        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
-        hub.offer(1, MessageType::Inv, msg(1), 1, None).await.unwrap();
-        hub.offer(1, MessageType::Inv, msg(2), 1, None).await.unwrap();
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
         advance(Duration::from_secs(10)).await;
-        assert_eq!(hub.stalled(Instant::now()).await.len(), 1);
-        assert!(hub.stalled(Instant::now()).await.is_empty());
+        assert_eq!(hub.stalled(Instant::now()).len(), 1);
+        assert!(hub.stalled(Instant::now()).is_empty());
         sub.recv().await.unwrap();
         advance(Duration::from_secs(10)).await;
-        assert!(hub.stalled(Instant::now()).await.is_empty());
+        assert!(hub.stalled(Instant::now()).is_empty());
     }
 
     #[test]
@@ -1346,12 +1344,70 @@ mod tests {
     #[tokio::test]
     async fn async_shell_wakes_the_driver_when_budget_frees() {
         let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
-        let mut sub = hub.subscribe(&[MessageType::Inv], cap(4, 100)).await;
-        hub.offer(1, MessageType::Inv, msg(1), HUB_BYTES, None).await.unwrap();
-        assert!(!hub.may_poll().await);
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(4, 100));
+        hub.offer(1, MessageType::Inv, msg(1), HUB_BYTES, None).unwrap();
+        assert!(!hub.may_poll());
         sub.recv().await.unwrap();
-        assert!(hub.may_poll().await);
+        assert!(hub.may_poll());
         timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dropping_a_subscription_removes_it_and_wakes_the_driver() {
+        let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
+        let kept = hub.subscribe(&[MessageType::Inv], cap(4, 100));
+        let dropped = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
+        let id = dropped.id();
+        drop(dropped);
+        assert_eq!(hub.resumed(), vec![1]);
+        assert!(!hub.acquire_or_want(id));
+        timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
+        drop(kept);
+        timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
+        assert_eq!(hub.offer(2, MessageType::Inv, msg(3), 1, None).unwrap(), Offer::Delivered);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_lost_wake_between_concurrent_offer_and_recv() {
+        const N: u64 = 500;
+        let hub = Arc::new(AsyncHub::<u64, u64, &'static str, u64>::new());
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        let consumer = spawn(async move {
+            for expected in 0..N {
+                match sub.recv().await {
+                    Some(Inbound::Message {
+                        msg,
+                        ..
+                    }) => assert!(matches!(**msg, NetworkMessage::Ping(n) if n == expected)),
+                    _ => panic!("wrong delivery"),
+                }
+            }
+        });
+        let driver = Arc::clone(&hub);
+        let producer = spawn(async move {
+            for n in 0..N {
+                if driver.offer(1, MessageType::Inv, msg(n), 1, None).unwrap() == Offer::Delivered {
+                    continue;
+                }
+                loop {
+                    let space = driver.space().notified();
+                    pin!(space);
+                    space.as_mut().enable();
+                    if driver.resumed() == vec![1] {
+                        break;
+                    }
+                    space.await;
+                }
+            }
+        });
+        timeout(Duration::from_secs(120), async {
+            producer.await.unwrap();
+            consumer.await.unwrap();
+        })
+        .await
+        .unwrap();
     }
 
     #[test]

@@ -61,7 +61,7 @@ This library is not consensus code. It cannot replicate Dash Core's consensus be
 - Give new items the most restrictive visibility that compiles: private, then `pub(super)` or `pub(crate)`, `pub` only when the item is public API.
 - Write numeric literals without type suffixes (`[2; 20]`, not `[2u8; 20]`) unless the compiler needs one.
 - No `unwrap`, `expect`, `panic!` or `unreachable!` in library code. Return an error, using the crate's `thiserror` error types. Tests may unwrap.
-- `dash-spv` denies `std::sync::Mutex` and `std::sync::RwLock` (`dash-spv/clippy.toml`). Use `tokio::sync::Mutex` and `tokio::sync::RwLock`.
+- `dash-spv` denies `std::sync::Mutex` and `std::sync::RwLock` (`dash-spv/clippy.toml`). Use `tokio::sync::Mutex` and `tokio::sync::RwLock`, or a `parking_lot::Mutex` for a short critical section that never spans an `.await`.
 - Take network parameters from `dash-network` instead of hardcoding them. Never log private keys or seeds.
 - Reuse before you add. Search for an existing function, type or test helper first, and extend it with a parameter rather than writing a near copy.
 - Fix the root cause, not the symptom. Keep the diff to what the change needs, and put a refactor it depends on in its own commit.
