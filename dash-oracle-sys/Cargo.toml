@@ -1,0 +1,168 @@
+[package]
+name = "dash-oracle-sys"
+description = "In-process Dash Core consensus oracle (libdash_oracle) for differential tests and fuzzing. Test-only; never a runtime dependency."
+authors.workspace = true
+edition.workspace = true
+# The linked archive is Dash Core code (MIT); see DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+links = "dash_oracle"
+
+[features]
+# Link libdash_oracle for every pin in pins.txt, built by contrib/node/build-oracle.sh
+# (or by build.rs itself with DASH_ORACLE_AUTOBUILD=1).
+oracle = ["dep:dash-statedigest", "dep:serde", "dep:serde_json"]
+
+[dependencies]
+# chain sessions' reports (src/chain.rs)
+dash-statedigest = { path = "../dash-statedigest", optional = true }
+serde = { workspace = true, features = ["derive", "std"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+[build-dependencies]
+# sha256 of the cached archives (build/archive.rs)
+bitcoin_hashes = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+bitcoin_hashes = { workspace = true, features = ["std"] }
+dash-core-vectors = { path = "../test-vectors" }
+# gov_regtest.rs reads node 0's governance.dat with the IM1b reader.
+dash-coreimport = { path = "../dash-coreimport" }
+dash-network = { path = "../dash-network" }
+dash-pkc = { workspace = true, features = ["bls", "std"] }
+dashcore = { path = "../dash" }
+flate2 = "1"
+secp256k1 = { workspace = true, features = ["recovery"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
+
+[[test]]
+name = "smoke"
+required-features = ["oracle"]
+
+[[test]]
+name = "mnsync"
+required-features = ["oracle"]
+
+[[test]]
+name = "coinjoin"
+required-features = ["oracle"]
+
+[[test]]
+name = "contexts"
+required-features = ["oracle"]
+
+[[test]]
+name = "script"
+required-features = ["oracle"]
+
+[[test]]
+name = "contextual"
+required-features = ["oracle"]
+
+[[test]]
+name = "bls_relic"
+required-features = ["oracle"]
+
+[[test]]
+name = "p2p"
+required-features = ["oracle"]
+
+[[test]]
+name = "alloc_fault"
+required-features = ["oracle"]
+
+[[test]]
+name = "mnlist"
+required-features = ["oracle"]
+
+[[test]]
+name = "dml_crafted"
+required-features = ["oracle"]
+
+[[test]]
+name = "sb4_kgw_max_walk"
+required-features = ["oracle"]
+
+[[test]]
+name = "addrman"
+required-features = ["oracle"]
+
+[[test]]
+name = "peer_session"
+required-features = ["oracle"]
+
+[[test]]
+name = "process_state"
+required-features = ["oracle"]
+
+[[test]]
+name = "llmq"
+required-features = ["oracle"]
+
+[[test]]
+name = "coins_ops"
+required-features = ["oracle"]
+
+[[test]]
+name = "netinfo"
+required-features = ["oracle"]
+
+[[test]]
+name = "netinfo_concurrent"
+required-features = ["oracle"]
+
+[[test]]
+name = "netinfo_domain_entry"
+required-features = ["oracle"]
+
+[[test]]
+name = "specialtx_block"
+required-features = ["oracle"]
+
+[[test]]
+name = "payments"
+required-features = ["oracle"]
+
+[[test]]
+name = "chain_session"
+required-features = ["oracle"]
+
+[[test]]
+name = "mnhf"
+required-features = ["oracle"]
+
+[[test]]
+name = "mnhf_regtest"
+required-features = ["oracle"]
+
+[[test]]
+name = "gov"
+required-features = ["oracle"]
+
+[[test]]
+name = "gov_regtest"
+required-features = ["oracle"]
+
+[[example]]
+name = "chainparams_cases"
+required-features = ["oracle"]
+
+[[example]]
+name = "mn_payment_cases"
+required-features = ["oracle"]
+
+[[example]]
+name = "dml_listdiff"
+required-features = ["oracle"]
+
+[[example]]
+name = "canonical_mnlist_check"
+required-features = ["oracle"]
+
+[[example]]
+name = "payments_check"
+required-features = ["oracle"]
