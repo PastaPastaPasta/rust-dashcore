@@ -1,0 +1,6 @@
+# A heavier fork three below the tip: a reorg of depth 3, then back with a longer main.
+extend main 3 tx=spends
+fork 3 5 tx=spends
+extend b1 2
+flush always
+restart clean

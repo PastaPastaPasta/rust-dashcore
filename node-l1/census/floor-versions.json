@@ -1,0 +1,63 @@
+{
+ "floors": {
+  "diff_chain_av": {
+   "1": "5e381a94ddec401a262ae5d5c7f0d2f43f1f3432c392f7362b4baff51c5b9506",
+   "2": "d62336b999751af71a33f52ea11212eaec936241974490d57fd947dd8cfa323e",
+   "3": "dff58882b0b620500926676f09b2215da058eb2373a7707a58d96115f17723b2"
+  },
+  "diff_chain_par": {
+   "1": "a8d0fa8f70bafcb1188c9ed5bd3ad574cd3c38a31bd1d5f87ddd1a0e3702dbe7",
+   "2": "55c86b3048118f7d88ff02c6c514304b61342859999dc525352149ef7a6a916b"
+  },
+  "diff_chain_prodflush": {
+   "1": "0e04a6f1df30f78e847b9427c26a2f42d772101b3e98bbc25335015afdfc197b",
+   "2": "6dc725a2c0f969fb40b93052b1c13e506fa59d08a52e37c692f6c7258b035f6a"
+  },
+  "diff_chain_s0": {
+   "1": "d3fd52638c7a383a87a612e2bcf9b037475c7dd5373ce6321da17c00352649fa",
+   "2": "c72ee9e5e8ad2887d7a51cfca7d34e257a0cff02c473ba27dbacb5a4ce9b6832"
+  }
+ },
+ "bank": [
+  "x_block_size",
+  "x_sigops_check",
+  "x_tx_size_100k",
+  "x_bip30",
+  "x_sigops_connect",
+  "x_vin_empty",
+  "x_vout_empty",
+  "x_tx_size_1m",
+  "x_payload_size",
+  "x_txouttotal",
+  "x_cb_length",
+  "x_prevout_null",
+  "x_cb_type5",
+  "se_verify",
+  "se_equalverify",
+  "se_checkmultisigverify",
+  "se_checksigverify",
+  "se_checkdatasigverify",
+  "se_numequalverify",
+  "se_script_size",
+  "se_push_size",
+  "se_op_count",
+  "se_stack_size",
+  "se_sig_count",
+  "se_pubkey_count",
+  "se_bad_opcode",
+  "se_disabled_opcode",
+  "se_invalid_stack_operation",
+  "se_invalid_altstack_operation",
+  "se_op_return",
+  "se_unbalanced_conditional",
+  "se_split_range",
+  "se_invalid_operand_size",
+  "se_invalid_number_range",
+  "se_impossible_encoding",
+  "se_div_by_zero",
+  "se_mod_by_zero",
+  "se_negative_locktime",
+  "se_sig_pushonly",
+  "se_unknown_error"
+ ]
+}
