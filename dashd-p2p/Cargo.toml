@@ -1,0 +1,50 @@
+[package]
+name = "dashd-p2p"
+description = "The Rust Dash node's message processor (P2a-core over SB6's dash-p2p): Core's PeerManager actor loop, ProcessMessages/SendMessages in Core's order, the 74-command registry with NetHandler dispatch, misbehaviour, headers sync and outbound eviction."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dashd_p2p"
+path = "src/lib.rs"
+
+[features]
+# The deterministic simulation harness (P2a §6.7): a virtual clock, in-memory sockets and scripted
+# peers, for this crate's tests and other crates' dev-tests; inbound peers go through SB6's
+# `NetCore::accept` (P2b D8).
+sim = ["dep:tokio", "dash-p2p/inbound", "dash-p2p/test-utils"]
+
+[dependencies]
+# `RelayList`'s inline list of at most 8 hashes (P3 D44).
+arrayvec = "0.7"
+dash-clock = { path = "../dash-clock" }
+# BlockId, Header, BlsCtx.
+dash-consensus = { path = "../dash-consensus" }
+# The `clsig` branch's hash: `locks::clsig_hash`, Core's `SerializeHash` of the re-serialized
+# ChainLock (P5a D6).
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true, features = ["std"] }
+# The network core: connection table, queues, push accounting, handshake, gates, decode policy.
+dash-p2p = { path = "../dash-p2p" }
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-p2p-transport = { path = "../dash-p2p-transport" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+parking_lot = "0.12"
+# Only for `sim`: the runtime the simulated network core runs on.
+tokio = { version = "1.53", default-features = false, features = ["rt", "rt-multi-thread", "time"], optional = true }
+tracing = "0.1"
+
+[dev-dependencies]
+# `sim_m2`'s qfcommit request: the canonical commitment's `SerializeHash`.
+dash-sha256 = { path = "../dash-sha256" }
+dashd-p2p = { path = ".", features = ["sim"] }
+tokio = { version = "1.53", default-features = false, features = ["rt", "rt-multi-thread", "macros", "time"] }
+proptest = "1.11"

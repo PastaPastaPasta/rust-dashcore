@@ -1,0 +1,30 @@
+[package]
+name = "dash-coinjoin"
+description = "Dash Core's CoinJoin rules for the Rust Dash node: denominations, collateral and entry validation, queue and mixing-transaction (DSTX) relay rules, the server and client session state machines, and mixing rounds. Shared by the node and the wallets. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_coinjoin"
+path = "src/lib.rs"
+
+[dependencies]
+# Script verification of the signed inputs (`dss`), transaction hashing and SHA-256.
+dash-consensus = { path = "../dash-consensus" }
+dash-num = { workspace = true, features = ["std"] }
+# BS9b's CoinJoin wire types (`dsa`, `dsi`, `dsq`, `dstx`, ...) and the protocol versions.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# `bls`: Core's `VerifyInsecure` of queue and DSTX signatures (`dash_pkc::bls::core`), serial.
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+serde_json = "1.0"

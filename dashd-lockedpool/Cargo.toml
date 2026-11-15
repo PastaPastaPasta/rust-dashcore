@@ -1,0 +1,20 @@
+[package]
+name = "dashd-lockedpool"
+description = "The Rust Dash node's locked memory: Dash Core's LockedPool, the secure chunks key data lives in, and glibc's malloc_info for getmemoryinfo"
+publish = false
+# Ports Dash Core code (MIT): support/lockedpool.{h,cpp}, support/allocators/secure.h and
+# rpc/node.cpp's RPCMallocInfo.
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# `memory_cleanse`.
+zeroize = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+# mmap, mlock, madvise, getrlimit; open_memstream and malloc_info on glibc.
+libc = "0.2"
