@@ -1,0 +1,23 @@
+# Copyright (c) 2026 The Dash Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+# The disconnect-pool vector generator of rust-dashcore's CH3b (src/test/ch3b). Built only on
+# request:
+#   make -C src test/ch3b/gen_dbt_vectors
+EXTRA_PROGRAMS = test/ch3b/gen_dbt_vectors
+
+test_ch3b_gen_dbt_vectors_SOURCES = test/ch3b/gen_dbt_vectors.cpp
+test_ch3b_gen_dbt_vectors_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+test_ch3b_gen_dbt_vectors_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_ch3b_gen_dbt_vectors_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+test_ch3b_gen_dbt_vectors_LDADD = \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBDASHBLS) \
+  $(LIBSECP256K1) \
+  $(BACKTRACE_LIBS) \
+  $(GMP_LIBS)
