@@ -1,0 +1,37 @@
+# cargo-deny bans for the shared runtime crates (S: SB0 §2.3 L5, §7):
+# crates that start threads, pools or runtimes of their own. A shared crate
+# runs on the host's threads; it takes a rayon `&ThreadPool` and dash-p2p a
+# tokio `Handle` from the host (rayon is allowed; tokio is checked by
+# check-shared.sh). contrib/node/check-shared.sh runs this per S crate, with
+# that crate as the only root, all features and without dev-dependencies.
+
+[bans]
+multiple-versions = "allow"
+deny = [
+    # blst depends on threadpool on every hosted target. pure-clippy.toml's
+    # blst and dash-pkc entries, which check-shared.sh applies to S crates,
+    # ban the entry points that use it, so it is allowed through blst alone,
+    # and blst through dash-pkc alone (DEC-71/79).
+    { crate = "threadpool", wrappers = ["blst"], reason = "shared crates build no pool; blst's pool is banned at its call sites (SB0 L5, DEC-71)" },
+    { crate = "blst", wrappers = ["dash-pkc"], reason = "shared crates reach blst through dash-pkc, whose pooled entry points are banned (DEC-71/79)" },
+    { crate = "scoped_threadpool", reason = "shared crates build no pool; they take the host's (SB0 L5)" },
+    { crate = "scoped-pool", reason = "shared crates build no pool; they take the host's (SB0 L5)" },
+    { crate = "async-std", reason = "shared crates build no runtime (SB0 L5)" },
+    { crate = "smol", reason = "shared crates build no runtime (SB0 L5)" },
+    { crate = "async-executor", reason = "shared crates build no runtime (SB0 L5)" },
+    { crate = "async-global-executor", reason = "shared crates build no runtime (SB0 L5)" },
+    { crate = "blocking", reason = "shared crates start no blocking pool; the host's BlockingIo does that work (SB0 L5)" },
+    { crate = "tikv-jemallocator", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+    { crate = "mimalloc", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+    # The C allocators themselves: with their override features they replace
+    # malloc with no #[global_allocator], which the canary cannot see (DEC-181).
+    { crate = "jemallocator", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+    { crate = "jemalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+    { crate = "tikv-jemalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+    { crate = "libmimalloc-sys", reason = "only rdashd's main.rs sets an allocator (SB0 L5)" },
+]
+
+# futures' executor is fine; its thread pool is not.
+[[bans.features]]
+crate = "futures-executor"
+deny = ["thread-pool"]

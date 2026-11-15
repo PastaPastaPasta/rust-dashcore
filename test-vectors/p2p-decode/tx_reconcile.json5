@@ -1,0 +1,50 @@
+//
+// Transaction reconciliation vectors. Generated with the reference
+// implementation (dashpay/dash v24.0.0-rc.3, 0364ed626e).
+//
+// Each section comes with the program used to generate the vectors.
+//
+// To run a program, paste it at the end of the `net_tests` suite in
+// `src/test/net_tests.cpp` at the specified revision, build it with
+// `make -C src test/test_dash` and run
+// `./src/test/test_dash --run_test=net_tests/<name>`. The output should match
+// the section.
+//
+
+{
+/*
+BOOST_AUTO_TEST_CASE(sendtxrcncl_payloads)
+{
+    for (const auto& [version, salt] : std::vector<std::pair<uint32_t, uint64_t>>{
+             {1, 0}, {1, 0x0123456789abcdef}, {std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint64_t>::max()}}) {
+        const auto msg{CNetMsgMaker{PROTOCOL_VERSION}.Make(NetMsgType::SENDTXRCNCL, version, salt)};
+        std::printf("    \"v%u_%016llx\": {\n      \"raw\": \"%s\",\n      \"details\": {\n"
+                    "        \"version\": %u,\n        \"salt\": \"%llu\"\n      }\n    },\n",
+                    version, (unsigned long long)salt, HexStr(msg.data).c_str(), version, (unsigned long long)salt);
+    }
+}
+*/
+  "sendtxrcncl": {
+    "v1_0000000000000000": {
+      "raw": "010000000000000000000000",
+      "details": {
+        "version": 1,
+        "salt": "0"
+      }
+    },
+    "v1_0123456789abcdef": {
+      "raw": "01000000efcdab8967452301",
+      "details": {
+        "version": 1,
+        "salt": "81985529216486895"
+      }
+    },
+    "v4294967295_ffffffffffffffff": {
+      "raw": "ffffffffffffffffffffffff",
+      "details": {
+        "version": 4294967295,
+        "salt": "18446744073709551615"
+      }
+    },
+  },
+}
