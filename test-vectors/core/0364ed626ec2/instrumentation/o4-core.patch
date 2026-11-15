@@ -1,0 +1,1589 @@
+From 8378e042d066a2f1619b271b96c63e0ee058f69c Mon Sep 17 00:00:00 2001
+From: pasta <pasta@dashboost.org>
+Date: Thu, 8 Oct 2026 06:59:05 +0000
+Subject: [PATCH 1/3] test: record the vectors embedded in the C++ unit tests
+ as JSON
+
+Add test/util/o4_dump.h and call it from the tests that hold hand-embedded vectors
+(pow, subsidy, SML entries, ISDLOCK, DIP14, quorum proof, dynamic thresholds, block reward
+reallocation, DIP0020 opcodes, CHECKDATASIG). With O4_VECTOR_OUT set to a directory, each
+test also writes what Core computed next to the check it already makes, as <name>.json.
+Without it the recording code does not run, and no existing assertion is changed.
+
+With recording on, checkdatasig_tests additionally fails if two flag sets that are equal
+under the mask it records produce different outcomes, which is what lets 4096 random flag
+sets collapse into a handful of records.
+
+Node program task O4 (rust-dashcore test-vectors/). Local branch only.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/test/block_reward_reallocation_tests.cpp  |  32 +++
+ src/test/checkdatasig_tests.cpp               |  33 +++
+ src/test/dip0020opcodes_tests.cpp             |  17 ++
+ src/test/dip14_tests.cpp                      |   8 +
+ .../dynamic_activation_thresholds_tests.cpp   |  13 ++
+ src/test/evo_islock_tests.cpp                 |  18 ++
+ src/test/evo_simplifiedmns_tests.cpp          |  21 ++
+ src/test/pow_tests.cpp                        |  20 ++
+ src/test/quorum_proofs_tests.cpp              |  11 +
+ src/test/subsidy_tests.cpp                    |  13 ++
+ src/test/util/o4_dump.h                       | 191 ++++++++++++++++++
+ 11 files changed, 377 insertions(+)
+ create mode 100644 src/test/util/o4_dump.h
+
+diff --git a/src/test/block_reward_reallocation_tests.cpp b/src/test/block_reward_reallocation_tests.cpp
+index daface9782..b2911183d2 100644
+--- a/src/test/block_reward_reallocation_tests.cpp
++++ b/src/test/block_reward_reallocation_tests.cpp
+@@ -3,6 +3,7 @@
+ // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
+ #include <test/util/masternode.h>
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <bls/bls.h>
+@@ -20,6 +21,31 @@
+ 
+ using node::BlockAssembler;
+ 
++// O4: what Core's block assembler and reward functions produce at a checkpoint of this test. The
++// values are recomputed here from Core's own functions rather than read from the test's locals,
++// some of which are adjusted after the template is built. `masternode_payment` is the gross amount
++// GetMasternodePayment returns; in the EvoReward era the template splits it into two outputs.
++#define O4_BRR(label)                                                                                         \
++    do {                                                                                                      \
++        if (o4::Dump::Get().Enabled()) {                                                                      \
++            const bool o4_v20 = era != MnRewardEra::Classic;                                                  \
++            const CAmount o4_subsidy = GetBlockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, o4_v20); \
++            UniValue o4_payments(UniValue::VARR);                                                             \
++            for (const auto& o4_out : pblocktemplate->voutMasternodePayments) o4_payments.push_back(o4::Int(o4_out.nValue)); \
++            O4_RECORD("block_reward_reallocation_tests",                                                      \
++                      o4::Obj({{"label", std::string(label)},                                                 \
++                               {"height", tip->nHeight},                                                      \
++                               {"prev_bits", o4::Int(tip->nBits)},                                            \
++                               {"era", static_cast<int>(era)},                                                \
++                               {"v20_active", o4_v20},                                                        \
++                               {"block_subsidy", o4::Int(o4_subsidy)},                                        \
++                               {"superblock_subsidy", o4::Int(GetSuperblockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, o4_v20))}, \
++                               {"masternode_payment", o4::Int(GetMasternodePayment(tip->nHeight, o4_subsidy, consensus_params, era))}, \
++                               {"template_coinbase_value_out", o4::Int(pblocktemplate->block.vtx[0]->GetValueOut())}, \
++                               {"template_masternode_payments", o4_payments}}));                              \
++        }                                                                                                     \
++    } while (0)
++
+ struct TestChainBRRBeforeActivationSetup : public TestChainSetup
+ {
+     // Force fast DIP3 activation
+@@ -116,6 +142,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+         const CAmount block_subsidy = GetBlockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, isV20Active);
+         const CAmount masternode_payment = GetMasternodePayment(tip->nHeight, block_subsidy, consensus_params, era);
+         const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++        O4_BRR("after_activation_block");
+         BOOST_CHECK_EQUAL(pblocktemplate->voutMasternodePayments[0].nValue, masternode_payment);
+     }
+ 
+@@ -131,6 +158,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+         const CAmount block_subsidy = GetBlockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, isV20Active);
+         const CAmount masternode_payment = GetMasternodePayment(tip->nHeight, block_subsidy, consensus_params, era);
+         const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++        O4_BRR("first_superblock_after_activation");
+         BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->GetValueOut(), 28847249686);
+         BOOST_CHECK_EQUAL(pblocktemplate->voutMasternodePayments[0].nValue, masternode_payment);
+         BOOST_CHECK_EQUAL(pblocktemplate->voutMasternodePayments[0].nValue, 14423624841); // 0.4999999999
+@@ -149,6 +177,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+             const CAmount block_subsidy = GetBlockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, isV20Active);
+             const CAmount masternode_payment = GetMasternodePayment(tip->nHeight, block_subsidy, consensus_params, era);
+             const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++            O4_BRR("reallocation_step_" + std::to_string(i) + "_" + std::to_string(j));
+             BOOST_CHECK_EQUAL(pblocktemplate->voutMasternodePayments[0].nValue, masternode_payment);
+         }
+     }
+@@ -168,6 +197,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+ 
+         const CAmount masternode_payment = GetMasternodePayment(tip->nHeight, block_subsidy, consensus_params, era);
+         const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++        O4_BRR("post_reallocation");
+         BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->GetValueOut(), expected_block_reward);
+         BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->GetValueOut(), 141734128);
+         BOOST_CHECK_EQUAL(pblocktemplate->voutMasternodePayments[0].nValue, masternode_payment);
+@@ -189,6 +219,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+         const CAmount block_subsidy = GetBlockSubsidyInner(tip->nBits, tip->nHeight, consensus_params, isV20Active);
+         CAmount masternode_payment = GetMasternodePayment(tip->nHeight, block_subsidy, consensus_params, era);
+         const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++        O4_BRR("post_reallocation_superblock_" + std::to_string(i));
+ 
+         if (isMNRewardReallocated) {
+             const CAmount platform_payment = PlatformShare(masternode_payment);
+@@ -212,6 +243,7 @@ BOOST_FIXTURE_TEST_CASE(block_reward_reallocation, TestChainBRRBeforeActivationS
+         const CAmount platform_payment = PlatformShare(masternode_payment);
+         masternode_payment -= platform_payment;
+         const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
++        O4_BRR("mn_rr_activated");
+ 
+         CAmount block_subsidy_potential = block_subsidy + block_subsidy_sb;
+         BOOST_CHECK_EQUAL(tip->nHeight, 2358);
+diff --git a/src/test/checkdatasig_tests.cpp b/src/test/checkdatasig_tests.cpp
+index 70e4544fc4..b2f745e7fd 100644
+--- a/src/test/checkdatasig_tests.cpp
++++ b/src/test/checkdatasig_tests.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include <policy/policy.h>
+ #include <script/interpreter.h>
++#include <test/util/o4_dump.h>
+ 
+ #include <test/lcg.h>
+ #include <test/util/setup_common.h>
+@@ -36,6 +37,36 @@ struct KeyData {
+     }
+ };
+ 
++//! O4: the flags that decide the outcome of CHECKDATASIG(VERIFY). The test draws 4096 random flag
++//! sets; recording each would repeat the same 16 combinations, so a result is recorded once per
++//! (script, stack, flags & O4_CDS_FLAGS), and an outcome that differed for flags equal under the
++//! mask would fail the test, which proves the mask loses nothing the test exercises.
++static constexpr uint32_t O4_CDS_FLAGS = SCRIPT_VERIFY_STRICTENC | SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S |
++                                         SCRIPT_VERIFY_NULLFAIL;
++
++static void O4Record(uint32_t flags, const stacktype& original_stack, const CScript& script, bool r,
++                     ScriptError err, const stacktype& stack)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    static std::map<std::string, std::string> outcomes;
++    const std::string key = o4::Obj({{"script", o4::Hex(std::vector<unsigned char>(script.begin(), script.end()))},
++                                     {"stack", o4::HexStack(original_stack)},
++                                     {"flags", o4::Int(flags & O4_CDS_FLAGS)}})
++                                .write();
++    const UniValue outcome = o4::Obj({{"ok", r}, {"error", o4::ScriptErrorName(err)}, {"result_stack", o4::HexStack(stack)}});
++    auto [it, inserted] = outcomes.emplace(key, outcome.write());
++    BOOST_CHECK_MESSAGE(it->second == outcome.write(), "O4: outcome depends on flags outside the mask: " + key);
++    if (inserted) {
++        UniValue rec = o4::Obj({{"script", o4::Hex(std::vector<unsigned char>(script.begin(), script.end()))},
++                                {"stack", o4::HexStack(original_stack)},
++                                {"flags", o4::Int(flags & O4_CDS_FLAGS)},
++                                {"ok", r},
++                                {"error", o4::ScriptErrorName(err)},
++                                {"result_stack", o4::HexStack(stack)}});
++        o4::Dump::Get().Add("checkdatasig_tests", rec);
++    }
++}
++
+ static void CheckError(uint32_t flags, const stacktype& original_stack,
+                        const CScript& script, ScriptError expected)
+ {
+@@ -43,6 +74,7 @@ static void CheckError(uint32_t flags, const stacktype& original_stack,
+     ScriptError err = ScriptError::SCRIPT_ERR_OK;
+     stacktype stack{original_stack};
+     bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
++    O4Record(flags, original_stack, script, r, err, stack);
+     BOOST_CHECK(!r);
+     BOOST_CHECK(err == expected);
+ }
+@@ -54,6 +86,7 @@ static void CheckPass(uint32_t flags, const stacktype& original_stack,
+     ScriptError err = ScriptError::SCRIPT_ERR_OK;
+     stacktype stack{original_stack};
+     bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
++    O4Record(flags, original_stack, script, r, err, stack);
+     BOOST_CHECK(r);
+     BOOST_CHECK(err == ScriptError::SCRIPT_ERR_OK);
+     BOOST_CHECK(stack == expected);
+diff --git a/src/test/dip0020opcodes_tests.cpp b/src/test/dip0020opcodes_tests.cpp
+index 22ed33cbce..266c530dbf 100644
+--- a/src/test/dip0020opcodes_tests.cpp
++++ b/src/test/dip0020opcodes_tests.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include <policy/policy.h>
+ #include <script/interpreter.h>
++#include <test/util/o4_dump.h>
+ 
+ #include <boost/test/unit_test.hpp>
+ 
+@@ -29,6 +30,14 @@ static void CheckTestResultForAllFlags(const stacktype& original_stack,
+         ScriptError err = ScriptError::SCRIPT_ERR_OK;
+         stacktype stack{original_stack};
+         bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
++        if (o4::Dump::Get().Enabled() && o4::KeepDip0020(script, original_stack, stack, flags, err)) {
++            O4_RECORD("dip0020opcodes_tests", o4::Obj({{"script", o4::Hex(std::vector<unsigned char>(script.begin(), script.end()))},
++                                                       {"stack", o4::HexStack(original_stack)},
++                                                       {"flags", o4::Int(flags)},
++                                                       {"ok", r},
++                                                       {"error", o4::ScriptErrorName(err)},
++                                                       {"result_stack", o4::HexStack(stack)}}));
++        }
+         BOOST_CHECK(r);
+         BOOST_CHECK(stack == expected);
+     }
+@@ -41,6 +50,14 @@ static void CheckError(uint32_t flags, const stacktype& original_stack,
+     ScriptError err = ScriptError::SCRIPT_ERR_OK;
+     stacktype stack{original_stack};
+     bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
++    if (o4::Dump::Get().Enabled() && o4::KeepDip0020(script, original_stack, stack, flags, err)) {
++        O4_RECORD("dip0020opcodes_tests", o4::Obj({{"script", o4::Hex(std::vector<unsigned char>(script.begin(), script.end()))},
++                                                   {"stack", o4::HexStack(original_stack)},
++                                                   {"flags", o4::Int(flags)},
++                                                   {"ok", r},
++                                                   {"error", o4::ScriptErrorName(err)},
++                                                   {"result_stack", o4::HexStack(stack)}}));
++    }
+     BOOST_CHECK(!r);
+     BOOST_CHECK(err == expected_error);
+ }
+diff --git a/src/test/dip14_tests.cpp b/src/test/dip14_tests.cpp
+index 545c0fc1fe..2eb217e4a4 100644
+--- a/src/test/dip14_tests.cpp
++++ b/src/test/dip14_tests.cpp
+@@ -6,6 +6,7 @@
+ #include <key.h>
+ #include <pubkey.h>
+ #include <span.h>
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ #include <util/strencodings.h>
+ 
+@@ -75,6 +76,13 @@ std::string DerivedKeyHex(const std::vector<PathElement>& path)
+     CKey key;
+     ChainCode cc;
+     DerivePath(path, key, cc);
++    // O4: path as [hex of the 32-byte big-endian index, hardened] steps, and what Core derives.
++    UniValue steps(UniValue::VARR);
++    for (const PathElement& e : path) steps.push_back(o4::Arr({UniValue(HexStr(e.index)), UniValue(e.hardened)}));
++    O4_RECORD("dip14_tests", o4::Obj({{"seed", "b16d3782e714da7c55a397d5f19104cfed7ffa8036ac514509bbb50807f8ac598eeb26f0797bd8cc221a6cbff2168d90a5e9ee025a5bd977977b9eccd97894bb"},
++                                      {"path", steps},
++                                      {"key", HexStr(Span{key.begin(), key.size()})},
++                                      {"chain_code", HexStr(cc)}}));
+     return HexStr(Span{key.begin(), key.size()});
+ }
+ } // namespace
+diff --git a/src/test/dynamic_activation_thresholds_tests.cpp b/src/test/dynamic_activation_thresholds_tests.cpp
+index d71a27c782..1264e75ab9 100644
+--- a/src/test/dynamic_activation_thresholds_tests.cpp
++++ b/src/test/dynamic_activation_thresholds_tests.cpp
+@@ -2,6 +2,7 @@
+ // Distributed under the MIT software license, see the accompanying
+ // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <chainparams.h>
+@@ -86,6 +87,13 @@ struct TestChainDATSetup : public TestChainSetup
+                                   .Statistics(m_node.chainman->ActiveChain().Tip(), consensus_params, deployment_id)
+                                   .threshold,
+                               threshold(0));
++            if (o4::Dump::Get().Enabled())
++            o4::Dump::Get().AddOnce("dynamic_activation_thresholds_tests", "0",
++                                    o4::Obj({{"kind", "threshold"}, {"attempt", 0}, {"window", window}, {"th_start", th_start}, {"th_end", th_end},
++                                             {"vbparams", "testdummy:0:999999999999:0:100:80:60:5:0"},
++                                             {"core_threshold", m_node.chainman->m_versionbitscache
++                                                                    .Statistics(m_node.chainman->ActiveChain().Tip(), consensus_params, deployment_id)
++                                                                    .threshold}}));
+             // Next block should be signaling by default
+             const auto pblocktemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, m_node.mempool.get()).CreateNewBlock(coinbasePubKey);
+             const uint32_t bitmask = static_cast<uint32_t>(1) << consensus_params.vDeployments[deployment_id].bit;
+@@ -107,6 +115,11 @@ struct TestChainDATSetup : public TestChainSetup
+                 const auto vbts = m_node.chainman->m_versionbitscache.Statistics(m_node.chainman->ActiveChain().Tip(),
+                                                                                  consensus_params, deployment_id);
+                 BOOST_CHECK_EQUAL(vbts.threshold, threshold(i + 1));
++                if (o4::Dump::Get().Enabled())
++                o4::Dump::Get().AddOnce("dynamic_activation_thresholds_tests", std::to_string(i + 1),
++                                        o4::Obj({{"kind", "threshold"}, {"attempt", i + 1}, {"window", window}, {"th_start", th_start}, {"th_end", th_end},
++                                                 {"vbparams", "testdummy:0:999999999999:0:100:80:60:5:0"},
++                                                 {"core_threshold", vbts.threshold}}));
+                 BOOST_CHECK(vbts.threshold <= th_start);
+                 BOOST_CHECK(vbts.threshold >= th_end);
+             }
+diff --git a/src/test/evo_islock_tests.cpp b/src/test/evo_islock_tests.cpp
+index c929cf8848..ed38d4cbd3 100644
+--- a/src/test/evo_islock_tests.cpp
++++ b/src/test/evo_islock_tests.cpp
+@@ -18,6 +18,7 @@
+ #include <streams.h>
+ #include <test/util/llmq_tests.h>
+ #include <test/util/net.h>
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ #include <uint256.h>
+ #include <util/strencodings.h>
+@@ -204,6 +205,23 @@ BOOST_AUTO_TEST_CASE(deserialize_instantlock_from_realdata2)
+     // Verify the calculated signHash
+     auto signHash =
+         llmq::SignHash(Consensus::LLMQType::LLMQ_60_75, uint256S(quorumHashStr), islock.GetRequestId(), islock.txid).Get();
++    {
++        UniValue inputs(UniValue::VARR);
++        for (const auto& in : islock.inputs) inputs.push_back(o4::Arr({UniValue(in.hash.ToString()), o4::Int(in.n)}));
++        // Everything below is read back from the deserialized object or computed by Core.
++        O4_RECORD("evo_islock_tests",
++                  o4::Obj({{"kind", "real_islock"},
++                           {"islock_hex", std::string(islockHex)},
++                           {"version", int{islock.nVersion}},
++                           {"inputs", inputs},
++                           {"txid", islock.txid.ToString()},
++                           {"cycle_hash", islock.cycleHash.ToString()},
++                           {"quorum_hash", quorumHashStr},
++                           {"llmq_type", int{static_cast<uint8_t>(Consensus::LLMQType::LLMQ_60_75)}},
++                           {"request_id", islock.GetRequestId().ToString()},
++                           {"sign_hash", signHash.ToString()},
++                           {"signature", islock.sig.Get().ToString()}}));
++    }
+     BOOST_CHECK_EQUAL(signHash.ToString(), expectedSignHashStr);
+ 
+     // Verify the txid field.
+diff --git a/src/test/evo_simplifiedmns_tests.cpp b/src/test/evo_simplifiedmns_tests.cpp
+index 7b3aca0700..8f6f2064b3 100644
+--- a/src/test/evo_simplifiedmns_tests.cpp
++++ b/src/test/evo_simplifiedmns_tests.cpp
+@@ -2,6 +2,7 @@
+ // Distributed under the MIT software license, see the accompanying
+ // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <bls/bls.h>
+@@ -63,6 +64,24 @@ BOOST_AUTO_TEST_CASE(simplifiedmns_merkleroots)
+     for (auto& smle : entries) {
+         calculatedHashes.emplace_back(smle->CalcHash().ToString());
+         //printf("\"%s\",\n", calculatedHashes.back().c_str());
++        // O4: the entry as the test builds it (the loop index is the proRegTxHash/confirmedHash/port),
++        // its wire encoding (SER_NETWORK, the form `mnlistdiff` carries) and the hash Core computes.
++        if (o4::Dump::Get().Enabled()) {
++        CDataStream wire(SER_NETWORK, PROTOCOL_VERSION);
++        wire << *smle;
++        O4_RECORD("evo_simplifiedmns_tests",
++                  o4::Obj({{"kind", "entry"},
++                           {"bls_scheme", "legacy"},
++                           {"pro_reg_tx_hash", smle->proRegTxHash.ToString()},
++                           {"confirmed_hash", smle->confirmedHash.ToString()},
++                           {"service", smle->netInfo->GetPrimary().ToStringAddrPort()},
++                           {"operator_pubkey_legacy", smle->pubKeyOperator.ToString()},
++                           {"voting_key_id", smle->keyIDVoting.ToString()},
++                           {"is_valid", smle->isValid},
++                           {"version", int{smle->nVersion}},
++                           {"wire", HexStr(wire)},
++                           {"entry_hash", smle->CalcHash().ToString()}}));
++        }
+     }
+ 
+     BOOST_CHECK(expectedHashes == calculatedHashes);
+@@ -74,6 +93,8 @@ BOOST_AUTO_TEST_CASE(simplifiedmns_merkleroots)
+     //printf("merkleRoot=\"%s\",\n", calculatedMerkleRoot.c_str());
+ 
+     BOOST_CHECK(expectedMerkleRoot == calculatedMerkleRoot);
++    O4_RECORD("evo_simplifiedmns_tests", o4::Obj({{"kind", "merkle_root"}, {"entries", int64_t(sml.mnList.size())},
++                                                  {"merkle_root", calculatedMerkleRoot}}));
+ }
+ 
+ BOOST_AUTO_TEST_CASE(simplifiedmns_extended_diff_share_reward)
+diff --git a/src/test/pow_tests.cpp b/src/test/pow_tests.cpp
+index 60367bb690..9e13372910 100644
+--- a/src/test/pow_tests.cpp
++++ b/src/test/pow_tests.cpp
+@@ -6,6 +6,7 @@
+ #include <chainparams.h>
+ #include <pow.h>
+ #include <test/util/random.h>
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <boost/test/unit_test.hpp>
+@@ -41,9 +42,23 @@ BOOST_AUTO_TEST_CASE(get_next_work)
+     }
+     blockIndexLast->nHeight = 123456;
+     assert(mainnet_data.size() == blockidx.size());
++    {
++        UniValue headers(UniValue::VARR);
++        for (const auto& [nTime, nBits] : mainnet_data) headers.push_back(o4::Arr({o4::Int(nTime), o4::Int(nBits)}));
++        O4_RECORD("pow_tests", o4::Obj({{"kind", "mainnet_headers"}, {"last_height", 123456}, {"headers_time_bits", headers}}));
++    }
++    // Every GetNextWorkRequired result below is recorded together with the chain it was computed for.
++    const auto o4_record = [&](const char* chain, const Consensus::Params& params, uint32_t new_block_time, uint32_t expected) {
++        CBlockHeader header;
++        header.nTime = new_block_time;
++        O4_RECORD("pow_tests", o4::Obj({{"kind", "next_work"}, {"chain", chain}, {"new_block_time", o4::Int(new_block_time)},
++                                        {"expected_bits", o4::Int(expected)},
++                                        {"core_bits", o4::Int(GetNextWorkRequired(blockIndexLast, &header, params))}}));
++    };
+ 
+     CBlockHeader blockHeader;
+     blockHeader.nTime = 1408732505; // Block #123457
++    o4_record("main", chainParams->GetConsensus(), blockHeader.nTime, 0x1b1441deU);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParams->GetConsensus()), 0x1b1441deU); // Block #123457 has 0x1b1441de
+ 
+     // test special rules for slow blocks on devnet/testnet
+@@ -51,17 +66,22 @@ BOOST_AUTO_TEST_CASE(get_next_work)
+ 
+     // make sure normal rules apply
+     blockHeader.nTime = 1408732505; // Block #123457
++    o4_record("devnet", chainParamsDev->GetConsensus(), blockHeader.nTime, 0x1b1441deU);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParamsDev->GetConsensus()), 0x1b1441deU); // Block #123457 has 0x1b1441de
+ 
+     // 10x higher target
+     blockHeader.nTime = 1408733090; // Block #123457 (10m+1sec)
++    o4_record("devnet", chainParamsDev->GetConsensus(), blockHeader.nTime, 0x1c00c8f8U);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParamsDev->GetConsensus()), 0x1c00c8f8U); // Block #123457 has 0x1c00c8f8
+     blockHeader.nTime = 1408733689; // Block #123457 (20m)
++    o4_record("devnet", chainParamsDev->GetConsensus(), blockHeader.nTime, 0x1c00c8f8U);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParamsDev->GetConsensus()), 0x1c00c8f8U); // Block #123457 has 0x1c00c8f8
+     // lowest diff possible
+     blockHeader.nTime = 1408739690; // Block #123457 (2h+1sec)
++    o4_record("devnet", chainParamsDev->GetConsensus(), blockHeader.nTime, 0x207fffffU);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParamsDev->GetConsensus()), 0x207fffffU); // Block #123457 has 0x207fffff
+     blockHeader.nTime = 1408743289; // Block #123457 (3h)
++    o4_record("devnet", chainParamsDev->GetConsensus(), blockHeader.nTime, 0x207fffffU);
+     BOOST_CHECK_EQUAL(GetNextWorkRequired(blockIndexLast, &blockHeader, chainParamsDev->GetConsensus()), 0x207fffffU); // Block #123457 has 0x207fffff
+ }
+ 
+diff --git a/src/test/quorum_proofs_tests.cpp b/src/test/quorum_proofs_tests.cpp
+index f79e4a4639..2575abd41c 100644
+--- a/src/test/quorum_proofs_tests.cpp
++++ b/src/test/quorum_proofs_tests.cpp
+@@ -20,6 +20,7 @@
+ #include <pow.h>
+ #include <rpc/server.h>
+ #include <streams.h>
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ #include <validation.h>
+ 
+@@ -387,6 +388,16 @@ BOOST_AUTO_TEST_CASE(real_testnet_wire_and_crypto) {
+     auto proof = llmq::QuorumProofChain::Decode(bytes);
+     BOOST_CHECK(proof.Encode() == bytes);
+     auto target = proof.Verify(proof.anchor);
++    O4_RECORD("quorum_proofs_tests",
++              o4::Obj({{"kind", "real_testnet_proof"},
++                       {"network", "testnet"},
++                       {"proof_hex", std::string(TESTNET_PROOF)},
++                       {"wire_bytes", int64_t(bytes.size())},
++                       {"anchor_height", int64_t(proof.anchor.height)},
++                       {"anchor_block_hash", proof.anchor.blockHash.ToString()},
++                       {"verified_target_height", int64_t(target.height)},
++                       {"verified_target_block_hash", target.blockHash.ToString()},
++                       {"links", int64_t(proof.links.size())}}));
+     BOOST_CHECK_EQUAL(target.height, 1549547U);
+     BOOST_CHECK(target.blockHash == proof.target.header.GetHash());
+     auto trusted = proof.anchor;
+diff --git a/src/test/subsidy_tests.cpp b/src/test/subsidy_tests.cpp
+index ed33c63725..e1b02a6433 100644
+--- a/src/test/subsidy_tests.cpp
++++ b/src/test/subsidy_tests.cpp
+@@ -5,6 +5,7 @@
+ #include <chainparams.h>
+ #include <validation.h>
+ 
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <boost/test/unit_test.hpp>
+@@ -23,6 +24,7 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+     nPrevBits = 0x1c4a47c4;
+     nPrevHeight = 4249;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 50000000000ULL);
+ 
+     // details for block 4249 (subsidy returned will be for block 4250)
+@@ -30,42 +32,49 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+     nPrevBits = 0x1c4a47c4;
+     nPrevHeight = 4249;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ true);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", true}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 500000000ULL);
+ 
+     // details for block 4501 (subsidy returned will be for block 4502)
+     nPrevBits = 0x1c4a47c4;
+     nPrevHeight = 4501;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 5600000000ULL);
+ 
+     // details for block 5464 (subsidy returned will be for block 5465)
+     nPrevBits = 0x1c29ec00;
+     nPrevHeight = 5464;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 2100000000ULL);
+ 
+     // details for block 5465 (subsidy returned will be for block 5466)
+     nPrevBits = 0x1c29ec00;
+     nPrevHeight = 5465;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 12200000000ULL);
+ 
+     // details for block 17588 (subsidy returned will be for block 17589)
+     nPrevBits = 0x1c08ba34;
+     nPrevHeight = 17588;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 6100000000ULL);
+ 
+     // details for block 99999 (subsidy returned will be for block 100000)
+     nPrevBits = 0x1b10cf42;
+     nPrevHeight = 99999;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 500000000ULL);
+ 
+     // details for block 210239 (subsidy returned will be for block 210240)
+     nPrevBits = 0x1b11548e;
+     nPrevHeight = 210239;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 500000000ULL);
+ 
+     // 1st subsidy reduction happens here
+@@ -74,6 +83,7 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+     nPrevBits = 0x1b10d50b;
+     nPrevHeight = 210240;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 464285715ULL);
+ 
+     // details for block 210240 (subsidy returned will be for block 210241)
+@@ -81,12 +91,14 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+     nPrevBits = 0x1b10d50b;
+     nPrevHeight = 210240;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ true);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", true}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 464285715ULL);
+ 
+     // details for block 420480 (subsidy returned will be for block 210241)
+     nPrevBits = 0x1b10d50b;
+     nPrevHeight = 420480;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ false);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", false}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 388010205ULL); // 431122450 * 0.9
+ 
+     // details for block 420480 (subsidy returned will be for block 210241)
+@@ -94,6 +106,7 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+     nPrevBits = 0x1b10d50b;
+     nPrevHeight = 420480;
+     nSubsidy = GetBlockSubsidyInner(nPrevBits, nPrevHeight, chainParams->GetConsensus(), /*fV20Active=*/ true);
++    O4_RECORD("subsidy_tests", o4::Obj({{"prev_bits", o4::Int(nPrevBits)}, {"prev_height", o4::Int(nPrevHeight)}, {"v20_active", true}, {"subsidy", o4::Int(nSubsidy)}}));
+     BOOST_CHECK_EQUAL(nSubsidy, 344897960ULL); // 431122450 * 0.8
+ }
+ 
+diff --git a/src/test/util/o4_dump.h b/src/test/util/o4_dump.h
+new file mode 100644
+index 0000000000..3f8666e67e
+--- /dev/null
++++ b/src/test/util/o4_dump.h
+@@ -0,0 +1,191 @@
++// Copyright (c) 2026 The Dash Core developers
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++#ifndef BITCOIN_TEST_UTIL_O4_DUMP_H
++#define BITCOIN_TEST_UTIL_O4_DUMP_H
++
++// Node-program task O4: record what Dash Core's own unit tests compute so that it can be reused
++// as test vectors. Everything here is inert unless the O4_VECTOR_OUT environment variable names
++// an output directory; the instrumented tests keep all of their assertions.
++//
++// Each instrumented test calls O4_RECORD("<file>", <UniValue object>) next to the check it
++// mirrors, with the value Core actually computed. At process exit every file is written as
++//   {"source": "<test file>", "records": [ <one record per line> ]}
++// to $O4_VECTOR_OUT/<file>.json.
++
++#include <script/interpreter.h>
++#include <script/script.h>
++#include <util/strencodings.h>
++
++#include <univalue.h>
++
++#include <algorithm>
++#include <cstdlib>
++#include <fstream>
++#include <map>
++#include <set>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace o4 {
++
++class Dump
++{
++public:
++    static Dump& Get()
++    {
++        static Dump instance;
++        return instance;
++    }
++
++    bool Enabled() const { return !m_dir.empty(); }
++
++    void Add(const std::string& file, UniValue record)
++    {
++        if (!Enabled()) return;
++        m_files[file].push_back(std::move(record));
++    }
++
++    //! Like Add(), but at most once per `key`; returns false if `key` was already recorded.
++    bool AddOnce(const std::string& file, const std::string& key, UniValue record)
++    {
++        if (!Enabled()) return false;
++        if (!m_seen.insert(file + '\0' + key).second) return false;
++        m_files[file].push_back(std::move(record));
++        return true;
++    }
++
++    ~Dump()
++    {
++        if (!Enabled()) return;
++        for (const auto& [file, records] : m_files) {
++            std::ofstream out(m_dir + "/" + file + ".json", std::ios::binary);
++            out << "{\n\"source\": " << UniValue("src/test/" + file + ".cpp").write() << ",\n\"records\": [\n";
++            for (size_t i = 0; i < records.size(); ++i) {
++                out << records[i].write() << (i + 1 < records.size() ? ",\n" : "\n");
++            }
++            out << "]\n}\n";
++        }
++    }
++
++private:
++    Dump()
++    {
++        if (const char* dir = std::getenv("O4_VECTOR_OUT"); dir != nullptr) m_dir = dir;
++    }
++
++    std::string m_dir;
++    std::map<std::string, std::vector<UniValue>> m_files;
++    std::set<std::string> m_seen;
++};
++
++inline UniValue Obj(std::initializer_list<std::pair<std::string, UniValue>> members)
++{
++    UniValue o(UniValue::VOBJ);
++    for (const auto& [k, v] : members) o.pushKV(k, v);
++    return o;
++}
++
++inline UniValue Arr(const std::vector<UniValue>& items)
++{
++    UniValue a(UniValue::VARR);
++    for (const auto& i : items) a.push_back(i);
++    return a;
++}
++
++inline UniValue Int(int64_t v) { return UniValue(v); }
++
++inline UniValue Hex(const std::vector<unsigned char>& v) { return UniValue(HexStr(v)); }
++
++inline UniValue HexStack(const std::vector<std::vector<unsigned char>>& stack)
++{
++    UniValue a(UniValue::VARR);
++    for (const auto& item : stack) a.push_back(HexStr(item));
++    return a;
++}
++
++//! The names script_tests.json uses for script errors.
++inline const char* ScriptErrorName(ScriptError err)
++{
++    switch (err) {
++    case SCRIPT_ERR_OK: return "OK";
++    case SCRIPT_ERR_UNKNOWN_ERROR: return "UNKNOWN_ERROR";
++    case SCRIPT_ERR_EVAL_FALSE: return "EVAL_FALSE";
++    case SCRIPT_ERR_OP_RETURN: return "OP_RETURN";
++    case SCRIPT_ERR_SCRIPT_SIZE: return "SCRIPT_SIZE";
++    case SCRIPT_ERR_PUSH_SIZE: return "PUSH_SIZE";
++    case SCRIPT_ERR_OP_COUNT: return "OP_COUNT";
++    case SCRIPT_ERR_STACK_SIZE: return "STACK_SIZE";
++    case SCRIPT_ERR_SIG_COUNT: return "SIG_COUNT";
++    case SCRIPT_ERR_PUBKEY_COUNT: return "PUBKEY_COUNT";
++    case SCRIPT_ERR_VERIFY: return "VERIFY";
++    case SCRIPT_ERR_EQUALVERIFY: return "EQUALVERIFY";
++    case SCRIPT_ERR_CHECKMULTISIGVERIFY: return "CHECKMULTISIGVERIFY";
++    case SCRIPT_ERR_CHECKSIGVERIFY: return "CHECKSIGVERIFY";
++    case SCRIPT_ERR_CHECKDATASIGVERIFY: return "CHECKDATASIGVERIFY";
++    case SCRIPT_ERR_NUMEQUALVERIFY: return "NUMEQUALVERIFY";
++    case SCRIPT_ERR_BAD_OPCODE: return "BAD_OPCODE";
++    case SCRIPT_ERR_DISABLED_OPCODE: return "DISABLED_OPCODE";
++    case SCRIPT_ERR_INVALID_STACK_OPERATION: return "INVALID_STACK_OPERATION";
++    case SCRIPT_ERR_INVALID_ALTSTACK_OPERATION: return "INVALID_ALTSTACK_OPERATION";
++    case SCRIPT_ERR_UNBALANCED_CONDITIONAL: return "UNBALANCED_CONDITIONAL";
++    case SCRIPT_ERR_NEGATIVE_LOCKTIME: return "NEGATIVE_LOCKTIME";
++    case SCRIPT_ERR_UNSATISFIED_LOCKTIME: return "UNSATISFIED_LOCKTIME";
++    case SCRIPT_ERR_SIG_HASHTYPE: return "SIG_HASHTYPE";
++    case SCRIPT_ERR_SIG_DER: return "SIG_DER";
++    case SCRIPT_ERR_MINIMALDATA: return "MINIMALDATA";
++    case SCRIPT_ERR_SIG_PUSHONLY: return "SIG_PUSHONLY";
++    case SCRIPT_ERR_SIG_HIGH_S: return "SIG_HIGH_S";
++    case SCRIPT_ERR_SIG_NULLDUMMY: return "SIG_NULLDUMMY";
++    case SCRIPT_ERR_PUBKEYTYPE: return "PUBKEYTYPE";
++    case SCRIPT_ERR_CLEANSTACK: return "CLEANSTACK";
++    case SCRIPT_ERR_SIG_NULLFAIL: return "NULLFAIL";
++    case SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS: return "DISCOURAGE_UPGRADABLE_NOPS";
++    case SCRIPT_ERR_INVALID_SPLIT_RANGE: return "SPLIT_RANGE";
++    case SCRIPT_ERR_INVALID_OPERAND_SIZE: return "OPERAND_SIZE";
++    case SCRIPT_ERR_INVALID_NUMBER_RANGE: return "INVALID_NUMBER_RANGE";
++    case SCRIPT_ERR_DIV_BY_ZERO: return "DIV_BY_ZERO";
++    case SCRIPT_ERR_MOD_BY_ZERO: return "MOD_BY_ZERO";
++    case SCRIPT_ERR_OP_CODESEPARATOR: return "OP_CODESEPARATOR";
++    case SCRIPT_ERR_SIG_FINDANDDELETE: return "SIG_FINDANDDELETE";
++    case SCRIPT_ERR_IMPOSSIBLE_ENCODING: return "IMPOSSIBLE_ENCODING";
++    case SCRIPT_ERR_ERROR_COUNT: break;
++    }
++    return "UNKNOWN";
++}
++
++//! Selection for the DIP0020 opcode test, which sweeps every operand width from 1 to 521 bytes with
++//! many patterns (95k evaluations, 130 MB of JSON). Every evaluation whose script and operands are
++//! at most 33 bytes is kept (this covers the 4-byte CScriptNum limit, the 8- and 32-byte widths and
++//! the push-size boundaries). Wider ones are kept only at the element-size limit (520 and 521
++//! bytes), and only six per (final opcode, outcome), which gives every opcode both its limit
++//! success and its limit failures. Evaluations are deduplicated by (script, stack, flags).
++inline bool KeepDip0020(const CScript& script, const std::vector<std::vector<unsigned char>>& in,
++                        const std::vector<std::vector<unsigned char>>& out, uint32_t flags, ScriptError err)
++{
++    static std::set<std::string> seen;
++    static std::map<std::string, int> wide_per_outcome;
++    size_t widest = script.size();
++    for (const auto& item : in) widest = std::max(widest, item.size());
++    for (const auto& item : out) widest = std::max(widest, item.size());
++    if (widest > 33 && widest < 520) return false;
++    std::string key = HexStr(script) + "|" + std::to_string(flags);
++    for (const auto& item : in) key += "|" + HexStr(item);
++    if (!seen.insert(key).second) return false;
++    if (widest >= 520) {
++        const std::string outcome = std::to_string(script.empty() ? -1 : script.back()) + "|" + ScriptErrorName(err);
++        if (++wide_per_outcome[outcome] > 6) return false;
++    }
++    return true;
++}
++
++} // namespace o4
++
++#define O4_RECORD(file, record)                                       \
++    do {                                                              \
++        if (o4::Dump::Get().Enabled()) o4::Dump::Get().Add(file, record); \
++    } while (0)
++
++#endif // BITCOIN_TEST_UTIL_O4_DUMP_H
+-- 
+2.53.0
+
+
+From c89375bdbf3c938505977ff92bcb98b782c93501 Mon Sep 17 00:00:00 2001
+From: pasta <pasta@dashboost.org>
+Date: Thu, 8 Oct 2026 06:59:05 +0000
+Subject: [PATCH 2/3] test: add mnlistdiff/qrinfo ground-truth dumper and
+ flag-perturbation audit
+
+o4_vector_dump_tests decodes Core-produced mnlistdiff and qrinfo payloads with Core's own
+CSimplifiedMNListDiff/CQuorumRotationInfo, checks that Core re-serializes them byte for byte,
+and writes per-entry CalcHash values, commitment hashes and merkle roots as JSON.
+o4_harness_audit_tests repeats the flag-perturbation checks of transaction_tests/script_tests
+over every defined script flag with a working ExcludeIndividualFlags and reports violations.
+Both are inert unless their O4_* environment variables are set.
+
+Node program task O4. Local branch only.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ src/Makefile.test.include           |   2 +
+ src/test/o4_harness_audit_tests.cpp | 268 ++++++++++++++++++++++++
+ src/test/o4_vector_dump_tests.cpp   | 305 ++++++++++++++++++++++++++++
+ 3 files changed, 575 insertions(+)
+ create mode 100644 src/test/o4_harness_audit_tests.cpp
+ create mode 100644 src/test/o4_vector_dump_tests.cpp
+
+diff --git a/src/Makefile.test.include b/src/Makefile.test.include
+index 90a0ed75ed..ab51890204 100644
+--- a/src/Makefile.test.include
++++ b/src/Makefile.test.include
+@@ -120,6 +120,8 @@ BITCOIN_TESTS =\
+   test/evo_netinfo_tests.cpp \
+   test/evo_sharedmn_tests.cpp \
+   test/evo_simplifiedmns_tests.cpp \
++  test/o4_harness_audit_tests.cpp \
++  test/o4_vector_dump_tests.cpp \
+   test/evo_snapshot_tests.cpp \
+   test/evo_trivialvalidation.cpp \
+   test/evo_utils_tests.cpp \
+diff --git a/src/test/o4_harness_audit_tests.cpp b/src/test/o4_harness_audit_tests.cpp
+new file mode 100644
+index 0000000000..ebd24d14d5
+--- /dev/null
++++ b/src/test/o4_harness_audit_tests.cpp
+@@ -0,0 +1,268 @@
++// Copyright (c) 2026 The Dash Core developers
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++// Node-program task O4: audit of the flag-perturbation checks in Core's script and transaction
++// test harnesses (transaction_tests.cpp, script_tests.cpp), run against Core's own interpreter.
++//
++// Core's harness checks that a passing vector keeps passing when flags are removed and a failing
++// one keeps failing when flags are added. Its loops have three defects (see PROVENANCE.md of the
++// vector set): they only perturb `1 << i` for i < 13, which skips NULLFAIL (bit 14) and
++// CONST_SCRIPTCODE (bit 16); `ExcludeIndividualFlags` returns nothing, so the "flags are maximal /
++// minimal" checks never run; and tx_valid hands the verifier all 32 bits of `~flags`.
++//
++// This test repeats the checks the way the harness intends them, over every defined flag, and
++// writes the violations it finds to $O4_VECTOR_OUT/harness_audit.json. It asserts nothing about
++// them: the file is what the Rust loaders' documentation relies on. Inert unless O4_VECTOR_OUT is
++// set.
++
++#include <test/data/script_tests.json.h>
++#include <test/data/tx_invalid.json.h>
++#include <test/data/tx_valid.json.h>
++
++#include <test/util/json.h>
++#include <test/util/o4_dump.h>
++#include <test/util/setup_common.h>
++#include <test/util/transaction_utils.h>
++
++#include <consensus/tx_check.h>
++#include <consensus/validation.h>
++#include <core_io.h>
++#include <script/interpreter.h>
++#include <script/script.h>
++#include <script/script_error.h>
++#include <streams.h>
++#include <util/string.h>
++#include <util/strencodings.h>
++
++#include <boost/test/unit_test.hpp>
++
++#include <univalue.h>
++
++#include <algorithm>
++#include <map>
++#include <string>
++#include <vector>
++
++BOOST_FIXTURE_TEST_SUITE(o4_harness_audit_tests, BasicTestingSetup)
++
++namespace {
++// mapFlagNames of transaction_tests.cpp.
++const std::map<std::string, unsigned int> FLAG_NAMES = {
++    {"P2SH", SCRIPT_VERIFY_P2SH},
++    {"STRICTENC", SCRIPT_VERIFY_STRICTENC},
++    {"DERSIG", SCRIPT_VERIFY_DERSIG},
++    {"LOW_S", SCRIPT_VERIFY_LOW_S},
++    {"SIGPUSHONLY", SCRIPT_VERIFY_SIGPUSHONLY},
++    {"MINIMALDATA", SCRIPT_VERIFY_MINIMALDATA},
++    {"NULLDUMMY", SCRIPT_VERIFY_NULLDUMMY},
++    {"DISCOURAGE_UPGRADABLE_NOPS", SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS},
++    {"CLEANSTACK", SCRIPT_VERIFY_CLEANSTACK},
++    {"NULLFAIL", SCRIPT_VERIFY_NULLFAIL},
++    {"CHECKLOCKTIMEVERIFY", SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY},
++    {"CHECKSEQUENCEVERIFY", SCRIPT_VERIFY_CHECKSEQUENCEVERIFY},
++    {"CONST_SCRIPTCODE", SCRIPT_VERIFY_CONST_SCRIPTCODE},
++};
++
++unsigned int DefinedFlags()
++{
++    unsigned int m = 0;
++    for (const auto& [name, bit] : FLAG_NAMES) m |= bit;
++    return m;
++}
++
++unsigned int ParseFlags(const std::string& s)
++{
++    if (s.empty() || s == "NONE") return 0;
++    unsigned int flags = 0;
++    for (const std::string& word : SplitString(s, ',')) flags |= FLAG_NAMES.at(word);
++    return flags;
++}
++
++std::string FlagString(unsigned int flags)
++{
++    std::string out;
++    for (const auto& [name, bit] : FLAG_NAMES) {
++        if (flags & bit) out += (out.empty() ? "" : ",") + name;
++    }
++    return out.empty() ? "NONE" : out;
++}
++
++unsigned int Trim(unsigned int flags)
++{
++    return (flags & SCRIPT_VERIFY_P2SH) ? flags : flags & ~(unsigned int)SCRIPT_VERIFY_CLEANSTACK;
++}
++unsigned int Fill(unsigned int flags)
++{
++    return (flags & SCRIPT_VERIFY_CLEANSTACK) ? flags | SCRIPT_VERIFY_P2SH : flags;
++}
++
++std::vector<unsigned int> DefinedBits()
++{
++    std::vector<unsigned int> bits;
++    for (const auto& [name, bit] : FLAG_NAMES) bits.push_back(bit);
++    std::sort(bits.begin(), bits.end());
++    return bits;
++}
++
++// ExcludeIndividualFlags as intended, for a set of *enabled* flags: each defined flag removed in
++// turn, trimmed to a valid combination (the original tests `find(..) != end()`). Used for
++// tx_invalid, where the listed flags are the enabled ones.
++std::vector<unsigned int> ExcludeIndividual(unsigned int flags)
++{
++    std::vector<unsigned int> combos;
++    for (unsigned int bit : DefinedBits()) {
++        const unsigned int excluded = Trim(flags & ~bit);
++        if (flags != excluded && std::find(combos.begin(), combos.end(), excluded) == combos.end()) combos.push_back(excluded);
++    }
++    return combos;
++}
++
++// A fixed LCG so that the audit is reproducible.
++struct Rng {
++    uint64_t state{0x4f34ULL};
++    uint32_t Next()
++    {
++        const uint32_t ret = state >> 32;
++        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
++        return ret;
++    }
++};
++
++constexpr int RANDOM_SETS = 128;
++
++struct Tally {
++    int64_t cases{0};
++    int64_t checks{0};
++    UniValue violations{UniValue::VARR};
++
++    void Violation(const char* check, size_t index, unsigned int flags, const std::string& observed)
++    {
++        violations.push_back(o4::Obj({{"check", check}, {"row", int64_t(index)}, {"flags", FlagString(flags)}, {"observed", observed}}));
++    }
++    UniValue ToJson() const
++    {
++        return o4::Obj({{"cases", cases}, {"checks", checks}, {"violation_count", int64_t(violations.size())}, {"violations", violations}});
++    }
++};
++
++bool VerifyCredit(const CScript& sig, const CScript& pub, unsigned int flags, ScriptError& err)
++{
++    const CTransaction credit{BuildCreditingTransaction(pub)};
++    const CMutableTransaction tx = BuildSpendingTransaction(sig, credit);
++    return VerifyScript(sig, pub, flags, MutableTransactionSignatureChecker(&tx, 0, credit.vout[0].nValue, MissingDataBehavior::ASSERT_FAIL), &err);
++}
++
++bool VerifyTx(const CTransaction& tx, const std::map<COutPoint, CScript>& prevouts, unsigned int flags, const PrecomputedTransactionData& txdata, ScriptError& err)
++{
++    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
++        if (!VerifyScript(tx.vin[i].scriptSig, prevouts.at(tx.vin[i].prevout), flags,
++                          TransactionSignatureChecker(&tx, i, /*amount=*/0, txdata, MissingDataBehavior::ASSERT_FAIL), &err)) {
++            return false;
++        }
++    }
++    err = SCRIPT_ERR_OK;
++    return true;
++}
++} // namespace
++
++BOOST_AUTO_TEST_CASE(o4_audit_flag_perturbation)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    const std::vector<unsigned int> bits = DefinedBits();
++    const unsigned int defined = DefinedFlags();
++
++    // ---- script_tests.json -------------------------------------------------------------------
++    Tally script_tally;
++    {
++        const UniValue tests = read_json(std::string(json_tests::script_tests, json_tests::script_tests + sizeof(json_tests::script_tests)));
++        Rng rng;
++        for (size_t idx = 0; idx < tests.size(); ++idx) {
++            const UniValue& test = tests[idx];
++            if (test.size() < 4) continue;
++            const CScript sig = ParseScript(test[0].get_str());
++            const CScript pub = ParseScript(test[1].get_str());
++            const unsigned int flags = ParseFlags(test[2].get_str());
++            ScriptError err;
++            const bool expect = VerifyCredit(sig, pub, flags, err);
++            ++script_tally.cases;
++
++            std::vector<unsigned int> sets;
++            for (unsigned int bit : bits) sets.push_back(expect ? Trim(flags & ~bit) : Fill(flags | bit));
++            for (int i = 0; i < RANDOM_SETS; ++i) {
++                const unsigned int extra = rng.Next() & defined;
++                sets.push_back(expect ? Trim(flags & ~extra) : Fill(flags | extra));
++            }
++            for (unsigned int s : sets) {
++                ++script_tally.checks;
++                ScriptError e;
++                if (VerifyCredit(sig, pub, s, e) != expect) script_tally.Violation(expect ? "valid_then_invalid_with_flags_removed" : "invalid_then_valid_with_flags_added", idx, s, o4::ScriptErrorName(e));
++            }
++        }
++    }
++
++    // ---- tx_valid.json / tx_invalid.json -----------------------------------------------------
++    const auto run_tx_file = [&](const unsigned char* begin, size_t size, bool valid_file) {
++        Tally tally;
++        const UniValue tests = read_json(std::string(begin, begin + size));
++        Rng rng;
++        for (size_t idx = 0; idx < tests.size(); ++idx) {
++            const UniValue& test = tests[idx];
++            if (!test[0].isArray()) continue;
++            std::map<COutPoint, CScript> prevouts;
++            for (const UniValue& input : test[0].get_array().getValues()) {
++                prevouts[COutPoint{uint256S(input[0].get_str()), uint32_t(input[1].getInt<int>())}] = ParseScript(input[2].get_str());
++            }
++            CDataStream stream(ParseHex(test[1].get_str()), SER_NETWORK, PROTOCOL_VERSION);
++            CTransaction tx(deserialize, stream);
++            TxValidationState state;
++            const bool check_ok = CheckTransaction(tx, state) && state.IsValid();
++            if (!valid_file && (!check_ok)) {
++                BOOST_CHECK_EQUAL(test[2].get_str(), "BADTX");
++                continue;
++            }
++            ++tally.cases;
++            PrecomputedTransactionData txdata(tx);
++            const unsigned int listed = ParseFlags(test[2].get_str());
++            ScriptError e;
++            const auto check = [&](const char* name, unsigned int flags, bool want) {
++                ++tally.checks;
++                const bool got = VerifyTx(tx, prevouts, flags, txdata, e);
++                if (got != want) tally.Violation(name, idx, flags, o4::ScriptErrorName(e));
++            };
++
++            if (valid_file) {
++                // `listed` are the excluded flags: all others must pass.
++                const unsigned int base = defined & ~listed;
++                check("valid_with_all_but_excluded_flags", Trim(base), true);
++                for (unsigned int bit : bits) check("valid_with_one_more_flag_removed", Trim(base & ~bit), true);
++                for (int i = 0; i < RANDOM_SETS; ++i) check("valid_with_random_flags_removed", Trim(base & ~(rng.Next() & defined)), true);
++                // The excluded flags are maximal: switching any one of them back on (CLEANSTACK
++                // together with P2SH, which it needs) must make the transaction fail. The
++                // CLEANSTACK-needs-P2SH rule applies to the enabled flags, so it is applied there.
++                for (unsigned int bit : bits) {
++                    if (!(listed & bit)) continue;
++                    check("excluded_flag_is_needed", Fill(base | bit), false);
++                }
++            } else {
++                check("invalid_with_listed_flags", listed, false);
++                for (unsigned int bit : bits) check("invalid_with_one_more_flag_added", Fill(listed | bit), false);
++                for (int i = 0; i < RANDOM_SETS; ++i) check("invalid_with_random_flags_added", Fill(listed | (rng.Next() & defined)), false);
++                // The listed flags are minimal: dropping any one of them must make it pass.
++                for (unsigned int s : ExcludeIndividual(listed)) check("listed_flag_is_needed", s, true);
++            }
++        }
++        return tally;
++    };
++    const Tally valid_tally = run_tx_file(json_tests::tx_valid, sizeof(json_tests::tx_valid), true);
++    const Tally invalid_tally = run_tx_file(json_tests::tx_invalid, sizeof(json_tests::tx_invalid), false);
++
++    O4_RECORD("harness_audit",
++              o4::Obj({{"defined_flags", FlagString(defined)},
++                       {"random_sets_per_case", RANDOM_SETS},
++                       {"script_tests", script_tally.ToJson()},
++                       {"tx_valid", valid_tally.ToJson()},
++                       {"tx_invalid", invalid_tally.ToJson()}}));
++}
++
++BOOST_AUTO_TEST_SUITE_END()
+diff --git a/src/test/o4_vector_dump_tests.cpp b/src/test/o4_vector_dump_tests.cpp
+new file mode 100644
+index 0000000000..2313c6cd2a
+--- /dev/null
++++ b/src/test/o4_vector_dump_tests.cpp
+@@ -0,0 +1,305 @@
++// Copyright (c) 2026 The Dash Core developers
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++// Node-program task O4: ground-truth extraction from Dash Core's own code.
++//
++// These cases do nothing unless the O4_* environment variables below are set, so the suite stays
++// inert in a normal test run. They never change Core's behaviour; they only call Core's
++// deserializers and hash functions on bytes that a Core node produced, and write what Core
++// computed as JSON.
++//
++//   O4_SML_MANIFEST    JSON file: [{"name": "..", "file": "<wire payload>", "group": "<chain id>"}, ..]
++//                      `mnlistdiff` payloads; payloads of one group are applied to a running list in order.
++//                      "checkRoot": false skips the merkle root comparison for a diff that does not
++//                      continue the group's list (entry hashes and the round trip are still checked).
++//   O4_QRINFO_MANIFEST JSON file: [{"name": "..", "file": "<wire payload>"}, ..]   `qrinfo` payloads.
++//                      An optional "repoPath" is echoed into the output so the golden file names the
++//                      fixture it describes.
++//   O4_VECTOR_OUT      output directory (must exist)
++//
++// BLS data is read in the basic scheme: every payload handled here is from a chain past V19, and
++// Core's `CBLSSignature` follows the global scheme flag (a signature parsed in the wrong scheme
++// loses its identity, which collapses `quorumsCLSigs`).
++
++#include <test/util/setup_common.h>
++
++#include <bls/bls.h>
++#include <crypto/sha256.h>
++#include <evo/cbtx.h>
++#include <evo/simplifiedmns.h>
++#include <evo/smldiff.h>
++#include <evo/specialtx.h>
++#include <llmq/commitment.h>
++#include <llmq/snapshot.h>
++#include <streams.h>
++#include <test/util/json.h>
++#include <util/strencodings.h>
++
++#include <boost/test/unit_test.hpp>
++
++#include <univalue.h>
++
++#include <algorithm>
++#include <cstdlib>
++#include <fstream>
++#include <iterator>
++#include <map>
++#include <string>
++
++BOOST_FIXTURE_TEST_SUITE(o4_vector_dump_tests, BasicTestingSetup)
++
++namespace {
++bool Env(const char* name, std::string& out)
++{
++    const char* v = std::getenv(name);
++    if (v == nullptr || *v == '\0') return false;
++    out = v;
++    return true;
++}
++
++std::vector<unsigned char> ReadFile(const std::string& path)
++{
++    std::ifstream f(path, std::ios::binary);
++    BOOST_REQUIRE_MESSAGE(f.good(), "cannot open " + path);
++    return {std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
++}
++
++UniValue ReadManifest(const std::string& path)
++{
++    const std::vector<unsigned char> bytes = ReadFile(path);
++    return read_json(std::string(bytes.begin(), bytes.end()));
++}
++
++// Short values on one line, everything else one member per line, so that the files diff well.
++void Pretty(const UniValue& v, size_t indent, std::string& out)
++{
++    const std::string compact = v.write();
++    if (compact.size() <= 180 || (!v.isArray() && !v.isObject())) {
++        out += compact;
++        return;
++    }
++    const std::string pad(indent + 2, ' ');
++    if (v.isArray()) {
++        out += "[\n";
++        for (size_t i = 0; i < v.size(); ++i) {
++            out += pad;
++            Pretty(v[i], indent + 2, out);
++            out += i + 1 < v.size() ? ",\n" : "\n";
++        }
++        out += std::string(indent, ' ') + "]";
++    } else {
++        out += "{\n";
++        const auto& keys = v.getKeys();
++        for (size_t i = 0; i < keys.size(); ++i) {
++            out += pad + UniValue(keys[i]).write() + ": ";
++            Pretty(v[keys[i]], indent + 2, out);
++            out += i + 1 < keys.size() ? ",\n" : "\n";
++        }
++        out += std::string(indent, ' ') + "}";
++    }
++}
++
++void WriteJson(const std::string& dir, const std::string& name, const UniValue& v)
++{
++    std::string text;
++    Pretty(v, 0, text);
++    std::ofstream f(dir + "/" + name, std::ios::binary);
++    BOOST_REQUIRE(f.good());
++    f << text << "\n";
++}
++
++std::string Sha256Hex(const std::vector<unsigned char>& data)
++{
++    unsigned char out[CSHA256::OUTPUT_SIZE];
++    CSHA256().Write(data.data(), data.size()).Finalize(out);
++    return HexStr(out);
++}
++
++// Core serializes `obj` back to exactly `wire`.
++template <typename T>
++bool CoreRoundTrips(const T& obj, const std::vector<unsigned char>& wire)
++{
++    CDataStream out(SER_NETWORK, PROTOCOL_VERSION);
++    out << obj;
++    return out.size() == wire.size() &&
++           std::equal(wire.begin(), wire.end(), reinterpret_cast<const unsigned char*>(out.data()));
++}
++
++UniValue EntryRow(const CSimplifiedMNListEntry& e)
++{
++    UniValue row(UniValue::VARR);
++    row.push_back(e.proRegTxHash.ToString());
++    row.push_back(int{e.nVersion});
++    row.push_back(int{static_cast<uint8_t>(e.nType)});
++    row.push_back(e.isValid);
++    row.push_back(e.CalcHash().ToString());
++    return row;
++}
++
++// BuildCommitmentHash serializes the quorum public key, and Core's key encoding follows the global
++// BLS scheme flag, which block processing sets from the V19 deployment. A commitment's own version
++// records the scheme it was created under (1 and 2 legacy, 3 and 4 basic), so the hash is taken
++// with the flag that matches the commitment.
++UniValue CommitmentRow(const llmq::CFinalCommitment& c)
++{
++    const bool saved = bls::bls_legacy_scheme.load();
++    bls::bls_legacy_scheme.store(c.nVersion == llmq::CFinalCommitment::LEGACY_BLS_NON_INDEXED_QUORUM_VERSION ||
++                                 c.nVersion == llmq::CFinalCommitment::LEGACY_BLS_INDEXED_QUORUM_VERSION);
++    UniValue row(UniValue::VARR);
++    row.push_back(int{static_cast<uint8_t>(c.llmqType)});
++    row.push_back(c.quorumHash.ToString());
++    row.push_back(int{c.quorumIndex});
++    row.push_back(int{c.nVersion});
++    row.push_back(llmq::BuildCommitmentHash(c.llmqType, c.quorumHash, c.validMembers, c.quorumPublicKey, c.quorumVvecHash).ToString());
++    bls::bls_legacy_scheme.store(saved);
++    return row;
++}
++
++UniValue DiffSummary(const CSimplifiedMNListDiff& d)
++{
++    UniValue o(UniValue::VOBJ);
++    o.pushKV("version", int{d.nVersion});
++    o.pushKV("baseBlockHash", d.baseBlockHash.ToString());
++    o.pushKV("blockHash", d.blockHash.ToString());
++    UniValue deleted(UniValue::VARR);
++    for (const auto& h : d.deletedMNs) deleted.push_back(h.ToString());
++    o.pushKV("deletedMNs", deleted);
++    // [proRegTxHash, nVersion, nType, isValid, CalcHash()]
++    UniValue entries(UniValue::VARR);
++    for (const auto& e : d.mnList) entries.push_back(EntryRow(e));
++    o.pushKV("mnList", entries);
++    UniValue deleted_quorums(UniValue::VARR);
++    for (const auto& [type, hash] : d.deletedQuorums) {
++        UniValue row(UniValue::VARR);
++        row.push_back(int{type});
++        row.push_back(hash.ToString());
++        deleted_quorums.push_back(row);
++    }
++    o.pushKV("deletedQuorums", deleted_quorums);
++    // [llmqType, quorumHash, quorumIndex, nVersion, BuildCommitmentHash()]
++    UniValue new_quorums(UniValue::VARR);
++    for (const auto& c : d.newQuorums) new_quorums.push_back(CommitmentRow(c));
++    o.pushKV("newQuorums", new_quorums);
++    o.pushKV("quorumsCLSigGroups", int64_t(d.quorumsCLSigs.size()));
++    return o;
++}
++} // namespace
++
++// Deserialize captured `mnlistdiff` payloads with Core's own `CSimplifiedMNListDiff`, check that
++// Core re-serializes them byte for byte, hash every entry with `CalcHash`, and compare the merkle
++// root of the list a diff leads to with the root in the diff's own coinbase.
++BOOST_AUTO_TEST_CASE(o4_dump_mnlistdiff_ground_truth)
++{
++    std::string manifest_path, out_dir;
++    if (!Env("O4_SML_MANIFEST", manifest_path) || !Env("O4_VECTOR_OUT", out_dir)) return;
++    bls::bls_legacy_scheme.store(false);
++
++    UniValue results(UniValue::VARR);
++    // The list each group has reached so far, keyed by proRegTxHash.
++    std::map<std::string, std::map<uint256, CSimplifiedMNListEntry>> lists;
++
++    const UniValue manifest = ReadManifest(manifest_path);
++    for (const UniValue& item : manifest.getValues()) {
++        const std::string name = item["name"].get_str();
++        const std::string group = item["group"].get_str();
++        const std::vector<unsigned char> wire = ReadFile(item["file"].get_str());
++
++        CDataStream ss(wire, SER_NETWORK, PROTOCOL_VERSION);
++        CSimplifiedMNListDiff diff;
++        ss >> diff;
++        BOOST_CHECK_MESSAGE(ss.empty(), name + ": trailing bytes after the diff");
++        const bool exact = CoreRoundTrips(diff, wire);
++        BOOST_CHECK_MESSAGE(exact, name + ": Core does not re-serialize the capture byte for byte");
++
++        const auto cbtx_opt = GetTxPayload<CCbTx>(diff.cbTx);
++        BOOST_REQUIRE_MESSAGE(cbtx_opt.has_value(), name + ": coinbase has no CbTx payload");
++        const CCbTx& cbtx = *cbtx_opt;
++
++        const bool check_root = item["checkRoot"].isNull() || item["checkRoot"].get_bool();
++        uint256 computed_root;
++        bool roots_match = false;
++        size_t list_size = 0;
++        if (check_root) {
++            auto& list = lists[group];
++            for (const auto& h : diff.deletedMNs) {
++                BOOST_CHECK_MESSAGE(list.erase(h) == 1, name + ": deletes an entry that is not in the list");
++            }
++            for (const auto& e : diff.mnList) list.insert_or_assign(e.proRegTxHash, e);
++
++            std::vector<std::unique_ptr<CSimplifiedMNListEntry>> entries;
++            for (const auto& [hash, e] : list) entries.push_back(std::make_unique<CSimplifiedMNListEntry>(e));
++            const CSimplifiedMNList sml{std::move(entries)};
++            bool mutated = false;
++            computed_root = sml.CalcMerkleRoot(&mutated);
++            roots_match = computed_root == cbtx.merkleRootMNList && !mutated;
++            list_size = list.size();
++            BOOST_CHECK_MESSAGE(roots_match, name + ": merkleRootMNList of the resulting list does not match the coinbase");
++        }
++
++        UniValue r(UniValue::VOBJ);
++        r.pushKV("name", name);
++        if (!item["repoPath"].isNull()) r.pushKV("repoPath", item["repoPath"].get_str());
++        r.pushKV("group", group);
++        r.pushKV("wireBytes", int64_t(wire.size()));
++        r.pushKV("wireSha256", Sha256Hex(wire));
++        r.pushKV("coreRoundTripExact", exact);
++        r.pushKV("cbTxHeight", int{cbtx.nHeight});
++        r.pushKV("cbTxVersion", int{static_cast<uint16_t>(cbtx.nVersion)});
++        r.pushKV("cbTxMerkleRootMNList", cbtx.merkleRootMNList.ToString());
++        if (check_root) {
++            r.pushKV("listSizeAfterDiff", int64_t(list_size));
++            r.pushKV("computedMerkleRootMNList", computed_root.ToString());
++            r.pushKV("rootsMatch", roots_match);
++        }
++        r.pushKV("diff", DiffSummary(diff));
++        results.push_back(r);
++    }
++    WriteJson(out_dir, "mnlistdiff-core-ground-truth.json", results);
++}
++
++// Same for `qrinfo` payloads: Core must decode and re-encode them exactly, and every embedded
++// diff is summarised so Rust decoders can be compared field by field.
++BOOST_AUTO_TEST_CASE(o4_dump_qrinfo_ground_truth)
++{
++    std::string manifest_path, out_dir;
++    if (!Env("O4_QRINFO_MANIFEST", manifest_path) || !Env("O4_VECTOR_OUT", out_dir)) return;
++    bls::bls_legacy_scheme.store(false);
++
++    UniValue results(UniValue::VARR);
++    const UniValue manifest = ReadManifest(manifest_path);
++    for (const UniValue& item : manifest.getValues()) {
++        const std::string name = item["name"].get_str();
++        const std::vector<unsigned char> wire = ReadFile(item["file"].get_str());
++
++        CDataStream ss(wire, SER_NETWORK, PROTOCOL_VERSION);
++        llmq::CQuorumRotationInfo info;
++        ss >> info;
++        BOOST_CHECK_MESSAGE(ss.empty(), name + ": trailing bytes after the qrinfo");
++        const bool exact = CoreRoundTrips(info, wire);
++        BOOST_CHECK_MESSAGE(exact, name + ": Core does not re-serialize the capture byte for byte");
++
++        UniValue r(UniValue::VOBJ);
++        r.pushKV("name", name);
++        if (!item["repoPath"].isNull()) r.pushKV("repoPath", item["repoPath"].get_str());
++        r.pushKV("wireBytes", int64_t(wire.size()));
++        r.pushKV("wireSha256", Sha256Hex(wire));
++        r.pushKV("coreRoundTripExact", exact);
++        r.pushKV("extraShare", info.extraShare);
++        r.pushKV("mnListDiffTip", DiffSummary(info.mnListDiffTip));
++        r.pushKV("mnListDiffH", DiffSummary(info.mnListDiffH));
++        r.pushKV("mnListDiffHMinusC", DiffSummary(info.cycleHMinusC.m_diff));
++        r.pushKV("mnListDiffHMinus2C", DiffSummary(info.cycleHMinus2C.m_diff));
++        r.pushKV("mnListDiffHMinus3C", DiffSummary(info.cycleHMinus3C.m_diff));
++        if (info.extraShare) r.pushKV("mnListDiffHMinus4C", DiffSummary(info.cycleHMinus4C.value_or(llmq::CycleData{}).m_diff));
++        UniValue last(UniValue::VARR);
++        for (const auto& c : info.lastCommitmentPerIndex) last.push_back(CommitmentRow(c));
++        r.pushKV("lastCommitmentPerIndex", last);
++        r.pushKV("quorumSnapshotList", int64_t(info.quorumSnapshotList.size()));
++        r.pushKV("mnListDiffList", int64_t(info.mnListDiffList.size()));
++        results.push_back(r);
++    }
++    WriteJson(out_dir, "qrinfo-core-ground-truth.json", results);
++}
++
++BOOST_AUTO_TEST_SUITE_END()
+-- 
+2.53.0
+
+
+From 1f590c8cfba37b9d12bd175c779e9a277d7d3b7d Mon Sep 17 00:00:00 2001
+From: pasta <pasta@dashboost.org>
+Date: Sat, 10 Oct 2026 12:58:03 +0000
+Subject: [PATCH 3/3] test: record the canonical masternode lists of
+ evo_snapshot_tests
+
+Node-program O2a-EV: the oracle's canonical-list and diff entry points
+need Core-computed expectations independent of the shim. Record, next to
+the existing checks, the lists evo_snapshot_tests builds (evodb bytes,
+SerializeCanonicalMNList bytes, CanonicalMNListHash), every byte string it
+gives UnserializeCanonicalMNList with Core's verdict, re-encoding and
+hash, its BuildDiff in the canonical diff encoding and one state diff
+(evo_snapshot_tests.json under O4_VECTOR_OUT). No assertion changes.
+Local branch only.
+---
+ src/test/evo_snapshot_tests.cpp | 81 +++++++++++++++++++++++++++++++++
+ 1 file changed, 81 insertions(+)
+
+diff --git a/src/test/evo_snapshot_tests.cpp b/src/test/evo_snapshot_tests.cpp
+index 38d18473d4..3ef9e76b5e 100644
+--- a/src/test/evo_snapshot_tests.cpp
++++ b/src/test/evo_snapshot_tests.cpp
+@@ -2,6 +2,7 @@
+ // Distributed under the MIT software license, see the accompanying
+ // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
++#include <test/util/o4_dump.h>
+ #include <test/util/setup_common.h>
+ 
+ #include <clientversion.h>
+@@ -110,6 +111,71 @@ CDeterministicMNList MNList(const uint256& block_hash, int height, bool reverse)
+     return list;
+ }
+ 
++// O2a-EV: record the masternode lists and diffs these tests build and read, with what Core
++// computed (evo_snapshot_tests.json under O4_VECTOR_OUT); the checks are unchanged.
++std::vector<unsigned char> Bytes(const CDataStream& s) { return {UCharCast(s.data()), UCharCast(s.data() + s.size())}; }
++
++//! A list as the tests built it: Core's evodb bytes, canonical bytes and CanonicalMNListHash.
++void RecordList(const std::string& name, const CDeterministicMNList& list)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream disk{SER_DISK, CLIENT_VERSION}, canonical{SER_DISK, CLIENT_VERSION};
++    disk << list;
++    evo::SerializeCanonicalMNList(canonical, list);
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"list"}}, {"case", UniValue{name}},
++                                             {"disk", o4::Hex(Bytes(disk))}, {"canonical", o4::Hex(Bytes(canonical))},
++                                             {"hash", UniValue{HexStr(evo::CanonicalMNListHash(list))}}}));
++}
++
++//! Bytes a test gives UnserializeCanonicalMNList: Core's verdict, re-encoding and hash.
++void RecordRead(const std::string& name, const CDataStream& bytes)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    UniValue record{o4::Obj({{"kind", UniValue{"read"}}, {"case", UniValue{name}}, {"input", o4::Hex(Bytes(bytes))}})};
++    CDataStream input{bytes};
++    try {
++        const auto list{evo::UnserializeCanonicalMNList(input)};
++        CDataStream canonical{SER_DISK, CLIENT_VERSION};
++        evo::SerializeCanonicalMNList(canonical, list);
++        record.pushKV("accepted", true);
++        record.pushKV("trailing", o4::Int(input.size()));
++        record.pushKV("canonical", o4::Hex(Bytes(canonical)));
++        record.pushKV("hash", HexStr(evo::CanonicalMNListHash(list)));
++    } catch (const std::ios_base::failure& e) {
++        record.pushKV("accepted", false);
++        record.pushKV("error", e.what());
++    }
++    O4_RECORD("evo_snapshot_tests", record);
++}
++
++//! from.BuildDiff(to) in the canonical diff encoding.
++void RecordDiff(const std::string& name, const CDeterministicMNList& from, const CDeterministicMNList& to,
++                const CDeterministicMNListDiff& diff)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream a{SER_DISK, CLIENT_VERSION}, b{SER_DISK, CLIENT_VERSION}, d{SER_DISK, CLIENT_VERSION};
++    evo::SerializeCanonicalMNList(a, from);
++    evo::SerializeCanonicalMNList(b, to);
++    evo::SerializeCanonicalMNListDiff(d, diff);
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"diff"}}, {"case", UniValue{name}},
++                                             {"from", o4::Hex(Bytes(a))}, {"to", o4::Hex(Bytes(b))},
++                                             {"diff", o4::Hex(Bytes(d))}}));
++}
++
++//! CDeterministicMNStateDiff(old_state, new_state) and its serialization.
++void RecordStateDiff(const std::string& name, const CDeterministicMNState& old_state,
++                     const CDeterministicMNState& new_state, const CDeterministicMNStateDiff& diff)
++{
++    if (!o4::Dump::Get().Enabled()) return;
++    CDataStream a{SER_DISK, CLIENT_VERSION}, b{SER_DISK, CLIENT_VERSION}, d{SER_DISK, CLIENT_VERSION};
++    a << old_state;
++    b << new_state;
++    d << diff;
++    O4_RECORD("evo_snapshot_tests", o4::Obj({{"kind", UniValue{"state_diff"}}, {"case", UniValue{name}},
++                                             {"old", o4::Hex(Bytes(a))}, {"new", o4::Hex(Bytes(b))},
++                                             {"diff", o4::Hex(Bytes(d))}}));
++}
++
+ evo::MinedQuorumCommitment Commitment(Consensus::LLMQType type, uint8_t quorum, uint8_t mined, bool rotated,
+                                       int16_t index = 0)
+ {
+@@ -235,6 +301,8 @@ BOOST_FIXTURE_TEST_CASE(populated_roundtrip_and_representation_independence, Bas
+     const auto reverse_bytes{SerializeSnapshot(reverse)};
+     BOOST_CHECK_EQUAL_COLLECTIONS(forward_bytes.begin(), forward_bytes.end(), reverse_bytes.begin(), reverse_bytes.end());
+     BOOST_CHECK(evo::CanonicalMNListHash(forward.mn_list) == evo::CanonicalMNListHash(reverse.mn_list));
++    RecordList("synthetic_forward", forward.mn_list);
++    RecordList("synthetic_reverse", reverse.mn_list);
+     BOOST_CHECK(GetEvoSnapshotHash(forward) == GetEvoSnapshotHash(reverse));
+ 
+     CDataStream input{forward_bytes};
+@@ -324,6 +392,7 @@ BOOST_FIXTURE_TEST_CASE(canonical_mn_reader_rejects_order_and_counter, BasicTest
+ {
+     BOOST_CHECK(evo::CanonicalMNListHash(CDeterministicMNList{}) ==
+                 evo::CanonicalMNListHash(CDeterministicMNList{}));
++    RecordList("default_list", CDeterministicMNList{});
+     const auto write_raw = [](uint32_t total, std::vector<CDeterministicMNCPtr> mns) {
+         CDataStream stream{SER_DISK, CLIENT_VERSION};
+         stream << H(42) << 42 << total;
+@@ -333,8 +402,10 @@ BOOST_FIXTURE_TEST_CASE(canonical_mn_reader_rejects_order_and_counter, BasicTest
+     };
+     auto unsorted{write_raw(10, {MN(2, 2, MnType::Regular, ProTxVersion::LegacyBLS, 2),
+                                  MN(1, 1, MnType::Regular, ProTxVersion::LegacyBLS, 1)})};
++    RecordRead("unsorted", unsorted);
+     BOOST_CHECK_THROW(evo::UnserializeCanonicalMNList(unsorted), std::ios_base::failure);
+     auto bad_counter{write_raw(2, {MN(2, 1, MnType::Regular, ProTxVersion::LegacyBLS, 1)})};
++    RecordRead("bad_counter", bad_counter);
+     BOOST_CHECK_THROW(evo::UnserializeCanonicalMNList(bad_counter), std::ios_base::failure);
+ }
+ 
+@@ -351,6 +422,9 @@ BOOST_FIXTURE_TEST_CASE(diff_chain_roundtrip_and_canonical_determinism, BasicTes
+         target.UpdateMN(*dmn, state);
+     }
+     const auto diff{base.BuildDiff(target)};
++    RecordList("diff_chain_base", base);
++    RecordList("diff_chain_target", target);
++    RecordDiff("diff_chain", base, target, diff);
+     auto permuted{diff};
+     std::reverse(permuted.addedMNs.begin(), permuted.addedMNs.end());
+     std::vector<std::pair<uint64_t, CDeterministicMNStateDiff>> updates(permuted.updatedMNs.begin(),
+@@ -370,6 +444,7 @@ BOOST_FIXTURE_TEST_CASE(diff_chain_roundtrip_and_canonical_determinism, BasicTes
+     reconstructed.ApplyDiffForSnapshot(H(11), 99, target.GetTotalRegisteredCount(), decoded);
+     target.ApplyDiffForSnapshot(H(11), 99, target.GetTotalRegisteredCount(), CDeterministicMNListDiff{});
+     BOOST_CHECK(evo::CanonicalMNListHash(reconstructed) == evo::CanonicalMNListHash(target));
++    RecordList("diff_chain_reconstructed", reconstructed);
+     BOOST_CHECK(canonical.empty());
+ }
+ 
+@@ -535,6 +610,7 @@ BOOST_FIXTURE_TEST_CASE(malformed_lazy_operator_keys_are_rejected, BasicTestingS
+         list << H(42) << 500 << uint32_t{10};
+         WriteCompactSize(list, 1);
+         list.write(Span{lazy});
++        RecordRead(legacy ? "undecodable_operator_key_legacy" : "undecodable_operator_key_basic", list);
+         BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(list), std::ios_base::failure, noncanonical);
+ 
+         CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -603,6 +679,7 @@ BOOST_FIXTURE_TEST_CASE(unset_mn_id_is_rejected, BasicTestingSetup)
+     base << H(42) << 500 << uint32_t{10};
+     WriteCompactSize(base, 1);
+     base.write(Span{malformed});
++    RecordRead("unset_internal_id", base);
+     BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(base), std::ios_base::failure, invalid_id);
+ 
+     CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -1049,6 +1126,7 @@ BOOST_FIXTURE_TEST_CASE(nested_mn_map_wire_order_is_canonical, BasicTestingSetup
+         base << H(42) << 42 << uint32_t{10};
+         WriteCompactSize(base, 1);
+         base.write(Span{changed_mn});
++        RecordRead(duplicate ? "netinfo_duplicate_entry" : "netinfo_reversed_entries", base);
+         BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(base), std::ios_base::failure, is_noncanonical);
+ 
+         CDataStream addition{SER_DISK, CLIENT_VERSION};
+@@ -1060,6 +1138,7 @@ BOOST_FIXTURE_TEST_CASE(nested_mn_map_wire_order_is_canonical, BasicTestingSetup
+ 
+         const auto old_mn{MN(5, 1, MnType::Evo, ProTxVersion::ExtAddr, 6)};
+         const CDeterministicMNStateDiff state_diff{*old_mn->pdmnState, *mn->pdmnState};
++        if (!duplicate) RecordStateDiff("evo_extaddr_address_change", *old_mn->pdmnState, *mn->pdmnState, state_diff);
+         const auto changed_diff{replace_info(state_diff)};
+         CDataStream update{SER_DISK, CLIENT_VERSION};
+         WriteCompactSize(update, 0);
+@@ -1244,8 +1323,10 @@ BOOST_FIXTURE_TEST_CASE(hash_prefix_collision_runs_are_bounded, BasicTestingSetu
+         return stream;
+     };
+     auto at_bound{write_list(evo::EVO_SNAPSHOT_MAX_HASH_PREFIX_RUN)};
++    RecordRead("prefix_run_at_bound", at_bound);
+     BOOST_CHECK_NO_THROW(evo::UnserializeCanonicalMNList(at_bound));
+     auto over_bound{write_list(evo::EVO_SNAPSHOT_MAX_HASH_PREFIX_RUN + 1)};
++    RecordRead("prefix_run_over_bound", over_bound);
+     BOOST_CHECK_EXCEPTION(evo::UnserializeCanonicalMNList(over_bound), std::ios_base::failure, [](const auto& e) {
+         return std::string{e.what()}.find("collision bound") != std::string::npos;
+     });
+-- 
+2.53.0
+

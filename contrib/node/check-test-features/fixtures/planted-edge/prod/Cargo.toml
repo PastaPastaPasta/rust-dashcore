@@ -1,0 +1,9 @@
+[package]
+name = "prod"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Control (vi): dashd-chainstate's planted bugs on a normal edge.
+[dependencies]
+dashd-chainstate = { path = "../dashd-chainstate", features = ["planted-bugs"] }

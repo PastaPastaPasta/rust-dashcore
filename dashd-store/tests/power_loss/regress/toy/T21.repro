@@ -1,0 +1,10 @@
+# ToyChain planted bug T21 (ST3a §6.2), minimised in 108 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=3 invalid=22 effects=- presumed=-:- prune=- sub=- bug=T21
+workload c20;f;c3;f
+crash 101 process-kill
+adversary realistic
+granularity write
+expect R6
+minimality verified
