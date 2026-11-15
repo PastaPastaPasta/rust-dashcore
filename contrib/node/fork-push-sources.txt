@@ -1,0 +1,4 @@
+# check-fork-push.sh snapshot: local git sources of the root Cargo.toml and Cargo.lock, rewritten in
+# the pushed snapshot only (DEC-680 option (a)): "<local url> <public url> <tag pattern>". Check 5
+# requires every rewritten rev to be exactly a published tag matching the pattern.
+file:///work/home/agent/workspace/base-sdk https://github.com/PastaPastaPasta/base-sdk refs/tags/node-base-sdk-*

@@ -1,0 +1,146 @@
+diff --git a/dash-dml/src/specialtx/trivial/tests.rs b/dash-dml/src/specialtx/trivial/tests.rs
+index b97807042a988a32f19c403190d26a37b8b7c6c2..48274b367f7b839c906053613e94bf54d9249b92 100644
+--- a/dash-dml/src/specialtx/trivial/tests.rs
++++ b/dash-dml/src/specialtx/trivial/tests.rs
+@@ -287,7 +287,9 @@ pub(crate) fn pro_reg_shared() -> ProRegTx {
+             p.platform_p2p_port(),
+             p.platform_http_port(),
+         );
+-        p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++        // NON-EQUIV (repin): `new` resets `sig`. The old one, Core's and stale since the
++        // writes above, cannot be put back: two shares and no join signatures do not encode.
++        p = rebuilt;
+     };
+     p
+ }
+@@ -1188,7 +1190,9 @@ fn every_row_has_a_vector() {
+                         p.platform_p2p_port(),
+                         p.platform_http_port(),
+                     );
+-                    *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                    // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back: a legacy-
++                    // version Evo registration, the row's bad payload, does not encode.
++                    *p = rebuilt;
+                 };
+             }),
+         ),
+@@ -1441,7 +1445,9 @@ fn every_row_has_a_vector() {
+                     p.platform_p2p_port(),
+                     p.platform_http_port(),
+                 );
+-                *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back: the
++                // undecodable operator key this row checks does not round-trip through the encoding.
++                *p = rebuilt;
+             }),
+         ),
+         (
+@@ -1469,7 +1475,9 @@ fn every_row_has_a_vector() {
+                     p.platform_p2p_port(),
+                     p.platform_http_port(),
+                 );
+-                *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back:
++                // the bad row's payload does not encode.
++                *p = rebuilt;
+             }),
+         ),
+         (
+@@ -1516,7 +1524,9 @@ fn every_row_has_a_vector() {
+                         p.platform_p2p_port(),
+                         p.platform_http_port(),
+                     );
+-                    *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                    // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back:
++                    // the bad row's payload does not round-trip through the encoding.
++                    *p = rebuilt;
+                 };
+             }),
+         ),
+@@ -1534,7 +1544,9 @@ fn every_row_has_a_vector() {
+                     p.platform_p2p_port(),
+                     p.platform_http_port(),
+                 );
+-                *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back:
++                // the bad row's payload does not round-trip through the encoding.
++                *p = rebuilt;
+             }),
+         ),
+         (
+@@ -1551,7 +1563,9 @@ fn every_row_has_a_vector() {
+                     p.platform_p2p_port(),
+                     p.platform_http_port(),
+                 );
+-                *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++                // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back:
++                // the bad row's payload does not encode.
++                *p = rebuilt;
+             }),
+         ),
+         (
+@@ -1782,7 +1796,9 @@ fn operator_key_scheme_rows() {
+                 p.platform_p2p_port(),
+                 p.platform_http_port(),
+             );
+-            p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++            // NON-EQUIV (repin): `new` resets `sig`. Putting the old one back through the
++            // encoding would drop the operator key's relabelled scheme, which this row tests.
++            p = rebuilt;
+         }
+     }
+     assert_eq!(verdict(pro_reg_trivially_valid(&p)), Some((S, BAD_PROTX_OPERATOR_PUBKEY.into())));
+@@ -1802,7 +1818,9 @@ fn operator_key_scheme_rows() {
+                 p.payouts().clone(),
+                 p.inputs_hash(),
+             );
+-            p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++            // NON-EQUIV (repin): `new` resets `sig`. Putting the old one back through the
++            // encoding would drop the operator key's relabelled scheme, which this row tests.
++            p = rebuilt;
+         }
+     }
+     assert_eq!(
+@@ -2387,7 +2405,9 @@ fn bounds_at_their_edges() {
+             p.platform_p2p_port(),
+             p.platform_http_port(),
+         );
+-        p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
++        // NON-EQUIV (repin): `new` resets `sig`. The old one cannot be put back: the bad
++        // Platform HTTPS entry this row checks does not survive the encoding.
++        p = rebuilt;
+     };
+     assert_eq!(verdict(pro_reg_trivially_valid(&p)), special(BAD_PROTX_NETINFO_BAD));
+     // `MAX_OPERATOR_REWARD`.
+diff --git a/dash-dml/src/testkit.rs b/dash-dml/src/testkit.rs
+index 8760ffa12b05a8560c86c501ad6c965221b81e4f..9540976ee333d573435902b6c91c5fad5eee1ea8 100644
+--- a/dash-dml/src/testkit.rs
++++ b/dash-dml/src/testkit.rs
+@@ -290,8 +290,8 @@ pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+ 
+     /// The payload with `sig` in place of its signature: the payload itself when it holds `sig`
+     /// already, else its encoding with the signature's bytes replaced, decoded. Asserts the
+-    /// payload round-trips, by its `Debug` form, and the signature decodes as `sig`, so the result
+-    /// equals the payload with only the signature changed.
++    /// payload but its signature round-trips, by its `Debug` form, and the signature decodes as
++    /// `sig`, so the result equals the payload with only the signature changed.
+     fn with_sig(&self, sig: Self::Sig) -> Self {
+         if self.sig_field() == &sig {
+             return self.clone();
+@@ -299,8 +299,14 @@ pub trait WithSig: BaseCodec + Clone + PartialEq + std::fmt::Debug + Sized {
+         let mut wire = wire_bytes(self);
+         let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
+         // `Debug`, not `PartialEq`: a lazy BLS key's decoded value and scheme are state the
+-        // encoding does not carry, and `PartialEq` does not see.
+-        assert_eq!(format!("{back:?}"), format!("{self:?}"), "the payload round-trips");
++        // encoding does not carry, and `PartialEq` does not see. The signature, the last field,
++        // is left out: it is replaced.
++        let but_sig = |d: String| d.rfind(", sig: ").map_or(d.clone(), |i| d[..i].to_owned());
++        assert_eq!(
++            but_sig(format!("{back:?}")),
++            but_sig(format!("{self:?}")),
++            "the payload round-trips, its signature aside"
++        );
+         let old = self.sig_wire(self.sig_field());
+         assert!(wire.ends_with(&old), "the signature is the last field");
+         wire.truncate(wire.len() - old.len());
