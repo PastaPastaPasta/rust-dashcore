@@ -1,0 +1,59 @@
+diff --git a/dashd-rpc/src/rawtransaction/tests.rs b/dashd-rpc/src/rawtransaction/tests.rs
+index f2c0f156859da7b493d9741d9f1b93b5c063c6d9..5c63449fc9bfa294cca00e51c0008068fbc56f3b 100644
+--- a/dashd-rpc/src/rawtransaction/tests.rs
++++ b/dashd-rpc/src/rawtransaction/tests.rs
+@@ -448,11 +448,18 @@ mod signing {
+     }
+ 
+     fn with_script_sigs(tx: &Transaction, script_sigs: &[&[u8]]) -> Transaction {
+-        let mut tx = tx.clone();
+-        for (txin, s) in tx.inputs.iter_mut().zip(script_sigs) {
+-            txin.script_sig = s.to_vec().into();
++        let mut inputs = tx.inputs().clone();
++        for (txin, s) in inputs.iter_mut().zip(script_sigs) {
++            *txin = TxIn::new(txin.prevout(), s.to_vec().into(), txin.sequence());
+         }
+-        tx
++        Transaction::new(
++            tx.version(),
++            tx.tx_type(),
++            inputs,
++            tx.outputs().clone(),
++            tx.lock_time(),
++            tx.extra_payload().clone(),
++        )
+     }
+ 
+     /// Key `k`'s signature of input `n_in` of `tx` under `hash_type`, its byte appended.
+diff --git a/dashd-rpc/src/sign.rs b/dashd-rpc/src/sign.rs
+index 6e365cc7d95cc211b159b908eeea1eb06518c166..d278f40d4d1fa84133125f65ecf9c57bd3055da1 100644
+--- a/dashd-rpc/src/sign.rs
++++ b/dashd-rpc/src/sign.rs
+@@ -10,7 +10,7 @@ use std::cell::RefCell;
+ use std::collections::BTreeMap;
+ 
+ use dash_consensus::coins::Coin;
+-use dash_consensus::primitives::{OutPoint, Transaction};
++use dash_consensus::primitives::{OutPoint, Transaction, TxIn};
+ use dash_consensus::script::interpreter::MAX_SCRIPT_ELEMENT_SIZE;
+ use dash_consensus::script::opcodes::{
+     OP_0, OP_1, OP_1NEGATE, OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_RETURN,
+@@ -470,7 +470,17 @@ pub fn data_from_transaction(tx: &Transaction, n_in: usize, script_pubkey: &[u8]
+ /// `UpdateInput`.
+ // Core: script/sign.cpp:309-312
+ pub fn update_input(tx: &mut Transaction, n_in: usize, data: &SignatureData) {
+-    tx.inputs[n_in].script_sig = data.script_sig.clone().into();
++    let mut inputs = tx.inputs().clone();
++    let txin = &inputs[n_in];
++    inputs[n_in] = TxIn::new(txin.prevout(), data.script_sig.clone().into(), txin.sequence());
++    *tx = Transaction::new(
++        tx.version(),
++        tx.tx_type(),
++        inputs,
++        tx.outputs().clone(),
++        tx.lock_time(),
++        tx.extra_payload().clone(),
++    );
+ }
+ 
+ /// `SignTransaction(mtx, keystore, coins, nHashType, input_errors)`: signs what it can of

@@ -1,0 +1,76 @@
+diff --git a/dash-dml/src/build/mod.rs b/dash-dml/src/build/mod.rs
+index 71f7704c799e70fa1c3cc0658216b4a2a50c355c..93cbe76250f5d11c6a90ce820cbd153c784c267b 100644
+--- a/dash-dml/src/build/mod.rs
++++ b/dash-dml/src/build/mod.rs
+@@ -21,8 +21,9 @@ use dash_params::LlmqType;
+ use dash_params::{ChainSetup, LlmqParams};
+ use dash_pkc::bls::BlsSchemeKind;
+ use dash_primitives::{
+-    BlockHash, FinalCommitment, MnType as PayloadMnType, NetInfo, OutPoint, ProRegTx, ProUpRegTx,
+-    ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, SpecialPayload, TxHash, TxType,
++    BlockHash, CollateralShare, FinalCommitment, MnType as PayloadMnType, NetInfo, OutPoint,
++    ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, SpecialPayload,
++    TxHash, TxType,
+ };
+ use dash_types::Numeric;
+ 
+@@ -927,7 +928,13 @@ fn pro_up_share<L: BuildList>(
+         return Err(DmlBuildError::invalid(BAD_PROUPSHARE_INDEX));
+     }
+     let mut cold = (*dmn.cold).clone();
+-    cold.shares[index].script_reward = p.script_reward.clone();
++    let share = &cold.shares[index];
++    cold.shares[index] = CollateralShare::new(
++        share.amount(),
++        share.script_refund().clone(),
++        p.script_reward().clone(),
++        share.key_id_owner(),
++    );
+     if !is_share_list_voting_key_safe(&cold.shares, &cold.key_id_voting) {
+         return Err(DmlBuildError::invalid(BAD_PROUPSHARE_PAYEE_REUSE));
+     }
+diff --git a/dash-dml/src/codec.rs b/dash-dml/src/codec.rs
+index 5ae3e8d6bbc440361f553d9c79611b3ec1c08969..c00961d4786362502a16173c14138dd3be11247b 100644
+--- a/dash-dml/src/codec.rs
++++ b/dash-dml/src/codec.rs
+@@ -96,9 +96,10 @@ fn write_script(script: &[u8], w: &mut impl CoreWrite) {
+ /// `NetInfoSerWrapper`: the object's own format (Core serializes by dynamic type).
+ fn write_net_info(net: &NetInfo, w: &mut impl CoreWrite) {
+     match net {
+-        NetInfo::Legacy(NetInfoV1(service)) => {
+-            w.write(service.addr.as_bytes());
+-            w.write(&service.port.to_be_bytes());
++        NetInfo::Legacy(v1) => {
++            let service = v1.service();
++            w.write(service.addr().as_bytes());
++            w.write(&service.port().to_be_bytes());
+         }
+         NetInfo::Extended(ext) => {
+             w.write(&[ext.version]);
+diff --git a/dash-dml/src/netinfo/add.rs b/dash-dml/src/netinfo/add.rs
+index e49610084fa24640e5115d31b17ffc65877f36e3..1e47e090df5a4887d22747e20d31388b9d4c358c 100644
+--- a/dash-dml/src/netinfo/add.rs
++++ b/dash-dml/src/netinfo/add.rs
+@@ -172,7 +172,8 @@ fn process_candidate(v2: &mut NetInfoV2, purpose: NIPurpose, candidate: NIEntry)
+         // Domains only allowed for Platform HTTPS API.
+         return NetInfoStatus::BadInput;
+     }
+-    match v2.entries.iter_mut().find(|(p, _)| *p == purpose) {
++    let mut groups = v2.groups().clone();
++    match groups.iter_mut().find(|(p, _)| *p == purpose) {
+         Some((_, group)) => {
+             if group.len() >= MAX_ENTRIES_EXTNETINFO {
+                 return NetInfoStatus::MaxLimit;
+@@ -185,9 +186,10 @@ fn process_candidate(v2: &mut NetInfoV2, purpose: NIPurpose, candidate: NIEntry)
+         }
+         None => {
+             // Core's map keeps its keys sorted (D41).
+-            let at = v2.entries.partition_point(|(p, _)| p.to_base() < purpose.to_base());
+-            v2.entries.insert(at, (purpose, vec![candidate]));
++            let at = groups.partition_point(|(p, _)| p.to_base() < purpose.to_base());
++            groups.insert(at, (purpose, vec![candidate]));
+         }
+     }
++    *v2 = NetInfoV2::new(v2.version(), groups);
+     NetInfoStatus::Success
+ }
