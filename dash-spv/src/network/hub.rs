@@ -297,8 +297,10 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> SubscriptionHub<R, A, F, P> {
 
     fn deliver(&mut self, mut delivery: Delivery<R, A, P>) -> Offer {
         while let Some(id) = delivery.targets.pop_front() {
-            // An earlier delivery blocked on this subscription goes first, so none starves.
-            let behind = self.parked.iter().any(|parked| parked.targets.front() == Some(&id));
+            // An earlier parked delivery that still has this subscription among its targets goes
+            // first, so none starves and no subscription sees a later message before an earlier
+            // one. `self.parked` holds only deliveries ahead of this one (`on_space` drains it).
+            let behind = self.parked.iter().any(|parked| parked.targets.contains(&id));
             let Some(sub) = self.subscribers.get_mut(&id) else {
                 continue;
             };
@@ -411,10 +413,15 @@ impl<R: Clone, A: Clone, F, P: Clone + Conn> SubscriptionHub<R, A, F, P> {
         resumed
     }
 
-    /// A subscription is stalled while a parked delivery waits on it.
+    /// A subscription is stalled while a parked delivery waits on its space. A delivery parked
+    /// only behind an earlier one does not stall a subscription that could take it.
     fn refresh_stalls(&mut self) {
         for (id, sub) in &mut self.subscribers {
-            if self.parked.iter().any(|delivery| delivery.targets.front() == Some(id)) {
+            let blocked = self
+                .parked
+                .iter()
+                .any(|delivery| delivery.targets.front() == Some(id) && !sub.fits(delivery.bytes));
+            if blocked {
                 sub.stall.get_or_insert_with(|| Stall {
                     since: (self.clock)(),
                     reported: false,
@@ -1258,6 +1265,29 @@ mod tests {
         assert_eq!(hub.on_space(sub), vec![2]);
         assert_eq!(take(&mut hub, sub), (2, 3));
         assert!(hub.recv(sub).is_none());
+    }
+
+    #[test]
+    fn parked_fanout_is_not_overtaken_on_a_later_target() {
+        let start = Instant::now();
+        let mut hub = Hub::with_clock(Duration::from_secs(10), Arc::new(move || start));
+        let slow = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        let both = hub.subscribe(&[MessageType::Inv, MessageType::Tx], cap(4, 100));
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap(), Offer::Delivered);
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
+        assert_eq!(hub.offer(2, MessageType::Tx, msg(3), 1, None).unwrap(), Offer::Parked);
+        let stalled = hub.stalled(start + Duration::from_secs(10));
+        assert_eq!(stalled.len(), 1);
+        assert_eq!(stalled[0].kinds, vec![MessageType::Inv]);
+        assert_eq!(take(&mut hub, both), (1, 1));
+        assert!(hub.recv(both).is_none());
+        assert_eq!(take(&mut hub, slow), (1, 1));
+        assert_eq!(hub.on_space(slow), vec![1, 2]);
+        assert_eq!(take(&mut hub, both), (1, 2));
+        assert_eq!(take(&mut hub, both), (2, 3));
+        assert!(hub.recv(both).is_none());
+        assert_eq!(take(&mut hub, slow), (1, 2));
+        assert!(hub.recv(slow).is_none());
     }
 
     #[test]
