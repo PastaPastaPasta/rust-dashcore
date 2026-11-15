@@ -1,0 +1,137 @@
+{
+ "network": "regtest",
+ "starts": [
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "budgetparams": [
+     "10:10:10"
+    ],
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_dip3_deterministicmns/run/node11"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "dip3params": [
+     "135:150"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "masternodeblsprivkey": [
+     "<redacted>"
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "sporkkey": [
+     "<redacted>"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode11"
+    ],
+    "v2transport": [
+     "0"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.connect": [
+     "0"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "20572"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "30572"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  }
+ ]
+}
