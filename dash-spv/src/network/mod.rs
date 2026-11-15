@@ -2,11 +2,13 @@ mod bans;
 mod broker;
 mod costs;
 mod discovery;
-pub mod hub;
+#[expect(dead_code, reason = "wired in by the S4 facade")]
+pub(crate) mod hub;
 mod manager;
 mod peer;
 mod peer_set;
-pub mod registry;
+#[cfg_attr(not(test), expect(dead_code, reason = "wired in by the S4 facade"))]
+pub(crate) mod registry;
 mod transport;
 
 use crate::error::NetworkResult;

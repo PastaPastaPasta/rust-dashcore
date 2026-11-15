@@ -24,7 +24,6 @@ dash-x11 = { path = "../dash-x11" }
 dash-consensus = { path = "../dash-consensus", features = ["dash-x11"] }
 dash-num = { workspace = true, features = ["std"] }
 dash-p2p-core = { workspace = true, features = ["std"] }
-dash-p2p = { path = "../dash-p2p", default-features = false }
 dash-pkc = { workspace = true }
 dash-primitives = { workspace = true, features = ["std"] }
 dash-types = { workspace = true, features = ["codec", "std"] }
@@ -105,6 +104,7 @@ criterion = { workspace = true, features = ["async_tokio"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["full", "test-util"] }
 test-case = { workspace = true }
+dash-p2p = { path = "../dash-p2p", default-features = false }
 
 [[bench]]
 name = "storage"
