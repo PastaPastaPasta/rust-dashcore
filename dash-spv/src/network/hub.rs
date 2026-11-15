@@ -84,9 +84,13 @@ pub struct AlreadyParked<R, A, P> {
     pub request: Option<(R, A)>,
 }
 
+/// The default global budget for retained message bytes, queued or parked.
+pub const HUB_BYTES: usize = 24 * 1024 * 1024;
+
 struct Queued<R, A, F, P> {
     inbound: Inbound<R, A, F, P>,
-    bytes: usize,
+    // Messages only: their size and their global charge.
+    charge: Option<(usize, u64)>,
 }
 
 /// One notification for a subscription's current stall episode.
@@ -98,7 +102,6 @@ pub struct SubscriberStalled {
 struct Stall {
     since: Instant,
     reported: bool,
-    blocked_bytes: usize,
 }
 
 struct Subscriber<R, A, F, P> {
@@ -113,11 +116,10 @@ struct Subscriber<R, A, F, P> {
 }
 
 impl<R, A, F, P> Subscriber<R, A, F, P> {
-    fn accepts(&self, bytes: usize) -> bool {
-        self.msgs == 0
-            || (self.msgs < self.cap.msgs.get()
-                && bytes <= self.cap.bytes.get().saturating_sub(self.bytes)
-                && self.bytes <= self.cap.bytes.get())
+    /// Whether a message of `bytes` fits. An oversized one fits only when no message is queued.
+    fn fits(&self, bytes: usize) -> bool {
+        self.msgs < self.cap.msgs.get()
+            && (self.bytes.saturating_add(bytes) <= self.cap.bytes.get() || self.msgs == 0)
     }
 }
 
@@ -125,9 +127,16 @@ struct Delivery<R, A, P> {
     peer: P,
     msg: Arc<InboundMessage>,
     bytes: usize,
+    charge: u64,
     request: Option<(R, A)>,
     targets: VecDeque<SubId>,
     closed: bool,
+}
+
+/// One message's share of the global budget, held by each queued copy and its parked delivery.
+struct Charge {
+    bytes: usize,
+    refs: usize,
 }
 
 /// A sans-io fanout queue. A caller must stop polling each parked connection.
@@ -136,6 +145,11 @@ pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     subscribers: BTreeMap<SubId, Subscriber<R, A, F, P>>,
     // In arrival order. A closed connection's delivery stays until its targets take it.
     parked: VecDeque<Delivery<R, A, P>>,
+    charges: HashMap<u64, Charge>,
+    next_charge: u64,
+    used: usize,
+    hub_bytes: usize,
+    space_wake: bool,
     next_sub: u64,
     stall_report: Duration,
     clock: Arc<dyn Fn() -> Instant + Send + Sync>,
@@ -161,8 +175,19 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             clock,
             subscribers: BTreeMap::new(),
             parked: VecDeque::new(),
+            charges: HashMap::new(),
+            next_charge: 0,
+            used: 0,
+            hub_bytes: HUB_BYTES,
+            space_wake: false,
             next_sub: 0,
         }
+    }
+
+    /// Replaces the global budget for retained message bytes.
+    pub fn with_hub_bytes(mut self, hub_bytes: usize) -> Self {
+        self.hub_bytes = hub_bytes;
+        self
     }
 
     pub fn subscribe(&mut self, kinds: &[MessageType], cap: SubCap) -> SubId {
@@ -189,6 +214,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         sub
     }
 
+    /// Fans a message out, `bytes` being its retained decoded size.
     pub fn offer(
         &mut self,
         peer: P,
@@ -206,90 +232,109 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 request,
             });
         }
-        let targets = self
+        let targets: VecDeque<_> = self
             .subscribers
             .iter()
             .filter_map(|(id, sub)| sub.kinds.contains(&kind).then_some(*id))
             .collect();
+        if targets.is_empty() {
+            return Ok(Offer::Delivered);
+        }
+        let charge = self.next_charge;
+        self.next_charge += 1;
+        self.charges.insert(
+            charge,
+            Charge {
+                bytes,
+                refs: 1,
+            },
+        );
+        self.used += bytes;
         let delivery = Delivery {
             peer,
             msg,
             bytes,
+            charge,
             request,
             targets,
             closed: false,
         };
-        Ok(self.deliver(delivery))
+        let offer = self.deliver(delivery);
+        self.refresh_stalls();
+        Ok(offer)
     }
 
     fn deliver(&mut self, mut delivery: Delivery<R, A, P>) -> Offer {
         while let Some(id) = delivery.targets.pop_front() {
+            // An earlier delivery blocked on this subscription goes first, so none starves.
+            let behind = self.parked.iter().any(|parked| parked.targets.front() == Some(&id));
             let Some(sub) = self.subscribers.get_mut(&id) else {
                 continue;
             };
-            if !sub.accepts(delivery.bytes) {
-                let stall = sub.stall.get_or_insert_with(|| Stall {
-                    since: (self.clock)(),
-                    reported: false,
-                    blocked_bytes: delivery.bytes,
-                });
-                stall.blocked_bytes = stall.blocked_bytes.max(delivery.bytes);
+            if behind || !sub.fits(delivery.bytes) {
                 delivery.targets.push_front(id);
                 self.parked.push_back(delivery);
                 return Offer::Parked;
             }
             sub.msgs += 1;
             sub.bytes += delivery.bytes;
-            if sub.msgs >= sub.cap.msgs.get() || sub.bytes >= sub.cap.bytes.get() {
-                sub.stall.get_or_insert_with(|| Stall {
-                    since: (self.clock)(),
-                    reported: false,
-                    blocked_bytes: 0,
-                });
-            }
-            if delivery.targets.is_empty() {
-                sub.queue.push_back(Queued {
-                    inbound: Inbound::Message {
-                        peer: delivery.peer,
-                        msg: delivery.msg,
-                        request: delivery.request,
-                    },
-                    bytes: delivery.bytes,
-                });
-                return Offer::Delivered;
-            }
             sub.queue.push_back(Queued {
                 inbound: Inbound::Message {
                     peer: delivery.peer,
                     msg: Arc::clone(&delivery.msg),
                     request: delivery.request,
                 },
-                bytes: delivery.bytes,
+                charge: Some((delivery.bytes, delivery.charge)),
             });
+            if let Some(charge) = self.charges.get_mut(&delivery.charge) {
+                charge.refs += 1;
+            }
         }
+        self.unref(delivery.charge);
         Offer::Delivered
+    }
+
+    fn unref(&mut self, id: u64) {
+        let Entry::Occupied(mut entry) = self.charges.entry(id) else {
+            return;
+        };
+        entry.get_mut().refs -= 1;
+        if entry.get().refs > 0 {
+            return;
+        }
+        let bytes = entry.remove().bytes;
+        let was_full = !self.may_poll();
+        self.used -= bytes;
+        if was_full && self.may_poll() {
+            self.space_wake = true;
+        }
+    }
+
+    /// Whether the driver may poll another message: the global budget is not used up.
+    pub fn may_poll(&self) -> bool {
+        self.used < self.hub_bytes
+    }
+
+    /// Whether global use fell below the budget since the last call.
+    fn take_space_wake(&mut self) -> bool {
+        mem::take(&mut self.space_wake)
     }
 
     /// Releases payload accounting. Call `on_space` before polling parked peers again.
     pub fn recv(&mut self, id: SubId) -> Option<Inbound<R, A, F, P>> {
         let sub = self.subscribers.get_mut(&id)?;
         let queued = sub.queue.pop_front()?;
-        match &queued.inbound {
-            Inbound::Message {
-                ..
-            } => {
-                sub.msgs -= 1;
-                sub.bytes -= queued.bytes;
-                if sub.stall.as_ref().is_some_and(|stall| sub.accepts(stall.blocked_bytes)) {
-                    sub.stall = None;
-                }
-            }
-            Inbound::RequestFailed {
-                id,
-                ..
-            } => {
-                sub.requests.remove(id);
-            }
+        if let Inbound::RequestFailed {
+            id,
+            ..
+        } = &queued.inbound
+        {
+            sub.requests.remove(id);
+        }
+        if let Some((bytes, charge)) = queued.charge {
+            sub.msgs -= 1;
+            sub.bytes -= bytes;
+            self.unref(charge);
         }
         Some(queued.inbound)
     }
@@ -332,29 +377,28 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         resumed
     }
 
+    /// A subscription is stalled while a parked delivery waits on it.
     fn refresh_stalls(&mut self) {
         for (id, sub) in &mut self.subscribers {
-            let blocked_bytes = self
-                .parked
-                .iter()
-                .filter_map(|delivery| {
-                    (delivery.targets.front() == Some(id)).then_some(delivery.bytes)
-                })
-                .max()
-                .unwrap_or(0);
-            if sub.accepts(blocked_bytes)
-                && sub.msgs < sub.cap.msgs.get()
-                && sub.bytes < sub.cap.bytes.get()
-            {
+            if self.parked.iter().any(|delivery| delivery.targets.front() == Some(id)) {
+                sub.stall.get_or_insert_with(|| Stall {
+                    since: (self.clock)(),
+                    reported: false,
+                });
+            } else {
                 sub.stall = None;
-            } else if let Some(stall) = &mut sub.stall {
-                stall.blocked_bytes = blocked_bytes;
             }
         }
     }
 
     pub fn remove(&mut self, sub: SubId) -> Vec<P> {
-        self.subscribers.remove(&sub);
+        if let Some(removed) = self.subscribers.remove(&sub) {
+            for queued in removed.queue {
+                if let Some((_, charge)) = queued.charge {
+                    self.unref(charge);
+                }
+            }
+        }
         self.on_space(sub)
     }
 
@@ -416,7 +460,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 attempts,
                 last,
             },
-            bytes: 0,
+            charge: None,
         });
         true
     }
@@ -533,7 +577,13 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
         result
     }
 
-    /// Wakes the driver when a subscriber receives or drops its receiver.
+    /// Whether the driver may poll another message under the global budget.
+    pub async fn may_poll(&self) -> bool {
+        self.state.lock().await.core.may_poll()
+    }
+
+    /// Wakes the driver when a parked connection resumes, global use falls below the budget,
+    /// or a subscriber drops its receiver.
     pub fn space(&self) -> &Notify {
         &self.space
     }
@@ -578,9 +628,13 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> Subscription<R, A, F, P> {
                 let mut state = state.lock().await;
                 if let Some(inbound) = state.core.recv(self.sub) {
                     let resumed = state.core.on_space(self.sub);
+                    let space_wake = state.core.take_space_wake();
+                    let space = space_wake || !resumed.is_empty();
                     state.resumed.extend(resumed);
                     state.wake();
-                    self.space.notify_one();
+                    if space {
+                        self.space.notify_one();
+                    }
                     return Some(inbound);
                 }
             }
@@ -602,13 +656,13 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use tokio::time::{advance, Instant};
+    use tokio::time::{advance, timeout, Instant};
 
     use dashcore::network::message::NetworkMessage;
     use tokio::spawn;
     use tokio::task::yield_now;
 
-    use super::{AsyncHub, Inbound, Offer, SubCap, SubId, SubscriptionHub};
+    use super::{AsyncHub, Inbound, Offer, SubCap, SubId, SubscriptionHub, HUB_BYTES};
     use crate::network::{InboundMessage, MessageType, RequestKey};
 
     type Hub = SubscriptionHub<u64, u64, &'static str, u64>;
@@ -704,11 +758,14 @@ mod tests {
         assert_eq!(take(&mut hub, sub), (1, 1));
         assert_eq!(hub.on_space(sub), vec![1]);
         assert_eq!(take(&mut hub, sub), (1, 2));
+        assert!(hub.reserve_request(sub, 1));
+        assert!(hub.request_failed(sub, 1, RequestKey::CFilters(0), 3, "timeout"));
         assert_eq!(
-            hub.offer(1, MessageType::Block, msg(3), usize::MAX, None).unwrap(),
+            hub.offer(1, MessageType::Block, msg(3), 1_000_000, None).unwrap(),
             Offer::Delivered
         );
         assert_eq!(hub.offer(1, MessageType::Block, msg(4), 1, None).unwrap(), Offer::Parked);
+        assert!(matches!(hub.recv(sub), Some(Inbound::RequestFailed { .. })));
         assert_eq!(take(&mut hub, sub), (1, 3));
         assert_eq!(hub.on_space(sub), vec![1]);
         assert_eq!(take(&mut hub, sub), (1, 4));
@@ -925,6 +982,8 @@ mod tests {
         assert_eq!(take(&mut hub, sub), (1, 2));
         assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
         hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap();
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+        hub.offer(1, MessageType::Inv, msg(4), 1, None).unwrap();
         assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
         assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
     }
@@ -948,8 +1007,8 @@ mod tests {
         assert!(matches!(hub.recv(sub), Some(Inbound::RequestFailed { .. })));
         assert_eq!(take(&mut hub, sub), (1, 3));
         assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
-        hub.offer(1, MessageType::Block, msg(4), 10, None).unwrap();
-        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+        assert_eq!(hub.offer(1, MessageType::Block, msg(4), 10, None).unwrap(), Offer::Delivered);
+        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
         assert_eq!(take(&mut hub, sub), (1, 4));
         hub.offer(1, MessageType::Block, msg(5), 6, None).unwrap();
         hub.offer(1, MessageType::Block, msg(6), 8, None).unwrap();
@@ -964,11 +1023,158 @@ mod tests {
         let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
         let mut sub = hub.subscribe(&[MessageType::Inv], cap(1, 1)).await;
         hub.offer(1, MessageType::Inv, msg(1), 1, None).await.unwrap();
+        hub.offer(1, MessageType::Inv, msg(2), 1, None).await.unwrap();
         advance(Duration::from_secs(10)).await;
         assert_eq!(hub.stalled(Instant::now()).await.len(), 1);
         assert!(hub.stalled(Instant::now()).await.is_empty());
         sub.recv().await.unwrap();
+        advance(Duration::from_secs(10)).await;
         assert!(hub.stalled(Instant::now()).await.is_empty());
+    }
+
+    #[test]
+    fn blocked_head_starts_stall() {
+        let start = Instant::now();
+        let mut hub = Hub::with_clock(Duration::from_secs(10), Arc::new(move || start));
+        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 10));
+        hub.offer(1, MessageType::Inv, msg(1), 10, None).unwrap();
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+        hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
+        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert!(hub.stalled(start + Duration::from_secs(100)).is_empty());
+        assert_eq!(hub.on_space(sub), vec![1]);
+        hub.offer(2, MessageType::Inv, msg(3), 1, None).unwrap();
+        assert_eq!(hub.stalled(start + Duration::from_secs(10)).len(), 1);
+    }
+
+    #[test]
+    fn blocked_head_is_not_overtaken() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], cap(4, 10));
+        hub.offer(1, MessageType::Inv, msg(1), 9, None).unwrap();
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 10, None).unwrap(), Offer::Parked);
+        assert_eq!(hub.offer(2, MessageType::Inv, msg(3), 1, None).unwrap(), Offer::Parked);
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(take(&mut hub, sub), (1, 2));
+        assert_eq!(hub.on_space(sub), vec![2]);
+        assert_eq!(take(&mut hub, sub), (2, 3));
+        assert!(hub.recv(sub).is_none());
+    }
+
+    #[test]
+    fn byte_only_saturation() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Block], cap(100, 10));
+        for n in 0..5 {
+            assert_eq!(
+                hub.offer(1, MessageType::Block, msg(n), 2, None).unwrap(),
+                Offer::Delivered
+            );
+        }
+        assert_eq!(hub.offer(1, MessageType::Block, msg(5), 1, None).unwrap(), Offer::Parked);
+        assert_eq!(take(&mut hub, sub), (1, 0));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(hub.used, 9);
+    }
+
+    #[test]
+    fn oversize_admitted_only_when_empty() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Block], cap(4, 10));
+        assert_eq!(hub.offer(1, MessageType::Block, msg(1), 11, None).unwrap(), Offer::Delivered);
+        assert_eq!(hub.offer(2, MessageType::Block, msg(2), 1, None).unwrap(), Offer::Parked);
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert_eq!(hub.on_space(sub), vec![2]);
+        assert_eq!(hub.offer(3, MessageType::Block, msg(3), 11, None).unwrap(), Offer::Parked);
+        assert_eq!(take(&mut hub, sub), (2, 2));
+        assert_eq!(hub.on_space(sub), vec![3]);
+        assert_eq!(take(&mut hub, sub), (3, 3));
+    }
+
+    #[test]
+    fn max_size_parked_heads_within_global_budget() {
+        const MAX: usize = 6;
+        let mut hub = Hub::new().with_hub_bytes(20);
+        let slow = hub.subscribe(&[MessageType::Block], cap(1, MAX));
+        let mut conn = 0;
+        while hub.may_poll() {
+            hub.offer(conn, MessageType::Block, msg(conn), MAX, None).unwrap();
+            conn += 1;
+        }
+        assert!(conn > 1);
+        assert!(hub.used <= 20 + MAX);
+        assert_eq!(hub.used, conn as usize * MAX);
+        assert!((1..conn).all(|parked| hub.is_parked(parked)));
+        assert_eq!(take(&mut hub, slow), (0, 0));
+        assert_eq!(hub.on_space(slow), vec![1]);
+        assert!(hub.used <= 20 + MAX);
+    }
+
+    #[test]
+    fn global_budget_charges_each_message_once() {
+        let mut hub = Hub::new().with_hub_bytes(10);
+        let fast = hub.subscribe(&[MessageType::Inv], cap(4, 100));
+        let slow = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 4, None).unwrap();
+        assert_eq!(hub.used, 4);
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 4, None).unwrap(), Offer::Parked);
+        assert_eq!(hub.used, 8);
+        assert!(hub.may_poll());
+        assert_eq!(hub.offer(2, MessageType::Inv, msg(3), 4, None).unwrap(), Offer::Parked);
+        assert_eq!(hub.used, 12);
+        assert!(!hub.may_poll());
+        for n in 1..=3 {
+            assert_eq!(take(&mut hub, fast).1, n);
+        }
+        assert_eq!(hub.used, 12);
+        assert!(!hub.take_space_wake());
+        assert_eq!(take(&mut hub, slow), (1, 1));
+        assert_eq!(hub.used, 8);
+        assert!(hub.may_poll());
+        assert!(hub.take_space_wake());
+        assert!(!hub.take_space_wake());
+        assert_eq!(hub.on_space(slow), vec![1]);
+        assert_eq!(hub.used, 8);
+        assert_eq!(take(&mut hub, slow), (1, 2));
+        assert_eq!(hub.on_space(slow), vec![2]);
+        assert_eq!(take(&mut hub, slow), (2, 3));
+        assert_eq!(hub.used, 0);
+        assert!(!hub.take_space_wake());
+        assert_eq!(hub.offer(3, MessageType::Tx, msg(4), 100, None).unwrap(), Offer::Delivered);
+        assert_eq!(hub.used, 0);
+    }
+
+    #[test]
+    fn removed_subscriber_and_closed_connection_release_charges() {
+        let mut hub = Hub::new().with_hub_bytes(8);
+        let kept = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        let dropped = hub.subscribe(&[MessageType::Inv], cap(4, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 4, None).unwrap();
+        hub.offer(1, MessageType::Inv, msg(2), 4, None).unwrap();
+        hub.disconnect(1);
+        assert_eq!(hub.used, 8);
+        assert!(hub.remove(dropped).is_empty());
+        assert_eq!(hub.used, 8);
+        assert_eq!(take(&mut hub, kept), (1, 1));
+        assert_eq!(hub.used, 4);
+        assert!(hub.take_space_wake());
+        assert!(hub.on_space(kept).is_empty());
+        assert_eq!(hub.used, 4);
+        assert!(hub.remove(kept).is_empty());
+        assert_eq!(hub.used, 0);
+    }
+
+    #[tokio::test]
+    async fn async_shell_wakes_the_driver_when_budget_frees() {
+        let hub = AsyncHub::<u64, u64, &'static str, u64>::new();
+        let mut sub = hub.subscribe(&[MessageType::Inv], cap(4, 100)).await;
+        hub.offer(1, MessageType::Inv, msg(1), HUB_BYTES, None).await.unwrap();
+        assert!(!hub.may_poll().await);
+        sub.recv().await.unwrap();
+        assert!(hub.may_poll().await);
+        timeout(Duration::from_secs(60), hub.space().notified()).await.unwrap();
     }
 
     #[test]
