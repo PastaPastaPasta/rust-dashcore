@@ -772,6 +772,28 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_kind_delivers_once() {
+        let start = Instant::now();
+        let mut hub = Hub::with_clock(Duration::from_secs(10), Arc::new(move || start));
+        let sub = hub.subscribe(
+            &[MessageType::NotFound, MessageType::Inv, MessageType::NotFound],
+            cap(1, 100),
+        );
+        let first = msg(1);
+        hub.offer(1, MessageType::NotFound, first.clone(), 1, None).unwrap();
+        assert_eq!(Arc::strong_count(&first), 2);
+        assert_eq!(hub.offer(1, MessageType::NotFound, msg(2), 1, None).unwrap(), Offer::Parked);
+        let stalled = hub.stalled(start + Duration::from_secs(10));
+        assert_eq!(stalled.len(), 1);
+        assert_eq!(stalled[0].kinds, vec![MessageType::NotFound, MessageType::Inv]);
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(take(&mut hub, sub), (1, 2));
+        assert!(hub.recv(sub).is_none());
+        assert_eq!(hub.used, 0);
+    }
+
+    #[test]
     fn parked_peers_resume_in_arrival_order() {
         let mut hub = Hub::new();
         let sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));

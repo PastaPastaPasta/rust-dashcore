@@ -10,10 +10,12 @@ pub enum SpvRoute {
     Ping,
     Pong,
     Addr,
-    /// The request ledger sees it before subscribers of `MessageType::NotFound`.
-    NotFound,
+    /// The request ledger sees it first, then subscribers of the kind.
+    LedgerThen(MessageType),
     Subscribed(MessageType),
     Ignore,
+    /// A command outside the shared decode policy. The router never disconnects for it.
+    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,7 +52,7 @@ pub const ROWS: [Row; 74] = [
     Row::new("mempool", SpvRoute::Ignore),
     Row::new("ping", SpvRoute::Ping),
     Row::new("pong", SpvRoute::Pong),
-    Row::new("notfound", SpvRoute::NotFound),
+    Row::new("notfound", SpvRoute::LedgerThen(MessageType::NotFound)),
     Row::new("filterload", SpvRoute::Ignore),
     Row::new("filteradd", SpvRoute::Ignore),
     Row::new("filterclear", SpvRoute::Ignore),
@@ -113,28 +115,47 @@ pub fn lookup(cmd: &CommandString) -> Option<&'static Row> {
     ROWS.iter().find(|row| row.cmd == *cmd)
 }
 
-/// Tracks which ignored commands have already been logged by one router.
+/// How many distinct unknown commands one router logs before it only counts them.
+const UNKNOWN_LOGGED: usize = 64;
+
+/// Tracks which ignored and unknown commands one router has already logged.
 pub struct Registry {
     ignored: [bool; ROWS.len()],
+    unknown_logged: Vec<CommandString>,
+    unknown: u64,
 }
 
 impl Default for Registry {
     fn default() -> Self {
         Self {
             ignored: [false; ROWS.len()],
+            unknown_logged: Vec::new(),
+            unknown: 0,
         }
     }
 }
 
 impl Registry {
-    pub fn route(&mut self, cmd: &CommandString) -> Option<SpvRoute> {
-        let index = ROWS.iter().position(|row| row.cmd == *cmd)?;
+    pub fn route(&mut self, cmd: &CommandString) -> SpvRoute {
+        let Some(index) = ROWS.iter().position(|row| row.cmd == *cmd) else {
+            self.unknown += 1;
+            if self.unknown_logged.len() < UNKNOWN_LOGGED && !self.unknown_logged.contains(cmd) {
+                self.unknown_logged.push(*cmd);
+                tracing::debug!(command = cmd.as_str(), "Ignoring unknown P2P command");
+            }
+            return SpvRoute::Unknown;
+        };
         let route = ROWS[index].route;
         if route == SpvRoute::Ignore && !self.ignored[index] {
             self.ignored[index] = true;
             tracing::debug!(command = cmd.as_str(), "Ignoring P2P command");
         }
-        Some(route)
+        route
+    }
+
+    /// Returns how many unknown commands this router has seen, logged or not.
+    pub fn unknown_count(&self) -> u64 {
+        self.unknown
     }
 }
 
@@ -175,16 +196,17 @@ mod tests {
             assert!(
                 ROWS.iter().any(|row| {
                     row.route == SpvRoute::Subscribed(kind)
-                        || (kind == MessageType::NotFound && row.route == SpvRoute::NotFound)
+                        || row.route == SpvRoute::LedgerThen(kind)
                 }),
                 "{kind:?}"
             );
             assert_eq!(MessageType::from_cmd(kind.cmd()), Some(kind));
         }
         for row in &ROWS {
-            if let SpvRoute::Subscribed(kind) = row.route {
+            if let SpvRoute::Subscribed(kind) | SpvRoute::LedgerThen(kind) = row.route {
                 assert!(MessageType::ALL.contains(&kind));
             }
+            assert_ne!(row.route, SpvRoute::Unknown, "{}", row.cmd.as_str());
         }
     }
 
@@ -197,15 +219,36 @@ mod tests {
                 "ping" => SpvRoute::Ping,
                 "pong" => SpvRoute::Pong,
                 "addr" | "addrv2" => SpvRoute::Addr,
-                "notfound" => SpvRoute::NotFound,
+                "notfound" => SpvRoute::LedgerThen(MessageType::NotFound),
                 "headers2" => SpvRoute::Subscribed(MessageType::Headers),
                 other => MessageType::from_cmd(other)
                     .map(SpvRoute::Subscribed)
                     .unwrap_or(SpvRoute::Ignore),
             };
-            assert_eq!(registry.route(&row.cmd), Some(expected), "{}", row.cmd.as_str());
-            assert_eq!(registry.route(&row.cmd), Some(expected));
+            assert_eq!(registry.route(&row.cmd), expected, "{}", row.cmd.as_str());
+            assert_eq!(registry.route(&row.cmd), expected);
         }
-        assert_eq!(registry.route(&CommandString::from_static("unknown")), None);
+        assert_eq!(registry.unknown_count(), 0);
+        assert_eq!(registry.route(&CommandString::from_static("unknown")), SpvRoute::Unknown);
+        assert_eq!(registry.unknown_count(), 1);
+    }
+
+    #[test]
+    fn unknown_commands_are_logged_once_up_to_the_limit_then_counted() {
+        let mut registry = Registry::default();
+        let commands: Vec<_> = (0..UNKNOWN_LOGGED + 6)
+            .map(|n| {
+                let mut bytes = [0; 12];
+                let name = format!("unk{n}");
+                bytes[..name.len()].copy_from_slice(name.as_bytes());
+                CommandString::from_bytes(bytes)
+            })
+            .collect();
+        for cmd in &commands {
+            assert_eq!(registry.route(cmd), SpvRoute::Unknown);
+            assert_eq!(registry.route(cmd), SpvRoute::Unknown);
+        }
+        assert_eq!(registry.unknown_count(), 2 * commands.len() as u64);
+        assert_eq!(registry.unknown_logged, &commands[..UNKNOWN_LOGGED]);
     }
 }
