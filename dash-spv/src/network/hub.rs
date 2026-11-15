@@ -1,9 +1,8 @@
 //! Bounded subscription delivery, independent of the network and request ledger.
 
 use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::mem;
-use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
@@ -55,13 +54,22 @@ fn nonzero(n: usize) -> NonZeroUsize {
     NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
 }
 
+/// A connection's identity, never reused within a process.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConnId(pub u64);
+
+/// A connection token carried by deliveries. The hub keys parked deliveries by its `ConnId`.
+pub trait Conn {
+    fn key(&self) -> ConnId;
+}
+
 /// A subscription's identity, stable until it is removed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubId(u64);
 
 /// Delivery metadata uses the request ledger's ID and failure types.
 #[derive(Debug)]
-pub enum Inbound<R, A, F, P = SocketAddr> {
+pub enum Inbound<R, A, F, P> {
     Message {
         peer: P,
         msg: Arc<InboundMessage>,
@@ -160,8 +168,7 @@ struct Charge {
 }
 
 /// A sans-io fanout queue. A caller must stop polling each parked connection.
-/// `P` can identify a connection independently of its socket address.
-pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
+pub struct SubscriptionHub<R, A, F, P> {
     subscribers: BTreeMap<SubId, Subscriber<R, A, F, P>>,
     // In arrival order. A closed connection's delivery stays until its targets take it.
     parked: VecDeque<Delivery<R, A, P>>,
@@ -175,13 +182,13 @@ pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     clock: Arc<dyn Fn() -> Instant + Send + Sync>,
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> Default for SubscriptionHub<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> Default for SubscriptionHub<R, A, F, P> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> SubscriptionHub<R, A, F, P> {
     pub fn new() -> Self {
         Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
     }
@@ -246,7 +253,7 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
         bytes: usize,
         request: Option<(R, A)>,
     ) -> Result<Offer, AlreadyParked<R, A, P>> {
-        if self.is_parked(peer) {
+        if self.is_parked(peer.key()) {
             return Err(AlreadyParked {
                 peer,
                 kind,
@@ -303,9 +310,9 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
             sub.bytes += delivery.bytes;
             sub.queue.push_back(Queued {
                 inbound: Inbound::Message {
-                    peer: delivery.peer,
+                    peer: delivery.peer.clone(),
                     msg: Arc::clone(&delivery.msg),
-                    request: delivery.request,
+                    request: delivery.request.clone(),
                 },
                 charge: Some((delivery.bytes, delivery.charge)),
             });
@@ -385,8 +392,8 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
     }
 
     /// Whether an open connection's delivery is parked. A closed connection is never parked.
-    pub fn is_parked(&self, peer: P) -> bool {
-        self.parked.iter().any(|delivery| !delivery.closed && delivery.peer == peer)
+    pub fn is_parked(&self, conn: ConnId) -> bool {
+        self.parked.iter().any(|delivery| !delivery.closed && delivery.peer.key() == conn)
     }
 
     /// Retries pending fanout and returns the open connections whose delivery is complete.
@@ -394,9 +401,9 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
         let pending = mem::take(&mut self.parked);
         let mut resumed = Vec::new();
         for delivery in pending {
-            let (peer, closed) = (delivery.peer, delivery.closed);
-            if self.deliver(delivery) == Offer::Delivered && !closed {
-                resumed.push(peer);
+            let resume = (!delivery.closed).then(|| delivery.peer.clone());
+            if self.deliver(delivery) == Offer::Delivered {
+                resumed.extend(resume);
             }
         }
         self.refresh_stalls();
@@ -429,9 +436,9 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
     }
 
     /// Marks the connection closed. Its parked delivery still reaches every remaining target.
-    pub fn disconnect(&mut self, peer: P) {
+    pub fn disconnect(&mut self, conn: ConnId) {
         for delivery in &mut self.parked {
-            if delivery.peer == peer {
+            if delivery.peer.key() == conn {
                 delivery.closed = true;
             }
         }
@@ -482,18 +489,23 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P> {
 struct AsyncState<R, A, F, P> {
     core: SubscriptionHub<R, A, F, P>,
     ready: BTreeMap<SubId, mpsc::Sender<()>>,
-    resumed: BTreeSet<P>,
+    resumed: BTreeMap<ConnId, P>,
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncState<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncState<R, A, F, P> {
     fn maintain(&mut self) {
         let dropped: Vec<_> =
             self.ready.iter().filter_map(|(id, tx)| tx.is_closed().then_some(*id)).collect();
         for id in dropped {
             self.ready.remove(&id);
-            self.resumed.extend(self.core.remove(id));
+            let resumed = self.core.remove(id);
+            self.resume(resumed);
         }
         self.wake();
+    }
+
+    fn resume(&mut self, peers: Vec<P>) {
+        self.resumed.extend(peers.into_iter().map(|peer| (peer.key(), peer)));
     }
 
     fn wake(&self) {
@@ -506,18 +518,18 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncState<R, A, F, P> {
 }
 
 /// A thin async shell. Payloads remain in the bounded core; channels carry only wake tokens.
-pub struct AsyncHub<R, A, F, P = SocketAddr> {
+pub struct AsyncHub<R, A, F, P> {
     state: Arc<Mutex<AsyncState<R, A, F, P>>>,
     space: Arc<Notify>,
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> Default for AsyncHub<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> Default for AsyncHub<R, A, F, P> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> AsyncHub<R, A, F, P> {
     pub fn new() -> Self {
         Self::with_clock(Duration::from_secs(10), Arc::new(Instant::now))
     }
@@ -530,7 +542,7 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
             state: Arc::new(Mutex::new(AsyncState {
                 core: SubscriptionHub::with_clock(stall_report, clock),
                 ready: BTreeMap::new(),
-                resumed: BTreeSet::new(),
+                resumed: BTreeMap::new(),
             })),
             space: Arc::new(Notify::new()),
         }
@@ -600,7 +612,7 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
         let mut state = self.state.lock().await;
         state.maintain();
         state.wake();
-        mem::take(&mut state.resumed).into_iter().collect()
+        mem::take(&mut state.resumed).into_values().collect()
     }
 
     pub async fn stalled(&self, now: Instant) -> Vec<SubscriberStalled> {
@@ -609,22 +621,22 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> AsyncHub<R, A, F, P> {
         state.core.stalled(now)
     }
 
-    pub async fn disconnect(&self, peer: P) {
+    pub async fn disconnect(&self, conn: ConnId) {
         let mut state = self.state.lock().await;
-        state.core.disconnect(peer);
-        state.resumed.retain(|id| *id != peer);
+        state.core.disconnect(conn);
+        state.resumed.remove(&conn);
     }
 }
 
 /// Receives bounded messages and releases their payload bytes before returning them.
-pub struct Subscription<R, A, F, P = SocketAddr> {
+pub struct Subscription<R, A, F, P> {
     rx: mpsc::Receiver<()>,
     state: Weak<Mutex<AsyncState<R, A, F, P>>>,
     space: Arc<Notify>,
     sub: SubId,
 }
 
-impl<R: Copy, A: Copy, F, P: Copy + Ord> Subscription<R, A, F, P> {
+impl<R: Clone, A: Clone, F, P: Clone + Conn> Subscription<R, A, F, P> {
     pub fn id(&self) -> SubId {
         self.sub
     }
@@ -638,7 +650,7 @@ impl<R: Copy, A: Copy, F, P: Copy + Ord> Subscription<R, A, F, P> {
                     let resumed = state.core.on_space(self.sub);
                     let space_wake = state.core.take_space_wake();
                     let space = space_wake || !resumed.is_empty();
-                    state.resumed.extend(resumed);
+                    state.resume(resumed);
                     state.wake();
                     if space {
                         self.space.notify_one();
@@ -670,10 +682,31 @@ mod tests {
     use tokio::spawn;
     use tokio::task::yield_now;
 
-    use super::{AsyncHub, Inbound, Offer, SubCap, SubId, SubscriptionHub, HUB_BYTES};
+    use super::{
+        AsyncHub, Conn, ConnId, Inbound, Offer, SubCap, SubId, SubscriptionHub, HUB_BYTES,
+    };
     use crate::network::{InboundMessage, MessageType};
 
     type Hub = SubscriptionHub<u64, u64, &'static str, u64>;
+
+    impl Conn for u64 {
+        fn key(&self) -> ConnId {
+            ConnId(*self)
+        }
+    }
+
+    /// A token that is `Clone` but not `Copy`, with a display address shared across connections.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct Peer {
+        addr: &'static str,
+        conn: u64,
+    }
+
+    impl Conn for Peer {
+        fn key(&self) -> ConnId {
+            ConnId(self.conn)
+        }
+    }
 
     fn cap(msgs: usize, bytes: usize) -> SubCap {
         SubCap {
@@ -714,7 +747,7 @@ mod tests {
         );
         assert_eq!(Arc::strong_count(&first), 3);
         assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 10, None).unwrap(), Offer::Parked);
-        assert!(hub.is_parked(1));
+        assert!(hub.is_parked(ConnId(1)));
         assert_eq!(hub.offer(2, MessageType::Tx, msg(3), 10, None).unwrap(), Offer::Delivered);
         assert_eq!(take(&mut hub, other), (2, 3));
         match hub.recv(fast).unwrap() {
@@ -732,7 +765,7 @@ mod tests {
         assert!(hub.recv(fast).is_none());
         assert_eq!(take(&mut hub, slow), (1, 1));
         assert_eq!(hub.on_space(slow), vec![1]);
-        assert!(!hub.is_parked(1));
+        assert!(!hub.is_parked(ConnId(1)));
         assert_eq!(take(&mut hub, slow), (1, 2));
         assert!(hub.recv(slow).is_none());
         assert_eq!(hub.offer(1, MessageType::Inv, msg(4), 10, None).unwrap(), Offer::Delivered);
@@ -796,8 +829,8 @@ mod tests {
         hub.offer(2, MessageType::Inv, msg(3), 10, None).unwrap();
         hub.offer(2, MessageType::Inv, msg(4), 10, None).unwrap();
         hub.offer(2, MessageType::Inv, msg(5), 10, None).unwrap();
-        hub.disconnect(2);
-        assert!(!hub.is_parked(2));
+        hub.disconnect(ConnId(2));
+        assert!(!hub.is_parked(ConnId(2)));
         assert_eq!(take(&mut hub, second), (2, 3));
         assert!(hub.on_space(second).is_empty());
         assert_eq!(take(&mut hub, second), (2, 4));
@@ -815,8 +848,8 @@ mod tests {
         let gone = hub.subscribe(&[MessageType::Inv], cap(1, 100));
         hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
         assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
-        hub.disconnect(1);
-        assert!(!hub.is_parked(1));
+        hub.disconnect(ConnId(1));
+        assert!(!hub.is_parked(ConnId(1)));
         assert!(hub.remove(gone).is_empty());
         assert_eq!(take(&mut hub, slow), (1, 1));
         assert!(hub.on_space(slow).is_empty());
@@ -838,7 +871,7 @@ mod tests {
             hub.offer(1, MessageType::Inv, tagged.clone(), 1, Some((7, 8))).unwrap(),
             Offer::Parked
         );
-        hub.disconnect(1);
+        hub.disconnect(ConnId(1));
         assert_eq!(take(&mut hub, owner), (1, 1));
         assert!(hub.on_space(owner).is_empty());
         match hub.recv(owner).unwrap() {
@@ -854,23 +887,6 @@ mod tests {
             _ => panic!("wrong delivery"),
         }
         assert!(hub.recv(owner).is_none());
-    }
-
-    #[test]
-    fn replacement_connection_parks_beside_a_closed_delivery() {
-        let mut hub = Hub::new();
-        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 100));
-        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
-        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
-        hub.disconnect(1);
-        assert_eq!(hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap(), Offer::Parked);
-        assert!(hub.is_parked(1));
-        assert_eq!(take(&mut hub, sub), (1, 1));
-        assert!(hub.on_space(sub).is_empty());
-        assert_eq!(take(&mut hub, sub), (1, 2));
-        assert_eq!(hub.on_space(sub), vec![1]);
-        assert_eq!(take(&mut hub, sub), (1, 3));
-        assert!(hub.recv(sub).is_none());
     }
 
     fn credits(requests: usize) -> SubCap {
@@ -1034,6 +1050,50 @@ mod tests {
     }
 
     #[test]
+    fn parked_deliveries_are_keyed_by_connection() {
+        let mut hub = SubscriptionHub::<u64, u64, &'static str, Peer>::new();
+        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        let old = Peer {
+            addr: "a",
+            conn: 1,
+        };
+        let new = Peer {
+            addr: "a",
+            conn: 2,
+        };
+        assert_eq!(old.addr, new.addr);
+        hub.offer(old.clone(), MessageType::Inv, msg(1), 1, None).unwrap();
+        assert_eq!(
+            hub.offer(old.clone(), MessageType::Inv, msg(2), 1, None).unwrap(),
+            Offer::Parked
+        );
+        assert!(hub.is_parked(ConnId(1)));
+        assert!(!hub.is_parked(ConnId(2)));
+        assert!(hub.offer(old.clone(), MessageType::Inv, msg(3), 1, None).is_err());
+        assert_eq!(
+            hub.offer(new.clone(), MessageType::Inv, msg(4), 1, None).unwrap(),
+            Offer::Parked
+        );
+        hub.disconnect(ConnId(1));
+        assert!(hub.is_parked(ConnId(2)));
+        let peers: Vec<_> = (0..3)
+            .map(|_| {
+                let peer = match hub.recv(sub).unwrap() {
+                    Inbound::Message {
+                        peer,
+                        ..
+                    } => peer,
+                    _ => panic!("wrong delivery"),
+                };
+                hub.on_space(sub);
+                peer
+            })
+            .collect();
+        assert_eq!(peers, vec![old.clone(), old, new]);
+        assert!(!hub.is_parked(ConnId(2)));
+    }
+
+    #[test]
     fn already_parked_offer_returns_the_input() {
         let mut hub = Hub::new();
         let sub = hub.subscribe(&[MessageType::Inv], cap(1, 1));
@@ -1088,7 +1148,7 @@ mod tests {
         let sub = hub.subscribe(&[MessageType::Inv], cap(1, 10));
         hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
         hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap();
-        assert!(hub.is_parked(1));
+        assert!(hub.is_parked(ConnId(1)));
         assert!(hub.stalled(start + Duration::from_secs(9)).is_empty());
         let events = hub.stalled(start + Duration::from_secs(10));
         assert_eq!(events.len(), 1);
@@ -1129,7 +1189,7 @@ mod tests {
         assert_eq!(take(&mut hub, sub), (1, 4));
         hub.offer(1, MessageType::Block, msg(5), 6, None).unwrap();
         hub.offer(1, MessageType::Block, msg(6), 8, None).unwrap();
-        hub.disconnect(1);
+        hub.disconnect(ConnId(1));
         assert_eq!(hub.stalled(start + Duration::from_secs(20)).len(), 1);
         hub.remove(sub);
         assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
@@ -1223,7 +1283,7 @@ mod tests {
         assert!(conn > 1);
         assert!(hub.used <= 20 + MAX);
         assert_eq!(hub.used, conn as usize * MAX);
-        assert!((1..conn).all(|parked| hub.is_parked(parked)));
+        assert!((1..conn).all(|parked| hub.is_parked(ConnId(parked))));
         assert_eq!(take(&mut hub, slow), (0, 0));
         assert_eq!(hub.on_space(slow), vec![1]);
         assert!(hub.used <= 20 + MAX);
@@ -1270,7 +1330,7 @@ mod tests {
         let dropped = hub.subscribe(&[MessageType::Inv], cap(4, 100));
         hub.offer(1, MessageType::Inv, msg(1), 4, None).unwrap();
         hub.offer(1, MessageType::Inv, msg(2), 4, None).unwrap();
-        hub.disconnect(1);
+        hub.disconnect(ConnId(1));
         assert_eq!(hub.used, 8);
         assert!(hub.remove(dropped).is_empty());
         assert_eq!(hub.used, 8);
