@@ -127,14 +127,15 @@ struct Delivery<R, A, P> {
     bytes: usize,
     request: Option<(R, A)>,
     targets: VecDeque<SubId>,
+    closed: bool,
 }
 
 /// A sans-io fanout queue. A caller must stop polling each parked connection.
 /// `P` can identify a connection independently of its socket address.
 pub struct SubscriptionHub<R, A, F, P = SocketAddr> {
     subscribers: BTreeMap<SubId, Subscriber<R, A, F, P>>,
-    parked: BTreeMap<P, Delivery<R, A, P>>,
-    parked_order: VecDeque<P>,
+    // In arrival order. A closed connection's delivery stays until its targets take it.
+    parked: VecDeque<Delivery<R, A, P>>,
     next_sub: u64,
     stall_report: Duration,
     clock: Arc<dyn Fn() -> Instant + Send + Sync>,
@@ -159,8 +160,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             stall_report,
             clock,
             subscribers: BTreeMap::new(),
-            parked: BTreeMap::new(),
-            parked_order: VecDeque::new(),
+            parked: VecDeque::new(),
             next_sub: 0,
         }
     }
@@ -217,6 +217,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             bytes,
             request,
             targets,
+            closed: false,
         };
         Ok(self.deliver(delivery))
     }
@@ -234,8 +235,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
                 });
                 stall.blocked_bytes = stall.blocked_bytes.max(delivery.bytes);
                 delivery.targets.push_front(id);
-                self.parked_order.push_back(delivery.peer);
-                self.parked.insert(delivery.peer, delivery);
+                self.parked.push_back(delivery);
                 return Offer::Parked;
             }
             sub.msgs += 1;
@@ -313,20 +313,21 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
             .collect()
     }
 
+    /// Whether an open connection's delivery is parked. A closed connection is never parked.
     pub fn is_parked(&self, peer: P) -> bool {
-        self.parked.contains_key(&peer)
+        self.parked.iter().any(|delivery| !delivery.closed && delivery.peer == peer)
     }
 
-    /// Retries pending fanout and returns the connections whose delivery is complete.
+    /// Retries pending fanout and returns the open connections whose delivery is complete.
     pub fn on_space(&mut self, _sub: SubId) -> Vec<P> {
-        let pending = mem::take(&mut self.parked_order);
-        let resumed = pending
-            .into_iter()
-            .filter_map(|peer| {
-                let delivery = self.parked.remove(&peer)?;
-                (self.deliver(delivery) == Offer::Delivered).then_some(peer)
-            })
-            .collect();
+        let pending = mem::take(&mut self.parked);
+        let mut resumed = Vec::new();
+        for delivery in pending {
+            let (peer, closed) = (delivery.peer, delivery.closed);
+            if self.deliver(delivery) == Offer::Delivered && !closed {
+                resumed.push(peer);
+            }
+        }
         self.refresh_stalls();
         resumed
     }
@@ -335,7 +336,7 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         for (id, sub) in &mut self.subscribers {
             let blocked_bytes = self
                 .parked
-                .values()
+                .iter()
                 .filter_map(|delivery| {
                     (delivery.targets.front() == Some(id)).then_some(delivery.bytes)
                 })
@@ -357,11 +358,13 @@ impl<R: Copy + Eq + Hash, A: Copy, F, P: Copy + Ord> SubscriptionHub<R, A, F, P>
         self.on_space(sub)
     }
 
-    /// Discards only the outstanding fanout for this closed connection.
+    /// Marks the connection closed. Its parked delivery still reaches every remaining target.
     pub fn disconnect(&mut self, peer: P) {
-        self.parked.remove(&peer);
-        self.parked_order.retain(|id| *id != peer);
-        self.refresh_stalls();
+        for delivery in &mut self.parked {
+            if delivery.peer == peer {
+                delivery.closed = true;
+            }
+        }
     }
 
     /// Reserves one terminal notification slot for an open request.
@@ -728,12 +731,80 @@ mod tests {
         hub.offer(2, MessageType::Inv, msg(4), 10, None).unwrap();
         hub.offer(2, MessageType::Inv, msg(5), 10, None).unwrap();
         hub.disconnect(2);
+        assert!(!hub.is_parked(2));
         assert_eq!(take(&mut hub, second), (2, 3));
         assert!(hub.on_space(second).is_empty());
         assert_eq!(take(&mut hub, second), (2, 4));
+        assert_eq!(take(&mut hub, second), (2, 5));
         assert!(hub.recv(second).is_none());
         hub.remove(second);
         assert_eq!(hub.offer(3, MessageType::Inv, msg(6), 10, None).unwrap(), Offer::Delivered);
+    }
+
+    #[test]
+    fn close_while_parked_fanout() {
+        let mut hub = Hub::new();
+        let fast = hub.subscribe(&[MessageType::Inv], cap(4, 100));
+        let slow = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        let gone = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
+        hub.disconnect(1);
+        assert!(!hub.is_parked(1));
+        assert!(hub.remove(gone).is_empty());
+        assert_eq!(take(&mut hub, slow), (1, 1));
+        assert!(hub.on_space(slow).is_empty());
+        assert_eq!(take(&mut hub, slow), (1, 2));
+        assert!(hub.recv(slow).is_none());
+        assert_eq!(take(&mut hub, fast), (1, 1));
+        assert_eq!(take(&mut hub, fast), (1, 2));
+        assert!(hub.recv(fast).is_none());
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap(), Offer::Delivered);
+    }
+
+    #[test]
+    fn close_while_parked_tagged() {
+        let mut hub = Hub::new();
+        let owner = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        let tagged = msg(2);
+        assert_eq!(
+            hub.offer(1, MessageType::Inv, tagged.clone(), 1, Some((7, 8))).unwrap(),
+            Offer::Parked
+        );
+        hub.disconnect(1);
+        assert_eq!(take(&mut hub, owner), (1, 1));
+        assert!(hub.on_space(owner).is_empty());
+        match hub.recv(owner).unwrap() {
+            Inbound::Message {
+                peer,
+                msg,
+                request,
+            } => {
+                assert_eq!(peer, 1);
+                assert!(Arc::ptr_eq(&msg, &tagged));
+                assert_eq!(request, Some((7, 8)));
+            }
+            _ => panic!("wrong delivery"),
+        }
+        assert!(hub.recv(owner).is_none());
+    }
+
+    #[test]
+    fn replacement_connection_parks_beside_a_closed_delivery() {
+        let mut hub = Hub::new();
+        let sub = hub.subscribe(&[MessageType::Inv], cap(1, 100));
+        hub.offer(1, MessageType::Inv, msg(1), 1, None).unwrap();
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(2), 1, None).unwrap(), Offer::Parked);
+        hub.disconnect(1);
+        assert_eq!(hub.offer(1, MessageType::Inv, msg(3), 1, None).unwrap(), Offer::Parked);
+        assert!(hub.is_parked(1));
+        assert_eq!(take(&mut hub, sub), (1, 1));
+        assert!(hub.on_space(sub).is_empty());
+        assert_eq!(take(&mut hub, sub), (1, 2));
+        assert_eq!(hub.on_space(sub), vec![1]);
+        assert_eq!(take(&mut hub, sub), (1, 3));
+        assert!(hub.recv(sub).is_none());
     }
 
     #[test]
@@ -883,7 +954,7 @@ mod tests {
         hub.offer(1, MessageType::Block, msg(5), 6, None).unwrap();
         hub.offer(1, MessageType::Block, msg(6), 8, None).unwrap();
         hub.disconnect(1);
-        assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
+        assert_eq!(hub.stalled(start + Duration::from_secs(20)).len(), 1);
         hub.remove(sub);
         assert!(hub.stalled(start + Duration::from_secs(20)).is_empty());
     }
