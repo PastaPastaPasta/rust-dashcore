@@ -1,0 +1,14 @@
+diff --git a/dashd-chainstate/src/crash/synth.rs b/dashd-chainstate/src/crash/synth.rs
+index 71ccfdc7e118c47590114a7fab75112fc35db2aa..7f4470ed6554a1847bcfc11262fb13c592eb6c39 100644
+--- a/dashd-chainstate/src/crash/synth.rs
++++ b/dashd-chainstate/src/crash/synth.rs
+@@ -218,7 +218,8 @@ fn build(parent: Option<&GenBlock>, height: u32, branch: u8, invalid: bool) -> G
+ /// `txs` under `header` and their merkle root, at the first nonce whose hash meets regtest's
+ /// limit.
+ pub(super) fn mine(mut header: BlockHeader, txs: Vec<Arc<Tx>>) -> Block {
+-    (header.merkle_root, _) = Block::new(Header::new(header), txs.clone()).merkle();
++    let (merkle_root, _) = Block::new(Header::new(header), txs.clone()).merkle();
++    header.set_merkle_root(merkle_root);
+     loop {
+         let block = Block::new(Header::new(header), txs.clone());
+         if check_proof_of_work(block.hash().as_bytes(), CompactTarget::new(REGTEST_BITS), &pow()) {
