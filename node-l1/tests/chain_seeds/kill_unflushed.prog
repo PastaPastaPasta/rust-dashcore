@@ -1,0 +1,7 @@
+# Index entries that were never flushed are lost by KILL; a flushed extension survives one.
+extend main 3
+restart kill
+extend main 2
+flush always
+restart kill
+extend main 1
