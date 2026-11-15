@@ -1,0 +1,6 @@
+# S2: a script failure below the assumevalid block but off its chain: a fork's block at height
+# 203, which Core checks and refuses; then the line on.
+extend main 2
+mutate script_false
+fork 0 1
+extend main 3

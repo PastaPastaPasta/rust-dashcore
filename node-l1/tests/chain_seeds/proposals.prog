@@ -1,0 +1,8 @@
+# Proposals on the tip (valid and mutated), off the tip, and of a block already connected.
+extend main 1
+propose main@-0
+propose main@-0 cb_amount
+propose main@-1
+propose built#0 again
+mutate merkle_root
+extend main 1
