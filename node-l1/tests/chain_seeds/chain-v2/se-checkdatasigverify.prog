@@ -1,0 +1,4 @@
+# script error "Script failed an OP_CHECKDATASIGVERIFY operation" (bank slot 17, se_checkdatasigverify): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_checkdatasigverify
+extend main 1

@@ -1,0 +1,5 @@
+# W-P3a's Core half: a queued script failure, then BIP68 in the loop (bad-txns-nonfinal on S1).
+extend main 1 tx=spends
+mutate queued_script_then_bip68
+extend main 1
+extend main 1
