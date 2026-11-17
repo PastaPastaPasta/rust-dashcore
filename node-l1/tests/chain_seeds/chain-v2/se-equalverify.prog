@@ -1,0 +1,4 @@
+# script error "Script failed an OP_EQUALVERIFY operation" (bank slot 14, se_equalverify): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_equalverify
+extend main 1
