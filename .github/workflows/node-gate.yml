@@ -27,6 +27,8 @@
 #            -dbcrashratio reorg loop (contrib/node/b4b-nightly.sh) on `nightly/integration`, the GREEN
 #            train snapshot CI-S0 moves it to at each merge. Never part of a verdict; saves no cache.
 #            A scheduled run skips it when a nightly of its UTC date already ran (v20).
+#   selftest beside nightly, gated the same way: contrib/node/selftest-checks.sh --shard I/K, one job
+#            per shard (v23, DEC-1695). Never part of a verdict; saves no cache.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -1414,5 +1416,173 @@ jobs:
         with:
           name: b4b-nightly
           path: ${{ runner.temp }}/b4b/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # v23 (DEC-1695): selftest-checks.sh, which plants each violation in a worktree of HEAD and asserts
+  # its check fails, as a matrix of K shards (K is the list's length; case n is shard (n-1)%K+1's, and
+  # every shard also runs the clean-tree cases). Each shard builds in its own cold target/ under
+  # TMPDIR (~11 GiB per shard), so no closure is restored; the cargo home only needs every locked crate.
+  # The script wants agentbox's layout committed in HEAD: the base SDK fork as the file:// clone the
+  # [patch] names, and build-and-test.yml, which the export drops (static's two steps, then a commit).
+  selftest:
+    name: selftest ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: deps
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' && needs.deps.outputs.nightly_ran != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The commit deps planned, not the ref again: CI-S0 may move nightly/integration in between.
+          ref: ${{ needs.deps.outputs.commit }}
+          persist-credentials: false
+
+      - name: Snapshot
+        env:
+          I: ${{ matrix.shard }}
+          N: ${{ strategy.job-index }}
+        run: |
+          [ -x contrib/node/selftest-checks.sh ] || { echo "::error::this snapshot has no contrib/node/selftest-checks.sh"; exit 1; }
+          [ "$I" = $((N + 1)) ] || { echo "::error::matrix shard $I is job $((N + 1)): the shard list must be 1..K"; exit 1; }
+          echo "selftest snapshot $(git rev-parse HEAD): $(git log -1 --format=%s)"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: false  # the pure, spv and shared checks build for aarch64-linux-android with the NDK
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+
+      # The cases' checks lint for aarch64-linux-android and link through clang and mold, as on agentbox.
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          rustup target add aarch64-linux-android
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          sudo apt-get update -qq
+          sudo apt-get install -y mold
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+          mkdir -p ~/.cargo
+          printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > ~/.cargo/config.toml
+          # Some cases commit in their worktree or in repositories of their own.
+          git config --global user.name node-gate
+          git config --global user.email node-gate@users.noreply.github.com
+          clang --version | head -1
+          mold --version
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-deny@0.20.2
+
+      # Unlike static's, this clone has a working tree checked out at the pin, as agentbox's fork
+      # does: the cases plant path dependencies into it ("a member pins base SDK through a path").
+      - name: Base SDK pin to a local clone
+        run: |
+          public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            # A bare clone's refs (every branch and tag as is), turned into a work tree.
+            git clone -q --bare "$public" "$dir/.git"
+            git -C "$dir" config core.bare false
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
+            read -r _ rev _ < <(python3 contrib/node/base_sdk_pins.py show)
+            git -C "$dir" checkout -q --detach "$rev"
+            echo "base SDK pin: $public -> $local, checked out at $(git -C "$dir" rev-parse HEAD)"
+            git diff --stat
+          else
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
+          fi
+
+      # check-quirks.py's owner rule reads the program's PLAN.md §4, which only agentbox has, and
+      # skips without one, so the cases planting a task that is no row ("quirk 13") would pass.
+      # The stub's §4 lists exactly the tasks this tree's register names: the rule runs, the
+      # clean register passes it, and the planted tasks fail it. L7's decision log needs no stub:
+      # selftest-checks.sh plants its own fixture log.
+      - name: Program-doc stub
+        run: |
+          plan=$RUNNER_TEMP/program-docs/PLAN.md
+          mkdir -p "${plan%/*}"
+          python3 - "$plan" <<'EOF'
+          import sys, tomllib
+          entries = tomllib.load(open("docs/node-program/quirks.toml", "rb")).get("quirk", [])
+          tasks = sorted({t for q in entries for t in [q.get("owner")] + list(q.get("also", [])) if isinstance(t, str)})
+          rows = "".join(f"| {t} | stub |\n" for t in tasks)
+          open(sys.argv[1], "w").write(f"# PLAN stub (node-gate selftest)\n\n## 4. Tasks\n\n| ID | Task |\n|---|---|\n{rows}\n## 5. End\n")
+          print(f"PLAN stub: {len(tasks)} task rows")
+          EOF
+          echo "NODE_PROGRAM_PLAN=$plan" >> "$GITHUB_ENV"
+
+      # selftest-checks.sh works on worktrees of HEAD and builds RocksDB from source when the lock or
+      # manifests differ from HEAD (BL-133), so the layout above is committed, here only.
+      # L7 measures against the merge base with refs/heads/node/integration, which a checkout of one
+      # commit lacks: the branch is set to the snapshot, and the layout commit (made even when empty)
+      # puts HEAD one commit on, as a change on node/integration is on agentbox.
+      - name: Commit the runner layout
+        run: |
+          f=.github/workflows/build-and-test.yml
+          if [ ! -e "$f" ]; then
+            groups=$(python3 -c 'import yaml; print(", ".join(yaml.safe_load(open(".github/ci-groups.yml"))["groups"]))')
+            printf 'jobs:\n  test:\n    strategy:\n      matrix:\n        group: [%s]\n' "$groups" > "$f"
+            git add "$f"
+          fi
+          git add -u
+          git update-ref refs/heads/node/integration HEAD
+          git commit -q --no-verify --allow-empty -m "node-gate: the selftest's runner layout"
+          git status --porcelain
+          git log -2 --format='%H %s'
+          echo "merge base with node/integration: $(git merge-base HEAD refs/heads/node/integration)"
+
+      # The cases' private cargo home is offline and shares this registry and git database.
+      - name: Fetch every locked crate
+        run: cargo fetch --locked
+
+      - name: selftest-checks.sh
+        env:
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/selftest"
+          results=$RUNNER_TEMP/selftest/results
+          : > "$results"
+          # The step's shell has no pipefail: the script's status is taken from PIPESTATUS, not tee's.
+          set +e
+          SELFTEST_RESULTS=$results contrib/node/selftest-checks.sh --shard "$SHARD" 2>&1 | tee "$RUNNER_TEMP/selftest/log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          # The line the --shards merge prints for each shard, from the cases this one recorded. A
+          # FAIL row or a missing `end` record fails the step even when the script exited 0.
+          clean=0
+          line=$(awk -F'\t' -v s="$SHARD" -v rc="$rc" '$1 == "end" { end = 1; next }
+            $2 != "skip" { n++; ok += $2 == "ok"; fail += $2 == "FAIL" }
+            END { printf "shard %s: %d ok, %d FAIL, %d run, exit %d%s", s, ok, fail, n, rc, end ? "" : ", did not finish cleanly"
+                  exit !(end && fail == 0 && n > 0) }' "$results") || clean=1
+          echo "$line"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" != 0 ]; then exit "$rc"; fi
+          if [ "$clean" != 0 ]; then echo "::error::$line"; exit 1; fi
+
+      - name: Upload the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: selftest-${{ matrix.shard }}
+          path: ${{ runner.temp }}/selftest/
           retention-days: 14
           if-no-files-found: ignore
