@@ -1,0 +1,13 @@
+diff --git a/dashd-masternode/tests/spork_transcripts.rs b/dashd-masternode/tests/spork_transcripts.rs
+index 4c43d436501669bf142d90b94a620150c9a0f273..27c5313806a18c5e01dc0c9add58b9dacd7ed1db 100644
+--- a/dashd-masternode/tests/spork_transcripts.rs
++++ b/dashd-masternode/tests/spork_transcripts.rs
+@@ -95,7 +95,7 @@ fn invs(sim: &Sim, peer: &dashd_p2p::sim::SimPeer, n: usize) -> Vec<Inventory> {
+     sim.sent_at_least(peer, n)
+         .into_iter()
+         .filter(|(cmd, _)| cmd.as_str() == "inv")
+-        .flat_map(|(_, p)| dash_p2p_core::Inv::decode(&mut &p[..]).unwrap().inventory())
++        .flat_map(|(_, p)| dash_p2p_core::Inv::decode(&mut &p[..]).unwrap().inventory().clone())
+         .collect()
+ }
+ 

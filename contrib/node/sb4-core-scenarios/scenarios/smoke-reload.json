@@ -1,0 +1,33 @@
+{
+ "name": "smoke-reload",
+ "description": "flush, restart the chainstate from the same datadir, reload the index",
+ "rows": [
+  "A-17",
+  "smoke"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A8",
+   "count": 4,
+   "submit": "headers"
+  },
+  {
+   "op": "reload"
+  }
+ ]
+}
