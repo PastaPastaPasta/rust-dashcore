@@ -1,0 +1,46 @@
+[package]
+name = "dashd-quorums"
+description = "Runtime quorum contribution manager for the Rust Dash node."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-evo = { path = "../dash-evo" }
+dash-llmq = { path = "../dash-llmq" }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+serde_json = { workspace = true, optional = true }
+thiserror = "2"
+tracing = "0.1"
+
+[features]
+# The regtest-only `-testquorumshares` share-seam loader (`QuorumManager::load_test_quorum_shares`).
+# Off by default; a product build never enables it.
+testkit-seams = ["dep:serde_json"]
+
+[dev-dependencies]
+# The lane (c) differential (`tests/lane_c_differential.rs`): the recorded chain replayed into
+# `NodeSut`'s V, route B's quorums, the recorded RPC answers and the fixture's sha256 pins.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+dash-sha256 = { path = "../dash-sha256" }
+# `support::addresses`' entry strings (`CService::ToStringAddrPort`); its tests' hand-built Dmns
+# use dash-dml above.
+dash-netaddr = { path = "../dash-netaddr" }
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
+serde_json = "1.0"
+tempfile = "3"
+
+[[test]]
+name = "share_seam"
+path = "tests/share_seam.rs"
+required-features = ["testkit-seams"]

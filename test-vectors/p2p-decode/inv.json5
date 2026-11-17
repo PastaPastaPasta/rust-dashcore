@@ -1,0 +1,115 @@
+{
+  "inv": {
+    // Single isdlock inventory (type 31)
+    "1bc6b8c7a3ded25ae54de6fc8935e7e9a2921053570a4b2b58ffdd4d55f7e29a": {
+      "raw": "011f000000e4403a9fe79784b73b54792d3bcf60fbf38181cd755e5fdaf733ff3feac2a47a",
+      "details": {
+        "inventory": [
+          {
+            "type": 31,
+            "hash": "7aa4c2ea3fff33f7da5f5e75cd8181f3fb60cf3b2d79543bb78497e79f3a40e4"
+          }
+        ]
+      }
+    },
+    // Single transaction inventory (type 1)
+    "597fc4042496b16350031e7d5de5f14c2d7b0ba6dd9752af8872df834ab46b8c": {
+      "raw": "010100000080ddfe470bafc9ca1e3b78f0d8fa6374e765d3b81a5097027373643da6fb79a2",
+      "details": {
+        "inventory": [
+          {
+            "type": 1,
+            "hash": "a279fba63d6473730297501ab8d365e77463fad8f0783b1ecac9af0b47fedd80"
+          }
+        ]
+      }
+    },
+    // Two items: transaction (type 1) + dstx (type 16)
+    "eaf05e4d88a3609491bcdfdec9504297a70d70cf3a107fa77473c6960636aac1": {
+      "raw": "020100000080ddfe470bafc9ca1e3b78f0d8fa6374e765d3b81a5097027373643da6fb79a2100000008740acd8cacffc3b40368eca55e1fa0197a84e01855fcfb8014fc9c03a479f2b",
+      "details": {
+        "inventory": [
+          {
+            "type": 1,
+            "hash": "a279fba63d6473730297501ab8d365e77463fad8f0783b1ecac9af0b47fedd80"
+          },
+          {
+            "type": 16,
+            "hash": "2b9f473ac0c94f01b8cf5f85014ea89701fae155ca8e36403bfccfcad8ac4087"
+          }
+        ]
+      }
+    },
+    // Single dsq inventory (type 32)
+    "6b9500ec5379eaf1f2e8ec7837a282bbd25c19189de077e74cb89ed93ce9ad5f": {
+      "raw": "01200000001318851649b25736d902fd5c8608d9665c72134dfb0c6994ad1c1829005d5077",
+      "details": {
+        "inventory": [
+          {
+            "type": 32,
+            "hash": "77505d0029181cad94690cfb4d13725c66d908865cfd02d93657b24916851813"
+          }
+        ]
+      }
+    },
+  },
+  // Generated with the reference implementation (dashpay/dash v24.0.0-rc.3,
+  // 0364ed626e). To run the program, paste it in `src/bitcoin-util.cpp` at the
+  // specified revision, build it with `make -C src dash-util` and run
+  // `./src/dash-util`. The output should match the section.
+/*
+#include <protocol.h>
+
+#include <cstdio>
+
+int main()
+{
+    for (uint32_t type = 0; type <= 36; ++type) {
+        const CInv inv{type, uint256{}};
+        std::printf("    { \"type\": %u, \"command\": %s%s%s, \"tx\": %s, \"block\": %s },\n", type,
+                    inv.IsKnownType() ? "\"" : "", inv.IsKnownType() ? inv.GetCommand().c_str() : "null",
+                    inv.IsKnownType() ? "\"" : "", inv.IsGenTxMsg() ? "true" : "false",
+                    inv.IsGenBlkMsg() ? "true" : "false");
+    }
+}
+*/
+  "inv_type": [
+    { "type": 0, "command": null, "tx": false, "block": false },
+    { "type": 1, "command": "tx", "tx": true, "block": false },
+    { "type": 2, "command": "block", "tx": false, "block": true },
+    { "type": 3, "command": "merkleblock", "tx": false, "block": true },
+    { "type": 4, "command": null, "tx": false, "block": false },
+    { "type": 5, "command": null, "tx": false, "block": false },
+    { "type": 6, "command": "spork", "tx": false, "block": false },
+    { "type": 7, "command": null, "tx": false, "block": false },
+    { "type": 8, "command": null, "tx": false, "block": false },
+    { "type": 9, "command": null, "tx": false, "block": false },
+    { "type": 10, "command": null, "tx": false, "block": false },
+    { "type": 11, "command": null, "tx": false, "block": false },
+    { "type": 12, "command": null, "tx": false, "block": false },
+    { "type": 13, "command": null, "tx": false, "block": false },
+    { "type": 14, "command": null, "tx": false, "block": false },
+    { "type": 15, "command": null, "tx": false, "block": false },
+    { "type": 16, "command": "dstx", "tx": true, "block": false },
+    { "type": 17, "command": "govobj", "tx": false, "block": false },
+    { "type": 18, "command": "govobjvote", "tx": false, "block": false },
+    { "type": 19, "command": null, "tx": false, "block": false },
+    { "type": 20, "command": "cmpctblock", "tx": false, "block": true },
+    { "type": 21, "command": "qfcommit", "tx": false, "block": false },
+    { "type": 22, "command": null, "tx": false, "block": false },
+    { "type": 23, "command": "qcontrib", "tx": false, "block": false },
+    { "type": 24, "command": "qcomplaint", "tx": false, "block": false },
+    { "type": 25, "command": "qjustify", "tx": false, "block": false },
+    { "type": 26, "command": "qpcommit", "tx": false, "block": false },
+    { "type": 27, "command": null, "tx": false, "block": false },
+    { "type": 28, "command": "qsigrec", "tx": false, "block": false },
+    { "type": 29, "command": "clsig", "tx": false, "block": false },
+    { "type": 30, "command": null, "tx": false, "block": false },
+    { "type": 31, "command": "isdlock", "tx": false, "block": false },
+    { "type": 32, "command": "dsq", "tx": false, "block": false },
+    { "type": 33, "command": "platformban", "tx": false, "block": false },
+    { "type": 34, "command": "tx", "tx": true, "block": false },
+    { "type": 35, "command": null, "tx": false, "block": false },
+    { "type": 36, "command": null, "tx": false, "block": false },
+  ],
+}

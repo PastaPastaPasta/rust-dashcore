@@ -1,0 +1,23 @@
+diff --git a/dash-chain/src/mem_store.rs b/dash-chain/src/mem_store.rs
+index e4f829466f97c81806da6123a341147a5ded7e4e..8cea805ac3397df703242e56b90608ff216197d3 100644
+--- a/dash-chain/src/mem_store.rs
++++ b/dash-chain/src/mem_store.rs
+@@ -170,7 +170,17 @@ impl Faults {
+                     rec.header.nonce(),
+                 )
+             }
+-            Some(&Corrupt::Reparent(height, h)) => (rec.height, rec.header.prev_hash) = (height, h),
++            Some(&Corrupt::Reparent(height, h)) => {
++                rec.height = height;
++                rec.header = dash_primitives::BlockHeader::new(
++                    rec.header.version(),
++                    h,
++                    rec.header.merkle_root(),
++                    rec.header.time(),
++                    rec.header.bits(),
++                    rec.header.nonce(),
++                );
++            }
+             Some(&Corrupt::Id(id)) => rec.id = id,
+             Some(&Corrupt::Hash(h)) => rec.hash = h,
+             Some(Corrupt::Gone) => return None,
