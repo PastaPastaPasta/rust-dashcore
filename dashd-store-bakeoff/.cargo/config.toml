@@ -1,0 +1,4 @@
+# LevelDB 1.22's CMake build adds clang-only warning flags; build the C/C++ dependencies with clang.
+[env]
+CC = "clang"
+CXX = "clang++"

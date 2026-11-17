@@ -1,0 +1,48 @@
+*** Failed to read block
+Error: A fatal internal error occurred, see debug.log for details
+PrepareShutdown: In progress...
+isman thread exit
+addcon thread exit
+opencon thread exit
+recsigs thread exit
+cl-schdlr thread exit
+msghand thread exit
+net thread exit
+DumpAnchors: Flush 0 outbound block-relay-only peer addresses to anchors.dat started
+DumpAnchors: Flush 0 outbound block-relay-only peer addresses to anchors.dat completed (0.00s)
+scheduler thread exit
+Writing 0 unbroadcast transactions to disk.
+Dumped mempool: 5.097e-06s to copy, 0.00436473s to dump
+Flushed fee estimates to fee_estimates.dat.
+FlushStateToDisk: write evodb cache to disk started
+FlushStateToDisk: write evodb cache to disk completed (0.00s)
+Verifying governance.dat format...
+Loaded info from governance.dat  0ms
+     Governance Objects: 0 (Proposals: 0, Triggers: 0, Other: 0; Erased: 0)
+Writing info to governance.dat...
+Written info to governance.dat  0ms
+     Governance Objects: 0 (Proposals: 0, Triggers: 0, Other: 0; Erased: 0)
+governance.dat dump finished  0ms
+Verifying sporks.dat format...
+Missing file sporks.dat, will try to recreate
+Writing info to sporks.dat...
+Written info to sporks.dat  0ms
+     Sporks: 0
+sporks.dat dump finished  0ms
+Verifying netfulfilled.dat format...
+Loaded info from netfulfilled.dat  0ms
+     Nodes with fulfilled requests: 0
+Writing info to netfulfilled.dat...
+Written info to netfulfilled.dat  0ms
+     Nodes with fulfilled requests: 0
+netfulfilled.dat dump finished  0ms
+Verifying mncache.dat format...
+Loaded info from mncache.dat  0ms
+     Masternodes: meta infos object count: 0, nDsqCount: 0, used masternodes count: 0
+Writing info to mncache.dat...
+Written info to mncache.dat  0ms
+     Masternodes: meta infos object count: 0, nDsqCount: 0, used masternodes count: 0
+mncache.dat dump finished  0ms
+FlushStateToDisk: write evodb cache to disk started
+FlushStateToDisk: write evodb cache to disk completed (0.00s)
+Shutdown: done
