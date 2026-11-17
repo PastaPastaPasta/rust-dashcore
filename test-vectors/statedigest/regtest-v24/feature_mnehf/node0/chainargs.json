@@ -1,0 +1,1141 @@
+{
+ "network": "regtest",
+ "starts": [
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:-2:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:-2:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:0:1:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:1417713977:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:1417713977:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:1417713977:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:1417713977:999999999999:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  },
+  {
+   "version": "v24.0.0-rc.3-8-g0a36fab32cb5 (release build)",
+   "cmdline": {
+    "createwalletbackups": [
+     "0"
+    ],
+    "datadir": [
+     "/work/scratch/o8/ft/feature_mnehf/run/node0"
+    ],
+    "debug": [
+     ""
+    ],
+    "debugexclude": [
+     "libevent",
+     "leveldb",
+     "rand"
+    ],
+    "llmqtestinstantsendparams": [
+     "1:1"
+    ],
+    "llmqtestparams": [
+     "1:1"
+    ],
+    "llmqtestplatformparams": [
+     "1:1"
+    ],
+    "loglevel": [
+     "trace"
+    ],
+    "logsourcelocations": [
+     ""
+    ],
+    "logthreadnames": [
+     ""
+    ],
+    "logtimemicros": [
+     ""
+    ],
+    "maxsigcachesize": [
+     "1"
+    ],
+    "par": [
+     "2"
+    ],
+    "parbls": [
+     "2"
+    ],
+    "persistmempool": [
+     "0"
+    ],
+    "recordstatedecisions": [
+     "decisions.jsonl"
+    ],
+    "rpcthreads": [
+     "2"
+    ],
+    "statedigestlog": [
+     "digest.jsonl"
+    ],
+    "uacomment": [
+     "testnode0"
+    ],
+    "v2transport": [
+     "0"
+    ],
+    "vbparams": [
+     "testdummy:1418923587:1419923587:0:4:4:4:5:1"
+    ]
+   },
+   "config": {
+    "regtest": [
+     "1"
+    ],
+    "regtest.bind": [
+     "127.0.0.1"
+    ],
+    "regtest.dip3params": [
+     "2:2"
+    ],
+    "regtest.discover": [
+     "0"
+    ],
+    "regtest.dnsseed": [
+     "0"
+    ],
+    "regtest.fallbackfee": [
+     "0.00001"
+    ],
+    "regtest.fixedseeds": [
+     "0"
+    ],
+    "regtest.keypool": [
+     "1"
+    ],
+    "regtest.listenonion": [
+     "0"
+    ],
+    "regtest.natpmp": [
+     "0"
+    ],
+    "regtest.peertimeout": [
+     "999999999"
+    ],
+    "regtest.port": [
+     "16639"
+    ],
+    "regtest.printtoconsole": [
+     "0"
+    ],
+    "regtest.rpcdoccheck": [
+     "1"
+    ],
+    "regtest.rpcport": [
+     "26639"
+    ],
+    "regtest.rpcservertimeout": [
+     "99000"
+    ],
+    "regtest.server": [
+     "1"
+    ],
+    "regtest.shrinkdebugfile": [
+     "0"
+    ],
+    "regtest.sporkkey": [
+     "<redacted>"
+    ],
+    "regtest.testactivationheight": [
+     "v20@100",
+     "mn_rr@100"
+    ],
+    "regtest.tinyblk": [
+     "1"
+    ],
+    "regtest.unsafesqlitesync": [
+     "1"
+    ],
+    "regtest.upnp": [
+     "0"
+    ]
+   }
+  }
+ ]
+}
