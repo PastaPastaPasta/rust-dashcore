@@ -1,0 +1,14 @@
+diff --git a/dash-mnlist/src/tests/regtest.rs b/dash-mnlist/src/tests/regtest.rs
+index 9cc3e4a9881d43f7488a3fa365c3e8c78f52dd13..56d05b111d4e02ae41dd896f94b85bf5b09b2e9a 100644
+--- a/dash-mnlist/src/tests/regtest.rs
++++ b/dash-mnlist/src/tests/regtest.rs
+@@ -1422,7 +1422,8 @@ fn first_chainlock_mine() -> (u32, Commitment) {
+     let cl_type = llmq(CHAIN_LOCKS);
+     (FIRST + 1..=FixtureChain::full().tip)
+         .find_map(|h| {
+-            let mined = step_diff(h).new_quorums().into_iter().find(|qc| qc.llmq_type() == cl_type);
++            let mined =
++                step_diff(h).new_quorums().iter().find(|qc| qc.llmq_type() == cl_type).cloned();
+             mined.map(|qc| (h, qc))
+         })
+         .expect("a ChainLock-type commitment mined")
