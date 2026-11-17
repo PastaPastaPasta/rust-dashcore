@@ -1,0 +1,9 @@
+# Spork 19's off -> on edge at a ChainLock record resets the held lock first
+# (chainlock/handler.cpp:209-221): once the handler has seen the spork off, a record below the
+# lock is accepted, not stale.
+extend main 3
+cl main@-0
+spork off
+cl main@-0
+spork on
+cl main@-1
