@@ -1,0 +1,314 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 6f45dfffefd9ab5f37a35bcc90e2c511ed397a4d..4507b3f96976fcc0d3bcb4ca63b9bae284f1bb89 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3379,6 +3379,7 @@ dependencies = [
+  "dash-p2p-transport",
+  "dash-pkc",
+  "dash-primitives",
++ "dash-script",
+  "dash-statedigest",
+  "dash-types",
+  "dashd-chainstate",
+@@ -3388,6 +3389,7 @@ dependencies = [
+  "dashd-p2p",
+  "dashd-store",
+  "flate2",
++ "hex-conservative 1.3.0",
+  "node-sink",
+  "node-test-ports",
+  "proptest",
+diff --git a/Cargo.toml b/Cargo.toml
+index f5893f6e92fdb38f8583f9daa5aaf24e19da3bc7..b1a427be91a4de6b0fc3bb8e17d7e4249c3c72a5 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -35,6 +35,7 @@ bsdk-params = { package = "dash-params", git = "https://github.com/dashpay/base-
+ dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "122014f4ca79a06aa165abf4620817002f39b8cf", default-features = false }
+ dash-pow = { git = "https://github.com/dashpay/base-sdk", rev = "122014f4ca79a06aa165abf4620817002f39b8cf", default-features = false }
+ dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "122014f4ca79a06aa165abf4620817002f39b8cf", default-features = false }
++dash-script = { git = "https://github.com/dashpay/base-sdk", rev = "122014f4ca79a06aa165abf4620817002f39b8cf", default-features = false }
+ dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "122014f4ca79a06aa165abf4620817002f39b8cf", default-features = false }
+ 
+ # Packages from `rust-bitcoin/rust-bitcoin`, `bitcoin-crypto` uses revision due to `secp256k1`
+@@ -66,6 +67,7 @@ dash-params = { git = "file:///work/home/agent/workspace/base-sdk", rev = "d556a
+ dash-pkc = { git = "file:///work/home/agent/workspace/base-sdk", rev = "e335540c32786e48ecebd0d4b56863d6cf7e6ff2" }
+ dash-pow = { git = "file:///work/home/agent/workspace/base-sdk", rev = "e335540c32786e48ecebd0d4b56863d6cf7e6ff2" }
+ dash-primitives = { git = "file:///work/home/agent/workspace/base-sdk", rev = "e335540c32786e48ecebd0d4b56863d6cf7e6ff2" }
++dash-script = { git = "file:///work/home/agent/workspace/base-sdk", rev = "e335540c32786e48ecebd0d4b56863d6cf7e6ff2" }
+ dash-types = { git = "file:///work/home/agent/workspace/base-sdk", rev = "e335540c32786e48ecebd0d4b56863d6cf7e6ff2" }
+ 
+ [profile.release.package.dash-fuzz]
+diff --git a/node-l1/Cargo.toml b/node-l1/Cargo.toml
+index 726d32f0602665d053e2eb193e09fca7682d5059..da6551c80c6dfa640cf7fcd70d06d17a3c22189e 100644
+--- a/node-l1/Cargo.toml
++++ b/node-l1/Cargo.toml
+@@ -74,6 +74,9 @@ dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+ tracing = "0.1"
+ dash-pkc = { workspace = true, features = ["std", "bls"] }
+ dash-primitives = { workspace = true, features = ["std"] }
++# `protx_mirror`'s copy of base-sdk's sign string: its destination read (`Recipient`) and hex.
++dash-script = { workspace = true, features = ["codec", "std"] }
++hex-conservative = { workspace = true }
+ # `diff_chain` (O2b-3): the steps' StateDigest records and the comparator's planes.
+ dash-statedigest = { path = "../dash-statedigest" }
+ serde_json = "1.0"
+diff --git a/node-l1/src/protx_mirror.rs b/node-l1/src/protx_mirror.rs
+index b6244b4566d71cee83b7d3075f0fe03ea31b71aa..bc49b17c5822119bc50c5d1e64e2b662f0a37155 100644
+--- a/node-l1/src/protx_mirror.rs
++++ b/node-l1/src/protx_mirror.rs
+@@ -21,6 +21,10 @@
+ //!   conditions of base-sdk's `encode`. Each `encode` names the base-sdk source it follows. The
+ //!   round-trip test (`protx_mirror/tests.rs`) checks it byte for byte against base-sdk's encoder
+ //!   on every valid payload of these types in the reachable vectors.
++//! - Two of base-sdk's ProRegTx digests are copied the same way, with the private helpers they
++//!   call: [`ProRegTx::sign_string`] and [`ProRegTx::shared_consent_bytes`]. So a ProTx signer
++//!   signs the payload as written, not base-sdk's reading of its bytes (DEC-1066 decision 1). The
++//!   tests check both against base-sdk's on the same vectors.
+ //! - base-sdk to mirror: [`From`] through base-sdk's getters, or [`BaseCodec::decode`], which is
+ //!   base-sdk's decode followed by that.
+ //! - Mirror to base-sdk only through bytes: [`ToBsdk::to_bsdk`] encodes the mirror and decodes the
+@@ -29,17 +33,22 @@
+ //!   node-l1 and node-fuzz; inside this file, base-sdk payload values are made only by
+ //!   `<bsdk>::decode` in [`ToBsdk::to_bsdk`] and [`BaseCodec::decode`].
+ 
++use bitcoin_hashes::sha256d;
+ use bitcoin_primitives::script::ScriptPubKeyBuf;
++use dash_num::Hash256;
++use dash_params::AddrParams;
+ use dash_pkc::bls::{BlsEagerSig, BlsLazyPk, BlsSchemeKind};
+ use dash_pkc::ecdsa::EcdsaPkHash as PubKeyHash;
+ use dash_primitives as bsdk;
+ use dash_primitives::{
+     CollateralShare, CollateralSig, DissolveSig, InputsHash, JoinSig, MnType, NetInfo, OwnerSig,
+-    PayoutShare, PlatformNodeId, ProTxVersion, RevocationReason, SharedRegistrarSig, TxHash,
+-    protx_bls_scheme,
++    PayoutShare, PlatformNodeId, ProTxVersion, RevocationReason, SharedRegistrarSig, Transaction,
++    TxHash, protx_bls_scheme,
+ };
++use dash_script::Recipient;
+ use dash_types::Numeric;
+ use dash_types::codec::{BaseCodec, DecodeError, EncodeBuf};
++use hex_conservative::DisplayHex;
+ 
+ #[cfg(test)]
+ mod tests;
+@@ -279,6 +288,84 @@ impl ProRegTx {
+             self.platform_http_port,
+         );
+     }
++
++    // base-sdk's `sign_string`, copied (DEC-1066 decision 1), so the sign string is of the
++    // payload as written: base-sdk's needs a base-sdk payload, and the mirror reaches one only
++    // through base-sdk's decode, which refuses or reads otherwise some of the payloads node-l1
++    // writes. Source: fda80b21 `pkgs/primitives/src/provider/proregtx.rs:404-429`.
++    /// Core's `MakeSignString`, which the key of an external collateral signs as a text message:
++    /// the payout, the operator reward, the owner and voting addresses and the payload hash,
++    /// separated by `|`. It depends on the network through the address prefixes in `addr`.
++    #[must_use]
++    pub fn sign_string(&self, addr: &AddrParams) -> String {
++        let mut unsigned = Vec::new();
++        self.encode_unsigned(&mut unsigned);
++        let hash = hash256(&unsigned);
++        let payout = if self.version >= ProTxVersion::ExtAddr {
++            let entries: Vec<String> = self
++                .payouts
++                .iter()
++                .map(|payout| {
++                    format!(
++                        "{}:{}",
++                        destination_string(payout.script_payout().as_bytes(), addr),
++                        payout.reward()
++                    )
++                })
++                .collect();
++            entries.join(",")
++        } else {
++            destination_string(self.script_payout.as_bytes(), addr)
++        };
++        format!(
++            "{payout}|{}|{}|{}|{}",
++            self.operator_reward,
++            self.key_id_owner.to_base58c(addr.pubkey_addr),
++            self.key_id_voting.to_base58c(addr.pubkey_addr),
++            hash,
++        )
++    }
++
++    // base-sdk's `shared_consent_bytes`, copied for the same reason as `sign_string`. Source:
++    // fda80b21 `pkgs/primitives/src/provider/proregtx.rs:443-475`.
++    /// The bytes whose SHA256d each share owner signs to consent to a shared registration (v24),
++    /// Core's `MakeSharedRegConsentHash`: the funding inputs and their sequences, every output, the
++    /// share table, the penalty terms and the registrar configuration of `tx`, the transaction
++    /// that carries this payload.
++    #[must_use]
++    pub fn shared_consent_bytes(&self, tx: &Transaction) -> Vec<u8> {
++        let mut inputs = Vec::new();
++        let mut outputs = Vec::new();
++        for input in tx.inputs() {
++            input.prevout().encode(&mut inputs);
++        }
++        for output in tx.outputs() {
++            output.encode(&mut outputs);
++        }
++
++        let mut buf = Vec::new();
++        String::from("DashSharedMNReg").encode(&mut buf);
++        self.version.encode(&mut buf);
++        write_tx_header(tx, &mut buf);
++        hash256(&inputs).encode(&mut buf);
++        for input in tx.inputs() {
++            input.sequence().encode(&mut buf);
++        }
++        hash256(&outputs).encode(&mut buf);
++        self.mn_type.to_base().encode(&mut buf);
++        self.mode.encode(&mut buf);
++        write_net_info(&mut buf, &self.net_info, self.version);
++        if self.mn_type == MnType::Evo {
++            self.platform_node_id.unwrap_or_default().encode(&mut buf);
++        }
++        self.key_id_voting.encode(&mut buf);
++        write_lazy(&self.pub_key_operator, protx_bls_scheme(self.version), &mut buf);
++        self.operator_reward.encode(&mut buf);
++        write_list(&self.shares, &mut buf);
++        self.early_period_blocks.encode(&mut buf);
++        self.early_penalty.encode(&mut buf);
++        buf
++    }
+ }
+ 
+ impl ProUpServTx {
+@@ -478,3 +565,27 @@ fn write_list<T: BaseCodec>(items: &[T], buf: &mut impl EncodeBuf) {
+     (items.len() as u8).encode(buf);
+     write_items(items, buf);
+ }
++
++// The private helpers of base-sdk's `sign_string` and `shared_consent_bytes`, copied from fda80b21
++// `pkgs/primitives/src/payload/sighash.rs`.
++
++/// `sighash.rs:38-41` `hash256`: SHA256d, Core's `Hash` over a serialization.
++fn hash256(bytes: &[u8]) -> Hash256 {
++    Hash256::from_lendian(sha256d::Hash::hash(bytes).to_byte_array())
++}
++
++/// `sighash.rs:43-49` `destination_string`: a script as Core's provider payloads print it into
++/// signed strings, the address of the destination `ExtractDestination` finds, else the hex.
++fn destination_string(script: &[u8], addr: &AddrParams) -> String {
++    Recipient::from_script(script)
++        .and_then(|recipient| recipient.to_base58c(addr))
++        .unwrap_or_else(|| script.to_lower_hex_string())
++}
++
++/// `sighash.rs:95-101` `write_tx_header`: the fields of `tx` that Core's shared-masternode digests
++/// take directly, the version, the type and the lock time.
++fn write_tx_header(tx: &Transaction, buf: &mut impl EncodeBuf) {
++    tx.version().encode(buf);
++    tx.tx_type().to_base().encode(buf);
++    tx.lock_time().encode(buf);
++}
+diff --git a/node-l1/src/protx_mirror/tests.rs b/node-l1/src/protx_mirror/tests.rs
+index 5279aa5207bd59aa078c18c899b2ef0274b0bd3d..0b676a14afc938194f31074129be74fc2c44563c 100644
+--- a/node-l1/src/protx_mirror/tests.rs
++++ b/node-l1/src/protx_mirror/tests.rs
+@@ -10,11 +10,17 @@
+ //!    whenever base-sdk's own round trip gives it back.
+ //!
+ //! The test fails if a (type, version) pair of [`EXPECTED`] finds no vector.
++//!
++//! [`mirror_sighashes_as_base_sdk`] checks the mirror's copies of base-sdk's ProRegTx consent
++//! bytes and sign string against base-sdk's on the same payloads.
+ 
+ use std::collections::BTreeMap;
+ use std::fmt::Debug;
+ 
+-use dash_dml::specialtx::sig::payload_sig_hash;
++use dash_consensus::hash::sha256d;
++use dash_consensus::primitives::Tx;
++use dash_dml::specialtx::sig::{make_sign_string, payload_sig_hash, shared_reg_consent_hash};
++use dash_dml::testkit::replay::{mainnet, testnet};
+ use dash_primitives::{Block, Transaction};
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -136,9 +142,9 @@ macro_rules! sig_hash {
+     };
+ }
+ 
+-#[test]
++/// Every vector file of [`FILES`] and [`CORE_FILES`], by name.
+ #[allow(clippy::expect_used)]
+-fn mirror_encodes_as_base_sdk() {
++fn texts() -> Vec<(String, String)> {
+     let root = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
+     let mut texts: Vec<(String, String)> = FILES
+         .iter()
+@@ -149,7 +155,12 @@ fn mirror_encodes_as_base_sdk() {
+         .collect();
+     texts
+         .extend(CORE_FILES.iter().map(|f| ((*f).to_owned(), dash_core_vectors::read_core_text(f))));
++    texts
++}
+ 
++#[test]
++fn mirror_encodes_as_base_sdk() {
++    let texts = texts();
+     let mut seen: BTreeMap<(u16, u16), usize> = BTreeMap::new();
+     let mut files: BTreeMap<&str, usize> = BTreeMap::new();
+     for (file, text) in &texts {
+@@ -186,3 +197,58 @@ fn mirror_encodes_as_base_sdk() {
+         assert!(seen.contains_key(pair), "no vector of (type, version) {pair:?}");
+     }
+ }
++
++/// The mirror's copies of base-sdk's `shared_consent_bytes` and `sign_string` against
++/// base-sdk's (DEC-1066 decision 1), through dash-dml's `shared_reg_consent_hash` and
++/// `make_sign_string`, on every ProRegTx of the round trip's vectors that base-sdk decodes whole:
++/// the consent hash over the carrying transaction, and the sign string under mainnet's,
++/// testnet's and regtest's prefixes. base-sdk defines both for any ProRegTx. Core signs the
++/// consent hash only for a shared registration and the sign string only for an external
++/// collateral, so the test also needs one of each. A ProUpSharedRegTx's signatures sign its
++/// `SER_GETHASH`, which the round trip checks.
++#[test]
++#[allow(clippy::use_debug)] // the failure messages name the payload
++fn mirror_sighashes_as_base_sdk() {
++    let networks = [mainnet(), testnet(), crate::chain::build::regtest()];
++    let (mut cases, mut shared, mut external) = (0usize, 0usize, 0usize);
++    for (_, text) in texts() {
++        for bytes in hex_runs(&text) {
++            for tx in special_txs(&bytes) {
++                if tx.tx_type().to_base() != 1 {
++                    continue;
++                }
++                let mut data = tx.extra_payload().as_slice();
++                let Ok(p) = dash_primitives::ProRegTx::decode(&mut data) else {
++                    continue;
++                };
++                if !data.is_empty() {
++                    continue;
++                }
++                let m = super::ProRegTx::from(&p);
++                let carrier = Tx::new(tx.clone());
++                assert_eq!(
++                    Some(sha256d(&m.shared_consent_bytes(&tx))),
++                    shared_reg_consent_hash(&p, &carrier),
++                    "consent hash of {p:?}"
++                );
++                for params in networks {
++                    assert_eq!(
++                        Some(m.sign_string(&params.base_sdk_addr_params())),
++                        make_sign_string(&p, params),
++                        "sign string of {p:?}"
++                    );
++                }
++                cases += 1;
++                shared += usize::from(!p.shares().is_empty());
++                external += usize::from(!p.collateral_hash().is_null());
++            }
++        }
++    }
++    eprintln!(
++        "protx mirror sighashes: {cases} ProRegTx cases ({shared} shared, {external} with an \
++         external collateral), consent hash on each, sign string on each under {} networks",
++        networks.len()
++    );
++    assert!(shared > 0, "no shared registration in the vectors");
++    assert!(external > 0, "no external collateral in the vectors");
++}

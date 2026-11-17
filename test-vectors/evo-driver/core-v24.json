@@ -1,0 +1,43 @@
+{
+ "dashbls_legacy_threshold": {
+  "source": "dashpay/dash v24.0.0 (938fba502824b9d850b7c710601456dc3d71603e) src/dashbls/src/test.cpp:1253-1322, TEST_CASE(\"Schemes\") SECTION(\"Legacy scheme\")",
+  "ids": [
+   "4393e2a243c3db776dcdbe2535493440d29cb65006a1e6f0f8d3f1e1488cbf1a",
+   "8b2d776ac75cfca1559b5616ade4eb376a6478556135276e4b3210fe170b9f59",
+   "f2015bdbc0daa70c41a25d2450b96f433ac7d568126505e9997794bb357cf3af",
+   "5818a68f2f34e5ff7d1d43beca5ff103739dd918efda4bac7fd4ede6c53dc6af",
+   "965437bdf51278f716078477a2eae595a9d2b0aa3fe69a387b30936c13c7d68e",
+   "fd14695a48a35fe6a1f9894accfa83349508e350b3f743d494074fe204b17166",
+   "7e3c28e59ff54bf097b2f3ada4a30f5613227951116675127fc97c98405f2067",
+   "5e427dba092e3d81d057c0277a9a465e036c8336c59a18f27d7c21bc51910904",
+   "90976dbe492de3eda7623c7ad6523ed9f63f83c3200c383fccd9f22408e18e1b",
+   "cd474447afd5df18a0c10c9e2d5216eace9c624119974280236a043cb4b7f8ae"
+  ],
+  "secret_key_shares": [
+   "43dd263542a8d10bc9f843b46f15c86cd87e00c8f45fe5339b30c08e3233d8e3",
+   "5e7247ef1a0e671b8349e7be3f50ec88f1eafde90345f34520010e4aa9f18731",
+   "34bcc40dea17bb03ec085ac46a0ea9614b3ffc4bae8b0b292f3d7c54662b00a6",
+   "139f967b6f4af5dfe2bebf8085b6332efe31c2dc348d02e6b4745a0e7e56a469",
+   "08442e959054d87b5de3553ef8cfd9da923241664c35c6548b5e3271a86b4a18",
+   "2698613947a156639b423ad1a9fbe45863d58540d8ebd08612504bf9cf4743ea",
+   "1871c9270c8344028946eee64e79d09e4915dd3b717ffc1c9aa86faff88c0475",
+   "68409938427df3567e8948c1fff8610b5cf94872eb959c90a714b7ff0f339e88",
+   "70d3e3ad7d22bd30e4e2ca108a3fa47f4873bda28f3b000a218339b09db6f58a",
+   "39ea630e894b71d9f28fefb551611824f16d4b16d29fdea8bb3dbd857a6bc317"
+  ],
+  "threshold_public_key_legacy": "97a12b918eac73718d55b7fca60435ec0b442d7e24b45cbd80f5cf2ea2e14c4164333fffdb00d27e309abbafacaa9c34"
+ },
+ "mnhf_signal_tx": {
+  "source": "regtest, Dash Core v24.0.0 dashd: the masternodes' bit-13 signal tx held by the chain driver in contrib/node/evo-images/driver_standalone.py's run r9 (2026-11-14) and mined in its block 650",
+  "network": "regtest",
+  "bit": 13,
+  "quorum_hash": "7e95f066b3bbe330a6d886eb439fbb399bd0afb4fcf30d2cad295e3d77db29c9",
+  "txid": "c6aca66f261f2453cb962c45fe14f4fd185a0190facbfd0c3eba04a1983797ca",
+  "hex": "0300070000000000000082010dc929db773d5e29ad2c0df3fcb4afd09b39bb9f43eb86d8a630e3bbb366f0957e88b0aac719d0ac44938bb84d4ac152c2d44c95546f84eebd11e06a00ae1538040b6cf769572d438af4552c9a19adf78b117c5e83b0739b613f484e2e581d4849bf609da09d1758e46af100853675d0bfc5ae80c071b6aa087fbf92077c4e4f3f"
+ },
+ "dashbls_basic_keygen": {
+  "source": "dashpay/dash v24.0.0 (938fba502824b9d850b7c710601456dc3d71603e) src/dashbls/src/test.cpp:336-365, TEST_CASE(\"Chia test vectors\") SECTION(\"Chia test vectors 1 (Basic)\"): sk1 = KeyGen(32 x 0x00) and pk1 = sk1.GetG1Element(), as Serialize() prints them",
+  "sk": "4a353be3dac091a0a7e640620372f5e1e2e4401717c1e79cac6ffba8f6905604",
+  "pk": "85695fcbc06cc4c4c9451f4dce21cbf8de3e5a13bf48f44cdbb18e2038ba7b8bb1632d7911ef1e2e08749bddbf165352"
+ }
+}
