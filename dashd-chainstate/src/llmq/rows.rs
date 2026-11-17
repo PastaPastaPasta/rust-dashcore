@@ -1,0 +1,321 @@
+//! The runtime rotation-snapshot rows (CH7 §4.4; EV addendum §2.6): Core's
+//! `CQuorumSnapshotManager`, the `llmq_snapshot` rows and their 32-entry cache, with Core's two
+//! `snapshotCacheCs` sections. A getter holds the section across its cache lookup, its disk read
+//! and its insert; a write holds it across the raw write and its insert. So a getter that read a
+//! row can never insert it after a write it overlapped has replaced the row (rev6, O1).
+
+use std::sync::Arc;
+
+use dash_dml::StoreError;
+use dash_evo::llmq::QuorumSnapshot;
+use dash_params::LlmqType;
+use dash_primitives::BlockHash;
+use dash_types::Numeric;
+use dashd_store::KvEngine;
+use parking_lot::{Mutex, MutexGuard};
+
+use super::cache::Lru;
+use crate::chain::Fatal;
+use crate::evo::RocksEvoStore;
+use crate::flush::{EffectLedger, write_failed, write_on_undo_failed};
+
+/// `quorumSnapshotCache{32}` (`llmq/snapshot.cpp:295`).
+pub const SNAPSHOT_CACHE_SIZE: usize = 32;
+
+/// The raw rows under [`RuntimeRows`]: read and written outside any evo transaction, as Core's
+/// `GetRawDB()` writes them. The facade holds it as a trait object, so it is not generic over the
+/// KV engine (CH7 D76).
+pub trait SnapshotStore: Send + Sync {
+    /// The row, if one was ever written. A row that does not decode is absent, as Core's
+    /// `CDBWrapper::Read` answers one whose deserialization throws.
+    ///
+    /// # Errors
+    ///
+    /// The read's fault.
+    fn read_snapshot(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+    ) -> Result<Option<QuorumSnapshot>, StoreError>;
+
+    /// Overwrites the row.
+    ///
+    /// # Errors
+    ///
+    /// The write's failure. The node's rows report it as it fails, so their `Fatal` is reported
+    /// already: one report whichever route wrote the row.
+    fn write_snapshot(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal>;
+
+    /// [`write_snapshot`](Self::write_snapshot) for an undo (OD-CP-18).
+    ///
+    /// # Errors
+    ///
+    /// The write's own failure, unreported: the node's rows trip the latch and log it, and the
+    /// disconnect it fails keeps it for its caller. On ABC's path ABC's own report is the one;
+    /// any other caller reports this failure as it stops V (OD-CP-30, CH7 D103). A write the latch
+    /// refused carries another failure, reported already (OD-CP-29, D102).
+    fn write_snapshot_on_undo(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal>;
+}
+
+impl<E: KvEngine> SnapshotStore for RocksEvoStore<E> {
+    /// The `llmq_snapshot` row, read from the DB directly. Core reads it through the evodb's open
+    /// transaction (`llmq/snapshot.cpp:312`), which never holds the key: its only writer is the raw
+    /// write at `llmq/snapshot.cpp:327` (v24.0.0; CH7 D80).
+    fn read_snapshot(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+    ) -> Result<Option<QuorumSnapshot>, StoreError> {
+        self.quorum_snapshot(llmq_type, cycle_base)
+    }
+
+    /// The raw write. A failed one stops the node with one report (BL-546, `write_failed`).
+    // Core: dbwrapper.cpp:261-268
+    fn write_snapshot(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal> {
+        self.store_quorum_snapshot(llmq_type, cycle_base, snapshot)
+            .map_err(|e| write_failed(self.db(), &e))
+    }
+
+    /// The raw write of an undo: its own failure trips the latch and is only logged, and one the
+    /// latch refused is reported already (`write_on_undo_failed`).
+    // Core: dbwrapper.cpp:261-268, evo/specialtxman.cpp:1086-1090 at v24.0.0
+    fn write_snapshot_on_undo(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal> {
+        self.store_quorum_snapshot(llmq_type, cycle_base, snapshot)
+            .map_err(|e| write_on_undo_failed(self.db(), &e))
+    }
+}
+
+/// The rows' cache key: Core hashes `(type, cycle base)`, the node keys on the pair (CH7 D80).
+pub(crate) type SnapshotKey = (u8, BlockHash);
+
+pub(crate) fn key(llmq_type: LlmqType, cycle_base: &BlockHash) -> SnapshotKey {
+    (llmq_type.to_base(), *cycle_base)
+}
+
+/// Core's `CQuorumSnapshotManager` over the node's rows: the one cache, the one section, and the
+/// presumed-effect ledger each write records into (§6.2). Outside the crate they are only built,
+/// for the facade and the applier: every read and write is a route's (`capability_rules.md`).
+pub struct RuntimeRows {
+    store: Arc<dyn SnapshotStore>,
+    ledger: Arc<EffectLedger>,
+    /// `snapshotCacheCs` and the cache it guards.
+    section: Mutex<Lru<SnapshotKey, QuorumSnapshot>>,
+    #[cfg(test)]
+    pub(crate) hooks: RowHooks,
+}
+
+impl RuntimeRows {
+    // Core: v24 llmq/snapshot.cpp:293 CQuorumSnapshotManager
+    pub fn new(store: Arc<dyn SnapshotStore>, ledger: Arc<EffectLedger>) -> Self {
+        Self {
+            store,
+            ledger,
+            section: Mutex::new(Lru::new(SNAPSHOT_CACHE_SIZE)),
+            #[cfg(test)]
+            hooks: RowHooks::default(),
+        }
+    }
+
+    /// `GetSnapshotForBlock`: a cache hit, restamped; else the disk row, inserted on a hit. The
+    /// lookup, the read and the insert are one section.
+    ///
+    /// # Errors
+    ///
+    /// The read's fault; nothing is inserted.
+    // Core: v24 llmq/snapshot.cpp:301 GetSnapshotForBlock
+    pub(crate) fn snapshot_for_block(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+    ) -> Result<Option<QuorumSnapshot>, StoreError> {
+        #[cfg(test)]
+        self.hooks.read_keys.lock().push((llmq_type, *cycle_base));
+        let key = key(llmq_type, cycle_base);
+        let mut cache = self.section();
+        if let Some(snapshot) = cache.get(&key) {
+            return Ok(Some(snapshot.clone()));
+        }
+        #[cfg(test)]
+        if self.hooks.unlocked_read.load(std::sync::atomic::Ordering::SeqCst) {
+            // Case 7's negative control: the section dropped around the read.
+            drop(cache);
+            let read = self.store.read_snapshot(llmq_type, cycle_base)?;
+            self.hooks.after_read();
+            cache = self.section();
+            if let Some(snapshot) = &read {
+                cache.insert(key, snapshot.clone());
+            }
+            return Ok(read);
+        }
+        let read = self.store.read_snapshot(llmq_type, cycle_base)?;
+        #[cfg(test)]
+        self.hooks.after_read();
+        if let Some(snapshot) = &read {
+            cache.insert(key, snapshot.clone());
+        }
+        Ok(read)
+    }
+
+    /// `GetSnapshotForBlock` as a block template reads it: the cached row, unstamped, else the
+    /// disk row, not inserted. One section, as [`snapshot_for_block`](Self::snapshot_for_block),
+    /// whose answer it is: a write puts its row on disk and in the cache in one section.
+    ///
+    /// # Errors
+    ///
+    /// The read's fault.
+    // Core: v24.0.0-rc.5 llmq/snapshot.cpp:301-317 GetSnapshotForBlock
+    pub(crate) fn snapshot_unstamped(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+    ) -> Result<Option<QuorumSnapshot>, StoreError> {
+        let cache = self.section();
+        if let Some(snapshot) = cache.peek(&key(llmq_type, cycle_base)) {
+            return Ok(Some(snapshot.clone()));
+        }
+        self.store.read_snapshot(llmq_type, cycle_base)
+    }
+
+    /// `StoreSnapshotForBlock`: the raw write and its cache insert in one section, then the
+    /// ledger's record, so the next B1 syncs the WAL first (§6.2). A failed write is reported
+    /// inside the section, so the abort sink may take only leaf locks.
+    ///
+    /// # Errors
+    ///
+    /// The write's failure, as the store reports it ([`SnapshotStore::write_snapshot`]); the
+    /// cache is untouched and nothing is recorded.
+    // Core: v24 llmq/snapshot.cpp:320 StoreSnapshotForBlock
+    pub(crate) fn write(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal> {
+        self.write_as(llmq_type, cycle_base, snapshot, false)
+    }
+
+    /// [`write`](Self::write) for an undo: its own failed write is unreported, and one the latch
+    /// refused is reported already ([`SnapshotStore::write_snapshot_on_undo`], OD-CP-18, OD-CP-29).
+    ///
+    /// # Errors
+    ///
+    /// The write's failure, as the store answers it; the cache is untouched and nothing is
+    /// recorded.
+    pub(crate) fn write_on_undo(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+    ) -> Result<(), Fatal> {
+        self.write_as(llmq_type, cycle_base, snapshot, true)
+    }
+
+    fn write_as(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+        snapshot: &QuorumSnapshot,
+        undo: bool,
+    ) -> Result<(), Fatal> {
+        let mut cache = self.section();
+        if undo {
+            self.store.write_snapshot_on_undo(llmq_type, cycle_base, snapshot)?;
+        } else {
+            self.store.write_snapshot(llmq_type, cycle_base, snapshot)?;
+        }
+        cache.insert(key(llmq_type, cycle_base), snapshot.clone());
+        drop(cache);
+        self.ledger.record_presumed();
+        #[cfg(test)]
+        self.hooks.written.lock().push((llmq_type, *cycle_base, snapshot.clone()));
+        Ok(())
+    }
+
+    /// The cached row, with no stamp (EV addendum §4.3's `peek`), for tests that inspect it.
+    #[cfg(test)]
+    pub(crate) fn peek(
+        &self,
+        llmq_type: LlmqType,
+        cycle_base: &BlockHash,
+    ) -> Option<QuorumSnapshot> {
+        self.section().peek(&key(llmq_type, cycle_base)).cloned()
+    }
+
+    /// The cache as the section holds it, stamps and all, for tests that compare it.
+    #[cfg(test)]
+    pub(crate) fn cache_state(&self) -> String {
+        format!("{:?}", *self.section())
+    }
+
+    #[cfg(not(test))]
+    fn section(&self) -> MutexGuard<'_, Lru<SnapshotKey, QuorumSnapshot>> {
+        self.section.lock()
+    }
+
+    #[cfg(test)]
+    fn section(&self) -> MutexGuard<'_, Lru<SnapshotKey, QuorumSnapshot>> {
+        self.hooks.counted(&self.section)
+    }
+}
+
+/// The rows' test points (case 7, EV addendum §2.6).
+#[cfg(test)]
+#[derive(Default)]
+pub(crate) struct RowHooks {
+    /// Runs in `snapshot_for_block` after its disk read, before its insert, with the section held
+    /// (unless `unlocked_read`).
+    pub(crate) after_read: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+    /// `snapshot_for_block` drops the section around its disk read.
+    pub(crate) unlocked_read: std::sync::atomic::AtomicBool,
+    /// Threads blocked on the section now.
+    pub(crate) section_waiters: std::sync::atomic::AtomicUsize,
+    /// Every key `snapshot_for_block` was asked for, in order.
+    pub(crate) read_keys: Mutex<Vec<(LlmqType, BlockHash)>>,
+    /// Every row written, in order, each recorded in the ledger as it was written.
+    pub(crate) written: Mutex<Vec<(LlmqType, BlockHash, QuorumSnapshot)>>,
+}
+
+#[cfg(test)]
+impl RowHooks {
+    fn after_read(&self) {
+        let hook = self.after_read.lock().take();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
+
+    fn counted<'a, T>(&self, lock: &'a Mutex<T>) -> MutexGuard<'a, T> {
+        use std::sync::atomic::Ordering::SeqCst;
+        if let Some(guard) = lock.try_lock() {
+            return guard;
+        }
+        self.section_waiters.fetch_add(1, SeqCst);
+        let guard = lock.lock();
+        self.section_waiters.fetch_sub(1, SeqCst);
+        guard
+    }
+}
+
+#[cfg(test)]
+#[path = "rows_tests.rs"]
+mod tests;
