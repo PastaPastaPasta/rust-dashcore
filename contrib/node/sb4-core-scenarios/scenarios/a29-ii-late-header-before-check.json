@@ -1,0 +1,47 @@
+{
+ "name": "a29-ii-late-header-before-check",
+ "description": "CL on an unknown header recorded while off (submitchainlock); spork on; the header arrives before any check (AcceptedBlockHeader installs it); the next check resets",
+ "rows": [
+  "A-29(ii)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 80,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A80",
+   "count": 5,
+   "submit": "none"
+  },
+  {
+   "op": "cl",
+   "block": "A85",
+   "via": "submitchainlock"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "A81..A85"
+   ]
+  },
+  {
+   "op": "timer"
+  }
+ ]
+}
