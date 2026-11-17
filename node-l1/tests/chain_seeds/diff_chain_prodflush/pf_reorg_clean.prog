@@ -1,0 +1,10 @@
+# S0p: a fan-out main, then a heavier fan-out fork whose connects may flush mid-op (a reconcile
+# follows its mirror); a KILL and a CLEAN restart after the mirrors.
+extend main 8 tx=fan
+extend main 8 tx=fan
+fork 3 8 tx=fan
+extend b1 8 tx=fan
+restart kill
+extend main 2 tx=fan
+restart clean
+extend main 1
