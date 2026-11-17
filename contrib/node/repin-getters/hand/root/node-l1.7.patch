@@ -1,0 +1,85 @@
+diff --git a/node-l1/src/bsdk_decode.rs b/node-l1/src/bsdk_decode.rs
+index e702ce4f4471f6290b20d452c5917e541ae6c58b..8549d95379165519473cac2c7568a1d346369c98 100644
+--- a/node-l1/src/bsdk_decode.rs
++++ b/node-l1/src/bsdk_decode.rs
+@@ -26,8 +26,7 @@
+ use dash_consensus::primitives::canonical;
+ use dash_pkc::bls::{BlsCtx, BlsGlobal, BlsLazy, BlsSchemeKind, BlsSchemeSource, BlsWirePoint};
+ use dash_primitives::{
+-    Block, BlockHeader, CoinbaseCommitment, ProRegTx, ProUpRegTx, ProUpSharedRegTx, SpecialPayload,
+-    Transaction, TxType,
++    Block, BlockHeader, ProRegTx, ProUpRegTx, ProUpSharedRegTx, SpecialPayload, Transaction, TxType,
+ };
+ use dash_types::codec::BaseCodec;
+ use dash_types::{CompactSize, Numeric};
+diff --git a/node-l1/src/dml_apply/checked.rs b/node-l1/src/dml_apply/checked.rs
+index c37993967fde4feb1d8a5478feff50e6a57db09a..5fd6ca093c814a84f503fc5251016f6bedb91f5c 100644
+--- a/node-l1/src/dml_apply/checked.rs
++++ b/node-l1/src/dml_apply/checked.rs
+@@ -144,7 +144,7 @@ fn operator_id(key: &OperatorKey) -> [u8; 48] {
+ fn services(net_info: &NetInfo) -> Vec<Service> {
+     match net_info {
+         NetInfo::Legacy(v1) => {
+-            let ip = v1.service().addr().as_bytes().clone();
++            let ip = *v1.service().addr().as_bytes();
+             (ip[..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff])
+                 .then(|| ([ip[12], ip[13], ip[14], ip[15]], v1.service().port()))
+                 .into_iter()
+diff --git a/node-l1/src/dml_apply/input.rs b/node-l1/src/dml_apply/input.rs
+index 637bf651730e85e3b06691e025ff6aa44d2673da..7cef764ee7795066a15e5fb8e91b25fbdf30f2e0 100644
+--- a/node-l1/src/dml_apply/input.rs
++++ b/node-l1/src/dml_apply/input.rs
+@@ -37,9 +37,8 @@ use dash_pkc::bls::BlsSchemeKind;
+ use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_primitives::{
+     CollateralShare, Commitment, DynBitset, FinalCommitment, JoinSig, MnType, NetInfo, OutPoint,
+-    PlatformNodeId, ProRegTx, ProTxVersion, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx,
+-    ProUpSharedRegTx, QuorumHash, RevocationReason, SpecialPayload, Transaction, TxHash, TxIn,
+-    TxType,
++    PlatformNodeId, ProRegTx, ProTxVersion, ProUpRevTx, ProUpServTx, ProUpShareTx, QuorumHash,
++    RevocationReason, SpecialPayload, Transaction, TxHash, TxIn, TxType,
+ };
+ use dash_types::codec::BaseCodec;
+ use dash_types::{CompactSize, Numeric};
+@@ -738,7 +737,7 @@ fn qc(
+     case: &Case,
+     quorums: &mut Vec<QuorumMembers>,
+ ) -> Option<Vec<u8>> {
+-    let mut p = r.pick(&t.qc)?.clone();
++    let p = r.pick(&t.qc)?.clone();
+     let llmqs: Vec<_> = case.params.consensus.llmq_params().collect();
+     let &(llmq_type, llmq) = r.pick(&llmqs)?;
+     let interval = u32::from(llmq.dkg_interval).max(1);
+diff --git a/node-l1/src/protx_mirror/tests.rs b/node-l1/src/protx_mirror/tests.rs
+index 9c57a1f49d50b04c65db38ee0bec60c9f44e64de..5279aa5207bd59aa078c18c899b2ef0274b0bd3d 100644
+--- a/node-l1/src/protx_mirror/tests.rs
++++ b/node-l1/src/protx_mirror/tests.rs
+@@ -93,12 +93,12 @@ fn special_txs(bytes: &[u8]) -> Vec<Transaction> {
+     }
+ }
+ 
++/// The signature hashes of a mirror and of the base-sdk payload it was read from.
++type SigHashes<M> = fn(&M, &<M as ToBsdk>::Bsdk) -> (Option<[u8; 32]>, Option<[u8; 32]>);
++
+ /// One payload's checks; `false` when base-sdk does not decode it whole (not a valid payload).
+ #[allow(clippy::use_debug, clippy::expect_used)] // the comparison is of the Debug forms
+-fn check<M>(
+-    payload: &[u8],
+-    signed: Option<fn(&M, &M::Bsdk) -> (Option<[u8; 32]>, Option<[u8; 32]>)>,
+-) -> bool
++fn check<M>(payload: &[u8], signed: Option<SigHashes<M>>) -> bool
+ where
+     M: ToBsdk + for<'a> From<&'a M::Bsdk> + PartialEq + Debug,
+     M::Bsdk: PartialEq + Debug,
+diff --git a/node-l1/tests/l1_specialtx_trivial.rs b/node-l1/tests/l1_specialtx_trivial.rs
+index 38357250e4773e3306bd7c0ae3445ba8b4585aa2..87c1a2d54695e2e991fafd00f5126ce86b25c4fa 100644
+--- a/node-l1/tests/l1_specialtx_trivial.rs
++++ b/node-l1/tests/l1_specialtx_trivial.rs
+@@ -275,6 +275,7 @@ fn shared_records() -> Vec<Tx> {
+ /// A shared-type payload's mirror (DEC-1066): base-sdk's, with public fields, which encodes as
+ /// base-sdk does.
+ #[derive(Clone)]
++#[allow(clippy::large_enum_variant)] // a few values per transaction
+ enum Shared {
+     Dis(mirror::ProDisTx),
+     Share(mirror::ProUpShareTx),

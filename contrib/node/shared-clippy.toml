@@ -1,0 +1,59 @@
+# Clippy bans for the libraries of the shared runtime crates (S: SB0 §2.3 L5,
+# §7). Shared crates run inside a host (rdashd, dash-spv-ffi): they never end
+# the process, never start threads, runtimes or pools of their own, and never
+# block a runtime thread. Blocking storage work and DNS go through the host's
+# bounded `BlockingIo` and `Resolver` services, passed in as parameters.
+#
+# contrib/node/check-shared.sh merges this with the root clippy.toml, the
+# blst and dash-pkc entries of pure-clippy.toml (DEC-79's pooled calls, under
+# the same audit stamp) and the crate's own clippy.toml, and runs clippy with
+# these lints forbidden. `allow-invalid` keeps crates without tokio or rayon
+# quiet.
+#
+# Not lintable, so left to review: no network parameters in statics. The
+# `#[global_allocator]` ban, "only dash-p2p uses tokio" and the dependency
+# bans of shared-deny.toml are checked by check-shared.sh itself.
+
+disallowed-types = [
+    { path = "std::thread::Builder", reason = "shared crates start no OS threads; the host owns them (SB0 L5)" },
+    { path = "tokio::runtime::Builder", reason = "shared crates build no runtime; dash-p2p takes the host's Handle (SB0 L5)", allow-invalid = true },
+    { path = "tokio::runtime::Runtime", reason = "shared crates build no runtime; dash-p2p takes the host's Handle (SB0 L5)", allow-invalid = true },
+    { path = "rayon::ThreadPoolBuilder", reason = "shared crates build no pool; they take the host's &ThreadPool (SB0 L5)", allow-invalid = true },
+    { path = "std::net::ToSocketAddrs", reason = "name resolution goes through the host's Resolver (SB0 L5)" },
+    # Scoped threads and the thread pools of other crates.
+    { path = "std::thread::Scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)" },
+    { path = "std::thread::ScopedJoinHandle", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)" },
+    { path = "threadpool::ThreadPool", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "threadpool::Builder", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "scoped_threadpool::Pool", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures::executor::ThreadPool", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures::executor::ThreadPoolBuilder", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures_executor::ThreadPool", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures_executor::ThreadPoolBuilder", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "crossbeam::thread::Scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "crossbeam_utils::thread::Scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+]
+
+disallowed-methods = [
+    { path = "std::process::abort", reason = "fatal errors go through dash-kv's latch and the host's AbortSink (SB0 L5)" },
+    { path = "std::process::exit", reason = "fatal errors go through dash-kv's latch and the host's AbortSink (SB0 L5)" },
+    { path = "std::thread::spawn", reason = "shared crates start no OS threads; the host owns them (SB0 L5)" },
+    { path = "std::thread::scope", reason = "shared crates start no OS threads; the host owns them (SB0 L5)" },
+    # Scoped threads and the thread pools of other crates.
+    { path = "std::thread::Scope::spawn", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)" },
+    { path = "std::thread::Builder::spawn_scoped", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)" },
+    { path = "std::thread::Builder::spawn_unchecked", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)" },
+    { path = "threadpool::ThreadPool::new", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "threadpool::ThreadPool::with_name", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "scoped_threadpool::Pool::new", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures::executor::ThreadPool::new", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "futures_executor::ThreadPool::new", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "crossbeam::scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "crossbeam::thread::scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "crossbeam_utils::thread::scope", reason = "shared crates start no OS threads or pools; the host owns them (SB0 L5)", allow-invalid = true },
+    { path = "std::net::ToSocketAddrs::to_socket_addrs", reason = "name resolution goes through the host's Resolver (SB0 L5)" },
+    { path = "tokio::task::spawn_blocking", reason = "blocking work goes through the host's bounded BlockingIo (SB0 L5)", allow-invalid = true },
+    { path = "tokio::runtime::Handle::spawn_blocking", reason = "blocking work goes through the host's bounded BlockingIo (SB0 L5)", allow-invalid = true },
+    { path = "tokio::task::block_in_place", reason = "blocking work goes through the host's bounded BlockingIo (SB0 L5)", allow-invalid = true },
+    { path = "tokio::net::lookup_host", reason = "name resolution goes through the host's Resolver (SB0 L5)", allow-invalid = true },
+]
