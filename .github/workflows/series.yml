@@ -21,7 +21,8 @@
 #            in the series-summary artifact. No tree is uploaded.
 #
 # The setup steps are node-gate.yml's: the toolchain from rust-toolchain.toml, the shard's disk
-# cleanup, and static's base SDK pin to a local clone of the public fork.
+# cleanup, static's base SDK pin to a local clone of the public fork, and a `cargo fetch --locked`
+# of the whole lock. A failed fetch marks the leg's test column.
 name: series
 run-name: series ${{ inputs.series_ref }} ${{ inputs.crates }}
 
@@ -151,6 +152,13 @@ jobs:
             echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
           fi
 
+      # Some tests run `cargo tree --target all --offline`, which needs every crate in Cargo.lock,
+      # other platforms' included; the per-crate clippy and test builds fetch only their own closure
+      # (node-gate.yml's "Fetch every locked crate").
+      - name: Fetch every locked crate
+        id: fetch
+        run: cargo fetch --locked
+
       - name: fmt
         id: fmt
         if: ${{ !cancelled() }}
@@ -186,7 +194,7 @@ jobs:
           done
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
 
-      # An empty rc is a step that did not run (a setup step failed first).
+      # An empty rc is a step that did not run; a fetch that did not succeed is written into test's rc.
       - name: Verdict
         if: always()
         env:
@@ -196,7 +204,9 @@ jobs:
           FMT: ${{ steps.fmt.outputs.rc }}
           CLIPPY: ${{ steps.clippy.outputs.rc }}
           TEST: ${{ steps.test.outputs.rc }}
+          FETCH: ${{ steps.fetch.outcome }}
         run: |
+          [ "$FETCH" = success ] || TEST="${TEST:-none} fetch:${FETCH:-none}"
           mkdir -p "$RUNNER_TEMP/rc"
           printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$K" "$N" "$SOURCE" "$FMT" "$CLIPPY" "$TEST" > "$RUNNER_TEMP/rc/$K.tsv"
           echo "fmt=${FMT:-none} clippy=${CLIPPY:-none} test=${TEST:-none}"
