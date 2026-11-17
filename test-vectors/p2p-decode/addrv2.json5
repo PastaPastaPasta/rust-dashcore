@@ -1,0 +1,5 @@
+// Provenance: base-sdk 29e01c834d3eb5d647db7eb51578350a77593847, tests/addrv2.rs.
+// The entries are BIP155 rows decoded by AddrV2Entry::decode.
+{"command":"addrv2","raw":"00"}
+{"command":"addrv2","raw":"0161bc664900010401020304270f"}
+{"command":"addrv2","raw":"0261bc66490002100000000000000000000000000000000100007962768301021000000000000000000000000000000100f1"}
