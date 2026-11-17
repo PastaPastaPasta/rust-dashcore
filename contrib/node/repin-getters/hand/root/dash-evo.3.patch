@@ -1,0 +1,24 @@
+diff --git a/dash-evo/src/cbtx.rs b/dash-evo/src/cbtx.rs
+index d0b849007b4cd9f0dade8c66f5d7b113ef2a6183..725bb98bc7ef3af071c52afe89a7d27ddcde52e6 100644
+--- a/dash-evo/src/cbtx.rs
++++ b/dash-evo/src/cbtx.rs
+@@ -52,7 +52,7 @@ pub fn check_quorums_root(
+     cbtx: &CoinbaseCommitment,
+     calculate: impl FnOnce() -> Result<MerkleRoot, BlockValidationError>,
+ ) -> Result<(), BlockValidationError> {
+-    if cbtx.version() < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
++    if cbtx.version().to_base() < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
+         return Ok(());
+     }
+     let calculated = calculate()?;
+@@ -277,8 +277,8 @@ pub fn nonnull_coinbase_chainlock(
+         return None;
+     };
+     if !decoded.is_complete()
+-        || cbtx.version() < CBTX_VERSION_CLSIG_AND_BALANCE
+-        || i64::from(cbtx.height()) != i64::from(height)
++        || cbtx.version().to_base() < CBTX_VERSION_CLSIG_AND_BALANCE
++        || i64::from(cbtx.height().to_u32().cast_signed()) != i64::from(height)
+     {
+         return None;
+     }
