@@ -1,0 +1,686 @@
+diff --git a/dash-dml/benches/qc_block.rs b/dash-dml/benches/qc_block.rs
+index 958a8ea7293f86d918f654e95e4970ef1e91ebf7..ebf4b2135dfbe7641d7d34a5beb1626fef0ec23f 100644
+--- a/dash-dml/benches/qc_block.rs
++++ b/dash-dml/benches/qc_block.rs
+@@ -177,12 +177,26 @@ fn other_types(
+             let hash = QuorumHash::from(*headers.header(BlockId(base)).hash.as_bytes());
+             let mut qc =
+                 null_commitment(llmq_type, params, hash, commitment_version(false, true), 0);
+-            for bits in [&mut qc.signers, &mut qc.valid_members] {
+-                bits.data.fill(0xff);
+-                if bits.num_bits % 8 != 0 {
+-                    *bits.data.last_mut().expect("a byte") >>= 8 - bits.num_bits % 8;
++            let all_set = |bits: &dash_primitives::DynBitset| {
++                let mut data = vec![0xff; bits.data().len()];
++                if bits.num_bits() % 8 != 0 {
++                    *data.last_mut().expect("a byte") >>= 8 - bits.num_bits() % 8;
+                 }
+-            }
++                dash_primitives::DynBitset::new(bits.num_bits(), data)
++                    .expect("the bits of its size")
++            };
++            qc = dash_primitives::Commitment::new(
++                qc.version(),
++                qc.llmq_type(),
++                qc.quorum_hash(),
++                qc.quorum_index(),
++                all_set(qc.signers()),
++                all_set(qc.valid_members()),
++                qc.quorum_public_key().clone(),
++                qc.quorum_vvec_hash(),
++                qc.quorum_sig().clone(),
++                qc.members_sig().clone(),
++            );
+             qc = dash_primitives::Commitment::new(
+                 qc.version(),
+                 qc.llmq_type(),
+diff --git a/dash-dml/src/snapshot/tests.rs b/dash-dml/src/snapshot/tests.rs
+index d8680d79244e9aef18ea1e364a31efaa55f9be5d..8fcffb7f7c20519408d1e19ddd372af7ffa1b2d7 100644
+--- a/dash-dml/src/snapshot/tests.rs
++++ b/dash-dml/src/snapshot/tests.rs
+@@ -195,11 +195,19 @@ fn validate_bounds_constructed_commitment_sizes() {
+     let sized = |bits: usize| {
+         let mut snapshot = populated();
+         let qc = &mut snapshot.quorums[0].active_commitments[0].commitment;
+-        let bitset = DynBitset {
+-            num_bits: bits as u64,
+-            data: vec![0; bits.div_ceil(8)],
+-        };
+-        (qc.signers, qc.valid_members) = (bitset.clone(), bitset);
++        let bitset = DynBitset::new(bits as u64, vec![0; bits.div_ceil(8)]).expect("zeroed bits");
++        *qc = dash_primitives::Commitment::new(
++            qc.version(),
++            qc.llmq_type(),
++            qc.quorum_hash(),
++            qc.quorum_index(),
++            bitset.clone(),
++            bitset,
++            qc.quorum_public_key().clone(),
++            qc.quorum_vvec_hash(),
++            qc.quorum_sig().clone(),
++            qc.members_sig().clone(),
++        );
+         snapshot.validate(false, &net())
+     };
+     assert!(sized(MAX_QUORUM_SIZE).is_ok());
+@@ -1298,8 +1306,13 @@ fn crafted() -> Vec<(&'static str, &'static str, Vec<u8>)> {
+         if let dash_primitives::NetInfo::Legacy(v1) = &*cold.net_info {
+             let mut v1 = v1.clone();
+             {
+-                let mut service = v1.service().clone();
+-                service.addr.0[15] = 0x40 + i;
++                let service = v1.service().clone();
++                let mut addr = *service.addr().as_bytes();
++                addr[15] = 0x40 + i;
++                let service = dash_primitives::ServiceV1::new(
++                    dash_primitives::AddrV1::from_bytes(addr),
++                    service.port(),
++                );
+                 v1 = dash_primitives::NetInfoV1::new(service);
+             }
+             cold.net_info = std::sync::Arc::new(dash_primitives::NetInfo::Legacy(v1));
+@@ -1697,11 +1710,20 @@ fn validate_refuses_constructed_twins() {
+     let bitsets = |signers: u64, valid: u64| {
+         move |s: &mut EvoSnapshot| {
+             let qc = &mut s.quorums[0].active_commitments[0].commitment;
+-            let bits = |n: u64| DynBitset {
+-                num_bits: n,
+-                data: vec![0; n.div_ceil(8) as usize],
+-            };
+-            (qc.signers, qc.valid_members) = (bits(signers), bits(valid));
++            let bits =
++                |n: u64| DynBitset::new(n, vec![0; n.div_ceil(8) as usize]).expect("zeroed bits");
++            *qc = dash_primitives::Commitment::new(
++                qc.version(),
++                qc.llmq_type(),
++                qc.quorum_hash(),
++                qc.quorum_index(),
++                bits(signers),
++                bits(valid),
++                qc.quorum_public_key().clone(),
++                qc.quorum_vvec_hash(),
++                qc.quorum_sig().clone(),
++                qc.members_sig().clone(),
++            );
+         }
+     };
+     let sizes = "invalid evo quorum commitment sizes";
+@@ -1829,8 +1851,13 @@ fn record_budget_cases() -> Vec<(&'static str, &'static str, Vec<u8>)> {
+         };
+         let mut v1 = v1.clone();
+         {
+-            let mut service = v1.service().clone();
+-            service.addr.0[12..].copy_from_slice(&(0x0100_0000 + i).to_be_bytes());
++            let service = v1.service().clone();
++            let mut addr = *service.addr().as_bytes();
++            addr[12..].copy_from_slice(&(0x0100_0000 + i).to_be_bytes());
++            let service = dash_primitives::ServiceV1::new(
++                dash_primitives::AddrV1::from_bytes(addr),
++                service.port(),
++            );
+             v1 = dash_primitives::NetInfoV1::new(service);
+         }
+         cold.net_info = std::sync::Arc::new(dash_primitives::NetInfo::Legacy(v1));
+diff --git a/dash-dml/src/specialtx/sig/tests.rs b/dash-dml/src/specialtx/sig/tests.rs
+index 5bca6e55a2be977a5f7e4a4c93a70242e23b7352..c80a8c4f43231ced8b11cd596f0f93449c494b50 100644
+--- a/dash-dml/src/specialtx/sig/tests.rs
++++ b/dash-dml/src/specialtx/sig/tests.rs
+@@ -323,7 +323,14 @@ fn inputs_hash_streams_the_prevouts() {
+     let mut raw = tx.to_mutable();
+     let first = raw.inputs()[0].clone();
+     let mut second = first.clone();
+-    second.prevout.index = first.prevout().index().wrapping_add(1);
++    second = dash_primitives::TxIn::new(
++        dash_primitives::OutPoint::new(
++            second.prevout().txid(),
++            first.prevout().index().wrapping_add(1),
++        ),
++        second.script_sig().clone(),
++        second.sequence(),
++    );
+ 
+     raw = dash_primitives::Transaction::new(
+         raw.version(),
+diff --git a/dash-dml/src/specialtx/testctx.rs b/dash-dml/src/specialtx/testctx.rs
+index 79ef4daa3185e975153f14cc2dccd847ea61d03d..39725065fdb0bfde432bf780468e941a972275e9 100644
+--- a/dash-dml/src/specialtx/testctx.rs
++++ b/dash-dml/src/specialtx/testctx.rs
+@@ -344,6 +344,72 @@ pub(crate) fn encoded<T: BaseCodec>(payload: &T) -> Vec<u8> {
+     bytes
+ }
+ 
++/// A ProTx payload whose signature, its last encoded field, base-sdk keeps private: it is set by
++/// `Signable::set_signature`, which verifies it, or `reset_signature`. A test that stores a given
++/// signature (any bytes, or one made for another key or scheme) uses [`WithSig::with_sig`].
++pub(crate) trait WithSig: BaseCodec + PartialEq + std::fmt::Debug + Sized {
++    type Sig: PartialEq + std::fmt::Debug;
++    fn sig_field(&self) -> &Self::Sig;
++    /// `sig` as this payload's encoding writes it.
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8>;
++
++    /// The payload with `sig` in place of its signature: its encoding with the signature's bytes
++    /// replaced, decoded. Asserts the payload round-trips and the signature decodes as `sig`, so
++    /// the result equals the payload with only the signature changed.
++    fn with_sig(&self, sig: Self::Sig) -> Self {
++        let mut wire = encoded(self);
++        let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
++        assert_eq!(&back, self, "the payload round-trips");
++        let old = self.sig_wire(self.sig_field());
++        assert!(wire.ends_with(&old), "the signature is the last field");
++        wire.truncate(wire.len() - old.len());
++        wire.extend(self.sig_wire(&sig));
++        let out = Self::decode(&mut &wire[..]).expect("the payload decodes with the signature");
++        assert_eq!(out.sig_field(), &sig, "the signature decodes as set");
++        out
++    }
++}
++
++impl WithSig for dash_primitives::ProRegTx {
++    type Sig = dash_primitives::CollateralSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        encoded(sig)
++    }
++}
++
++impl WithSig for dash_primitives::ProUpRegTx {
++    type Sig = dash_primitives::OwnerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        encoded(sig)
++    }
++}
++
++impl WithSig for dash_primitives::ProUpServTx {
++    type Sig = dash_pkc::bls::BlsEagerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        encoded(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++    }
++}
++
++impl WithSig for dash_primitives::ProUpRevTx {
++    type Sig = dash_pkc::bls::BlsEagerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        encoded(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++    }
++}
++
+ /// A version-3 transaction of `tx_type` with `extra_payload`.
+ pub(crate) fn tx_of(
+     tx_type: TxType,
+diff --git a/dash-dml/src/specialtx/tests.rs b/dash-dml/src/specialtx/tests.rs
+index 6c505c390543ffb5fe5dbe7a640b88c0eb01d3fb..f13935525ca6197a68dfb7a20bda9d4c82d76ef1 100644
+--- a/dash-dml/src/specialtx/tests.rs
++++ b/dash-dml/src/specialtx/tests.rs
+@@ -23,6 +23,7 @@ use dash_primitives::{
+     PayoutShare, PlatformNodeId, ProDisTx, ProRegTx, ProUpRegTx, ProUpShareTx, ProUpSharedRegTx,
+     Transaction, TxHash, TxIn, TxOut, TxType,
+ };
++use dash_types::Signable;
+ use secp256k1::SecretKey;
+ 
+ use super::asset::tests as asset;
+@@ -335,7 +336,7 @@ fn ext_reg() -> (Fixture, ProRegTx) {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     let mut fx = Fixture::v24();
+     fx.coins = ModelCoins::default()
+         .with(outpoint(EXT_COLLATERAL, 1), txout(1000 * COIN, collateral_script()));
+@@ -372,7 +373,7 @@ fn int_reg() -> ProRegTx {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     p
+ }
+ 
+@@ -409,7 +410,7 @@ fn shared_reg() -> ProRegTx {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     {
+         let rebuilt = dash_primitives::ProRegTx::new(
+             p.version(),
+@@ -513,7 +514,7 @@ fn registrations_are_valid() {
+         basic.platform_p2p_port(),
+         basic.platform_http_port(),
+     );
+-    basic.vch_sig = Default::default();
++    basic.reset_signature();
+     assert_eq!(check_int(&Fixture::v24(), basic, int_collateral()), Ok(()));
+     // One payout, the most an Evo has without EVO_SHARES.
+     let (fx, mut p) = evo_reg();
+@@ -555,7 +556,7 @@ fn reg_version_disallowed() -> Verdict {
+     // V24 refuses a legacy-scheme registration, version 1.
+     let mut p = pro_reg(BlsScheme::Legacy);
+     assert_eq!(u16::from(p.version()), 1);
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     let mut fx = Fixture::v24();
+     fx.coins = ModelCoins::default()
+         .with(outpoint(*p.collateral_hash().as_bytes(), p.collateral_index()), int_collateral());
+@@ -747,7 +748,7 @@ fn payout_collateral_reuse_from_ext_addr() {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     {
+         let rebuilt = dash_primitives::ProRegTx::new(
+             p.version(),
+@@ -868,7 +869,7 @@ fn v19_admits_the_basic_scheme() {
+             p.platform_p2p_port(),
+             p.platform_http_port(),
+         );
+-        p.vch_sig = Default::default();
++        p.reset_signature();
+         let mut fx = Fixture::v24();
+         fx.rules.v24 = false;
+         fx.v19 = v19;
+@@ -903,7 +904,7 @@ fn any_scheme_probe_is_v24_only() {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     let mut fx = Fixture::v24().with_mn(legacy_holder(1, p.pub_key_operator()));
+     fx.rules.v24 = false;
+     assert_eq!(check_int(&fx, p, int_collateral()), Ok(()));
+@@ -1137,7 +1138,7 @@ fn reg_inputs_hash() -> Verdict {
+ 
+ fn reg_internal_sig() -> Verdict {
+     let mut p = int_reg();
+-    p.vch_sig = sig_of(&[1; 65]);
++    p = p.with_sig(sig_of(&[1; 65]));
+     check_int(&Fixture::v24(), p, int_collateral())
+ }
+ 
+@@ -1172,7 +1173,7 @@ fn signed_ext(key: &SecretKey) -> (Fixture, Tx) {
+         p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+     let message = super::sig::make_sign_string(&p, fx.params()).expect("a sign string");
+-    p.vch_sig = sig_of(&sign(&message_hash(&message), key));
++    p = p.with_sig(sig_of(&sign(&message_hash(&message), key)));
+     let tx = special(TxType::ProviderRegister, inputs, vec![], &p);
+     (fx, tx)
+ }
+@@ -1195,8 +1196,40 @@ fn signed_shared(bad: bool) -> (Fixture, Tx) {
+     fx.check_sigs = true;
+     let mut p = shared_reg();
+     let owners = [signer(0x61), signer(0x62)];
+-    for (share, (_, id)) in p.shares.iter_mut().zip(&owners) {
+-        share.key_id_owner = *id;
++    let mut shares = p.shares().clone();
++    for (share, (_, id)) in shares.iter_mut().zip(&owners) {
++        *share = CollateralShare::new(
++            share.amount(),
++            share.script_refund().clone(),
++            share.script_reward().clone(),
++            *id,
++        );
++    }
++    {
++        let rebuilt = dash_primitives::ProRegTx::new(
++            p.version(),
++            p.mn_type(),
++            p.mode(),
++            p.collateral_hash(),
++            p.collateral_index(),
++            p.net_info().clone(),
++            p.key_id_owner(),
++            p.pub_key_operator().clone(),
++            p.key_id_voting(),
++            p.operator_reward(),
++            p.script_payout().clone(),
++            p.payouts().clone(),
++            shares,
++            p.join_sigs().clone(),
++            p.early_period_blocks(),
++            p.early_penalty(),
++            p.inputs_hash(),
++            p.platform_node_id(),
++            p.platform_p2p_port(),
++            p.platform_http_port(),
++        );
++        assert!(rebuilt.sig() == p.sig(), "`ProRegTx::new` resets `sig`");
++        p = rebuilt;
+     }
+     let outputs = vec![template_collateral(1000 * COIN)];
+     let tx = reg_tx(&mut p, outputs.clone());
+@@ -1300,7 +1333,7 @@ fn up_reg() -> (Fixture, ProUpRegTx) {
+         p.payouts().clone(),
+         p.inputs_hash(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     (fx, p)
+ }
+ 
+@@ -1392,7 +1425,7 @@ fn up_reg_version_downgrade() -> Verdict {
+         p.payouts().clone(),
+         p.inputs_hash(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     check_up(&fx, p)
+ }
+ 
+@@ -1500,7 +1533,7 @@ fn ext_up_reg() -> ProUpRegTx {
+         p.payouts().clone(),
+         p.inputs_hash(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     p
+ }
+ 
+@@ -1540,7 +1573,7 @@ fn a_legacy_update_is_not_a_migration() {
+         p.payouts().clone(),
+         p.inputs_hash(),
+     );
+-    p.vch_sig = Default::default();
++    p.reset_signature();
+     let fx = legacy_state_update(&p, |_| {});
+     assert_eq!(check_up(&fx, p), Ok(()));
+ }
+@@ -1765,7 +1798,7 @@ fn signed_up_reg(key: &SecretKey) -> (Fixture, Tx) {
+         );
+         p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.vch_sig = sig_of(&sign(&payload_sig_hash(&p).expect("a preimage"), key));
++    p = p.with_sig(sig_of(&sign(&payload_sig_hash(&p).expect("a preimage"), key)));
+     (fx, special(TxType::ProviderUpdateRegistrar, inputs, vec![], &p))
+ }
+ 
+@@ -1957,7 +1990,8 @@ fn prodis_validation_accepts() {
+     let (tx, p) = t.build(0, 0, true);
+     let (tx, p) = t.edited(&tx, p, true, |raw| {
+         let mut outputs = raw.outputs().clone();
+-        outputs.last_mut().expect("an output").value -= PRODIS_MAX_FEE - FEE;
++        let out = outputs.last_mut().expect("an output");
++        *out = TxOut::from_duffs(out.value() - (PRODIS_MAX_FEE - FEE), out.script_pubkey().clone());
+         *raw = dash_primitives::Transaction::new(
+             raw.version(),
+             raw.tx_type(),
+@@ -1988,7 +2022,8 @@ fn prodis_fee() -> Verdict {
+     let (tx, p) = t.build(0, 0, true);
+     let (tx, p) = t.edited(&tx, p, true, |raw| {
+         let mut outputs = raw.outputs().clone();
+-        outputs.last_mut().expect("an output").value -= PRODIS_MAX_FEE;
++        let out = outputs.last_mut().expect("an output");
++        *out = TxOut::from_duffs(out.value() - (PRODIS_MAX_FEE), out.script_pubkey().clone());
+         *raw = dash_primitives::Transaction::new(
+             raw.version(),
+             raw.tx_type(),
+@@ -2007,7 +2042,18 @@ fn prodis_fee() -> Verdict {
+ fn prodis_dropped_actor_output_is_fee() {
+     let t = ProDis::new();
+     let (tx, p) = t.build(2, 0, false);
+-    let (tx, p) = t.edited(&tx, p, false, |raw| drop(raw.outputs.pop()));
++    let (tx, p) = t.edited(&tx, p, false, |raw| {
++        let mut outputs = raw.outputs().clone();
++        drop(outputs.pop());
++        *raw = dash_primitives::Transaction::new(
++            raw.version(),
++            raw.tx_type(),
++            raw.inputs().clone(),
++            outputs,
++            raw.lock_time(),
++            raw.extra_payload().clone(),
++        );
++    });
+     assert_reject(t.check(&tx, &p, AFTER_EARLY), S, BAD_PRODIS_FEE);
+ }
+ 
+@@ -2028,7 +2074,11 @@ fn prodis_input() -> Verdict {
+     let (tx, p) = t.build(0, 0, true);
+     let wrong = t.edited(&tx, p.clone(), true, |raw| {
+         let mut inputs = raw.inputs().clone();
+-        inputs[0].prevout.index = 1;
++        inputs[0] = TxIn::new(
++            dash_primitives::OutPoint::new(inputs[0].prevout().txid(), 1),
++            inputs[0].script_sig().clone(),
++            inputs[0].sequence(),
++        );
+         *raw = dash_primitives::Transaction::new(
+             raw.version(),
+             raw.tx_type(),
+@@ -2230,7 +2280,17 @@ fn prodis_actor_payee() -> Verdict {
+     let t = ProDis::new();
+     let (tx, p) = t.build(0, 0, true);
+     let (tx, p) = t.edited(&tx, p, true, |raw| {
+-        raw.outputs.last_mut().expect("an output").script_pubkey = p2pkh([1; 20]).into()
++        let mut outputs = raw.outputs().clone();
++        let out = outputs.last_mut().expect("an output");
++        *out = TxOut::from_duffs(out.value(), p2pkh([1; 20]).into());
++        *raw = dash_primitives::Transaction::new(
++            raw.version(),
++            raw.tx_type(),
++            raw.inputs().clone(),
++            outputs,
++            raw.lock_time(),
++            raw.extra_payload().clone(),
++        );
+     });
+     t.check(&tx, &p, IN_EARLY)
+ }
+@@ -2299,7 +2359,7 @@ fn dis_fixture(t: &ProDis) -> Fixture {
+ 
+ fn dis_tx(tx: &Tx, p: &ProDisTx) -> Tx {
+     let raw = tx.raw().clone();
+-    special(raw.tx_type(), raw.inputs(), raw.outputs(), p)
++    special(raw.tx_type(), raw.inputs().clone(), raw.outputs().clone(), p)
+ }
+ 
+ fn prodis_too_early() -> Verdict {
+@@ -2537,9 +2597,18 @@ fn up_shared_reg(keys: &[&SecretKey], f: impl FnOnce(&mut ProUpSharedRegTx)) ->
+         p.sigs().clone(),
+     );
+     let hash = payload_sig_hash(&p).expect("a preimage");
+-    for (sig, key) in p.sigs.iter_mut().zip(keys) {
++    let mut sigs = p.sigs().clone();
++    for (sig, key) in sigs.iter_mut().zip(keys) {
+         *sig = compact(&sign(&hash, key));
+     }
++    p = dash_primitives::ProUpSharedRegTx::new(
++        p.version(),
++        p.pro_tx_hash(),
++        p.pub_key_operator().clone(),
++        p.key_id_voting(),
++        p.inputs_hash(),
++        sigs,
++    );
+     special(TxType::ProviderUpdateSharedRegistrar, inputs, vec![], &p)
+ }
+ 
+diff --git a/dash-dml/src/specialtx/tests/updates.rs b/dash-dml/src/specialtx/tests/updates.rs
+index 710f652156475def737c6da56c18472598537c02..bea961091a9e577219ef657714f79a3df5dcb1a2 100644
+--- a/dash-dml/src/specialtx/tests/updates.rs
++++ b/dash-dml/src/specialtx/tests/updates.rs
+@@ -183,7 +183,7 @@ pub(super) fn serv_version_downgrade() -> Verdict {
+         p.platform_p2p_port(),
+         p.platform_http_port(),
+     );
+-    p.sig = legacy.sig();
++    p = p.with_sig(legacy.sig().clone());
+     check_serv(&fx, p)
+ }
+ 
+@@ -414,7 +414,7 @@ fn signed_serv(sign: impl FnOnce(&[u8; 32]) -> BlsEagerSig) -> (Fixture, Tx) {
+         );
+         p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.sig = sign(&payload_sig_hash(&p).expect("a preimage"));
++    p = p.with_sig(sign(&payload_sig_hash(&p).expect("a preimage")));
+     (fx, special(TxType::ProviderUpdateService, update_inputs(), vec![], &p))
+ }
+ 
+@@ -480,7 +480,7 @@ fn quirk_21_protx_sig_scheme_follows_height() {
+             );
+             p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+         };
+-        p.sig = sign(&payload_sig_hash(&p).expect("a preimage"));
++        p = p.with_sig(sign(&payload_sig_hash(&p).expect("a preimage")));
+         verdict(fx.check(&special(TxType::ProviderUpdateService, update_inputs(), vec![], &p)))
+     };
+     let legacy = |h: &[u8; 32]| legacy_sig(UPDATED, h);
+@@ -546,7 +546,7 @@ pub(super) fn rev_version_downgrade() -> Verdict {
+     let legacy = pro_up_rev(BlsScheme::Legacy);
+     assert_eq!(legacy.version(), ProTxVersion::LegacyBls);
+     p.set_version(ProTxVersion::LegacyBls);
+-    p.sig = legacy.sig();
++    p = p.with_sig(legacy.sig().clone());
+     check_rev(&fx, p)
+ }
+ 
+@@ -598,7 +598,7 @@ fn updates_of_a_revoked_masternode() {
+                 );
+                 p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+             };
+-            p.sig = basic_sig(UPDATED, &payload_sig_hash(&p).expect("a preimage"));
++            p = p.with_sig(basic_sig(UPDATED, &payload_sig_hash(&p).expect("a preimage")));
+             let tx = special(TxType::ProviderUpdateService, update_inputs(), vec![], &p);
+             let serv = verdict(fx.check(&tx));
+             let (fx, mut p) = rev();
+@@ -613,7 +613,7 @@ fn updates_of_a_revoked_masternode() {
+                 );
+                 p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+             };
+-            p.sig = basic_sig(UPDATED, &payload_sig_hash(&p).expect("a preimage"));
++            p = p.with_sig(basic_sig(UPDATED, &payload_sig_hash(&p).expect("a preimage")));
+             let tx = special(TxType::ProviderUpdateRevoke, update_inputs(), vec![], &p);
+             let rev = verdict(fx.check(&tx));
+             for (name, v) in [("service update", serv), ("revocation", rev)] {
+@@ -640,7 +640,7 @@ fn signed_rev(n: u8) -> (Fixture, Tx) {
+         );
+         p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.sig = basic_sig(n, &payload_sig_hash(&p).expect("a preimage"));
++    p = p.with_sig(basic_sig(n, &payload_sig_hash(&p).expect("a preimage")));
+     (fx, special(TxType::ProviderUpdateRevoke, update_inputs(), vec![], &p))
+ }
+ 
+diff --git a/dash-dml/src/specialtx/trivial/tests.rs b/dash-dml/src/specialtx/trivial/tests.rs
+index e9f3dc49c727ee413a95ce6f83dc30bd2c8ff455..33e95089f2c1ac1f1ed99468445f19400c4dd8d7 100644
+--- a/dash-dml/src/specialtx/trivial/tests.rs
++++ b/dash-dml/src/specialtx/trivial/tests.rs
+@@ -305,10 +305,36 @@ pub(crate) fn pro_reg_shared() -> ProRegTx {
+ /// A valid version-3 (ExtAddr) payload of each of types 1 to 4.
+ pub(crate) fn ext_addr_payloads() -> (ProRegTx, ProUpServTx, ProUpRegTx, ProUpRevTx) {
+     let mut serv = pro_up_serv(BlsScheme::Basic);
+-    (serv.version, serv.net_info) = (ProTxVersion::CoreV24, ext_regular());
++    {
++        let rebuilt = dash_primitives::ProUpServTx::new(
++            ProTxVersion::CoreV24,
++            serv.mn_type(),
++            serv.pro_tx_hash(),
++            ext_regular(),
++            serv.script_operator_payout().clone(),
++            serv.inputs_hash(),
++            serv.platform_node_id(),
++            serv.platform_p2p_port(),
++            serv.platform_http_port(),
++        );
++        assert!(rebuilt.sig() == serv.sig(), "`ProUpServTx::new` resets `sig`");
++        serv = rebuilt;
++    }
+     let mut up_reg = pro_up_reg(BlsScheme::Basic);
+-    (up_reg.version, up_reg.script_payout, up_reg.payouts) =
+-        (ProTxVersion::CoreV24, vec![].into(), vec![payout(0x31, 10_000)]);
++    {
++        let rebuilt = dash_primitives::ProUpRegTx::new(
++            ProTxVersion::CoreV24,
++            up_reg.pro_tx_hash(),
++            up_reg.mode(),
++            up_reg.pub_key_operator().clone(),
++            up_reg.key_id_voting(),
++            vec![].into(),
++            vec![payout(0x31, 10_000)],
++            up_reg.inputs_hash(),
++        );
++        assert!(rebuilt.sig() == up_reg.sig(), "`ProUpRegTx::new` resets `sig`");
++        up_reg = rebuilt;
++    }
+     let mut rev = pro_up_rev(BlsScheme::Basic);
+     rev.set_version(ProTxVersion::CoreV24);
+     (pro_reg_v3(), serv, up_reg, rev)
+@@ -1028,7 +1054,39 @@ fn every_row_has_a_vector() {
+             112,
+             // The owner of a later share.
+             shared(&|p| {
+-                p.shares[0].script_reward = p2pkh(*p.shares()[1].key_id_owner().as_bytes()).into()
++                let mut shares = p.shares().clone();
++                shares[0] = CollateralShare::new(
++                    shares[0].amount(),
++                    shares[0].script_refund().clone(),
++                    p2pkh(*p.shares()[1].key_id_owner().as_bytes()).into(),
++                    shares[0].key_id_owner(),
++                );
++                {
++                    let rebuilt = dash_primitives::ProRegTx::new(
++                        p.version(),
++                        p.mn_type(),
++                        p.mode(),
++                        p.collateral_hash(),
++                        p.collateral_index(),
++                        p.net_info().clone(),
++                        p.key_id_owner(),
++                        p.pub_key_operator().clone(),
++                        p.key_id_voting(),
++                        p.operator_reward(),
++                        p.script_payout().clone(),
++                        p.payouts().clone(),
++                        shares,
++                        p.join_sigs().clone(),
++                        p.early_period_blocks(),
++                        p.early_penalty(),
++                        p.inputs_hash(),
++                        p.platform_node_id(),
++                        p.platform_p2p_port(),
++                        p.platform_http_port(),
++                    );
++                    assert!(rebuilt.sig() == p.sig(), "`ProRegTx::new` resets `sig`");
++                    *p = rebuilt;
++                }
+             }),
+         ),
+         (
+@@ -2391,8 +2449,20 @@ fn bounds_at_their_edges() {
+     assert_eq!(verdict(pro_reg_trivially_valid(&p)), ok);
+     // Version `ExtAddr` (3) is the highest of ProUpRegTx and ProUpRevTx.
+     let mut p = pro_up_reg(BlsScheme::Basic);
+-    (p.version, p.script_payout, p.payouts) =
+-        (ProTxVersion::CoreV24, vec![].into(), vec![payout(0x31, 10_000)]);
++    {
++        let rebuilt = dash_primitives::ProUpRegTx::new(
++            ProTxVersion::CoreV24,
++            p.pro_tx_hash(),
++            p.mode(),
++            p.pub_key_operator().clone(),
++            p.key_id_voting(),
++            vec![].into(),
++            vec![payout(0x31, 10_000)],
++            p.inputs_hash(),
++        );
++        assert!(rebuilt.sig() == p.sig(), "`ProUpRegTx::new` resets `sig`");
++        p = rebuilt;
++    }
+     assert_eq!(verdict(pro_up_reg_trivially_valid(&p)), ok);
+     // Version 4 alone is `bad-protx-version` at the version step (`specialtxman.cpp:1174`, rc.4);
+     // with the rest of the payload after it, `bad-protx-payload` (`:1169`).

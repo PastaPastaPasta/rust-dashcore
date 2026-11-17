@@ -1,0 +1,8 @@
+{
+"source": "test/functional/wallet_upgradetohd.py",
+"records": [
+{"lines":[234,236,245],"mnemonic":"similar behave slot swim scissors throw planet view ghost laugh drift calm","passphrase":"","owns":"yLpq97zZUsFQ2rdMqhcPKkYT36MoPK4Hob","balance":11},
+{"lines":[234,238,251],"mnemonic":"similar behave slot swim scissors throw planet view ghost laugh drift calm","passphrase":"custom-passphrase","owns":"yYBPeZQcqgQHu9dxA5pKBWtYbK2hwfFHxf","balance":12},
+{"lines":[234,261],"mnemonic":"similar behave slot swim scissors throw planet view ghost laugh drift calm","passphrase":"custom-passphrase\u0000","owns_none_of":["yLpq97zZUsFQ2rdMqhcPKkYT36MoPK4Hob","yYBPeZQcqgQHu9dxA5pKBWtYbK2hwfFHxf"],"balance":0}
+]
+}
