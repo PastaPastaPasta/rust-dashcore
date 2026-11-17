@@ -1,0 +1,52 @@
+{
+ "name": "r2m2-lower-height-seed-order",
+ "description": "the rejected order: the update is tried against height 100 first and refused; the later check cannot recover it (contrast a29-i-off-on-lower-height)",
+ "rows": [
+  "R2-M2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100",
+   "via": "submitchainlock"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "seed-cl",
+   "block": "A90"
+  },
+  {
+   "op": "check-active-state"
+  }
+ ]
+}
