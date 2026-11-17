@@ -1,0 +1,30 @@
+[Unit]
+Description=ST3b device-level power-loss nightly: dm-log-writes replay, C0-C6 (PLAN-ST3b §10)
+# A night whose device lock stays busy for its hour (BUSY, exit 75: a run by hand) is tried again
+# an hour later, at most 4 starts a day.
+StartLimitIntervalSec=1d
+StartLimitBurst=4
+
+# Install with contrib/node/crash/install-units.sh. The run builds release rdashd and st3b-crash
+# in its own checkout and target (Q9), so set up /work/scratch/st3b/nightly/checkout first: a
+# worktree of the primary repository, which `ExecStartPre` detaches at the node/integration tip
+# (a local branch) each night. A TERM (the timeout, or a stop) writes a TIMEOUT row and sweeps the
+# live run, within TimeoutStopSec. The device lock in nightly-device.sh keeps it apart from
+# st3b-device-40k.service, which waits for it on Saturdays.
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+Environment=CARGO_BUILD_JOBS=8
+Environment=ST3B_LEDGER=/work/scratch/st3b/nightly/ledger.tsv
+Environment=ST3B_LOCK_WAIT=3600
+WorkingDirectory=/work/scratch/st3b/nightly
+ExecStartPre=/usr/bin/git -C checkout checkout --quiet --detach node/integration
+# One output directory per night.
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/crash/nightly-device.sh "out/$(date -u +%%Y%%m%%d)"'
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=32G
+RestartForceExitStatus=75
+RestartSec=1h
+TimeoutStartSec=6h
+TimeoutStopSec=5min
