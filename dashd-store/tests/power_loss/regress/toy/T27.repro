@@ -1,0 +1,12 @@
+# ToyChain planted bug T27 (ST3a §6.2), minimised in 87 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=- sub=synced:0:96 bug=T27
+workload c20;f
+crash 78 process-kill
+decide 2:chainstate:b5=1
+nested 7 power-loss
+adversary realistic
+granularity write
+expect R7a
+minimality verified

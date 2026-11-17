@@ -1,0 +1,4 @@
+# script error "The requested encoding is impossible to satisfy" (bank slot 34, se_impossible_encoding): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_impossible_encoding
+extend main 1
