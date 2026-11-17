@@ -1,0 +1,50 @@
+{
+ "name": "a24-checkpoint",
+ "description": "a fork below the highest checkpoint \u2192 bad-fork-prior-to-checkpoint; above it is accepted; checkpoints_enabled=false disables the rule",
+ "rows": [
+  "A-24"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 50,
+   "submit": "connect"
+  },
+  {
+   "op": "checkpoint",
+   "block": "A40"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A30",
+   "count": 2,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A45",
+   "count": 1,
+   "submit": "headers"
+  },
+  {
+   "op": "reload",
+   "checkpoints": false
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B31..B32"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+diff --git a/dashd-node/tests/ev1_j/mod.rs b/dashd-node/tests/ev1_j/mod.rs
+index 1557db7a8490bfa4f2e23756cf4f841b1ee514dd..addecbc6b3645c727faf5a143df7509a09807961 100644
+--- a/dashd-node/tests/ev1_j/mod.rs
++++ b/dashd-node/tests/ev1_j/mod.rs
+@@ -542,14 +542,15 @@ pub fn assemble(empty: &Block, gbt: &Value, pow: &PowParams) -> Block {
+     let payees = gbt["masternode"].as_array().unwrap();
+     assert_eq!(coinbase.outputs().len(), 1 + payees.len(), "the miner, then each payee");
+     let mut rest = gbt["coinbasevalue"].as_i64().unwrap();
+-    for (out, payee) in coinbase.outputs[1..].iter_mut().zip(payees) {
+-        let script = unhex(payee["script"].as_str().unwrap());
+-        assert_eq!(out.script_pubkey.as_bytes(), &script[..], "a payee's script");
+-        out.value = payee["amount"].as_i64().unwrap();
+-        rest -= out.value;
+-    }
+     {
+         let mut outputs = coinbase.outputs().clone();
++        for (out, payee) in outputs[1..].iter_mut().zip(payees) {
++            let script = unhex(payee["script"].as_str().unwrap());
++            assert_eq!(out.script_pubkey().as_bytes(), &script[..], "a payee's script");
++            let value = payee["amount"].as_i64().unwrap();
++            *out = dash_primitives::TxOut::from_duffs(value, out.script_pubkey().clone());
++            rest -= value;
++        }
+         outputs[0] = dash_primitives::TxOut::from_duffs(rest, outputs[0].script_pubkey().clone());
+         coinbase = dash_primitives::Transaction::new(
+             coinbase.version(),
