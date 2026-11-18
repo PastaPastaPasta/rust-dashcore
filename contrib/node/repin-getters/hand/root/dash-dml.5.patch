@@ -1,0 +1,219 @@
+diff --git a/dash-dml/src/specialtx/testctx.rs b/dash-dml/src/specialtx/testctx.rs
+index 3ec4edd188ad0d1efda9ee4208636d6191570594..011cfd1e8e042912eb2aa90a8b61a49c09d7d10d 100644
+--- a/dash-dml/src/specialtx/testctx.rs
++++ b/dash-dml/src/specialtx/testctx.rs
+@@ -344,71 +344,7 @@ pub(crate) fn encoded<T: BaseCodec>(payload: &T) -> Vec<u8> {
+     bytes
+ }
+ 
+-/// A ProTx payload whose signature, its last encoded field, base-sdk keeps private: it is set by
+-/// `Signable::set_signature`, which verifies it, or `reset_signature`. A test that stores a given
+-/// signature (any bytes, or one made for another key or scheme) uses [`WithSig::with_sig`].
+-pub(crate) trait WithSig: BaseCodec + PartialEq + std::fmt::Debug + Sized {
+-    type Sig: PartialEq + std::fmt::Debug;
+-    fn sig_field(&self) -> &Self::Sig;
+-    /// `sig` as this payload's encoding writes it.
+-    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8>;
+-
+-    /// The payload with `sig` in place of its signature: its encoding with the signature's bytes
+-    /// replaced, decoded. Asserts the payload round-trips and the signature decodes as `sig`, so
+-    /// the result equals the payload with only the signature changed.
+-    fn with_sig(&self, sig: Self::Sig) -> Self {
+-        let mut wire = encoded(self);
+-        let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
+-        assert_eq!(&back, self, "the payload round-trips");
+-        let old = self.sig_wire(self.sig_field());
+-        assert!(wire.ends_with(&old), "the signature is the last field");
+-        wire.truncate(wire.len() - old.len());
+-        wire.extend(self.sig_wire(&sig));
+-        let out = Self::decode(&mut &wire[..]).expect("the payload decodes with the signature");
+-        assert_eq!(out.sig_field(), &sig, "the signature decodes as set");
+-        out
+-    }
+-}
+-
+-impl WithSig for dash_primitives::ProRegTx {
+-    type Sig = dash_primitives::CollateralSig;
+-    fn sig_field(&self) -> &Self::Sig {
+-        self.sig()
+-    }
+-    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        encoded(sig)
+-    }
+-}
+-
+-impl WithSig for dash_primitives::ProUpRegTx {
+-    type Sig = dash_primitives::OwnerSig;
+-    fn sig_field(&self) -> &Self::Sig {
+-        self.sig()
+-    }
+-    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        encoded(sig)
+-    }
+-}
+-
+-impl WithSig for dash_primitives::ProUpServTx {
+-    type Sig = dash_pkc::bls::BlsEagerSig;
+-    fn sig_field(&self) -> &Self::Sig {
+-        self.sig()
+-    }
+-    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        encoded(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
+-    }
+-}
+-
+-impl WithSig for dash_primitives::ProUpRevTx {
+-    type Sig = dash_pkc::bls::BlsEagerSig;
+-    fn sig_field(&self) -> &Self::Sig {
+-        self.sig()
+-    }
+-    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
+-        encoded(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
+-    }
+-}
++pub(crate) use crate::testkit::WithSig;
+ 
+ /// A version-3 transaction of `tx_type` with `extra_payload`.
+ pub(crate) fn tx_of(
+diff --git a/dash-dml/src/specialtx/tests.rs b/dash-dml/src/specialtx/tests.rs
+index 8ece71c40b02003d3ad8c06e7e202405bfcd9d3a..7c942cc29d66c4f58cac6ba55f8466ede6264bb6 100644
+--- a/dash-dml/src/specialtx/tests.rs
++++ b/dash-dml/src/specialtx/tests.rs
+@@ -1524,8 +1524,7 @@ fn signed_shared(bad: bool) -> (Fixture, Tx) {
+             p.platform_p2p_port(),
+             p.platform_http_port(),
+         );
+-        assert!(rebuilt.sig() == p.sig(), "`ProRegTx::new` resets `sig`");
+-        p = rebuilt;
++        p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     }
+     let outputs = vec![template_collateral(1000 * COIN)];
+     let tx = reg_tx(&mut p, outputs.clone());
+diff --git a/dash-dml/src/specialtx/trivial/tests.rs b/dash-dml/src/specialtx/trivial/tests.rs
+index 3e5eff9333083a83e6b0f5e79952dffb439fdcd5..c7fdc951fa38d731505509383928657d0ff813df 100644
+--- a/dash-dml/src/specialtx/trivial/tests.rs
++++ b/dash-dml/src/specialtx/trivial/tests.rs
+@@ -490,8 +490,7 @@ pub(crate) fn ext_addr_payloads() -> (ProRegTx, ProUpServTx, ProUpRegTx, ProUpRe
+             serv.platform_p2p_port(),
+             serv.platform_http_port(),
+         );
+-        assert!(rebuilt.sig() == serv.sig(), "`ProUpServTx::new` resets `sig`");
+-        serv = rebuilt;
++        serv = crate::testkit::WithSig::with_sig(&rebuilt, serv.sig().clone());
+     }
+     let mut up_reg = pro_up_reg(BlsScheme::Basic);
+     {
+@@ -505,8 +504,7 @@ pub(crate) fn ext_addr_payloads() -> (ProRegTx, ProUpServTx, ProUpRegTx, ProUpRe
+             vec![payout(0x31, 10_000)],
+             up_reg.inputs_hash(),
+         );
+-        assert!(rebuilt.sig() == up_reg.sig(), "`ProUpRegTx::new` resets `sig`");
+-        up_reg = rebuilt;
++        up_reg = crate::testkit::WithSig::with_sig(&rebuilt, up_reg.sig().clone());
+     }
+     let mut rev = pro_up_rev(BlsScheme::Basic);
+     rev.set_version(ProTxVersion::ExtAddr);
+@@ -1252,8 +1250,7 @@ fn every_row_has_a_vector() {
+                         p.platform_p2p_port(),
+                         p.platform_http_port(),
+                     );
+-                    assert!(rebuilt.sig() == p.sig(), "`ProRegTx::new` resets `sig`");
+-                    *p = rebuilt;
++                    *p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+                 }
+             }),
+         ),
+@@ -2742,8 +2739,7 @@ fn bounds_at_their_edges() {
+             vec![payout(0x31, 10_000)],
+             p.inputs_hash(),
+         );
+-        assert!(rebuilt.sig() == p.sig(), "`ProUpRegTx::new` resets `sig`");
+-        p = rebuilt;
++        p = crate::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     }
+     assert_eq!(verdict(pro_up_reg_trivially_valid(&p)), ok);
+     // Version 4 alone is `bad-protx-version` at the version step (`specialtxman.cpp:1174`, rc.4);
+diff --git a/dash-dml/src/testkit.rs b/dash-dml/src/testkit.rs
+index e601ac7e76df172ed09b00fae2e9748f4ab78ddf..68a0b581b3caa0d238d9c69047052a108ccebd3e 100644
+--- a/dash-dml/src/testkit.rs
++++ b/dash-dml/src/testkit.rs
+@@ -268,3 +268,79 @@ pub fn state_diff_bytes(diff: &crate::MnStateDiff) -> Vec<u8> {
+     crate::codec::write_state_diff(diff, &mut out);
+     out
+ }
++
++/// `value`'s encoding.
++#[allow(clippy::disallowed_methods, reason = "test payloads re-encoded to splice a signature")]
++fn wire_bytes<T: BaseCodec>(value: &T) -> Vec<u8> {
++    let mut bytes = Vec::new();
++    value.encode(&mut bytes);
++    bytes
++}
++
++/// A ProTx payload whose signature, its last encoded field, base-sdk keeps private: it is set by
++/// `Signable::set_signature`, which verifies it, or `reset_signature`. A test that stores a given
++/// signature (any bytes, or one made for another key or scheme) uses [`WithSig::with_sig`]. The
++/// repin port (DEC-1055) also rebuilds signed payloads through `new`, which resets the signature,
++/// and puts the old one back with it.
++pub trait WithSig: BaseCodec + PartialEq + std::fmt::Debug + Sized {
++    type Sig: PartialEq + std::fmt::Debug;
++    fn sig_field(&self) -> &Self::Sig;
++    /// `sig` as this payload's encoding writes it.
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8>;
++
++    /// The payload with `sig` in place of its signature: its encoding with the signature's bytes
++    /// replaced, decoded. Asserts the payload round-trips and the signature decodes as `sig`, so
++    /// the result equals the payload with only the signature changed.
++    fn with_sig(&self, sig: Self::Sig) -> Self {
++        let mut wire = wire_bytes(self);
++        let back = Self::decode(&mut &wire[..]).expect("the payload decodes");
++        assert_eq!(&back, self, "the payload round-trips");
++        let old = self.sig_wire(self.sig_field());
++        assert!(wire.ends_with(&old), "the signature is the last field");
++        wire.truncate(wire.len() - old.len());
++        wire.extend(self.sig_wire(&sig));
++        let out = Self::decode(&mut &wire[..]).expect("the payload decodes with the signature");
++        assert_eq!(out.sig_field(), &sig, "the signature decodes as set");
++        out
++    }
++}
++
++impl WithSig for dash_primitives::ProRegTx {
++    type Sig = dash_primitives::CollateralSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        wire_bytes(sig)
++    }
++}
++
++impl WithSig for dash_primitives::ProUpRegTx {
++    type Sig = dash_primitives::OwnerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        wire_bytes(sig)
++    }
++}
++
++impl WithSig for dash_primitives::ProUpServTx {
++    type Sig = dash_pkc::bls::BlsEagerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        wire_bytes(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++    }
++}
++
++impl WithSig for dash_primitives::ProUpRevTx {
++    type Sig = dash_pkc::bls::BlsEagerSig;
++    fn sig_field(&self) -> &Self::Sig {
++        self.sig()
++    }
++    fn sig_wire(&self, sig: &Self::Sig) -> Vec<u8> {
++        wire_bytes(&sig.to_bytes(dash_primitives::protx_bls_scheme(self.version())))
++    }
++}
