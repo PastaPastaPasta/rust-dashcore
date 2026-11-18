@@ -1,0 +1,51 @@
+{
+ "name": "a17-conflict-then-reload",
+ "description": "tip A95; header-only A96..A100 and heavier header-only B96..B110; the lock on A100 marks only B96 CONFLICT (m_best_header stays B110: it walks back only from the marked entry itself); the reload drops the unpersisted mark and recomputes m_best_header over the index",
+ "rows": [
+  "A-17",
+  "A-20"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 95,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "A95",
+   "count": 5,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A95",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "reload"
+  }
+ ]
+}
