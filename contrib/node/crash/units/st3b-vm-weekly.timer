@@ -1,0 +1,10 @@
+[Unit]
+Description=ST3b VM-level power-loss weekly, Sundays 05:10 UTC (PLAN-ST3b-S7 §2.4)
+
+[Timer]
+# After the device nightly (04:10) has had its hour.
+OnCalendar=Sun *-*-* 05:10:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
