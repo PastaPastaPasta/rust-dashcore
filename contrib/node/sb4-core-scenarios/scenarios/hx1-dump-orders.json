@@ -1,0 +1,75 @@
+{
+ "name": "hx1-dump-orders",
+ "description": "X3's orders: blocks before their parents' data fill m_blocks_unlinked (B7, B8 under B6; C7..C9 under C6, never drained), B6's data drains B; D6..D9 stay below B10; a reload rebuilds C's unlinked pairs and loads every entry with nSequenceId 0",
+ "rows": [
+  "HX1-X3"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 5,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A5",
+   "count": 5,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A5",
+   "count": 5,
+   "submit": "headers"
+  },
+  {
+   "op": "build",
+   "branch": "D",
+   "parent": "A5",
+   "count": 4,
+   "submit": "none"
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "B8",
+    "B7",
+    "C9",
+    "C8",
+    "C7"
+   ]
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "B6"
+   ]
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "B9",
+    "B10"
+   ]
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "D6..D9"
+   ]
+  },
+  {
+   "op": "reload"
+  }
+ ]
+}

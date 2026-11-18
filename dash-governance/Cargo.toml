@@ -1,0 +1,43 @@
+[package]
+name = "dash-governance"
+description = "Dash Core's governance rules for the Rust Dash node: object and vote hashes, the proposal validator, trigger parsing and the superblock choice, vote processing, tallies and the rate buffer. Pure: no I/O, clocks or threads."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_governance"
+path = "src/lib.rs"
+
+[dependencies]
+# Transaction ids and `CTransaction::ToString()` inputs (collateral), hashing, `MoneyRange`,
+# `GetPaymentsLimit` (`subsidy::superblock_payments_limit`).
+dash-consensus = { path = "../dash-consensus" }
+# The tip's masternode list the votes and triggers are checked against.
+dash-dml = { path = "../dash-dml" }
+# EV3's `CSuperblock::IsValid` and `GovernanceView` (EV3 D3), and SP0's `CMessageSigner` port.
+dash-evo = { path = "../dash-evo" }
+dash-num = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+# `bls`: Core's `VerifyInsecure` of vote and trigger signatures (`dash_pkc::bls::core`).
+dash-pkc = { workspace = true, features = ["bls"] }
+# BS9b's governance wire types (`GovObject`, `GovVote`) and their hashes.
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+# `tests/l0_regtest.rs` replays O2a-GOV's Core-produced regtest network: node 0's governance.dat
+# (dash-coreimport) and the gzipped RPC captures. Dev edges only (layers.toml L2 follows normal
+# and build edges).
+dash-coreimport = { path = "../dash-coreimport" }
+# `testkit::numbered` and `MnList::insert_for_tests`: lists heavy enough that each term of
+# `UpdateSentinelVariables`' thresholds wins (tests/tally.rs).
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+dash-network = { path = "../dash-network" }
+flate2 = "1"
+serde_json = "1.0"
