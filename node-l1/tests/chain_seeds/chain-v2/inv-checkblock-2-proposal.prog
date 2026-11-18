@@ -1,0 +1,3 @@
+# The block operator cb_missing in a proposal: TestBlockValidity runs CheckBlock, where
+# submitblock refuses the block first (CheckBlock#2).
+propose main@-0 cb_missing
