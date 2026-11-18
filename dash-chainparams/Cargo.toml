@@ -1,0 +1,50 @@
+[package]
+name = "dash-chainparams"
+description = "The node's chain parameters (Core's CChainParams): base-sdk's stateless dash-params, re-exported, with the node-side devnet, chain setup, Core option builder, spork signers and runtime policy on top (POL-3, DEC-1042)."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_chainparams"
+path = "src/lib.rs"
+
+[features]
+default = []
+std = [
+    "bsdk-params/std",
+    "base58ck/std",
+    "bitcoin_hashes/std",
+    "bitcoin-units/std",
+    "dash-num/std",
+    "dash-types/std",
+    "hex-conservative/std",
+]
+full = ["bsdk-params/full", "std"]
+
+[dependencies]
+# base-sdk's `dash-params` under another name, so that consumers can keep the path name
+# `dash_params` for this crate (DEC-1043).
+bsdk-params = { workspace = true }
+base58ck = { workspace = true, features = ["alloc"] }
+bitcoin_hashes = { workspace = true, features = ["alloc"] }
+bitcoin-units = { workspace = true, features = ["alloc"] }
+dash-num = { workspace = true }
+dash-types = { workspace = true }
+dash-x11 = { path = "../dash-x11" }
+hex-conservative = { workspace = true }
+
+# The tests read the corpora with `serde_json` and name the types the builder's values hold.
+# Features are set here, so that the crate's tests build on their own with default features.
+[dev-dependencies]
+bitcoin-units = { workspace = true, features = ["std"] }
+dash-num = { workspace = true, features = ["std"] }
+dash-script = { workspace = true, features = ["codec", "std"] }
+dash-types = { workspace = true, features = ["codec", "std"] }
+hex-conservative = { workspace = true, features = ["alloc"] }
+serde_json = { workspace = true, features = ["std"] }
+test-case = { workspace = true }
