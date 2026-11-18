@@ -74,10 +74,12 @@ pub struct ClientConfig {
     /// filter sync completes, so a payment to a known address and its
     /// InstantSend lock reach the wallet while it is still syncing.
     ///
-    /// Until the filter scan reaches the tip the wallet may not know every
-    /// coin it owns, so an unconfirmed spend of a coin it has not found yet
-    /// is seen only from its outputs. The scan corrects that when it
-    /// reaches the coin's block.
+    /// Until filter sync completes the wallet may not know every address and
+    /// coin it owns, so a transaction paying an address it derives later, or
+    /// spending a coin the scan has not found yet, can be judged irrelevant
+    /// (or seen only from its outputs). When filter sync first completes the
+    /// mempool is requested again from every peer, so those are checked
+    /// again; until then a bloom filter is not reloaded on every change.
     pub mempool_during_sync: bool,
 
     /// How many peers to withhold broadcast transactions from.

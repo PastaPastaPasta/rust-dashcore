@@ -68,6 +68,12 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
             SyncEvent::FiltersSyncComplete {
                 ..
             } => {
+                let first = !self.filters_synced;
+                self.filters_synced = true;
+                if self.state() == SyncState::Synced && first && self.activate_during_sync {
+                    self.refresh_after_filter_sync(requests).await?;
+                    return Ok(vec![]);
+                }
                 if self.state() != SyncState::Synced {
                     self.activate_all_peers(requests).await?;
                     let has_activated = self.peers.values().any(|v| v.is_some());
@@ -131,6 +137,13 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
         // shared `SyncManager::run` loop or a `WalletEvent` bridge — complexity
         // that isn't justified given the 100ms tick latency is negligible for bloom
         // filter rebuilds and the read lock is non-contending.
+        //
+        // Activated during sync, the filter is rebuilt once filter sync
+        // completes (`refresh_after_filter_sync`), not on every block the
+        // scan credits.
+        if self.activate_during_sync && !self.filters_synced {
+            return Ok(events);
+        }
         let current_revision = self.wallet.read().await.monitor_revision();
         if current_revision != self.last_monitor_revision {
             tracing::info!("Wallet monitor revision changed, rebuilding bloom filter");
@@ -397,13 +410,108 @@ mod tests {
         manager.handle_inv(&inv, peer, &requests).await.unwrap();
         assert!(requested_tx(&drain(&mut rx), peer, txid));
 
-        // Filter sync completing later changes nothing.
+        // Filter sync completing later asks for the mempool again, once.
         let event = SyncEvent::FiltersSyncComplete {
             tip_height: 1000,
         };
         manager.handle_sync_event(&event, &requests).await.unwrap();
         assert_eq!(manager.state(), SyncState::Synced);
-        assert!(drain(&mut rx).is_empty(), "no second activation");
+        assert!(requested_mempool(&drain(&mut rx), peer));
+        let event = SyncEvent::FiltersSyncComplete {
+            tip_height: 1001,
+        };
+        manager.handle_sync_event(&event, &requests).await.unwrap();
+        assert!(drain(&mut rx).is_empty(), "only the first completion asks again");
+    }
+
+    /// A transaction downloaded during sync and found irrelevant (the wallet
+    /// had not derived its address yet) is fetched again once filter sync
+    /// completes.
+    #[tokio::test]
+    async fn test_tx_irrelevant_during_sync_is_fetched_again_after_filter_sync() {
+        let (mut manager, requests, mut rx) = create_during_sync_manager();
+        let peer = test_socket_address(1);
+        let connect = NetworkEvent::PeerConnected {
+            address: peer,
+        };
+        manager.handle_network_event(&connect, &requests).await.unwrap();
+        let tx = dashcore::Transaction {
+            version: 1,
+            lock_time: 0,
+            input: vec![],
+            output: vec![],
+            special_transaction_payload: None,
+        };
+        let txid = tx.txid();
+        let inv = [dashcore::network::message_blockdata::Inventory::Transaction(txid)];
+        manager.handle_inv(&inv, peer, &requests).await.unwrap();
+        manager.handle_tx(tx, peer, &requests).await.unwrap();
+        assert!(!manager.transactions.contains_key(&txid), "irrelevant to the mock wallet");
+        drain(&mut rx);
+        manager.handle_inv(&inv, peer, &requests).await.unwrap();
+        assert!(!requested_tx(&drain(&mut rx), peer, txid), "deduplicated while syncing");
+
+        let event = SyncEvent::FiltersSyncComplete {
+            tip_height: 1000,
+        };
+        manager.handle_sync_event(&event, &requests).await.unwrap();
+        assert!(requested_mempool(&drain(&mut rx), peer));
+        manager.handle_inv(&inv, peer, &requests).await.unwrap();
+        assert!(requested_tx(&drain(&mut rx), peer, txid), "fetched again after the scan");
+    }
+
+    /// Activated during sync with a bloom filter, the scan's address and coin
+    /// changes do not reload the filter on every tick; filter sync completing
+    /// reloads it once and asks for the mempool again.
+    #[tokio::test]
+    async fn test_bloom_rebuild_waits_for_filter_sync_when_activated_during_sync() {
+        let address = |byte: u8| {
+            let mut script = vec![0x76, 0xa9, 0x14];
+            script.extend([byte; 20]);
+            script.extend([0x88, 0xac]);
+            dashcore::Address::from_script(
+                &dashcore::ScriptBuf::from_bytes(script),
+                dashcore::Network::Testnet,
+            )
+            .unwrap()
+        };
+        let mut mock = MockWallet::new();
+        mock.set_addresses(vec![address(0xab)]);
+        let revision = mock.monitor_revision();
+        let wallet = Arc::new(RwLock::new(mock));
+        let (tx, mut rx) = mpsc::unbounded_channel::<NetworkRequest>();
+        let requests = RequestSender::new(tx);
+        let mut manager = MempoolManager::new(
+            wallet.clone(),
+            MempoolStrategy::BloomFilter,
+            1000,
+            revision,
+            BroadcastConfig::default(),
+        )
+        .with_activation_during_sync(true);
+        let peer = test_socket_address(1);
+        let connect = NetworkEvent::PeerConnected {
+            address: peer,
+        };
+        manager.handle_network_event(&connect, &requests).await.unwrap();
+        drain(&mut rx);
+
+        wallet.write().await.set_addresses(vec![address(0xab), address(0xcd)]);
+        manager.tick(&requests).await.unwrap();
+        assert!(drain(&mut rx).is_empty(), "no reload while the filters sync");
+
+        let event = SyncEvent::FiltersSyncComplete {
+            tip_height: 1000,
+        };
+        manager.handle_sync_event(&event, &requests).await.unwrap();
+        let sent = drain(&mut rx);
+        assert!(sent.iter().any(|r| matches!(
+            r,
+            NetworkRequest::SendMessageToPeer(NetworkMessage::FilterLoad(_), p) if *p == peer
+        )));
+        assert!(requested_mempool(&sent, peer));
+        manager.tick(&requests).await.unwrap();
+        assert!(drain(&mut rx).is_empty(), "the reload took the new revision");
     }
 
     #[tokio::test]

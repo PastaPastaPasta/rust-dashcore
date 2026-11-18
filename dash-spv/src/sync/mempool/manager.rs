@@ -77,6 +77,9 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     /// Activate peers as they connect rather than once filter sync completes
     /// (`ClientConfig::mempool_during_sync`).
     pub(super) activate_during_sync: bool,
+    /// Filter sync has completed at least once: the wallet knows every
+    /// address and coin it owns.
+    pub(super) filters_synced: bool,
 }
 
 impl<W: WalletInterface> MempoolManager<W> {
@@ -103,6 +106,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             seen_txids: HashMap::new(),
             last_monitor_revision: initial_monitor_revision,
             activate_during_sync: false,
+            filters_synced: false,
         }
     }
 
@@ -183,6 +187,31 @@ impl<W: WalletInterface> MempoolManager<W> {
 
         requests.send_filter_load(filter_load, peer)?;
 
+        Ok(())
+    }
+
+    /// Ask every activated peer for its mempool again once filter sync first
+    /// completes, when relay started before it (`activate_during_sync`). The
+    /// wallet now knows every address and coin it owns, so a transaction it
+    /// judged irrelevant before (a payment to an address derived during the
+    /// scan, a spend of a coin the scan had not found) is fetched and checked
+    /// again. Peers never announce a transaction twice, so the txids
+    /// downloaded and found irrelevant are forgotten first.
+    pub(super) async fn refresh_after_filter_sync(
+        &mut self,
+        requests: &RequestSender,
+    ) -> SyncResult<()> {
+        self.seen_txids.retain(|txid, _| self.transactions.contains_key(txid));
+        let activated: Vec<SocketAddr> =
+            self.peers.iter().filter(|(_, v)| v.is_some()).map(|(k, _)| *k).collect();
+        for peer in activated {
+            if self.strategy == MempoolStrategy::BloomFilter {
+                requests.send_filter_clear(peer)?;
+                self.load_bloom_filter(peer, requests).await?;
+            }
+            requests.request_mempool(peer)?;
+        }
+        self.last_monitor_revision = self.wallet.read().await.monitor_revision();
         Ok(())
     }
 
