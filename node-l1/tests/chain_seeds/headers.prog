@@ -1,0 +1,15 @@
+# Headers first, held data delivered later (in order and child first: prev-blk-not-found), a
+# raw block, ACTIVATE and an unadmitted spork.
+extend main 2 headers
+extend main 2 headers hold
+deliver b1
+raw 00
+activate
+spork off
+spork on
+extend main 1
+mutate bits_minus
+extend main 1 headers
+extend main 2 hold
+deliver b2 rev
+deliver b2
