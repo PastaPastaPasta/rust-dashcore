@@ -74,6 +74,9 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     /// Wallet monitor revision at the time of the last filter build.
     /// Compared on each tick to detect when the wallet's monitored set has changed.
     pub(super) last_monitor_revision: u64,
+    /// Activate peers as they connect rather than once filter sync completes
+    /// (`ClientConfig::mempool_during_sync`).
+    pub(super) activate_during_sync: bool,
 }
 
 impl<W: WalletInterface> MempoolManager<W> {
@@ -99,7 +102,15 @@ impl<W: WalletInterface> MempoolManager<W> {
             pending_is_locks: HashMap::new(),
             seen_txids: HashMap::new(),
             last_monitor_revision: initial_monitor_revision,
+            activate_during_sync: false,
         }
+    }
+
+    /// Activate peers as they connect, before filter sync completes
+    /// (`ClientConfig::mempool_during_sync`).
+    pub(crate) fn with_activation_during_sync(mut self, enabled: bool) -> Self {
+        self.activate_during_sync = enabled;
+        self
     }
 
     /// Activate mempool monitoring on a single peer.

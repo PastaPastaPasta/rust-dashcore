@@ -70,6 +70,16 @@ pub struct ClientConfig {
     /// Whether to fetch transactions from INV messages immediately.
     pub fetch_mempool_transactions: bool,
 
+    /// Turn on mempool relay as soon as a peer connects instead of once
+    /// filter sync completes, so a payment to a known address and its
+    /// InstantSend lock reach the wallet while it is still syncing.
+    ///
+    /// Until the filter scan reaches the tip the wallet may not know every
+    /// coin it owns, so an unconfirmed spend of a coin it has not found yet
+    /// is seen only from its outputs. The scan corrects that when it
+    /// reaches the coin's block.
+    pub mempool_during_sync: bool,
+
     /// How many peers to withhold broadcast transactions from.
     ///
     /// Peers never re-announce a transaction to whoever sent it to them, so
@@ -118,6 +128,7 @@ impl Default for ClientConfig {
             mempool_strategy: MempoolStrategy::FetchAll,
             max_mempool_transactions: 1000,
             fetch_mempool_transactions: true,
+            mempool_during_sync: false,
             broadcast_holdout: BroadcastHoldout::Half,
             broadcast_acceptance_threshold: 1,
             broadcast_acceptance_timeout: Duration::from_secs(60),
@@ -206,6 +217,13 @@ impl ClientConfig {
     /// Set maximum number of mempool transactions to track.
     pub fn with_max_mempool_transactions(mut self, max: usize) -> Self {
         self.max_mempool_transactions = max;
+        self
+    }
+
+    /// Turn on mempool relay before filter sync completes
+    /// ([`Self::mempool_during_sync`]).
+    pub fn with_mempool_during_sync(mut self, enabled: bool) -> Self {
+        self.mempool_during_sync = enabled;
         self
     }
 
