@@ -1,0 +1,11 @@
+# T1, the replay's block file lost (Core's open lines).
+harness st3a/1
+sut chainsut
+config sub=250 invalid=- effects=- presumed=- crash=- replay=- planted=T1
+workload c2;f
+crash 14 power-loss
+decide 1:fs:/dd/blocks:op1=1
+adversary realistic
+granularity sector
+expect R0
+minimality best-effort

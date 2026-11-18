@@ -1,0 +1,4 @@
+# validation.cpp:CheckBlock#4:bad-blk-sigops (bank slot 1, x_sigops_check).
+extend main 1 tx=spends
+mutatex x_sigops_check
+extend main 1
