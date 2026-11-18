@@ -100,9 +100,13 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
                 }
                 Ok(vec![])
             }
+            // A lock the InstantSend manager could not verify is announced with
+            // `validated: false` and again with `true` once it verifies. Only the
+            // verified one may reach the wallet, where it makes a coin final and
+            // spendable.
             SyncEvent::InstantLockReceived {
                 instant_lock,
-                ..
+                validated: true,
             } => Ok(self.process_instant_send(instant_lock.clone()).await),
             _ => Ok(vec![]),
         }
@@ -680,6 +684,17 @@ mod tests {
         // Fire InstantLockReceived with a lock whose txid matches
         let mut is_lock = dashcore::InstantLock::dummy(0..1);
         is_lock.txid = txid;
+
+        let unverified = SyncEvent::InstantLockReceived {
+            instant_lock: is_lock.clone(),
+            validated: false,
+        };
+        let events = manager.handle_sync_event(&unverified, &requests).await.unwrap();
+        assert!(events.is_empty());
+        assert!(
+            !manager.transactions.get(&txid).unwrap().is_instant_send,
+            "an unverified lock must not mark the transaction"
+        );
 
         let event = SyncEvent::InstantLockReceived {
             instant_lock: is_lock,
