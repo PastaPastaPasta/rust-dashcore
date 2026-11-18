@@ -1,0 +1,156 @@
+PASS v23-x86_64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v23-x86_64 kgw: exactly one call to pow
+PASS v23-x86_64 kgw: no fused multiply-add (separate rounding)
+PASS v23-x86_64 kgw: separate mulsd by 0.7084
+PASS v23-x86_64 kgw: no x87
+PASS v23-x86_64 subsidy: anchored (isDevnet assert string)
+PASS v23-x86_64 subsidy: no call to pow
+PASS v23-x86_64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v23-x86_64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v23-x86_64 subsidy: no fused multiply-add
+PASS v23-x86_64 subsidy: no x87
+PASS v23-x86_64 tolerance: abs is the double fabs
+PASS v23-x86_64 tolerance: no fused multiply-add
+PASS v23-x86_64 tolerance: no call to pow
+PASS v23-aarch64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v23-aarch64 kgw: exactly one call to pow
+PASS v23-aarch64 kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v23-aarch64 subsidy: anchored (isDevnet assert string)
+PASS v23-aarch64 subsidy: no call to pow
+PASS v23-aarch64 subsidy: pow(x, 2.0) compiled to x*x at 2 sites, formulas 2 and 3 sharing one (2 found)
+PASS v23-aarch64 subsidy: 2 truncating double->int64 conversions, one shared
+PASS v23-aarch64 subsidy: formula 2 (51.0 materialised) branches into the shared div/square/div/fcvtzs tail
+PASS v23-aarch64 subsidy: no fused multiply-add
+PASS v23-aarch64 tolerance: abs is the double fabs
+PASS v23-aarch64 tolerance: no fused multiply-add
+PASS v23-aarch64 tolerance: no call to pow
+PASS v23-riscv64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v23-riscv64 kgw: exactly one call to pow
+PASS v23-riscv64 kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v23-riscv64 subsidy: anchored (isDevnet assert string)
+PASS v23-riscv64 subsidy: no call to pow
+PASS v23-riscv64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v23-riscv64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v23-riscv64 subsidy: no fused multiply-add
+PASS v23-riscv64 tolerance: abs is the double fabs
+PASS v23-riscv64 tolerance: no fused multiply-add
+PASS v23-riscv64 tolerance: no call to pow
+PASS v23-win64 kgw: anchored (-1.228 and 0.7084 constants)
+     v23-win64: statically linked pow at 0x140c5d170
+PASS v23-win64 kgw: exactly one call to pow
+PASS v23-win64 kgw: no fused multiply-add (separate rounding)
+PASS v23-win64 kgw: separate mulsd by 0.7084
+PASS v23-win64 kgw: no x87
+PASS v23-win64 subsidy: anchored (isDevnet assert string)
+PASS v23-win64 subsidy: no call to pow
+PASS v23-win64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v23-win64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v23-win64 subsidy: no fused multiply-add
+PASS v23-win64 subsidy: no x87
+PASS v23-win64 tolerance: abs is the double fabs
+PASS v23-win64 tolerance: no fused multiply-add
+PASS v23-win64 tolerance: no call to pow
+PASS v23-x86_64-darwin kgw: anchored (-1.228 and 0.7084 constants)
+PASS v23-x86_64-darwin kgw: exactly one call to pow
+PASS v23-x86_64-darwin kgw: no fused multiply-add (separate rounding)
+PASS v23-x86_64-darwin kgw: separate mulsd by 0.7084
+PASS v23-x86_64-darwin kgw: no x87
+PASS v23-x86_64-darwin subsidy: anchored (isDevnet assert string)
+PASS v23-x86_64-darwin subsidy: no call to pow
+PASS v23-x86_64-darwin subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v23-x86_64-darwin subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v23-x86_64-darwin subsidy: no fused multiply-add
+PASS v23-x86_64-darwin subsidy: no x87
+PASS v23-x86_64-darwin tolerance: abs is the double fabs
+PASS v23-x86_64-darwin tolerance: no fused multiply-add
+PASS v23-x86_64-darwin tolerance: no call to pow
+PASS v23-arm64-darwin kgw: anchored (-1.228 and 0.7084 constants)
+PASS v23-arm64-darwin kgw: exactly one call to pow
+PASS v23-arm64-darwin kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v23-arm64-darwin subsidy: anchored (isDevnet assert string)
+PASS v23-arm64-darwin subsidy: no call to pow
+PASS v23-arm64-darwin subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v23-arm64-darwin subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v23-arm64-darwin subsidy: no fused multiply-add
+PASS v23-arm64-darwin tolerance: abs is the double fabs
+PASS v23-arm64-darwin tolerance: no fused multiply-add
+PASS v23-arm64-darwin tolerance: no call to pow
+PASS v24-x86_64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v24-x86_64 kgw: exactly one call to pow
+PASS v24-x86_64 kgw: no fused multiply-add (separate rounding)
+PASS v24-x86_64 kgw: separate mulsd by 0.7084
+PASS v24-x86_64 kgw: no x87
+PASS v24-x86_64 subsidy: anchored (isDevnet assert string)
+PASS v24-x86_64 subsidy: no call to pow
+PASS v24-x86_64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v24-x86_64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v24-x86_64 subsidy: no fused multiply-add
+PASS v24-x86_64 subsidy: no x87
+PASS v24-x86_64 tolerance: abs is the double fabs
+PASS v24-x86_64 tolerance: no fused multiply-add
+PASS v24-x86_64 tolerance: no call to pow
+PASS v24-aarch64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v24-aarch64 kgw: exactly one call to pow
+PASS v24-aarch64 kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v24-aarch64 subsidy: anchored (isDevnet assert string)
+PASS v24-aarch64 subsidy: no call to pow
+PASS v24-aarch64 subsidy: pow(x, 2.0) compiled to x*x at 2 sites, formulas 2 and 3 sharing one (2 found)
+PASS v24-aarch64 subsidy: 2 truncating double->int64 conversions, one shared
+PASS v24-aarch64 subsidy: formula 2 (51.0 materialised) branches into the shared div/square/div/fcvtzs tail
+PASS v24-aarch64 subsidy: no fused multiply-add
+PASS v24-aarch64 tolerance: abs is the double fabs
+PASS v24-aarch64 tolerance: no fused multiply-add
+PASS v24-aarch64 tolerance: no call to pow
+PASS v24-riscv64 kgw: anchored (-1.228 and 0.7084 constants)
+PASS v24-riscv64 kgw: exactly one call to pow
+PASS v24-riscv64 kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v24-riscv64 subsidy: anchored (isDevnet assert string)
+PASS v24-riscv64 subsidy: no call to pow
+PASS v24-riscv64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v24-riscv64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v24-riscv64 subsidy: no fused multiply-add
+PASS v24-riscv64 tolerance: abs is the double fabs
+PASS v24-riscv64 tolerance: no fused multiply-add
+PASS v24-riscv64 tolerance: no call to pow
+PASS v24-win64 kgw: anchored (-1.228 and 0.7084 constants)
+     v24-win64: statically linked pow at 0x140d90ff0
+PASS v24-win64 kgw: exactly one call to pow
+PASS v24-win64 kgw: no fused multiply-add (separate rounding)
+PASS v24-win64 kgw: separate mulsd by 0.7084
+PASS v24-win64 kgw: no x87
+PASS v24-win64 subsidy: anchored (isDevnet assert string)
+PASS v24-win64 subsidy: no call to pow
+PASS v24-win64 subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v24-win64 subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v24-win64 subsidy: no fused multiply-add
+PASS v24-win64 subsidy: no x87
+PASS v24-win64 tolerance: abs is the double fabs
+PASS v24-win64 tolerance: no fused multiply-add
+PASS v24-win64 tolerance: no call to pow
+PASS v24-x86_64-darwin kgw: anchored (-1.228 and 0.7084 constants)
+PASS v24-x86_64-darwin kgw: exactly one call to pow
+PASS v24-x86_64-darwin kgw: no fused multiply-add (separate rounding)
+PASS v24-x86_64-darwin kgw: separate mulsd by 0.7084
+PASS v24-x86_64-darwin kgw: no x87
+PASS v24-x86_64-darwin subsidy: anchored (isDevnet assert string)
+PASS v24-x86_64-darwin subsidy: no call to pow
+PASS v24-x86_64-darwin subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v24-x86_64-darwin subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v24-x86_64-darwin subsidy: no fused multiply-add
+PASS v24-x86_64-darwin subsidy: no x87
+PASS v24-x86_64-darwin tolerance: abs is the double fabs
+PASS v24-x86_64-darwin tolerance: no fused multiply-add
+PASS v24-x86_64-darwin tolerance: no call to pow
+PASS v24-arm64-darwin kgw: anchored (-1.228 and 0.7084 constants)
+PASS v24-arm64-darwin kgw: exactly one call to pow
+PASS v24-arm64-darwin kgw: 1+0.7084*pow(...) contracted to one fused multiply-add (1 found)
+PASS v24-arm64-darwin subsidy: anchored (isDevnet assert string)
+PASS v24-arm64-darwin subsidy: no call to pow
+PASS v24-arm64-darwin subsidy: pow(x, 2.0) compiled to x*x at 3 sites (3 found)
+PASS v24-arm64-darwin subsidy: 3 truncating double->int64 conversions (3 found)
+PASS v24-arm64-darwin subsidy: no fused multiply-add
+PASS v24-arm64-darwin tolerance: abs is the double fabs
+PASS v24-arm64-darwin tolerance: no fused multiply-add
+PASS v24-arm64-darwin tolerance: no call to pow
+
+0 failure(s)

@@ -1,0 +1,38 @@
+diff --git a/node-fuzz/src/models/netinfo.rs b/node-fuzz/src/models/netinfo.rs
+index 40c1e0b7487afb84010794ddf86d57a746335276..1a5a8ec9897978c6689f50bed451d8d16a6e4ab6 100644
+--- a/node-fuzz/src/models/netinfo.rs
++++ b/node-fuzz/src/models/netinfo.rs
+@@ -390,29 +390,28 @@ fn tx_verdict(
+             });
+         };
+         let node_id = PlatformNodeId::from([u8::from(b0 & 0x80 == 0); 20]);
+-        let payload;
+         // The fields are set in the payload's mirror (DEC-1066), which encodes as base-sdk does.
+-        match decoded.payload() {
++        let payload = match decoded.payload() {
+             SpecialPayload::ProviderRegister(p) => {
+                 let mut p = mirror::ProRegTx::from(p);
+                 p.net_info = net_info;
+                 platform(&mut p.platform_node_id, &mut p.platform_p2p_port, node_id, ports);
+                 platform_port(&mut p.platform_http_port, [ports[2], ports[3]]);
+-                payload = p.to_bytes();
++                p.to_bytes()
+             }
+             SpecialPayload::ProviderUpdateService(p) => {
+                 let mut p = mirror::ProUpServTx::from(p);
+                 p.net_info = net_info;
+                 platform(&mut p.platform_node_id, &mut p.platform_p2p_port, node_id, ports);
+                 platform_port(&mut p.platform_http_port, [ports[2], ports[3]]);
+-                payload = p.to_bytes();
++                p.to_bytes()
+             }
+             _ => {
+                 return Err(Divergence {
+                     field: "template type",
+                 });
+             }
+-        }
++        };
+         let mut tx: Transaction = template.to_mutable();
+         tx.edit(|t| t.extra_payload = payload);
+         let tx = Tx::new(tx);

@@ -1,0 +1,61 @@
+diff --git a/dashd-mining/src/evo.rs b/dashd-mining/src/evo.rs
+index eabec978fe20c29b29b971d56957eea52b8ef4f2..5fac33ac7167e684a2d097efc6e611182b4bae81 100644
+--- a/dashd-mining/src/evo.rs
++++ b/dashd-mining/src/evo.rs
+@@ -270,13 +270,14 @@ fn build_cbtx(
+     let merkle_root_mn_list = merkle_root_mn_list_full(chain.list)
+         .map_err(|e| failed(format_args!("CalcCbTxMerkleRootMNList failed: {e}")))?;
+     // The fields after the list root, as each era step adds them (base-sdk's `CoinbaseCommitment`
+-    // is built whole, so each return builds it from the fields so far).
++    // is built whole, so each return builds it from the fields so far). A field the version has
++    // and no step set keeps `CCbTx`'s default, as when V20 is active before DIP0008.
+     let cbtx = |merkle_root_quorums: Option<dash_primitives::MerkleRoot>,
+                 best_cl: Option<(u64, BlsGlobalSig)>,
+                 credit_pool_balance: Option<i64>,
+                 merkle_root_asset_unlocks: Option<dash_primitives::MerkleRoot>| {
+         let (best_cl_height_diff, best_cl_signature) = best_cl.unzip();
+-        CoinbaseCommitment::new(
++        dash_evo::cbtx::at_version(&CoinbaseCommitment::new(
+             dash_primitives::CbCommitmentVersion::new(version),
+             height.cast_unsigned().into(),
+             merkle_root_mn_list,
+@@ -285,7 +286,7 @@ fn build_cbtx(
+             best_cl_signature,
+             credit_pool_balance,
+             merkle_root_asset_unlocks,
+-        )
++        ))
+     };
+     if !eras.dip8 {
+         return Ok(cbtx(None, None, None, None));
+@@ -302,7 +303,7 @@ fn build_cbtx(
+         "CreateNewBlock() h[{}] CbTx failed to find best CL. Inserting null CL",
+         facts.height
+     );
+-    let best_cl = Some((0, null_signature()));
++    let best_cl = Some((0, dash_evo::cbtx::null_signature()));
+     // :316-322
+     let reward = platform_reward(eras.mn_rr, height, facts.subsidy, chain.payments)
+         .map_err(|e| failed(format_args!("PlatformShare: {e}")))?;
+@@ -315,12 +316,6 @@ fn build_cbtx(
+     Ok(cbtx(Some(root), best_cl, Some(balance), asset_unlocks))
+ }
+ 
+-/// `CCbTx::bestCLSignature` left default: Core's `CBLSSignature()` is invalid, and
+-/// `CBLSWrapper` writes an invalid object as zeros under either scheme.
+-fn null_signature() -> BlsGlobalSig {
+-    BlsGlobalSig::decode(&[0; 96]).expect("zeros decode under either scheme")
+-}
+-
+ /// Whether `tx`, one of `GetMineableCommitmentsTx`'s, carries a null commitment.
+ fn is_null_commitment(tx: &Tx) -> bool {
+     matches!(
+diff --git a/dashd-mining/src/evo/tests.rs b/dashd-mining/src/evo/tests.rs
+index 31d3e0f70d7c54771aec6c7ac071fda9272f58ef..b17556c43021f0b1f1f52d33009604845a289a3c 100644
+--- a/dashd-mining/src/evo/tests.rs
++++ b/dashd-mining/src/evo/tests.rs
+@@ -1,3 +1,4 @@
++use dash_evo::cbtx::null_signature;
+ use dash_primitives::{CoinbaseCommitment, MerkleRoot};
+ 
+ use super::*;

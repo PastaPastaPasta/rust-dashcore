@@ -1,0 +1,90 @@
+{
+ "workload": "gbt",
+ "argv": [
+  "bin/sym/dashd",
+  "-datadir=runs/regtest-gbt-20000/datadir",
+  "-server=1",
+  "-printtoconsole=0",
+  "-logtimemicros=1",
+  "-rpcuser=REDACTED",
+  "-rpcpassword=REDACTED",
+  "-rpcbind=127.0.0.1",
+  "-rpcallowip=127.0.0.1",
+  "-rpcport=48801",
+  "-port=48800",
+  "-rpcthreads=16",
+  "-rpcworkqueue=256",
+  "-dbcache=1024",
+  "-par=1",
+  "-parbls=1",
+  "-upnp=0",
+  "-natpmp=0",
+  "-listenonion=0",
+  "-listen=0",
+  "-connect=0",
+  "-dnsseed=0",
+  "-fixedseeds=0",
+  "-disablewallet=1",
+  "-regtest",
+  "-persistmempool=0",
+  "-checkmempool=0",
+  "-checkblockindex=0",
+  "-maxtipage=2000000000"
+ ],
+ "dashd": "bin/sym/dashd",
+ "dashd_sha256": "4ad82cf6d9e4ecd50884cbb33a1e1d0fac13c552f849497840e88cbc108068d8",
+ "datadir_src": "nbroot/data/fixtures/regtest-v1/chain",
+ "cpus": "28-31",
+ "par": 1,
+ "parbls": 1,
+ "dbcache_mib": 1024,
+ "ready_s": 0.486,
+ "idle_wait_s": 4.0,
+ "ops": 6,
+ "warmup_calls": 2,
+ "unit": "getblocktemplate",
+ "mempool_txs": 20008,
+ "template_txs": 8880,
+ "call_ms": [
+  540.08,
+  278.79,
+  497.8,
+  498.82,
+  320.29,
+  387.03
+ ],
+ "peak_rss_kib": 251624,
+ "exit_code": 0,
+ "wall_total_s": 61.211,
+ "recorded_windows_monotonic": [
+  [
+   233049.922545316,
+   233050.462672046
+  ],
+  [
+   233055.747548198,
+   233056.026352672
+  ],
+  [
+   233061.307733298,
+   233061.805544372
+  ],
+  [
+   233067.079095672,
+   233067.577925713
+  ],
+  [
+   233072.834070303,
+   233073.154372191
+  ],
+  [
+   233078.42207749,
+   233078.809117209
+  ]
+ ],
+ "fold_stderr": [
+  "cpu-clock: weight 1573721121 samples 1569 span 28.81s",
+  "instructions:u: weight 3576006556 samples 596 span 28.81s"
+ ],
+ "perf_throttle_events": 0
+}
