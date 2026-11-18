@@ -1,0 +1,4 @@
+# script error "OP_RETURN was encountered" (bank slot 29, se_op_return): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_op_return
+extend main 1
