@@ -1,0 +1,41 @@
+{
+ "name": "a22-lock-on-active-heavier-below",
+ "description": "a lock on the already-active block marks nothing; the heavier header-only branch stays best header",
+ "rows": [
+  "A-22",
+  "A-23"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A95",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  }
+ ]
+}
