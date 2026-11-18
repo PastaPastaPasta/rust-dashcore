@@ -1,0 +1,24 @@
+# The fork snapshot's workflow until the Stage 2 node-gate.yml is ready (CI-FORK.md, "What is
+# pushed"): check-fork-push.sh snapshot puts this file, as .github/workflows/node-gate.yml, in
+# place of every inherited workflow.
+name: node-gate
+on:
+  push:
+    branches: ["ci/**"]
+permissions:
+  contents: read
+concurrency:
+  group: node-gate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: cargo fmt --all --check
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --locked

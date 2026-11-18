@@ -1,0 +1,4 @@
+# The block operator bits_plus's reject on a block over spendable outputs.
+extend main 1 tx=spends
+mutate bits_plus
+extend main 1

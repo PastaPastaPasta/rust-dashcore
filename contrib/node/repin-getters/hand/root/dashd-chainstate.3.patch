@@ -1,0 +1,16 @@
+diff --git a/dashd-chainstate/src/evo/ev1_tests.rs b/dashd-chainstate/src/evo/ev1_tests.rs
+index 322cbd21f10062d5191bf0c7cc841d10d4e96b17..95ebbdb10127b146a39fd96f782fbc65fb5a5cc0 100644
+--- a/dashd-chainstate/src/evo/ev1_tests.rs
++++ b/dashd-chainstate/src/evo/ev1_tests.rs
+@@ -857,7 +857,10 @@ fn revocation(signer: u8) -> Arc<Tx> {
+         );
+         p = dash_dml::testkit::WithSig::with_sig(&rebuilt, p.sig().clone());
+     };
+-    p.sig = operator_sig(signer, &payload_sig_hash(&p).expect("a preimage"));
++    p = dash_dml::testkit::WithSig::with_sig(
++        &p,
++        operator_sig(signer, &payload_sig_hash(&p).expect("a preimage")),
++    );
+     let mut extra_payload = Vec::new();
+     #[allow(clippy::disallowed_methods, reason = "a test payload encoded into a transaction")]
+     p.encode(&mut extra_payload);

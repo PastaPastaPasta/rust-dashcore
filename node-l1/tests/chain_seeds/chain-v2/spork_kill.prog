@@ -1,0 +1,9 @@
+# Spork 19 turned off, then a KILL: the load reverts it to the last store, on (O2b D34), and a
+# lock conflicts with a fork block again. The tip's INVALIDATE first keeps S2's header line from
+# tying with the load (G-T1: the input's own invalidation does not count).
+extend main 2
+invalidate main@-0
+spork off
+restart kill
+cl main@-0
+fork 1 1
