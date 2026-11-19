@@ -1,0 +1,242 @@
+{
+ "blocks": 1999,
+ "window_blocks_expected": 1999,
+ "txs_excl_nothing": 3662,
+ "txins": 2373,
+ "txs_per_block": 1.83,
+ "txins_per_block": 1.19,
+ "phases": {
+  "Load block from disk": {
+   "n": 1999,
+   "total_ms": 349.75,
+   "ms_per_block": 0.175,
+   "p50_ms": 0.14,
+   "p95_ms": 0.23,
+   "max_ms": 13.67
+  },
+  "Sanity checks": {
+   "n": 1999,
+   "total_ms": 1409.02,
+   "ms_per_block": 0.7049,
+   "p50_ms": 0.69,
+   "p95_ms": 1.0,
+   "max_ms": 5.03
+  },
+  "Fork checks": {
+   "n": 1999,
+   "total_ms": 168.02,
+   "ms_per_block": 0.0841,
+   "p50_ms": 0.08,
+   "p95_ms": 0.1,
+   "max_ms": 3.64
+  },
+  "GetTxPayload": {
+   "n": 1999,
+   "total_ms": 1216.6,
+   "ms_per_block": 0.6086,
+   "p50_ms": 0.59,
+   "p95_ms": 0.87,
+   "max_ms": 4.71
+  },
+  "Loop": {
+   "n": 3998,
+   "total_ms": 3970.86,
+   "ms_per_block": 1.9864,
+   "p50_ms": 0.49,
+   "p95_ms": 3.19,
+   "max_ms": 101.68
+  },
+  "CheckCreditPoolDiffForBlock": {
+   "n": 1999,
+   "total_ms": 84.58,
+   "ms_per_block": 0.0423,
+   "p50_ms": 0.03,
+   "p95_ms": 0.07,
+   "max_ms": 3.23
+  },
+  "m_qblockman.ProcessBlock": {
+   "n": 1999,
+   "total_ms": 35691.39,
+   "ms_per_block": 17.8546,
+   "p50_ms": 0.04,
+   "p95_ms": 19.31,
+   "max_ms": 3030.7
+  },
+  "m_dmnman.ProcessBlock": {
+   "n": 1999,
+   "total_ms": 1906.53,
+   "ms_per_block": 0.9537,
+   "p50_ms": 0.36,
+   "p95_ms": 4.11,
+   "max_ms": 73.31
+  },
+  "CalcCbTxMerkleRootMNList": {
+   "n": 1999,
+   "total_ms": 51.36,
+   "ms_per_block": 0.0257,
+   "p50_ms": 0.02,
+   "p95_ms": 0.07,
+   "max_ms": 0.24
+  },
+  "GetQcHashes": {
+   "n": 1999,
+   "total_ms": 4364.75,
+   "ms_per_block": 2.1835,
+   "p50_ms": 0.69,
+   "p95_ms": 2.4,
+   "max_ms": 280.82
+  },
+  "ComputeMerkleRoot": {
+   "n": 1999,
+   "total_ms": 297.95,
+   "ms_per_block": 0.149,
+   "p50_ms": 0.15,
+   "p95_ms": 0.23,
+   "max_ms": 1.57
+  },
+  "CalcCbTxMerkleRootQuorums": {
+   "n": 1999,
+   "total_ms": 5739.03,
+   "ms_per_block": 2.871,
+   "p50_ms": 0.94,
+   "p95_ms": 3.27,
+   "max_ms": 287.33
+  },
+  "CheckCbTxBestChainlock": {
+   "n": 1999,
+   "total_ms": 14035.45,
+   "ms_per_block": 7.0212,
+   "p50_ms": 7.15,
+   "p95_ms": 9.67,
+   "max_ms": 56.12
+  },
+  "m_mnhfman.ProcessBlock": {
+   "n": 1999,
+   "total_ms": 488.31,
+   "ms_per_block": 0.2443,
+   "p50_ms": 0.15,
+   "p95_ms": 0.19,
+   "max_ms": 99.27
+  },
+  "ProcessSpecialTxsInBlock": {
+   "n": 1999,
+   "total_ms": 62574.29,
+   "ms_per_block": 31.3028,
+   "p50_ms": 11.27,
+   "p95_ms": 46.11,
+   "max_ms": 3350.03
+  },
+  "Connect transactions": {
+   "n": 1999,
+   "total_ms": 63054.22,
+   "ms_per_block": 31.5429,
+   "p50_ms": 11.38,
+   "p95_ms": 49.51,
+   "max_ms": 3350.59
+  },
+  "Verify txins": {
+   "n": 1999,
+   "total_ms": 63093.24,
+   "ms_per_block": 31.5624,
+   "p50_ms": 11.39,
+   "p95_ms": 49.61,
+   "max_ms": 3350.61
+  },
+  "IS filter": {
+   "n": 1999,
+   "total_ms": 24.92,
+   "ms_per_block": 0.0125,
+   "p50_ms": 0.01,
+   "p95_ms": 0.02,
+   "max_ms": 1.22
+  },
+  "GetBlockSubsidy": {
+   "n": 1999,
+   "total_ms": 20.18,
+   "ms_per_block": 0.0101,
+   "p50_ms": 0.01,
+   "p95_ms": 0.01,
+   "max_ms": 0.54
+  },
+  "IsBlockValueValid": {
+   "n": 1999,
+   "total_ms": 24.17,
+   "ms_per_block": 0.0121,
+   "p50_ms": 0.01,
+   "p95_ms": 0.02,
+   "max_ms": 0.41
+  },
+  "IsBlockPayeeValid": {
+   "n": 1999,
+   "total_ms": 372.18,
+   "ms_per_block": 0.1862,
+   "p50_ms": 0.16,
+   "p95_ms": 0.23,
+   "max_ms": 6.25
+  },
+  "Dash specific": {
+   "n": 1999,
+   "total_ms": 473.24,
+   "ms_per_block": 0.2367,
+   "p50_ms": 0.21,
+   "p95_ms": 0.31,
+   "max_ms": 6.37
+  },
+  "Write undo data": {
+   "n": 1999,
+   "total_ms": 2.75,
+   "ms_per_block": 0.0014,
+   "p50_ms": 0.0,
+   "p95_ms": 0.0,
+   "max_ms": 2.6
+  },
+  "Index writing": {
+   "n": 1999,
+   "total_ms": 15.86,
+   "ms_per_block": 0.0079,
+   "p50_ms": 0.01,
+   "p95_ms": 0.01,
+   "max_ms": 1.06
+  },
+  "Connect total": {
+   "n": 1999,
+   "total_ms": 65534.65,
+   "ms_per_block": 32.7837,
+   "p50_ms": 12.74,
+   "p95_ms": 51.18,
+   "max_ms": 3352.08
+  },
+  "Flush": {
+   "n": 1999,
+   "total_ms": 179.88,
+   "ms_per_block": 0.09,
+   "p50_ms": 0.08,
+   "p95_ms": 0.14,
+   "max_ms": 2.34
+  },
+  "Writing chainstate": {
+   "n": 1999,
+   "total_ms": 36.55,
+   "ms_per_block": 0.0183,
+   "p50_ms": 0.02,
+   "p95_ms": 0.03,
+   "max_ms": 0.14
+  },
+  "Connect postprocess": {
+   "n": 1999,
+   "total_ms": 120.29,
+   "ms_per_block": 0.0602,
+   "p50_ms": 0.05,
+   "p95_ms": 0.09,
+   "max_ms": 2.17
+  },
+  "Connect block": {
+   "n": 1999,
+   "total_ms": 66220.36,
+   "ms_per_block": 33.1267,
+   "p50_ms": 13.05,
+   "p95_ms": 52.26,
+   "max_ms": 3353.02
+  }
+ }
+}
