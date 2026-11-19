@@ -15,7 +15,8 @@ use crate::error::{Result, SpvError};
 use crate::network::NetworkManager;
 use crate::sml_engine::MasternodeListEngine;
 use crate::storage::{
-    BlockHeaderStorage, DiskStorageManager, PersistentBlockHeaderStorage, StorageManager,
+    BlockHeaderStorage, DiskStorageManager, PersistentBlockHeaderStorage,
+    PersistentMetadataStorage, StorageManager,
 };
 use crate::sync::{
     BlockHeadersManager, BlocksManager, ChainLockManager, FilterHeadersManager, FiltersManager,
@@ -210,18 +211,31 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
     }
 
     /// Build the sync managers, resuming from wherever storage left off.
-    async fn build_sync_managers(&self) -> Result<SyncManagers<W>> {
-        let config = self.config.read().await.clone();
+    async fn build_sync_managers(&self, config: &ClientConfig) -> Result<SyncManagers<W>> {
         let mut storage = self.storage.lock().await;
-        let start_from_height = Self::resolve_start_height(&config, &self.wallet).await;
-        Self::initialize_genesis_block(&config, start_from_height, &mut storage).await?;
+        let start_from_height = Self::resolve_start_height(config, &self.wallet).await;
+        Self::initialize_genesis_block(config, start_from_height, &mut storage).await?;
 
-        Self::build_managers(&config, &storage, &self.wallet, self.masternode_engine.as_ref()).await
+        Self::build_managers(config, &storage, &self.wallet, self.masternode_engine.as_ref()).await
+    }
+
+    /// The store a lagged ChainLock dispatch resyncs from: the metadata storage while
+    /// `config` runs a ChainLock manager with ChainLocks on, so it can emit chainlocks.
+    pub(super) async fn chain_lock_resync_store(
+        &self,
+        config: &ClientConfig,
+    ) -> Option<Arc<RwLock<PersistentMetadataStorage>>> {
+        match self.masternode_engine {
+            Some(_) if config.enable_masternodes && effective_chainlocks_enabled(config) => {
+                Some(self.storage.lock().await.metadata())
+            }
+            _ => None,
+        }
     }
 
     /// Start the sync managers, the network and the storage worker.
-    pub(super) async fn start_sync(&self) -> Result<()> {
-        let managers = self.build_sync_managers().await?;
+    pub(super) async fn start_sync(&self, config: &ClientConfig) -> Result<()> {
+        let managers = self.build_sync_managers(config).await?;
 
         // Start all sync tasks before connecting to the network to make sure initial connection
         // events are handled correctly in the sync coordinator.
@@ -527,7 +541,8 @@ mod tests {
             let client = DashSpvClient::new(config, MockNetworkManager::new(), wallet, vec![])
                 .await
                 .unwrap();
-            let mut managers = client.build_sync_managers().await.unwrap();
+            let config = client.config.read().await.clone();
+            let mut managers = client.build_sync_managers(&config).await.unwrap();
             let header_gate = managers.block_headers.as_ref().unwrap().chainlocks_enabled();
             let manager = managers.chainlock.as_mut().unwrap();
             let network: Arc<dyn NetworkManager> = client.network.clone();
@@ -570,5 +585,34 @@ mod tests {
             outcome(ClientConfig::mainnet().with_chainlocks_enabled(Some(false))).await,
             (1, true, true)
         );
+    }
+
+    /// A lagged ChainLock dispatch reads the stored chainlock only where a ChainLock
+    /// manager with ChainLocks on runs, the only source of the chainlocks it applies.
+    #[tokio::test]
+    async fn chain_lock_resync_reads_the_store_only_with_chain_locks_on() {
+        async fn reads(config: ClientConfig) -> bool {
+            let dir = TempDir::new().unwrap();
+            let config = config.without_filters().with_storage_path(dir.path());
+            let wallet =
+                Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
+            let client =
+                DashSpvClient::new(config.clone(), MockNetworkManager::new(), wallet, vec![])
+                    .await
+                    .unwrap();
+            client.chain_lock_resync_store(&config).await.is_some()
+        }
+
+        assert!(!reads(ClientConfig::testnet().with_chainlocks_enabled(Some(false))).await);
+        assert!(reads(ClientConfig::testnet()).await);
+        assert!(!reads(ClientConfig::regtest()).await);
+        assert!(reads(ClientConfig::regtest().with_chainlocks_enabled(Some(true))).await);
+        assert!(
+            !reads(
+                ClientConfig::regtest().with_chainlocks_enabled(Some(true)).without_masternodes()
+            )
+            .await
+        );
+        assert!(reads(ClientConfig::mainnet().with_chainlocks_enabled(Some(false))).await);
     }
 }

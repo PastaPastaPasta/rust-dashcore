@@ -52,6 +52,8 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         static NEXT_LOOP_ID: AtomicU64 = AtomicU64::new(0);
         let loop_id = NEXT_LOOP_ID.fetch_add(1, Ordering::Relaxed);
 
+        let config = self.config.read().await.clone();
+        let stored_chain_locks = self.chain_lock_resync_store(&config).await;
         let handlers = self.event_handlers.clone();
         let loop_shutdown = CancellationToken::new();
         let monitor_shutdown = CancellationToken::new();
@@ -70,6 +72,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
             "SyncEvent",
             sync_event_rx,
             handlers.clone(),
+            self.subscribe_progress().await,
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_sync_event(event),
@@ -77,6 +80,8 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
 
         let chainlock_dispatch_task = spawn_chainlock_wallet_dispatch(
             chainlock_dispatch_rx,
+            self.subscribe_progress().await,
+            stored_chain_locks,
             self.wallet.clone(),
             loop_shutdown.clone(),
             monitor_failure_tx.clone(),
@@ -86,6 +91,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
             "NetworkEvent",
             network_event_rx,
             handlers.clone(),
+            self.subscribe_progress().await,
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_network_event(event),
@@ -95,6 +101,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
             "WalletEvent",
             wallet_event_rx,
             handlers.clone(),
+            self.subscribe_progress().await,
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_wallet_event(event),
@@ -109,7 +116,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
 
         let monitors = vec![sync_task, network_task, wallet_task, progress_task];
 
-        if let Err(e) = self.start_sync().await {
+        if let Err(e) = self.start_sync(&config).await {
             loop_shutdown.cancel();
             monitor_shutdown.cancel();
             let _ = chainlock_dispatch_task.await;

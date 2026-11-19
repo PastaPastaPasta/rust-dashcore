@@ -32,7 +32,6 @@ mod rig_owner;
 mod sync_coordinator;
 mod transactions;
 
-#[cfg(test)]
 pub(crate) use lifecycle::effective_chainlocks_enabled;
 
 // Re-export public types from extracted modules
@@ -205,6 +204,29 @@ mod tests {
         assert!(first.fail_stop().is_tripped());
         assert!(clone.fail_stop().is_tripped());
         assert!(!second.fail_stop().is_tripped());
+    }
+
+    /// A lagged ChainLock dispatch reads the switch once per run, so it is fixed for the
+    /// client's life: only a change that keeps ChainLocks on or off is accepted.
+    #[tokio::test]
+    async fn update_config_rejects_a_chainlocks_switch_change() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = ClientConfig::regtest()
+            .without_filters()
+            .without_masternodes()
+            .with_storage_path(temp_dir.path());
+        let wallet = Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
+        let client = DashSpvClient::new(config.clone(), MockNetworkManager::new(), wallet, vec![])
+            .await
+            .expect("client construction must succeed");
+
+        let error = client
+            .update_config(config.clone().with_chainlocks_enabled(Some(true)))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("chainlocks_enabled"));
+
+        client.update_config(config.with_chainlocks_enabled(Some(false))).await.unwrap();
     }
 
     #[tokio::test]

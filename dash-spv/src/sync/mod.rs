@@ -34,4 +34,4 @@ pub(crate) use sync_coordinator::sync_event_bus;
 pub use sync_coordinator::{Managers, SyncCoordinator};
 pub use sync_manager::{SyncManager, SyncManagerProgress, SyncManagerTaskContext};
 
-const BEST_CHAINLOCK_METADATA_STORAGE_KEY: &str = "best_chainlock";
+pub(crate) const BEST_CHAINLOCK_METADATA_STORAGE_KEY: &str = "best_chainlock";

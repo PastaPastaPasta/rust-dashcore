@@ -13,7 +13,8 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::network::NetworkEvent;
-use crate::sync::{SyncEvent, SyncProgress, SyncState};
+use crate::storage::{MetadataStorage, PersistentMetadataStorage};
+use crate::sync::{SyncEvent, SyncProgress, SyncState, BEST_CHAINLOCK_METADATA_STORAGE_KEY};
 use dashcore::ephemerealdata::chain_lock::ChainLock;
 use key_wallet_manager::{WalletEvent, WalletInterface};
 
@@ -48,13 +49,15 @@ impl EventHandler for () {}
 /// subscribers, set a per-target filter such as
 /// `dash_spv::client::event_handler=warn`.
 ///
-/// On failure, the error message is sent via `on_failure` so the coordinator can report
-/// it as the single source of error handling. On `shutdown` it delivers the events
-/// already queued before it exits.
+/// A lag skips the missed events: the monitor logs a warning, delivers the latest
+/// `progress` to `on_progress` once and keeps receiving. An unexpected channel close
+/// is sent via `on_failure` so the coordinator can report it as the single source of
+/// error handling. On `shutdown` it delivers the events already queued before it exits.
 pub(crate) fn spawn_broadcast_monitor<E, F>(
     name: &'static str,
     mut receiver: broadcast::Receiver<E>,
     handlers: Arc<Vec<Arc<dyn EventHandler>>>,
+    progress: watch::Receiver<SyncProgress>,
     shutdown: CancellationToken,
     on_failure: mpsc::Sender<String>,
     dispatch_fn: F,
@@ -85,10 +88,11 @@ where
                         }
                         Err(broadcast::error::RecvError::Lagged(_)) if shutdown.is_cancelled() => break,
                         Err(broadcast::error::RecvError::Lagged(n)) => {
-                            let msg = format!("{} monitor lagged, missed {} events", name, n);
-                            tracing::error!("{}", msg);
-                            let _ = on_failure.try_send(msg);
-                            break;
+                            tracing::warn!("{} monitor lagged, skipped {} events", name, n);
+                            let snapshot = progress.borrow().clone();
+                            for handler in handlers.iter() {
+                                handler.on_progress(&snapshot);
+                            }
                         }
                     }
                 }
@@ -173,17 +177,26 @@ pub(crate) fn spawn_progress_monitor(
 ///
 /// Subscribes to [`SyncEvent::ChainLockReceived`] and
 /// [`SyncEvent::SyncComplete`], serializing all `apply_chain_lock`
-/// calls on a single task. During the initial sync cycle (cycle 0)
-/// chainlock arrivals are buffered as the latest-seen height rather
-/// than applied; only that height is passed on
-/// (`note_chain_lock_height`). At `SyncComplete { cycle: 0 }` the buffered height
-/// is applied once, then every subsequent validated chainlock is
-/// applied directly. Only validated chainlocks advance the wallet.
+/// calls on a single task. During the initial sync chainlock arrivals
+/// are buffered as the latest-seen height rather than applied; only
+/// that height is passed on (`note_chain_lock_height`). The first
+/// `SyncComplete` (cycle 0, or a later cycle while the initial sync
+/// has not completed) applies the buffered chainlock once, then every
+/// subsequent validated chainlock is applied directly. Only validated
+/// chainlocks advance the wallet.
+///
+/// A lag resyncs instead of stopping: a synced `progress` completes the
+/// initial sync, then the best chainlock in `stored_chain_locks` (which
+/// the ChainLock manager saves before it emits one) takes the path of a
+/// validated arrival. `stored_chain_locks` is `None` when this client's
+/// ChainLocks are off, so nothing stored is read.
 ///
 /// This is the single-writer point that the architecture relies on:
 /// promotions never interleave with each other.
 pub(crate) fn spawn_chainlock_wallet_dispatch<W>(
     mut sync_event_rx: broadcast::Receiver<SyncEvent>,
+    progress: watch::Receiver<SyncProgress>,
+    stored_chain_locks: Option<Arc<RwLock<PersistentMetadataStorage>>>,
     wallet: Arc<RwLock<W>>,
     shutdown: CancellationToken,
     on_failure: mpsc::Sender<String>,
@@ -194,31 +207,22 @@ where
     const NAME: &str = "ChainLock→wallet dispatch";
     tokio::spawn(async move {
         tracing::debug!("{} task started", NAME);
-        let mut initial_sync_complete = false;
-        let mut deferred_chain_lock: Option<ChainLock> = None;
+        let mut dispatch = ChainLockDispatch {
+            wallet,
+            initial_sync_complete: false,
+            deferred_chain_lock: None,
+        };
         loop {
             tokio::select! {
                 result = sync_event_rx.recv() => {
                     match result {
-                        Ok(SyncEvent::ChainLockReceived { chain_lock, validated }) => {
-                            if !validated {
-                                continue;
-                            }
-                            if initial_sync_complete {
-                                wallet.write().await.apply_chain_lock(chain_lock);
-                            } else if deferred_chain_lock
-                                .as_ref()
-                                .is_none_or(|buffered| chain_lock.block_height > buffered.block_height)
-                            {
-                                wallet.write().await.note_chain_lock_height(chain_lock.block_height);
-                                deferred_chain_lock = Some(chain_lock);
-                            }
+                        Ok(SyncEvent::ChainLockReceived { chain_lock, validated: true }) => {
+                            dispatch.chain_lock(chain_lock).await;
                         }
-                        Ok(SyncEvent::SyncComplete { cycle: 0, .. }) => {
-                            initial_sync_complete = true;
-                            if let Some(chain_lock) = deferred_chain_lock.take() {
-                                wallet.write().await.apply_chain_lock(chain_lock);
-                            }
+                        Ok(SyncEvent::SyncComplete { cycle, .. })
+                            if cycle == 0 || !dispatch.initial_sync_complete =>
+                        {
+                            dispatch.complete_initial_sync().await;
                         }
                         Ok(_) => {}
                         Err(broadcast::error::RecvError::Closed) if shutdown.is_cancelled() => break,
@@ -230,10 +234,16 @@ where
                         }
                         Err(broadcast::error::RecvError::Lagged(_)) if shutdown.is_cancelled() => break,
                         Err(broadcast::error::RecvError::Lagged(n)) => {
-                            let msg = format!("{} lagged, missed {} events", NAME, n);
-                            tracing::error!("{}", msg);
-                            let _ = on_failure.try_send(msg);
-                            break;
+                            tracing::warn!("{} monitor lagged, skipped {} events", NAME, n);
+                            let synced = progress.borrow().is_synced();
+                            if synced && !dispatch.initial_sync_complete {
+                                dispatch.complete_initial_sync().await;
+                            }
+                            if let Some(chain_lock) =
+                                stored_best_chain_lock(NAME, stored_chain_locks.as_ref()).await
+                            {
+                                dispatch.chain_lock(chain_lock).await;
+                            }
                         }
                     }
                 }
@@ -242,6 +252,64 @@ where
         }
         tracing::debug!("{} task exiting", NAME);
     })
+}
+
+/// The wallet state [`spawn_chainlock_wallet_dispatch`] keeps between events.
+struct ChainLockDispatch<W> {
+    wallet: Arc<RwLock<W>>,
+    initial_sync_complete: bool,
+    deferred_chain_lock: Option<ChainLock>,
+}
+
+impl<W: WalletInterface> ChainLockDispatch<W> {
+    /// A validated chainlock: applied once the initial sync completed, buffered before.
+    async fn chain_lock(&mut self, chain_lock: ChainLock) {
+        if self.initial_sync_complete {
+            self.wallet.write().await.apply_chain_lock(chain_lock);
+        } else if self
+            .deferred_chain_lock
+            .as_ref()
+            .is_none_or(|buffered| chain_lock.block_height > buffered.block_height)
+        {
+            self.wallet.write().await.note_chain_lock_height(chain_lock.block_height);
+            self.deferred_chain_lock = Some(chain_lock);
+        }
+    }
+
+    /// The end of the initial sync: applies the buffered chainlock.
+    async fn complete_initial_sync(&mut self) {
+        self.initial_sync_complete = true;
+        if let Some(chain_lock) = self.deferred_chain_lock.take() {
+            self.wallet.write().await.apply_chain_lock(chain_lock);
+        }
+    }
+}
+
+/// The best chainlock the ChainLock manager stored, which a lagged dispatch resyncs from.
+async fn stored_best_chain_lock(
+    name: &str,
+    stored_chain_locks: Option<&Arc<RwLock<PersistentMetadataStorage>>>,
+) -> Option<ChainLock> {
+    let storage = stored_chain_locks?;
+    match storage.read().await.load_metadata::<ChainLock>(BEST_CHAINLOCK_METADATA_STORAGE_KEY).await
+    {
+        Ok(Some(chain_lock)) => {
+            tracing::info!(
+                "{} resyncs from the stored best chainlock at height {}",
+                name,
+                chain_lock.block_height
+            );
+            Some(chain_lock)
+        }
+        Ok(None) => {
+            tracing::info!("{} has no stored best chainlock to resync from", name);
+            None
+        }
+        Err(e) => {
+            tracing::warn!("{} could not read the stored best chainlock: {}", name, e);
+            None
+        }
+    }
 }
 
 /// How often the reservation-sweep task wakes to reclaim expired reservations.
@@ -288,17 +356,35 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
+    use std::collections::BTreeSet;
+    use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+    use std::sync::{mpsc as std_mpsc, Arc};
+    use std::time::Duration;
 
-    use tokio::sync::{broadcast, mpsc, watch};
+    use dashcore::bls_sig_utils::BLSSignature;
+    use dashcore::ephemerealdata::chain_lock::ChainLock;
+    use dashcore::ephemerealdata::instant_lock::InstantLock;
+    use dashcore::prelude::CoreBlockHeight;
+    use dashcore::{Address, Block, BlockHash, OutPoint, ScriptBuf, Transaction};
+    use tokio::sync::{broadcast, mpsc, watch, RwLock};
     use tokio_util::sync::CancellationToken;
 
-    use super::{spawn_broadcast_monitor, spawn_progress_monitor, EventHandler};
+    use super::{
+        spawn_broadcast_monitor, spawn_chainlock_wallet_dispatch, spawn_progress_monitor,
+        EventHandler,
+    };
+    use crate::fault_hooks::with_sync_event_capacity;
     use crate::network::NetworkEvent;
-    use crate::sync::{ManagerIdentifier, SyncEvent, SyncProgress};
+    use crate::storage::{DiskStorageManager, MetadataStorage, StorageManager};
+    use crate::sync::{
+        sync_event_bus, BlockHeadersProgress, ManagerIdentifier, SyncEvent, SyncProgress,
+        SyncState, BEST_CHAINLOCK_METADATA_STORAGE_KEY,
+    };
     use crate::test_utils::test_socket_address;
-    use key_wallet_manager::WalletEvent;
+    use key_wallet_manager::{
+        BlockProcessingResult, MempoolTransactionResult, WalletError, WalletEvent, WalletId,
+        WalletInterface,
+    };
 
     struct RecordingHandler {
         sync_count: AtomicUsize,
@@ -344,6 +430,264 @@ mod tests {
         Arc::new(entries.into_iter().collect())
     }
 
+    fn idle_progress() -> watch::Receiver<SyncProgress> {
+        watch::channel(SyncProgress::default()).1
+    }
+
+    fn synced_progress() -> SyncProgress {
+        let mut headers = BlockHeadersProgress::default();
+        headers.set_state(SyncState::Synced);
+        let mut progress = SyncProgress::default();
+        progress.update_headers(headers);
+        assert!(progress.is_synced());
+        progress
+    }
+
+    fn headers_stored(tip_height: u32) -> SyncEvent {
+        SyncEvent::BlockHeadersStored {
+            tip_height,
+        }
+    }
+
+    fn chain_lock(block_height: u32) -> ChainLock {
+        ChainLock {
+            block_height,
+            block_hash: BlockHash::dummy(block_height),
+            signature: BLSSignature::from([0u8; 96]),
+        }
+    }
+
+    /// The warnings logged on this thread while the returned guard lives.
+    struct Warnings {
+        lines: std_mpsc::Receiver<Vec<u8>>,
+        text: String,
+        _guard: tracing::subscriber::DefaultGuard,
+    }
+
+    struct WarningWriter(std_mpsc::Sender<Vec<u8>>);
+
+    impl std::io::Write for WarningWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let _ = self.0.send(buf.to_vec());
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Warnings {
+        fn capture() -> Self {
+            let (sender, lines) = std_mpsc::channel();
+            let subscriber = tracing_subscriber::fmt()
+                .with_max_level(tracing::Level::WARN)
+                .with_ansi(false)
+                .with_writer(move || WarningWriter(sender.clone()))
+                .finish();
+            Self {
+                lines,
+                text: String::new(),
+                _guard: tracing::subscriber::set_default(subscriber),
+            }
+        }
+
+        fn count(&mut self, needle: &str) -> usize {
+            while let Ok(chunk) = self.lines.try_recv() {
+                self.text.push_str(&String::from_utf8_lossy(&chunk));
+            }
+            self.text.matches(needle).count()
+        }
+    }
+
+    async fn wait_until(what: &str, mut done: impl AsyncFnMut() -> bool) {
+        for _ in 0..1000 {
+            if done().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("timed out waiting until {what}");
+    }
+
+    /// Sleeps in every sync event, so its monitor falls behind a fast sender.
+    struct SlowHandler {
+        delay: Duration,
+        entered: AtomicBool,
+        last_tip: AtomicU32,
+        progress_count: AtomicUsize,
+        error_count: AtomicUsize,
+    }
+
+    impl EventHandler for SlowHandler {
+        fn on_sync_event(&self, event: &SyncEvent) {
+            self.entered.store(true, Ordering::SeqCst);
+            std::thread::sleep(self.delay);
+            if let SyncEvent::BlockHeadersStored {
+                tip_height,
+            } = event
+            {
+                self.last_tip.store(*tip_height, Ordering::SeqCst);
+            }
+        }
+        fn on_progress(&self, _progress: &SyncProgress) {
+            self.progress_count.fetch_add(1, Ordering::SeqCst);
+        }
+        fn on_error(&self, _error: &str) {
+            self.error_count.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    /// Records the chainlocks the dispatch hands the wallet.
+    #[derive(Default)]
+    struct ChainLockWallet {
+        applied: Vec<u32>,
+        noted: Vec<u32>,
+    }
+
+    #[async_trait::async_trait]
+    impl WalletInterface for ChainLockWallet {
+        async fn process_block_for_wallets(
+            &mut self,
+            _block: &Block,
+            _block_hash: BlockHash,
+            _height: CoreBlockHeight,
+            _wallets: &BTreeSet<WalletId>,
+        ) -> BlockProcessingResult {
+            BlockProcessingResult::default()
+        }
+        async fn process_mempool_transaction(
+            &mut self,
+            _tx: &Transaction,
+            _instant_lock: Option<InstantLock>,
+        ) -> MempoolTransactionResult {
+            MempoolTransactionResult::default()
+        }
+        fn monitored_addresses(&self) -> Vec<Address> {
+            Vec::new()
+        }
+        fn monitored_script_pubkeys_for(&self, _wallet_id: &WalletId) -> Vec<ScriptBuf> {
+            Vec::new()
+        }
+        fn watched_outpoints(&self) -> Vec<OutPoint> {
+            Vec::new()
+        }
+        fn last_processed_height(&self) -> CoreBlockHeight {
+            0
+        }
+        fn synced_height(&self) -> CoreBlockHeight {
+            0
+        }
+        fn wallets_behind(&self, _height: CoreBlockHeight) -> BTreeSet<WalletId> {
+            BTreeSet::new()
+        }
+        fn wallet_synced_height(&self, _wallet_id: &WalletId) -> CoreBlockHeight {
+            0
+        }
+        fn update_wallet_synced_height(&mut self, _wallet_id: &WalletId, _height: CoreBlockHeight) {
+        }
+        fn truncate_above(&mut self, _height: CoreBlockHeight) -> Result<(), WalletError> {
+            Ok(())
+        }
+        fn update_wallet_last_processed_height(
+            &mut self,
+            _wallet_id: &WalletId,
+            _height: CoreBlockHeight,
+        ) {
+        }
+        fn subscribe_events(&self) -> broadcast::Receiver<WalletEvent> {
+            broadcast::channel(1).1
+        }
+        fn apply_chain_lock(&mut self, chain_lock: ChainLock) {
+            self.applied.push(chain_lock.block_height);
+        }
+        fn note_chain_lock_height(&mut self, height: CoreBlockHeight) {
+            self.noted.push(height);
+        }
+    }
+
+    /// A dispatch on a 4-event bus over a store holding the best chainlock at height 100,
+    /// lagged while the test holds the wallet lock: it buffers the chainlock at height 50,
+    /// then misses `SyncComplete { cycle: 0 }` and the events after it.
+    struct LaggedDispatch {
+        bus: broadcast::Sender<SyncEvent>,
+        wallet: Arc<RwLock<ChainLockWallet>>,
+        failures: mpsc::Receiver<String>,
+        shutdown: CancellationToken,
+        task: tokio::task::JoinHandle<()>,
+        _storage: DiskStorageManager,
+    }
+
+    impl LaggedDispatch {
+        async fn run(progress: SyncProgress, chain_locks_on: bool) -> Self {
+            let storage = DiskStorageManager::with_temp_dir().await.unwrap();
+            let bytes = serde_json::to_vec(&chain_lock(100)).unwrap();
+            storage
+                .metadata()
+                .write()
+                .await
+                .store_metadata(BEST_CHAINLOCK_METADATA_STORAGE_KEY, &bytes)
+                .await
+                .unwrap();
+            let bus = with_sync_event_capacity(4, async { sync_event_bus() }).await;
+            let wallet = Arc::new(RwLock::new(ChainLockWallet::default()));
+            let shutdown = CancellationToken::new();
+            let (failure_tx, failures) = mpsc::channel(1);
+            let task = spawn_chainlock_wallet_dispatch(
+                bus.subscribe(),
+                watch::channel(progress).1,
+                chain_locks_on.then(|| storage.metadata()),
+                wallet.clone(),
+                shutdown.clone(),
+                failure_tx,
+            );
+
+            let held = wallet.write().await;
+            bus.send(SyncEvent::ChainLockReceived {
+                chain_lock: chain_lock(50),
+                validated: true,
+            })
+            .unwrap();
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            bus.send(SyncEvent::SyncComplete {
+                header_tip: 100,
+                cycle: 0,
+            })
+            .unwrap();
+            for tip_height in 0..8 {
+                bus.send(headers_stored(tip_height)).unwrap();
+            }
+            drop(held);
+            Self {
+                bus,
+                wallet,
+                failures,
+                shutdown,
+                task,
+                _storage: storage,
+            }
+        }
+
+        async fn wait_for_noted(&self, height: u32) {
+            wait_until(&format!("the wallet noted height {height}"), async || {
+                self.wallet.read().await.noted.contains(&height)
+            })
+            .await;
+        }
+
+        async fn wait_for_applied(&self, heights: &[u32]) {
+            wait_until(&format!("the wallet applied exactly {heights:?}"), async || {
+                self.wallet.read().await.applied == heights
+            })
+            .await;
+        }
+
+        async fn stop(mut self) {
+            assert!(matches!(self.failures.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
+            self.shutdown.cancel();
+            self.task.await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn noop_handler_does_not_panic() {
         let handler: () = ();
@@ -370,6 +714,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -408,6 +753,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -430,6 +776,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -444,44 +791,115 @@ mod tests {
         assert_eq!(handler.error_count.load(Ordering::SeqCst), 0);
     }
 
+    /// A handler too slow for the bus makes its monitor lag: the monitor skips what it
+    /// missed, resyncs the progress and keeps delivering, and nothing stops the client.
     #[tokio::test]
-    async fn broadcast_monitor_exits_on_lagged_receiver() {
-        let (tx, rx) = broadcast::channel(2);
-        let handler = Arc::new(RecordingHandler::new());
+    async fn slow_handler_lag_resyncs_and_keeps_running() {
+        let mut warnings = Warnings::capture();
+        let bus = with_sync_event_capacity(4, async { sync_event_bus() }).await;
+        let handler = Arc::new(SlowHandler {
+            delay: Duration::from_millis(50),
+            entered: AtomicBool::new(false),
+            last_tip: AtomicU32::new(u32::MAX),
+            progress_count: AtomicUsize::new(0),
+            error_count: AtomicUsize::new(0),
+        });
         let shutdown = CancellationToken::new();
         let (failure_tx, mut failure_rx) = mpsc::channel(1);
-
-        // Send more messages than the buffer can hold before spawning the monitor
-        tx.send(SyncEvent::BlockHeadersStored {
-            tip_height: 1,
-        })
-        .unwrap();
-        tx.send(SyncEvent::BlockHeadersStored {
-            tip_height: 2,
-        })
-        .unwrap();
-        tx.send(SyncEvent::BlockHeadersStored {
-            tip_height: 3,
-        })
-        .unwrap();
-
         let task = spawn_broadcast_monitor(
-            "test",
-            rx,
+            "SyncEvent",
+            bus.subscribe(),
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
         );
 
-        // The monitor should exit on its own due to the lagged error
-        task.await.unwrap();
+        let sender = {
+            let bus = bus.clone();
+            let handler = handler.clone();
+            std::thread::spawn(move || {
+                bus.send(headers_stored(0)).unwrap();
+                while !handler.entered.load(Ordering::SeqCst) {
+                    std::thread::yield_now();
+                }
+                for tip_height in 1..64 {
+                    bus.send(headers_stored(tip_height)).unwrap();
+                }
+            })
+        };
+        wait_until("the monitor delivered the last of the 64 events", async || {
+            handler.last_tip.load(Ordering::SeqCst) == 63
+        })
+        .await;
+        sender.join().unwrap();
 
-        // No sync events should have been dispatched, failure sent via channel
-        assert_eq!(handler.sync_count.load(Ordering::SeqCst), 0);
+        bus.send(headers_stored(1000)).unwrap();
+        wait_until("the monitor delivered the next event", async || {
+            handler.last_tip.load(Ordering::SeqCst) == 1000
+        })
+        .await;
+
+        assert!(matches!(failure_rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
+        assert_eq!(warnings.count("SyncEvent monitor lagged, skipped"), 1, "{}", warnings.text);
+        assert_eq!(handler.progress_count.load(Ordering::SeqCst), 1);
         assert_eq!(handler.error_count.load(Ordering::SeqCst), 0);
-        let msg = failure_rx.try_recv().expect("should have received failure message");
-        assert!(msg.contains("lagged"));
+
+        shutdown.cancel();
+        task.await.unwrap();
+    }
+
+    /// A dispatch that lags across the end of the initial sync resyncs from the progress
+    /// and the stored best chainlock, so the wallet still gets the chainlocks it missed.
+    #[tokio::test]
+    async fn chainlock_dispatch_lag_applies_the_deferred_lock() {
+        let mut warnings = Warnings::capture();
+        let dispatch = LaggedDispatch::run(synced_progress(), true).await;
+        dispatch.wait_for_applied(&[50, 100]).await;
+        assert_eq!(dispatch.wallet.read().await.noted, vec![50]);
+        dispatch.stop().await;
+        assert_eq!(
+            warnings.count("ChainLock→wallet dispatch monitor lagged, skipped"),
+            1,
+            "{}",
+            warnings.text
+        );
+
+        let dispatch = LaggedDispatch::run(SyncProgress::default(), true).await;
+        dispatch.wait_for_noted(100).await;
+        assert!(dispatch.wallet.read().await.applied.is_empty());
+        dispatch
+            .bus
+            .send(SyncEvent::SyncComplete {
+                header_tip: 100,
+                cycle: 1,
+            })
+            .unwrap();
+        dispatch.wait_for_applied(&[100]).await;
+        assert_eq!(dispatch.wallet.read().await.noted, vec![50, 100]);
+        dispatch.stop().await;
+        assert_eq!(warnings.count("ChainLock→wallet dispatch monitor lagged, skipped"), 2);
+    }
+
+    /// With ChainLocks off the resync reads no stored chainlock, so the wallet gets none
+    /// of it, while the dispatch keeps running.
+    #[tokio::test]
+    async fn chainlock_dispatch_lag_with_chain_locks_off_applies_no_stored_lock() {
+        let mut warnings = Warnings::capture();
+        let dispatch = LaggedDispatch::run(synced_progress(), false).await;
+        dispatch.wait_for_applied(&[50]).await;
+        dispatch
+            .bus
+            .send(SyncEvent::ChainLockReceived {
+                chain_lock: chain_lock(150),
+                validated: true,
+            })
+            .unwrap();
+        dispatch.wait_for_applied(&[50, 150]).await;
+        assert_eq!(dispatch.wallet.read().await.noted, vec![50]);
+        dispatch.stop().await;
+        assert_eq!(warnings.count("ChainLock→wallet dispatch monitor lagged, skipped"), 1);
     }
 
     #[tokio::test]
@@ -554,6 +972,7 @@ mod tests {
             "network",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &NetworkEvent| h.on_network_event(event),
@@ -586,6 +1005,7 @@ mod tests {
                 first.clone() as Arc<dyn EventHandler>,
                 second.clone() as Arc<dyn EventHandler>,
             ]),
+            idle_progress(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),

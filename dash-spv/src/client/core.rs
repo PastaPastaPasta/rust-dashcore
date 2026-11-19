@@ -16,8 +16,8 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::{JoinHandle, JoinSet};
 use tokio_util::sync::CancellationToken;
 
-use super::ClientConfig;
 use super::SpvFailStop;
+use super::{effective_chainlocks_enabled, ClientConfig};
 use crate::error::{Result, SpvError, StorageResult};
 use crate::network::NetworkManager;
 use crate::storage::{
@@ -237,6 +237,11 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         }
         if new_config.devnet != config.devnet {
             return Err(SpvError::Config("Cannot change devnet on running client".to_string()));
+        }
+        if effective_chainlocks_enabled(&new_config) != effective_chainlocks_enabled(&config) {
+            return Err(SpvError::Config(
+                "Cannot change chainlocks_enabled on running client".to_string(),
+            ));
         }
 
         // Update configuration

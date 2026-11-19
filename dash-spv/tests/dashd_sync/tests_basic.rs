@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{mpsc as std_mpsc, Arc};
 use std::time::Duration;
+
+use dash_spv::EventHandler;
 
 use dash_spv::Network;
 use dash_spv::{ProgressPercentage, SyncEvent};
@@ -175,4 +178,108 @@ async fn test_empty_wallet_manager_no_spurious_rescan() {
     );
 
     client_handle.stop().await;
+}
+
+/// Sleeps 250 ms in every sync event, then hands it on like `TestEventHandler`.
+struct SlowSyncHandler {
+    inner: dash_spv::test_utils::TestEventHandler,
+    errors: AtomicUsize,
+}
+
+impl EventHandler for SlowSyncHandler {
+    fn on_sync_event(&self, event: &SyncEvent) {
+        std::thread::sleep(Duration::from_millis(250));
+        self.inner.on_sync_event(event);
+    }
+    fn on_network_event(&self, event: &dash_spv::network::NetworkEvent) {
+        self.inner.on_network_event(event);
+    }
+    fn on_progress(&self, progress: &dash_spv::SyncProgress) {
+        self.inner.on_progress(progress);
+    }
+    fn on_wallet_event(&self, event: &WalletEvent) {
+        self.inner.on_wallet_event(event);
+    }
+    fn on_error(&self, error: &str) {
+        self.errors.fetch_add(1, Ordering::SeqCst);
+        self.inner.on_error(error);
+    }
+}
+
+struct WarningWriter(std_mpsc::Sender<Vec<u8>>);
+
+impl std::io::Write for WarningWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let _ = self.0.send(buf.to_vec());
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// A handler sleeping 250 ms in every sync event lags the `SyncEvent` monitor on a
+/// 32-event bus during the initial sync. The monitor resyncs instead of stopping the
+/// client: the client reaches synced and keeps running, and `on_error` is never called.
+///
+/// A smaller bus also makes the sync managers lag, and a manager does not recover the
+/// events it skipped, so the sync stalls; the handler is slow enough to lag this bus.
+///
+/// The client's tasks run on worker threads, which log their warnings to this test.
+#[test]
+fn slow_handler_never_stops_the_client() {
+    let (sender, warnings) = std_mpsc::channel();
+    let capture = tracing::Dispatch::new(
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .with_writer(move || WarningWriter(sender.clone()))
+            .finish(),
+    );
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .enable_all()
+        .on_thread_start(move || std::mem::forget(tracing::dispatcher::set_default(&capture)))
+        .build()
+        .unwrap();
+
+    let ran = runtime.block_on(async {
+        let Some(ctx) = TestContext::new(TestChain::Full).await else {
+            return false;
+        };
+        let handler = Arc::new(SlowSyncHandler {
+            inner: dash_spv::test_utils::TestEventHandler::new(),
+            errors: AtomicUsize::new(0),
+        });
+        let mut progress = handler.inner.subscribe_progress();
+        let network = dash_spv::network::PeerNetworkManager::new(&ctx.client_config).await;
+        let client = dash_spv::fault_hooks::with_sync_event_capacity(
+            32,
+            dash_spv::DashSpvClient::new(
+                ctx.client_config.clone(),
+                network,
+                Arc::clone(&ctx.wallet),
+                vec![handler.clone()],
+            ),
+        )
+        .await
+        .expect("Failed to create client");
+        client.run().await.expect("client run failed");
+
+        wait_for_sync(&mut progress, ctx.dashd.initial_height).await;
+        assert!(client.is_running(), "the client stopped");
+        assert_eq!(handler.errors.load(Ordering::SeqCst), 0, "on_error was called");
+
+        client.stop().await;
+        assert_eq!(handler.errors.load(Ordering::SeqCst), 0, "on_error was called");
+        true
+    });
+    drop(runtime);
+    if !ran {
+        return;
+    }
+
+    let text: String =
+        warnings.try_iter().map(|chunk| String::from_utf8_lossy(&chunk).into_owned()).collect();
+    assert!(text.contains("SyncEvent monitor lagged, skipped"), "no lag warning in:\n{text}");
 }
