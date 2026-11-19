@@ -1,0 +1,126 @@
+diff --git a/node-l1/src/specialtx.rs b/node-l1/src/specialtx.rs
+index e2998fc9b4a9a0addb4f1ff21a5474f8acaff9c1..5cd91a8947663f06b331bdcb8c09b3c41d48d627 100644
+--- a/node-l1/src/specialtx.rs
++++ b/node-l1/src/specialtx.rs
+@@ -2237,15 +2237,21 @@ fn ipv6(n: u8) -> [u8; 16] {
+ }
+ 
+ /// The Platform purpose `arg` picks (P2P on an even `arg`, HTTPS on an odd one) and its first
+-/// entry, if the ProRegTx's or ProUpServTx's ExtNetInfo has that purpose.
+-fn platform_primary(case: &mut Case, arg: u8) -> Option<(NIPurpose, &mut NIEntry)> {
++/// entry, given to `edit`, if the ProRegTx's or ProUpServTx's ExtNetInfo has that purpose
++/// ([`ExtEntries`], written back when it goes).
++fn edit_platform_primary(
++    case: &mut Case,
++    arg: u8,
++    edit: impl FnOnce(NIPurpose, &mut NIEntry) -> Option<Option<u8>>,
++) -> Option<Option<u8>> {
+     let purpose = if arg & 1 == 0 {
+         NIPurpose::PlatformP2p
+     } else {
+         NIPurpose::PlatformHttps
+     };
+-    let (_, list) = ext_entries(case)?.iter_mut().find(|(p, _)| *p == purpose)?;
+-    Some((purpose, list.first_mut()?))
++    let mut entries = ext_entries(case)?;
++    let (_, list) = entries.iter_mut().find(|(p, _)| *p == purpose)?;
++    edit(purpose, list.first_mut()?)
+ }
+ 
+ /// The core service's address of the ProRegTx's or ProUpServTx's network info set to `addr`,
+@@ -2284,14 +2290,19 @@ impl std::ops::DerefMut for PurposeEntries<'_> {
+ /// old address with it, so `CheckIPv4Primaries` (providertx.cpp v24.0.0:232-255, before the
+ /// list checks) passes.
+ fn move_core_primary(case: &mut Case, addr: [u8; 4]) -> Option<Option<u8>> {
+-    let core = core_service(case)?;
+-    let old = std::mem::replace(&mut core.addr, AddrV2::Ipv4(addr));
+-    for (purpose, list) in ext_entries(case)? {
++    let mut entries = ext_entries(case)?;
++    let (_, core) = entries.iter_mut().find(|(p, _)| *p == NIPurpose::CoreP2p)?;
++    let NIEntry::Service(core) = core.first_mut()? else {
++        return None;
++    };
++    let old = core.addr().clone();
++    *core = ServiceV2::new(AddrV2::Ipv4(addr), core.port());
++    for (purpose, list) in entries.iter_mut() {
+         if *purpose != NIPurpose::CoreP2p
+             && let Some(NIEntry::Service(s)) = list.first_mut()
+             && *s.addr() == old
+         {
+-            s = dash_primitives::ServiceV2::new(AddrV2::Ipv4(addr), s.port());
++            *s = ServiceV2::new(AddrV2::Ipv4(addr), s.port());
+         }
+     }
+     DONE
+@@ -2688,42 +2699,40 @@ const NET_INFO: &[Mutation] = &[
+ /// ProUpServTx.
+ const PLATFORM_FIELDS: &[Mutation] = &[
+     m("nf:2c.i", &[BAD_PROTX_NETINFO_ADDR_TYPE], |c, _| {
+-        let core = core_service(c)?;
+-        core.addr = AddrV2::Ipv6(ipv6(FRESH));
++        set_core_addr(c, AddrV2::Ipv6(ipv6(FRESH)))?;
+         DONE
+     }),
+     m("nf:2c.ii", &[BAD_PROTX_NETINFO_ADDR_TYPE], |c, arg| {
+-        let (purpose, first) = platform_primary(c, arg)?;
+-        let port = match first {
+-            NIEntry::Service(s) => s.port(),
+-            NIEntry::Domain {
+-                ..
+-            } => return DONE,
+-            NIEntry::Invalid => return None,
+-        };
+-        *first = if purpose == NIPurpose::PlatformHttps && arg & 2 != 0 {
+-            NIEntry::Domain {
+-                name: b"example.com".to_vec(),
+-                port,
+-            }
+-        } else {
+-            NIEntry::Service(ServiceV2 {
+-                addr: AddrV2::Ipv6(ipv6(FRESH)),
+-                port,
+-            })
+-        };
+-        DONE
++        edit_platform_primary(c, arg, |purpose, first| {
++            let port = match first {
++                NIEntry::Service(s) => s.port(),
++                NIEntry::Domain {
++                    ..
++                } => return DONE,
++                NIEntry::Invalid => return None,
++            };
++            *first = if purpose == NIPurpose::PlatformHttps && arg & 2 != 0 {
++                NIEntry::Domain {
++                    name: b"example.com".to_vec(),
++                    port,
++                }
++            } else {
++                NIEntry::Service(ServiceV2::new(AddrV2::Ipv6(ipv6(FRESH)), port))
++            };
++            DONE
++        })
+     }),
+     m("nf:2c.iii", &[BAD_PROTX_NETINFO_ADDR], |c, arg| {
+-        let (_, first) = platform_primary(c, arg)?;
+-        let NIEntry::Service(s) = first else {
+-            return None;
+-        };
+-        if !matches!(s.addr(), AddrV2::Ipv4(_)) {
+-            return None;
+-        }
+-        *s = dash_primitives::ServiceV2::new(AddrV2::Ipv4([1, 2, 4, FRESH]), s.port());
+-        DONE
++        edit_platform_primary(c, arg, |_, first| {
++            let NIEntry::Service(s) = first else {
++                return None;
++            };
++            if !matches!(s.addr(), AddrV2::Ipv4(_)) {
++                return None;
++            }
++            *s = ServiceV2::new(AddrV2::Ipv4([1, 2, 4, FRESH]), s.port());
++            DONE
++        })
+     }),
+     m("nf:4", &[BAD_PROTX_PLATFORM_NODEID], |c, _| {
+         let f = net_fields(c)?;
