@@ -1,0 +1,38 @@
+[package]
+name = "dashd-governance"
+description = "The Rust Dash node's governance runtime: the governance lock, the published trigger view, collateral lookups through the transaction index, randomness and the chain-command seam"
+publish = false
+# Ports Dash Core code (MIT).
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# The serial executor and the non-`Sync` chain fakes, for this crate's dependents' tests.
+testing = []
+
+[dependencies]
+arc-swap = "1.7"
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-governance = { path = "../dash-governance" }
+# `FastRandom` (Core's `FastRandomContext`) and the process `RandSource`.
+dash-p2p = { path = "../dash-p2p" }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+# IX1's `TxIndexReader` and `LocatedTx`.
+dashd-indexes = { path = "../dashd-indexes" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# `testkit::numbered` masternodes, whose operator keys sign the tests' votes.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+proptest = "1.11"
+
+[lints]
+workspace = true
