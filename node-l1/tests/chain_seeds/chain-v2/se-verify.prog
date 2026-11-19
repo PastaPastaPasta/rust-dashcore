@@ -1,0 +1,4 @@
+# script error "Script failed an OP_VERIFY operation" (bank slot 13, se_verify): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_verify
+extend main 1
