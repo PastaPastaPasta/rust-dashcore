@@ -1,0 +1,10 @@
+# MicroLog planted bug X3 (ST3a §6.1), minimised in 22 replays.
+harness st3a/1
+sut microlog
+config bug=X3 max=1024
+workload a300:2;c
+crash 6 process-kill
+adversary realistic
+granularity write
+expect R1
+minimality verified
