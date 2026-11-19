@@ -1622,6 +1622,18 @@ impl PeerNetworkManager {
         peer: &Arc<RwLock<Peer>>,
         message: NetworkMessage,
     ) -> NetworkResult<()> {
+        // Dash Core disconnects a client that sends a Bloom or mempool message to a
+        // node that does not advertise NODE_BLOOM. Such a peer still serves headers,
+        // filters and blocks, so the message is left out and the peer is kept.
+        if matches!(
+            message,
+            NetworkMessage::FilterLoad(_) | NetworkMessage::FilterClear | NetworkMessage::MemPool
+        ) && !peer.read().await.has_service(ServiceFlags::BLOOM)
+        {
+            tracing::debug!("Peer {} has no Bloom service, not sending {}", addr, message.cmd());
+            return Ok(());
+        }
+
         let message = match message {
             NetworkMessage::GetHeaders(get_headers) => {
                 let supports_headers2 = peer.read().await.can_request_headers2();
@@ -2100,6 +2112,15 @@ impl PeerNetworkManager {
         self.connected_peer_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(crate) async fn test_send_to_peer(
+        &self,
+        addr: SocketAddr,
+        message: NetworkMessage,
+    ) -> NetworkResult<()> {
+        let peer = self.pool.get_peer(&addr).await.expect("test peer");
+        self.send_message_to_peer(&addr, &peer, message).await
+    }
+
     pub(crate) async fn test_peer_count(&self) -> usize {
         self.pool.peer_count().await
     }
@@ -2208,6 +2229,23 @@ mod header_ordering_tests {
             },
             receiver,
         )
+    }
+
+    #[tokio::test]
+    async fn bloom_and_mempool_messages_skip_a_peer_without_the_bloom_service() {
+        let manager = PeerNetworkManager::new_for_test(ServiceFlags::NONE).await;
+        let (plain, bloom) = (test_socket_address(1), test_socket_address(2));
+        manager.pool.insert_peer_with_services(plain, ServiceFlags::COMPACT_FILTERS).await;
+        manager.pool.insert_peer_with_services(bloom, ServiceFlags::BLOOM).await;
+
+        for message in [NetworkMessage::FilterClear, NetworkMessage::MemPool] {
+            // Left out, and no send is tried on the peer.
+            manager.test_send_to_peer(plain, message.clone()).await.unwrap();
+            // The dummy peer has no connection, so a send that is tried fails.
+            assert!(manager.test_send_to_peer(bloom, message).await.is_err());
+        }
+        // Everything else still goes to the peer without the service.
+        assert!(manager.test_send_to_peer(plain, NetworkMessage::GetAddr).await.is_err());
     }
 
     #[test]

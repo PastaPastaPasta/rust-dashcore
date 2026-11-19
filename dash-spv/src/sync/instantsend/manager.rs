@@ -141,10 +141,14 @@ impl<H: BlockHeaderStorage> InstantSendManager<H> {
 
         tracing::info!("Processing InstantLock for txid {}", txid);
 
-        // Check for duplicates
-        if self.instantlocks.contains_key(&txid) {
-            tracing::debug!("Already have InstantLock for txid {}", txid);
-            return Ok(vec![]);
+        // A verified lock is final, and the same lock again adds nothing. A
+        // different lock for a txid whose cached one has not verified is taken:
+        // the first to arrive may be one that never will.
+        if let Some(known) = self.instantlocks.get(&txid) {
+            if known.validated || known.instant_lock == *instantlock {
+                tracing::debug!("Already have InstantLock for txid {}", txid);
+                return Ok(vec![]);
+            }
         }
 
         // A malformed lock is dropped before it is queued or cached, so it can
@@ -254,6 +258,11 @@ impl<H: BlockHeaderStorage> InstantSendManager<H> {
         for pending_lock in pending {
             let txid = pending_lock.instant_lock.txid;
 
+            // Another candidate for this txid has verified since: this one is moot.
+            if self.instantlocks.get(&txid).is_some_and(|entry| entry.validated) {
+                continue;
+            }
+
             // Drop locks that have been awaiting quorum data for too long.
             if pending_lock.is_expired_logged(now) {
                 self.progress.add_invalid(1);
@@ -268,8 +277,9 @@ impl<H: BlockHeaderStorage> InstantSendManager<H> {
 
             if validated {
                 self.progress.add_valid(1);
-                // Update the cached entry
+                // The cached entry may hold another candidate for this txid.
                 if let Some(entry) = self.instantlocks.get_mut(&txid) {
+                    entry.instant_lock = pending_lock.instant_lock.clone();
                     entry.validated = true;
                 }
                 events.push(SyncEvent::InstantLockReceived {
@@ -499,6 +509,32 @@ mod tests {
         // Second should be ignored as duplicate
         let events2 = manager.process_instantlock(&islock2).await.unwrap();
         assert_eq!(events2.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn another_lock_for_a_txid_replaces_one_that_has_not_verified() {
+        let mut manager = create_test_manager();
+
+        let txid = Txid::from_byte_array([1u8; 32]);
+        let first = create_test_instantlock(txid);
+        let mut second = first.clone();
+        second.signature = BLSSignature::from([7; 96]);
+        assert_ne!(first, second);
+
+        manager.process_instantlock(&first).await.unwrap();
+        let events = manager.process_instantlock(&second).await.unwrap();
+        assert_eq!(events.len(), 1, "the second candidate is taken, not dropped as a duplicate");
+        assert_eq!(manager.pending_instantlocks.len(), 2, "and both wait to be verified");
+        assert_eq!(manager.instantlocks[&txid].instant_lock, second);
+
+        // Once one has verified, no further candidate is taken.
+        manager.instantlocks.get_mut(&txid).unwrap().validated = true;
+        let mut third = first.clone();
+        third.signature = BLSSignature::from([9; 96]);
+        assert!(manager.process_instantlock(&third).await.unwrap().is_empty());
+        // And the ones still waiting are dropped at the next pass.
+        assert!(manager.validate_pending(Instant::now()).await.unwrap().is_empty());
+        assert!(manager.pending_instantlocks.is_empty());
     }
 
     #[test_case(|lock| lock.txid = Txid::all_zeros(); "null txid")]
