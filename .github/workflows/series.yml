@@ -1,0 +1,259 @@
+# series: per-commit fmt, clippy and lib + integration tests (dashd tests skipped) of a series snapshot on the personal fork (DEC-1705).
+#
+# contrib/node/check-fork-push.sh series builds a synthetic chain, one commit per commit of a
+# linear range, each holding that commit's checked snapshot tree and the message
+# "series <label> k/N <12-hex source sha>"; push-fork-snapshot.sh --series pushes it as
+# series/<12-hex>. This workflow never fires on a push (node-gate.yml fires on ci/** only). It runs
+# on a dispatch: `gh workflow run series.yml --ref <default branch or the series branch>
+# -f series_ref=series/<12-hex> -f crates="<crate> ..."`; a dispatch needs this file on the
+# default branch. Runs queue per series_ref (cancel-in-progress: false), and GitHub keeps one pending
+# run per group: a third dispatch of the same series_ref while one runs replaces the pending second.
+#
+# Jobs:
+#   list     the chain's commits, first to last, as the matrix (the chain is all of the ref's history).
+#   commit   one leg per commit: cargo fmt --all --check, then cargo clippy and cargo test --lib --tests
+#            (unit and integration tests; no doctests) of each crate with all features. SKIP_DASHD_TESTS=1:
+#            every dashd-gated integration test in the named crates is skipped (exact-head RDC-CI runs
+#            them). Crates whose tests need dashd or rdashd unconditionally (rdashd's require_dashd
+#            tests, dash-testkit) are not supported here. Every step runs whatever the earlier ones returned; the leg fails
+#            when any return code is nonzero.
+#   summary  one row per commit (k/N, source sha, fmt/clippy/test return codes) in the step summary and
+#            in the series-summary artifact. No tree is uploaded.
+#
+# The setup steps are node-gate.yml's: the toolchain from rust-toolchain.toml, the shard's disk
+# cleanup, and static's base SDK pin to a local clone of the public fork.
+name: series
+run-name: series ${{ inputs.series_ref }} ${{ inputs.crates }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      series_ref:
+        description: "series/<12-hex> branch of the chain to check"
+        required: true
+        type: string
+      crates:
+        description: "Space-separated crates: clippy and lib + integration tests (dashd-gated tests skipped, no doctests) of each on every commit; not rdashd or dash-testkit"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: series-${{ inputs.series_ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_NET_RETRY: "10"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  list:
+    name: List
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - name: Inputs
+        env:
+          SERIES_REF: ${{ inputs.series_ref }}
+          CRATES: ${{ inputs.crates }}
+        run: |
+          [[ "$SERIES_REF" =~ ^series/[0-9a-f]{12}$ ]] || { echo "::error::series_ref is not series/<12-hex>"; exit 1; }
+          [[ "$CRATES" =~ ^[A-Za-z0-9_-]+( [A-Za-z0-9_-]+)*$ ]] || { echo "::error::crates is not a space-separated list of crate names"; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: refs/heads/${{ inputs.series_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The chain is linear from a parentless first commit, each message names its place in it.
+      - name: List the chain
+        id: list
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout
+          commits = git("rev-list", "--reverse", "HEAD").split()
+          include, prev = [], None
+          for k, sha in enumerate(commits, 1):
+              parents = git("rev-list", "--parents", "-n", "1", sha).split()[1:]
+              subject = git("log", "-1", "--format=%B", sha).strip()
+              m = re.fullmatch(r"series [A-Za-z0-9._-]{1,64} ([0-9]+)/([0-9]+) ([0-9a-f]{12})", subject)
+              if parents != ([prev] if prev else []) or not m or int(m[1]) != k or int(m[2]) != len(commits):
+                  raise SystemExit(f"::error::commit {k} of {len(commits)} ({sha[:12]}) is not link {k} of a series chain")
+              include.append({"k": k, "n": len(commits), "sha": sha, "source": m[3]})
+              prev = sha
+          if not 1 <= len(include) <= 64:
+              raise SystemExit(f"::error::{len(include)} commits (want 1 to 64)")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"matrix={json.dumps({'include': include})}\n")
+          print(f"{len(include)} commits")
+          PY
+
+  commit:
+    name: ${{ matrix.k }}/${{ matrix.n }} ${{ matrix.source }}
+    needs: list
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.list.outputs.matrix) }}
+    env:
+      CRATES: ${{ inputs.crates }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+          android: true
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+
+      # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
+      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
+      - name: Base SDK pin to a local clone
+        run: |
+          public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
+          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # every manifest names one fork (else to the runner's temp dir).
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir"
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
+            echo "base SDK pin: $public -> $local"
+            git diff --stat
+          else
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
+          fi
+
+      - name: fmt
+        id: fmt
+        if: ${{ !cancelled() }}
+        run: |
+          rc=0
+          cargo fmt --all --check || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          [ "$rc" -eq 0 ] || echo "::error::cargo fmt --all --check: rc $rc"
+
+      - name: clippy
+        id: clippy
+        if: ${{ !cancelled() }}
+        run: |
+          rc=0
+          for crate in $CRATES; do
+            c=0
+            cargo clippy --locked -p "$crate" --all-features --all-targets -- -D warnings || c=$?
+            [ "$c" -eq 0 ] || { echo "::error::clippy -p $crate: rc $c"; rc=$c; }
+          done
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+      - name: test
+        id: test
+        if: ${{ !cancelled() }}
+        env:
+          SKIP_DASHD_TESTS: "1"  # no dashd on this runner; DashdTestContext::new skips instead of panicking
+        run: |
+          rc=0
+          for crate in $CRATES; do
+            c=0
+            cargo test --locked -p "$crate" --all-features --lib --tests || c=$?
+            [ "$c" -eq 0 ] || { echo "::error::test -p $crate --lib --tests: rc $c"; rc=$c; }
+          done
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+      # An empty rc is a step that did not run (a setup step failed first).
+      - name: Verdict
+        if: always()
+        env:
+          K: ${{ matrix.k }}
+          N: ${{ matrix.n }}
+          SOURCE: ${{ matrix.source }}
+          FMT: ${{ steps.fmt.outputs.rc }}
+          CLIPPY: ${{ steps.clippy.outputs.rc }}
+          TEST: ${{ steps.test.outputs.rc }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/rc"
+          printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$K" "$N" "$SOURCE" "$FMT" "$CLIPPY" "$TEST" > "$RUNNER_TEMP/rc/$K.tsv"
+          echo "fmt=${FMT:-none} clippy=${CLIPPY:-none} test=${TEST:-none}"
+          [ "$FMT" = 0 ] && [ "$CLIPPY" = 0 ] && [ "$TEST" = 0 ]
+
+      - name: Upload the return codes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: series-rc-${{ matrix.k }}
+          path: ${{ runner.temp }}/rc/${{ matrix.k }}.tsv
+          retention-days: 7
+
+  summary:
+    name: Summary
+    needs: [list, commit]
+    if: ${{ !cancelled() && needs.list.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download the return codes
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: series-rc-*
+          path: rc
+          merge-multiple: true
+
+      - name: Table
+        env:
+          MATRIX: ${{ needs.list.outputs.matrix }}
+          SERIES_REF: ${{ inputs.series_ref }}
+          CRATES: ${{ inputs.crates }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          rows, bad = [], 0
+          for leg in json.loads(os.environ["MATRIX"])["include"]:
+              try:
+                  fields = open(f"rc/{leg['k']}.tsv").read().rstrip("\n").split("\t")
+              except OSError:
+                  fields = []
+              rcs = [(f or "none") for f in fields[3:6]] if len(fields) == 6 else ["none"] * 3
+              bad += any(rc != "0" for rc in rcs)
+              rows.append(f"| {leg['k']}/{leg['n']} | {leg['source']} | {' | '.join(rcs)} |")
+          table = "\n".join([f"series {os.environ['SERIES_REF']} crates: {os.environ['CRATES']}", "",
+                             "| k/N | source | fmt | clippy | test |", "|---|---|---|---|---|", *rows, "",
+                             f"{len(rows) - bad} of {len(rows)} commits green", ""])
+          print(table)
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(table)
+          open(os.path.join(os.environ["RUNNER_TEMP"], "series-summary.txt"), "w").write(table)
+          raise SystemExit(1 if bad else 0)
+          PY
+
+      - name: Upload the summary
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: series-summary
+          path: ${{ runner.temp }}/series-summary.txt
+          retention-days: 30
