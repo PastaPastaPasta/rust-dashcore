@@ -1,0 +1,417 @@
+{
+  "core_commit": "938fba502824b9d850b7c710601456dc3d71603e",
+  "version": "v24.0.0",
+  "core_lines": "evo/mnauth.cpp:51-177; net.cpp:4514-4539, :5048-5077",
+  "network_sha256": "1df3ee4100b42803b887ef6c96fd34df29d7982a376aea5798a31678b5b71bfb",
+  "receiver": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+  "sender": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+  "records": [
+    {
+      "name": "core-inbound",
+      "kind": "core-masternode",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 0,
+      "sent_challenge": "84142c8e91dde420518ac5e8ee04965f4a5377b485e7abbdc027d470ec3739c7",
+      "peer_version": 70242,
+      "peer_services": 3141,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f2289d064b47ea5ae7ad134e6608fed900624769ef8144566d5b9e5a065a76f2448ac0846a956da79c3aad0ad18e7e13b790c364658eeb9e621174f556f12b44d9548e74bc6370ee8005b6de22784f01589b89ee83e01c806d1179b8189ad24b36e",
+      "observed": {
+        "peer": {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        },
+        "pre_peers": [],
+        "qsendrecsigs": [
+          "01"
+        ],
+        "log": [
+          "[net|netconn] CMNAuth::ProcessMessage -- constructed signHash for nVersion 70242, peer=0",
+          "[net|netconn] CMNAuth::ProcessMessage -- Valid MNAUTH for 225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821, peer=0"
+        ]
+      }
+    },
+    {
+      "name": "core-outbound-dedup",
+      "kind": "core-masternode",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "outbound",
+      "peer_id": 1,
+      "sent_challenge": "b73b6720a7d075c3aee68beeba1605b030252e281eec612220fc09b71bf3af30",
+      "peer_version": 70242,
+      "peer_services": 3141,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f228c366749abc6b32f66e6929121841b562a2b744f337c3e2be6d5231099068f0308d7153f93e4f34dfc2dc376dcae4a9503d3e89aebec9f65c58d721e0198d740e9f836919f323e6fcd8468f3a16164283dd8d9e49f617608920b2033feae0e37",
+      "observed": {
+        "peer": null,
+        "pre_peers": [
+          {
+            "id": 0,
+            "addr": "127.0.0.1:44156",
+            "inbound": true,
+            "connection_type": "inbound",
+            "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+            "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+            "banscore": 0
+          }
+        ],
+        "qsendrecsigs": [],
+        "log": [
+          "[net|netconn] CMNAuth::ProcessMessage -- constructed signHash for nVersion 70242, peer=1",
+          "[net|netconn] CMNAuth::ProcessMessage -- Masternode 225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821 has already verified as peer 0, deterministicOutbound=225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821. peer=1",
+          "[net|netconn] CMNAuth::ProcessMessage -- dropping new outbound, peer=1"
+        ]
+      }
+    },
+    {
+      "name": "null-signature",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 2,
+      "sent_challenge": "55233be22ee1b67217cd2f80f3b25d0303f7c5cbd2f9de90fe8453dcec77e3a2",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f22000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "observed": {
+        "peer": null,
+        "log": [
+          "[net|netconn] CMNAuth::ProcessMessage -- invalid mnauth for protx=225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821 with sig=000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "[net] Misbehaving: peer=2 (0 -> 100) DISCOURAGE THRESHOLD EXCEEDED: invalid mnauth signature"
+        ]
+      }
+    },
+    {
+      "name": "unknown-masternode",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 3,
+      "sent_challenge": "0eb9fa1324108cd71a687f3f92c7cae776aa7e7a263d2651057abe9110e1471c",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "424242424242424242424242424242424242424242424242424242424242424289d064b47ea5ae7ad134e6608fed900624769ef8144566d5b9e5a065a76f2448ac0846a956da79c3aad0ad18e7e13b790c364658eeb9e621174f556f12b44d9548e74bc6370ee8005b6de22784f01589b89ee83e01c806d1179b8189ad24b36e",
+      "observed": {
+        "peer": {
+          "id": 3,
+          "addr": "127.0.0.1:46036",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": null,
+          "verified_pubkey_hash": null,
+          "banscore": 10
+        },
+        "log": [
+          "[net] Misbehaving: peer=3 (0 -> 10): missing mnauth masternode"
+        ]
+      }
+    },
+    {
+      "name": "wrong-challenge",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 4,
+      "sent_challenge": "9b97c05b6e82a205c29d75119a92b9eb4d8309fbcb9e80dc9783dc8a2d4283ef",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f2289d064b47ea5ae7ad134e6608fed900624769ef8144566d5b9e5a065a76f2448ac0846a956da79c3aad0ad18e7e13b790c364658eeb9e621174f556f12b44d9548e74bc6370ee8005b6de22784f01589b89ee83e01c806d1179b8189ad24b36e",
+      "observed": {
+        "peer": {
+          "id": 4,
+          "addr": "127.0.0.1:46038",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": null,
+          "verified_pubkey_hash": null,
+          "banscore": 10
+        },
+        "log": [
+          "[net|netconn] CMNAuth::ProcessMessage -- constructed signHash for nVersion 70242, peer=4",
+          "[net] Misbehaving: peer=4 (0 -> 10): mnauth signature verification failed"
+        ]
+      }
+    },
+    {
+      "name": "null-protx",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 5,
+      "sent_challenge": "9552d6c6f4ba735dd2b3685c4ec5804d317b8eca1c281ef4cc55a9c0d093a928",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "000000000000000000000000000000000000000000000000000000000000000089d064b47ea5ae7ad134e6608fed900624769ef8144566d5b9e5a065a76f2448ac0846a956da79c3aad0ad18e7e13b790c364658eeb9e621174f556f12b44d9548e74bc6370ee8005b6de22784f01589b89ee83e01c806d1179b8189ad24b36e",
+      "observed": {
+        "peer": null,
+        "log": [
+          "[net] Misbehaving: peer=5 (0 -> 100) DISCOURAGE THRESHOLD EXCEEDED: empty mnauth proRegTxHash"
+        ]
+      }
+    },
+    {
+      "name": "no-bloom-service",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 6,
+      "sent_challenge": "bbaeb934c02e67176ea725583c1ead9c36028c41d8972d360f5d2285689bcd62",
+      "peer_version": 70242,
+      "peer_services": 1,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f2289d064b47ea5ae7ad134e6608fed900624769ef8144566d5b9e5a065a76f2448ac0846a956da79c3aad0ad18e7e13b790c364658eeb9e621174f556f12b44d9548e74bc6370ee8005b6de22784f01589b89ee83e01c806d1179b8189ad24b36e",
+      "observed": {
+        "peer": null,
+        "log": [
+          "[net] Misbehaving: peer=6 (0 -> 100) DISCOURAGE THRESHOLD EXCEEDED: mnauth from a node with invalid services"
+        ]
+      }
+    },
+    {
+      "name": "malleable-signature",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 7,
+      "sent_challenge": "13f277b9afd24e4872ec1172289362cd76cada1fb9529f2037c8fbb3ca08c0c8",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b8774be45ce2e5f726012ed19082cd0428f247d0192bc8a58d69457ffa5f22ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "observed": {
+        "peer": {
+          "id": 7,
+          "addr": "127.0.0.1:42164",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": null,
+          "verified_pubkey_hash": null,
+          "banscore": 0
+        },
+        "log": [
+          "[net] ProcessMessages(mnauth, 128 bytes): Exception 'malleable BLS object: iostream error' (NSt8ios_base7failureB5cxx11E) caught"
+        ]
+      }
+    },
+    {
+      "name": "truncated",
+      "kind": "scripted",
+      "synced": true,
+      "process_scheme": "basic",
+      "direction": "inbound",
+      "peer_id": 8,
+      "sent_challenge": "701fae89eb7cc7db5ad40a4d82aa3747c41a17ec7cae6c99350d0f03be716a11",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [
+        {
+          "id": 0,
+          "addr": "127.0.0.1:44156",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+          "verified_pubkey_hash": "4ae57fb2adc7844302e0d3b673386a172d78143995bf1048458c9eabebbcf728",
+          "banscore": 0
+        }
+      ],
+      "payload": "21b877",
+      "observed": {
+        "peer": {
+          "id": 8,
+          "addr": "127.0.0.1:35472",
+          "inbound": true,
+          "connection_type": "inbound",
+          "verified_proregtx_hash": null,
+          "verified_pubkey_hash": null,
+          "banscore": 0
+        },
+        "log": [
+          "[net] ProcessMessages(mnauth, 3 bytes): Exception 'DataStream::read(): end of data: iostream error' (NSt8ios_base7failureB5cxx11E) caught"
+        ]
+      }
+    },
+    {
+      "name": "unsynced-truncated",
+      "kind": "scripted",
+      "synced": false,
+      "process_scheme": "basic",
+      "direction": "outbound",
+      "peer_id": 0,
+      "sent_challenge": "ca6fe2599a2f3112488e773e5c25a728947972da8c03d8e04cb18cfd2da523c3",
+      "peer_version": 70242,
+      "peer_services": 5,
+      "operator": {
+        "pro_tx_hash": "225ffa7f45698da5c82b19d047f22804cd8290d12e0126f7e5e25ce44b77b821",
+        "stored": "a23cddaf6310d615ac2260866cc19932a27b6e833072ab863359cb0208e4ea26d15b962934c9c7e3608150a8536c24af",
+        "state_version": 2,
+        "stored_scheme": "basic"
+      },
+      "me": "3ddeeddd34cacd693b40dd53ebfecd574fae1f4e61022b1aa2b1affbdd6a4277",
+      "pre_peers": [],
+      "payload": "21b877",
+      "observed": {
+        "peer": {
+          "id": 0,
+          "addr": "127.0.0.1:37175",
+          "inbound": false,
+          "connection_type": "manual",
+          "verified_proregtx_hash": null,
+          "verified_pubkey_hash": null,
+          "banscore": 0
+        },
+        "log": []
+      }
+    }
+  ]
+}

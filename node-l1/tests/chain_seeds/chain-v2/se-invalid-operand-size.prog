@@ -1,0 +1,4 @@
+# script error "Invalid operand size" (bank slot 32, se_invalid_operand_size): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_invalid_operand_size
+extend main 1
