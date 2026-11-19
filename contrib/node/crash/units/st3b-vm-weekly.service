@@ -1,0 +1,44 @@
+[Unit]
+Description=ST3b VM-level power-loss weekly: KVM guest kills, C1-C4 (PLAN-ST3b-S7 §2.4)
+# Budget (owner ruling, S8): <= 12 h wall, Sundays from 05:10 UTC, so the week ends before
+# Monday's 04:10 nightly. The cost is wall time on one 2-vCPU guest, not CPU. At S7's one-time
+# acceptance counts (50 ext4 / 20 xfs) the W-40k components (v-ibd, v-flush, v-recovery) took
+# 4,973-8,566 s each (acc3, 48b5923c2); the routine week runs them at 20 kills on ext4 and 10 on
+# xfs, set in their drop-ins (ST3B_VM_KILLS_*); v-reorg (W-small) keeps 50 / 20. Each W-40k
+# component is its kills plus a tail, the sync to the tip after the last kill (4,044-5,789 s,
+# whatever the count). Expected, kills x wall per counted kill + tail: v-ibd 5,315 + 5,076 s,
+# v-flush 6,901 + 5,400 s, v-recovery 5,674 + 4,509 s, v-reorg 965 + 560 s: 34,400 s (9.6 h),
+# plus the build and guest (3-4 min incremental in acc2/acc3), so no cut applies.
+# A deferred week (exit 75: too little disk, or load) is tried again every 2 h, at most 6 starts
+# a day; then the unit fails and the ledger's DEFERRED rows show the skipped week (S7 r1 m9).
+StartLimitIntervalSec=1d
+StartLimitBurst=6
+
+# A template: S8 installs it (install-units.sh copies every unit here, and the drop-ins). The
+# driver: it builds release rdashd and st3b-crash once, in its own checkout and target, with the
+# guest and image (weekly-vm.sh --prepare), then starts each component as its own
+# st3b-vm-weekly@<component>.service in turn, each with its own timeout and record, and ends with
+# the week's leak check and DONE (S7 r1 M2). Set up /work/scratch/st3b/weekly-vm/checkout first: a
+# worktree of the primary repository, which `ExecStartPre` detaches at the node/integration tip
+# (a local branch that TRAINS moves; nothing to fetch) each week.
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+Environment=CARGO_BUILD_JOBS=8
+WorkingDirectory=/work/scratch/st3b/weekly-vm
+ExecStartPre=/usr/bin/git -C checkout checkout --quiet --detach node/integration
+# One output directory per day (the guest is built in it).
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/crash/weekly-vm.sh --units "/work/scratch/st3b/weekly-vm/out/$(date -u +%%Y%%m%%d)"'
+RestartForceExitStatus=75
+RestartSec=2h
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=25
+MemoryMax=16G
+# The cap: the build (at most 3 h, `timeout` in weekly-vm.sh), then the components' own units in
+# turn, each bounded by its drop-in (S8: 8600 + 8300 v-ibd, 11000 + 8700 v-flush, 9200 + 7400
+# v-recovery, 2100 + 1500 v-reorg, 2 x 600 v-reindex: 58,000 s), plus the guest, image and leak
+# check: about 19.2 h, so 20 h. It is the worst case, every component at its timeout; the
+# expected week is the budget above. Each drop-in includes the 600 s guest-lock wait
+# (ST3B_VM_LOCK_WAIT), which runs inside the component's own unit.
+TimeoutStartSec=20h

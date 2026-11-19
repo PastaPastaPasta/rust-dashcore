@@ -1,0 +1,4 @@
+# script error "Operation limit exceeded" (bank slot 21, se_op_count): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_op_count
+extend main 1
