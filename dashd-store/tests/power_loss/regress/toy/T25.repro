@@ -1,0 +1,10 @@
+# ToyChain planted bug T25 (ST3a §6.2), minimised in 10 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=5 invalid=- effects=- presumed=-:- prune=8:2:- sub=- bug=T25
+workload c5;f;c35;i;c32;p72
+fault nth db:chainstate append-durable 4 io applied
+adversary realistic
+granularity write
+expect R8
+minimality verified
