@@ -1,0 +1,4 @@
+# specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload (bank slot 12, x_cb_type5).
+extend main 1 tx=spends
+mutatex x_cb_type5
+extend main 1
