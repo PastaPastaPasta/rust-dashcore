@@ -1,0 +1,4 @@
+{
+  "base": "a-wal",
+  "detail": "Verbatim fresh-chainstate nonzero key; checked against Core debug log"
+}

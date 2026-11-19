@@ -1,0 +1,18 @@
+{
+ "nodes": [
+  "node0",
+  "node1",
+  "node2",
+  "node3"
+ ],
+ "recorded": [
+  "node0",
+  "node1",
+  "node2",
+  "node3"
+ ],
+ "source": "backfill: frozen/ and unstarted_nodes",
+ "test": "feature_asset_locks.py",
+ "test_args": [],
+ "unstarted": []
+}

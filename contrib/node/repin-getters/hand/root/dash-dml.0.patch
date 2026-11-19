@@ -1,0 +1,197 @@
+diff --git a/dash-dml/src/snapshot/checks.rs b/dash-dml/src/snapshot/checks.rs
+index ed58170a1397fd90363f0a345b77a0160efe410a..8f73d2e6df8fc820de1dcf7b0a0b9db67c7fcef1 100644
+--- a/dash-dml/src/snapshot/checks.rs
++++ b/dash-dml/src/snapshot/checks.rs
+@@ -8,6 +8,7 @@ use dash_evo::sml::merkle_root_quorums_from_hashes;
+ use dash_params::LlmqParams;
+ use dash_params::LlmqType;
+ use dash_primitives::CoinbaseCommitment;
++use dash_types::Numeric as _;
+ 
+ use super::{EvoSnapshot, ROTATION_CYCLES, snapshot_commitment_count};
+ use crate::blockprocessor::commitment_hash;
+@@ -97,14 +98,14 @@ impl EvoSnapshot {
+         net: &dyn NetInfoValidity,
+     ) -> Result<(), CodecError> {
+         self.validate(false, net)?;
+-        if cbtx.height != self.mn_list.height() {
++        if cbtx.height().to_u32().cast_signed() != self.mn_list.height() {
+             return Err(CodecError::new("evo snapshot coinbase height mismatch"));
+         }
+         // `mn_list.to_sml()->CalcMerkleRoot(&mutated)`; only a mutated tree is an error here.
+         if merkle_root_mn_list_full(&self.mn_list).ok() != Some(cbtx.merkle_root_mn_list) {
+             return Err(CodecError::new("evo snapshot masternode merkle root mismatch"));
+         }
+-        if cbtx.version >= CBTX_VERSION_MERKLE_ROOT_QUORUMS {
++        if cbtx.version().to_base() >= CBTX_VERSION_MERKLE_ROOT_QUORUMS {
+             let hashes = self
+                 .quorums
+                 .iter()
+@@ -117,7 +118,7 @@ impl EvoSnapshot {
+                 return Err(CodecError::new("evo snapshot quorum merkle root mismatch"));
+             }
+         }
+-        if cbtx.version >= CBTX_VERSION_CLSIG_AND_BALANCE
++        if cbtx.version().to_base() >= CBTX_VERSION_CLSIG_AND_BALANCE
+             && self.credit_pool.locked != cbtx.credit_pool_balance.unwrap_or(0)
+         {
+             return Err(CodecError::new("evo snapshot credit pool balance mismatch"));
+diff --git a/dash-dml/src/specialtx/cbtx.rs b/dash-dml/src/specialtx/cbtx.rs
+index 44f011bb20520d785e33f0c22a6bb8b5673dc71c..b55366ef427281f99cf38e78bc4709e81e6956e4 100644
+--- a/dash-dml/src/specialtx/cbtx.rs
++++ b/dash-dml/src/specialtx/cbtx.rs
+@@ -20,6 +20,7 @@ use dash_evo::cbtx::{
+ };
+ use dash_params::BuriedDeployment;
+ use dash_primitives::{CoinbaseCommitment, SpecialPayload};
++use dash_types::Numeric as _;
+ 
+ use super::consensus;
+ use super::payload::PayloadSlot;
+@@ -76,7 +77,9 @@ pub fn check_cbtx(
+     v24: bool,
+ ) -> Result<(), TxValidationError> {
+     // Core: evo/cbtx.cpp:26-28
+-    if cbtx.version == CBTX_VERSION_INVALID || cbtx.version >= CBTX_VERSION_UNKNOWN {
++    if cbtx.version().to_base() == CBTX_VERSION_INVALID
++        || cbtx.version().to_base() >= CBTX_VERSION_UNKNOWN
++    {
+         return consensus(BAD_CBTX_VERSION);
+     }
+     // Core: evo/cbtx.cpp:30
+@@ -84,25 +87,26 @@ pub fn check_cbtx(
+         return Ok(());
+     };
+     // Core: evo/cbtx.cpp:31-33
+-    if i64::from(cons.height) != i64::from(cbtx.height) {
++    if i64::from(cons.height) != i64::from(cbtx.height().to_u32().cast_signed()) {
+         return consensus(BAD_CBTX_HEIGHT);
+     }
+     // Core: evo/cbtx.cpp:35-38
+     let dip8 = cons.deployments.active_at(prev, Deployment::Buried(BuriedDeployment::Dip0008));
+-    if dip8 && cbtx.version < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
++    if dip8 && cbtx.version().to_base() < CBTX_VERSION_MERKLE_ROOT_QUORUMS {
+         return consensus(BAD_CBTX_VERSION);
+     }
+     // Core: evo/cbtx.cpp:40-43
+     let v20 = cons.deployments.active_after(cons.prev, Deployment::Buried(BuriedDeployment::V20));
+-    if (v20 && cbtx.version < CBTX_VERSION_CLSIG_AND_BALANCE)
+-        || (!v20 && cbtx.version >= CBTX_VERSION_CLSIG_AND_BALANCE)
++    if (v20 && cbtx.version().to_base() < CBTX_VERSION_CLSIG_AND_BALANCE)
++        || (!v20 && cbtx.version().to_base() >= CBTX_VERSION_CLSIG_AND_BALANCE)
+     {
+         return consensus(BAD_CBTX_VERSION);
+     }
+     // Core: evo/cbtx.cpp:47-51
+     let requires_unlock_root = v24 && v20;
+-    if (requires_unlock_root && cbtx.version < CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS)
+-        || (!requires_unlock_root && cbtx.version >= CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS)
++    if (requires_unlock_root && cbtx.version().to_base() < CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS)
++        || (!requires_unlock_root
++            && cbtx.version().to_base() >= CBTX_VERSION_MERKLE_ROOT_ASSETUNLOCKS)
+     {
+         return consensus(BAD_CBTX_VERSION);
+     }
+diff --git a/dash-dml/src/specialtx/testctx.rs b/dash-dml/src/specialtx/testctx.rs
+index 2bf3127ec3604d4b7b48ed8ed5d1e8ec154fe3c0..7a41815464797a4bf8ed46e5085b1df81da4893c 100644
+--- a/dash-dml/src/specialtx/testctx.rs
++++ b/dash-dml/src/specialtx/testctx.rs
+@@ -20,7 +20,7 @@ use dash_evo::spork::{key_id_of, sign_compact};
+ use dash_params::{BuriedDeployment, ChainSetup};
+ use dash_pkc::bls::BlsCtx;
+ use dash_primitives::{
+-    BlockHash, CompactSig, InputsHash, OutPoint, Transaction, TxHash, TxIn, TxOut, TxType,
++    BlockHash, EcdsaRecSigArray, InputsHash, OutPoint, Transaction, TxHash, TxIn, TxOut, TxType,
+ };
+ use dash_types::Numeric;
+ use dash_types::codec::BaseCodec;
+@@ -415,6 +415,7 @@ pub(crate) fn sig_of<T: BaseCodec>(bytes: &[u8]) -> T {
+     T::decode(&mut encoded(&bytes.to_vec()).as_slice()).expect("a signature of any length decodes")
+ }
+ 
+-pub(crate) fn compact(sig: &[u8]) -> CompactSig {
+-    CompactSig::from_bytes(sig.try_into().expect("65 bytes"))
++/// A compact signature (`JoinSig`, `DissolveSig`, `SharedRegistrarSig`) holding `sig`'s 65 bytes.
++pub(crate) fn compact<T: From<EcdsaRecSigArray>>(sig: &[u8]) -> T {
++    T::from(EcdsaRecSigArray::from_bytes(sig.try_into().expect("65 bytes")))
+ }
+diff --git a/dash-dml/src/specialtx/trivial.rs b/dash-dml/src/specialtx/trivial.rs
+index 1141deed65e1f511e78ec44b145e98284d37133e..9be0a63770019cafee31f83567ecff8727d2add9 100644
+--- a/dash-dml/src/specialtx/trivial.rs
++++ b/dash-dml/src/specialtx/trivial.rs
+@@ -9,10 +9,11 @@ use dash_consensus::hash::hash160;
+ use dash_consensus::subsidy::COIN;
+ use dash_consensus::validation::{TxValidationError, TxValidationResult};
+ use dash_pkc::bls::BlsSchemeKind;
++use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_primitives::{
+-    COMPACT_SIG_LEN, CollateralShare, MnType as PayloadMnType, NetInfo, PayoutShare, ProDisTx,
+-    ProRegTx, ProUpRegTx, ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx,
+-    RevocationReason, SpecialPayload, TxType,
++    CollateralShare, MnType as PayloadMnType, NetInfo, PayoutShare, ProDisTx, ProRegTx, ProUpRegTx,
++    ProUpRevTx, ProUpServTx, ProUpShareTx, ProUpSharedRegTx, RevocationReason, SpecialPayload,
++    TxType,
+ };
+ use dash_types::Numeric;
+ 
+@@ -480,7 +481,7 @@ pub fn pro_up_share_trivially_valid(p: &ProUpShareTx) -> Result<(), TxValidation
+     if p.version == 0 || p.version > SHARED_PAYLOAD_VERSION {
+         return consensus(BAD_PROUPSHARE_VERSION);
+     }
+-    if p.vch_sig.len() != COMPACT_SIG_LEN {
++    if p.vch_sig.len() != ECDSA_REC_SIG_LEN {
+         return bad_special(BAD_PROUPSHARE_SIG_SIZE);
+     }
+     if !is_valid_payout_script(p.script_reward.as_bytes()) {
+diff --git a/dash-dml/src/specialtx/trivial/tests.rs b/dash-dml/src/specialtx/trivial/tests.rs
+index b7ccdcc5692d96d8bafe57d28d57470e2b4f4500..91bd07fdba876eddfb7649b6827f9848624d82f9 100644
+--- a/dash-dml/src/specialtx/trivial/tests.rs
++++ b/dash-dml/src/specialtx/trivial/tests.rs
+@@ -7,7 +7,9 @@ use dash_consensus::primitives::{Tx, decode_tx_exact};
+ use dash_consensus::validation::TxValidationResult;
+ use dash_core_vectors::cases::{BlsScheme, load_trivial};
+ use dash_pkc::bls::{BlsLazyPk, BlsSchemeKind, BlsSchemeSource};
+-use dash_primitives::{CompactSig, NetInfo, ProTxVersion, TxHash};
++use dash_primitives::{
++    DissolveSig, EcdsaRecSigArray, NetInfo, ProTxVersion, SharedRegistrarSig, TxHash,
++};
+ use dash_types::codec::BaseCodec;
+ 
+ use super::*;
+@@ -223,12 +225,17 @@ pub(crate) fn valid_basic_key() -> BlsLazyPk {
+     pro_up_reg(BlsScheme::Basic).pub_key_operator
+ }
+ 
++/// A compact signature of 65 bytes of 1.
++fn ones<T: From<EcdsaRecSigArray>>() -> T {
++    T::from(EcdsaRecSigArray::from_bytes([1; 65]))
++}
++
+ pub(crate) fn pro_dis() -> ProDisTx {
+     ProDisTx {
+         version: 1,
+         pro_tx_hash: Default::default(),
+         actor_index: 0,
+-        sigs: vec![CompactSig::from_bytes([1; 65])],
++        sigs: vec![ones::<DissolveSig>()],
+     }
+ }
+ 
+@@ -250,7 +257,7 @@ pub(crate) fn pro_up_shared_reg() -> ProUpSharedRegTx {
+         pub_key_operator: valid_basic_key(),
+         key_id_voting: key(9),
+         inputs_hash: Default::default(),
+-        sigs: vec![CompactSig::from_bytes([1; 65]); 2],
++        sigs: vec![ones::<SharedRegistrarSig>(); 2],
+     }
+ }
+ 
+@@ -402,7 +409,7 @@ fn every_row_has_a_vector() {
+         (479, with_version(TxType::ProviderUpdateRevoke, 0, &[])),
+         (485, rev(&|p| p.reason = RevocationReason::Unknown(4))),
+         (528, dis(&|p| p.version = 2)),
+-        (531, dis(&|p| p.sigs = vec![CompactSig::from_bytes([1; 65]); MAX_SHARES + 1])),
++        (531, dis(&|p| p.sigs = vec![ones::<DissolveSig>(); MAX_SHARES + 1])),
+         (545, up_share(&|p| p.version = 0)),
+         (548, up_share(&|p| p.vch_sig.pop().map(drop).unwrap_or(()))),
+         (548, up_share(&|p| p.vch_sig.push(1))),

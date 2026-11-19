@@ -1,0 +1,15 @@
+diff --git a/dashd-rpc/src/core_write/evo.rs b/dashd-rpc/src/core_write/evo.rs
+index 1656cc01698167a6bf2b672ba3b72566750b40fe..42f6f5c0bb9dbeb5bb2eac62f7bc759c3665d971 100644
+--- a/dashd-rpc/src/core_write/evo.rs
++++ b/dashd-rpc/src/core_write/evo.rs
+@@ -474,8 +474,8 @@ fn pro_up_shared_reg_tx(b: &ProUpSharedRegTx, p: &TxJsonParams) -> UniValue {
+ // Core: evo/core_write.cpp:134-152
+ pub(crate) fn cbtx_to_json(b: &CoinbaseCommitment) -> UniValue {
+     let mut ret = UniValue::new_object();
+-    ret.push_kv_end("version", i64::from(b.version()).into());
+-    ret.push_kv_end("height", i64::from(b.height()).into());
++    ret.push_kv_end("version", i64::from(b.version().to_base()).into());
++    ret.push_kv_end("height", i64::from(b.height().to_u32().cast_signed()).into());
+     ret.push_kv_end("merkleRootMNList", uint_hex(&b.merkle_root_mn_list()));
+     if let Some(root) = &b.merkle_root_quorums() {
+         ret.push_kv_end("merkleRootQuorums", uint_hex(root));
