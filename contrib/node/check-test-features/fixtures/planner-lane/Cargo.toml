@@ -1,0 +1,3 @@
+[workspace]
+members = ["prod", "node-l1", "dash-oracle-sys"]
+resolver = "2"

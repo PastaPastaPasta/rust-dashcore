@@ -1,0 +1,215 @@
+diff --git a/dash-consensus/src/primitives/commitment.rs b/dash-consensus/src/primitives/commitment.rs
+index a22cf0a2a7fd85194c8a560b079a6bdc141d33c2..272c1d428d135d8a50a43117e657e57447889d08 100644
+--- a/dash-consensus/src/primitives/commitment.rs
++++ b/dash-consensus/src/primitives/commitment.rs
+@@ -94,42 +94,19 @@ mod tests {
+     #[test]
+     fn the_layout_is_cores_for_every_version() {
+         for version in [0, 1, 2, 3, 4, 5, 6, 0xffff] {
+-            let mut qc = null(version, 3);
+-            {
+-                let mut signers = qc.signers().clone();
+-                signers.data = vec![0b101];
+-                qc = dash_primitives::Commitment::new(
+-                    qc.version(),
+-                    qc.llmq_type(),
+-                    qc.quorum_hash(),
+-                    qc.quorum_index(),
+-                    signers,
+-                    qc.valid_members().clone(),
+-                    qc.quorum_public_key().clone(),
+-                    qc.quorum_vvec_hash(),
+-                    qc.quorum_sig().clone(),
+-                    qc.members_sig().clone(),
+-                );
+-            }
+-            {
+-                let mut valid_members = qc.valid_members().clone();
+-                valid_members.data = vec![0b111];
+-                qc = dash_primitives::Commitment::new(
+-                    qc.version(),
+-                    qc.llmq_type(),
+-                    qc.quorum_hash(),
+-                    qc.quorum_index(),
+-                    qc.signers().clone(),
+-                    valid_members,
+-                    qc.quorum_public_key().clone(),
+-                    qc.quorum_vvec_hash(),
+-                    qc.quorum_sig().clone(),
+-                    qc.members_sig().clone(),
+-                );
+-            }
+-            if let Some(index) = qc.quorum_index.as_mut() {
+-                *index = -2;
+-            }
++            let null = null(version, 3);
++            let qc = Commitment::new(
++                null.version(),
++                null.llmq_type(),
++                null.quorum_hash(),
++                null.quorum_index().map(|_| -2),
++                DynBitset::new(3, vec![0b101]).expect("3 bits"),
++                DynBitset::new(3, vec![0b111]).expect("3 bits"),
++                null.quorum_public_key().clone(),
++                null.quorum_vvec_hash(),
++                null.quorum_sig().clone(),
++                null.members_sig().clone(),
++            );
+             let mut want = version.to_le_bytes().to_vec();
+             want.push(100);
+             want.extend_from_slice(&[0x42; 32]);
+@@ -147,47 +124,25 @@ mod tests {
+     /// non-indexed version drops a stray index, an indexed one without an index writes 0.
+     #[test]
+     fn the_version_alone_gates_the_quorum_index() {
+-        let mut stray = null(3, 3);
+-        stray = dash_primitives::Commitment::new(
+-            stray.version(),
+-            stray.llmq_type(),
+-            stray.quorum_hash(),
+-            Some(7),
+-            stray.signers().clone(),
+-            stray.valid_members().clone(),
+-            stray.quorum_public_key().clone(),
+-            stray.quorum_vvec_hash(),
+-            stray.quorum_sig().clone(),
+-            stray.members_sig().clone(),
+-        );
++        let with_index = |qc: Commitment, quorum_index| {
++            Commitment::new(
++                qc.version(),
++                qc.llmq_type(),
++                qc.quorum_hash(),
++                quorum_index,
++                qc.signers().clone(),
++                qc.valid_members().clone(),
++                qc.quorum_public_key().clone(),
++                qc.quorum_vvec_hash(),
++                qc.quorum_sig().clone(),
++                qc.members_sig().clone(),
++            )
++        };
++        let stray = with_index(null(3, 3), Some(7));
+         assert_eq!(bytes(&stray), bytes(&null(3, 3)));
+-        let mut missing = null(4, 3);
+-        missing = dash_primitives::Commitment::new(
+-            missing.version(),
+-            missing.llmq_type(),
+-            missing.quorum_hash(),
+-            None,
+-            missing.signers().clone(),
+-            missing.valid_members().clone(),
+-            missing.quorum_public_key().clone(),
+-            missing.quorum_vvec_hash(),
+-            missing.quorum_sig().clone(),
+-            missing.members_sig().clone(),
+-        );
++        let missing = with_index(null(4, 3), None);
+         assert_eq!(bytes(&missing), bytes(&null(4, 3)));
+-        let mut indexed = null(4, 3);
+-        indexed = dash_primitives::Commitment::new(
+-            indexed.version(),
+-            indexed.llmq_type(),
+-            indexed.quorum_hash(),
+-            Some(0x0102),
+-            indexed.signers().clone(),
+-            indexed.valid_members().clone(),
+-            indexed.quorum_public_key().clone(),
+-            indexed.quorum_vvec_hash(),
+-            indexed.quorum_sig().clone(),
+-            indexed.members_sig().clone(),
+-        );
++        let indexed = with_index(null(4, 3), Some(0x0102));
+         assert_eq!(bytes(&indexed)[35..37], [0x02, 0x01]);
+     }
+ 
+@@ -216,53 +171,17 @@ mod tests {
+             (3, BlsSchemeKind::Basic),
+             (4, BlsSchemeKind::Basic),
+         ] {
+-            let mut qc = null(version, 3);
+-            qc = dash_primitives::Commitment::new(
+-                qc.version(),
+-                qc.llmq_type(),
+-                qc.quorum_hash(),
+-                qc.quorum_index(),
+-                qc.signers().clone(),
+-                qc.valid_members().clone(),
++            let null = null(version, 3);
++            let qc = Commitment::new(
++                null.version(),
++                null.llmq_type(),
++                null.quorum_hash(),
++                null.quorum_index(),
++                null.signers().clone(),
++                null.valid_members().clone(),
+                 key.clone(),
+-                qc.quorum_vvec_hash(),
+-                qc.quorum_sig().clone(),
+-                qc.members_sig().clone(),
+-            );
+-            qc = dash_primitives::Commitment::new(
+-                qc.version(),
+-                qc.llmq_type(),
+-                qc.quorum_hash(),
+-                qc.quorum_index(),
+-                qc.signers().clone(),
+-                qc.valid_members().clone(),
+-                qc.quorum_public_key().clone(),
+                 QuorumVvecHash::from([0x11; 32]),
+-                qc.quorum_sig().clone(),
+-                qc.members_sig().clone(),
+-            );
+-            qc = dash_primitives::Commitment::new(
+-                qc.version(),
+-                qc.llmq_type(),
+-                qc.quorum_hash(),
+-                qc.quorum_index(),
+-                qc.signers().clone(),
+-                qc.valid_members().clone(),
+-                qc.quorum_public_key().clone(),
+-                qc.quorum_vvec_hash(),
+                 quorum_sig.clone(),
+-                qc.members_sig().clone(),
+-            );
+-            qc = dash_primitives::Commitment::new(
+-                qc.version(),
+-                qc.llmq_type(),
+-                qc.quorum_hash(),
+-                qc.quorum_index(),
+-                qc.signers().clone(),
+-                qc.valid_members().clone(),
+-                qc.quorum_public_key().clone(),
+-                qc.quorum_vvec_hash(),
+-                qc.quorum_sig().clone(),
+                 members_sig.clone(),
+             );
+             let want = [
+diff --git a/dash-consensus/src/primitives/tx.rs b/dash-consensus/src/primitives/tx.rs
+index de1e4109cd2c8fd603b27061f9da2b7461a62b92..c30c0bf2bc12eb5186626bdf3aef0942396bf46b 100644
+--- a/dash-consensus/src/primitives/tx.rs
++++ b/dash-consensus/src/primitives/tx.rs
+@@ -42,8 +42,21 @@ pub type TxRef = Arc<Tx>;
+ impl Tx {
+     /// `CTransaction(CMutableTransaction)`. Canonicalises `tx_type` to the decoder's
+     /// representation.
+-    pub fn new(mut raw: Transaction) -> Tx {
+-        raw.tx_type = TxType::new(raw.tx_type().to_base());
++    pub fn new(raw: Transaction) -> Tx {
++        // base-sdk's fields are read-only: rebuild only a non-canonical type, which
++        // `TxType::new(to_base())` would change.
++        let raw = if raw.tx_type().is_canonical() {
++            raw
++        } else {
++            Transaction::new(
++                raw.version(),
++                TxType::new(raw.tx_type().to_base()),
++                raw.inputs().clone(),
++                raw.outputs().clone(),
++                raw.lock_time(),
++                raw.extra_payload().clone(),
++            )
++        };
+         let serialized = raw.core_serialize();
+         Tx::from_serialized(raw, &serialized)
+     }
