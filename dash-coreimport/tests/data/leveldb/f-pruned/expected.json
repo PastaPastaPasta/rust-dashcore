@@ -1,0 +1,224 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 4,
+          "offset": 48
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 2,
+          "offset": 57
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 9,
+          "offset": 59
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 3,
+          "offset": 61
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 4,
+          "offset": 63
+        },
+        {
+          "file": "f-pruned/blocks/index/MANIFEST-000002",
+          "manifest_tag": 7,
+          "offset": 66
+        },
+        {
+          "file": "f-pruned/blocks/index/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 116868
+        }
+      ],
+      "levels": [
+        2
+      ],
+      "versions": [
+        {
+          "file": "f-pruned/blocks/index/000005.ldb",
+          "key": "46107072756e6564626c6f636b66696c6573",
+          "kind": 1,
+          "level": 2,
+          "offset": 76,
+          "sequence": 4,
+          "value": "31"
+        },
+        {
+          "file": "f-pruned/blocks/index/000005.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 2,
+          "offset": 115663,
+          "sequence": 11,
+          "value": "05000000"
+        },
+        {
+          "file": "f-pruned/blocks/index/000004.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 713,
+          "value": "05000000"
+        },
+        {
+          "file": "f-pruned/blocks/index/000004.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 46,
+          "sequence": 714,
+          "value": "05000000"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 4,
+          "offset": 48
+        },
+        {
+          "file": "f-pruned/chainstate/MANIFEST-000004",
+          "manifest_tag": 7,
+          "offset": 50
+        },
+        {
+          "file": "f-pruned/chainstate/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 71
+        }
+      ],
+      "levels": [
+        0
+      ],
+      "versions": [
+        {
+          "file": "f-pruned/chainstate/000005.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 1,
+          "value": "0817c00984a35fdc07"
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 2,
+          "value": ""
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 45369,
+          "sequence": 705,
+          "value": "1c202ee387cfe2d2019c0faeb6f32c4a6936b62dd92a996905e4d4066e28a13a"
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 45424,
+          "sequence": 706,
+          "value": ""
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 45499,
+          "sequence": 709,
+          "value": "1c202ee387cfe2d2019c0faeb6f32c4a6936b62dd92a996905e4d4066e28a13a"
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 45554,
+          "sequence": 710,
+          "value": ""
+        },
+        {
+          "file": "f-pruned/chainstate/000006.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 45629,
+          "sequence": 713,
+          "value": "1c202ee387cfe2d2019c0faeb6f32c4a6936b62dd92a996905e4d4066e28a13a"
+        }
+      ]
+    }
+  },
+  "best_block": "3d7d77cd82dd24126e45757aa9bff67e4df0ac152a065c16d53e90246727e00b",
+  "decoded": {
+    "B": "3d7d77cd82dd24126e45757aa9bff67e4df0ac152a065c16d53e90246727e00b",
+    "R": false,
+    "last_file": 5,
+    "obfuscation_key": "17c00984a35fdc07",
+    "prunedblockfiles": true
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": true,
+  "reindexing": false
+}
