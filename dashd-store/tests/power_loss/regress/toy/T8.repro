@@ -1,0 +1,10 @@
+# ToyChain planted bug T8 (ST3a §6.2), minimised in 112 replays.
+harness st3a/1
+sut toychain
+config block=1024 undo=240 subbatches=3 invalid=22 effects=- presumed=-:- prune=- sub=- bug=T8
+workload c20;f;a3;f
+crash 98 process-kill
+adversary realistic
+granularity write
+expect R6
+minimality verified

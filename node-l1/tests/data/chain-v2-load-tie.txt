@@ -1,0 +1,8 @@
+# OD-L3-97 (harness tie site h1): chain-v2 inputs for diff_chain_s0 (S0) whose RESTART loads
+# two failed entries at the most failed work, so Core's best_invalid is its block map's
+# order. Synthetic: chain_diff_soak's splitmix64 stream, seed 1, executions 203 and 450
+# (generated inputs 188 and 435). One hex input per line.
+# OD-L3-167b: the first input's three chain-v2 bank intents (bytes 4, 28 and 33) name slot #40,
+# not slots 3, 1 and 17, which 4e1's BANK fills; the old bytes are in chain-v2-load-tie.pre-4e1.txt.
+9f41f6c568d7840502f0a02added3be98cb1b81aa126de8af3e66ecfe876774bef28ba0946ae7ee71b1490ab3cef593372fddd80f9e31f43e43c78410d0f28a1936a3fc3ff9a02
+9e2a7d2e6978a43b87e380e6e98be2ababb08a2921d4f5e215d2327ed02e19bcbef626ecfafb87d91228ac298ec783f0cb254a956e4cd10077f6bda0ddded8224a59fa0254cc1836c0da7cc465e6e5e6420a254bda32a04803305550dc93bcfba874c8206784c1fcf3b574e4b492810dd60a4b0c7c7e00e5e2e1735dbe5ae0d213d82a77dad0b339c769e2333e3f303115d444769a77c0df53b480cee8a7d64c3b359ee13ac5b8eade5082b08ba0595f5ae87fbf15435431668d30d86f9cc03c36c7bd06bfffc696b88b161d3f993caf0643e51e923e543f9a4c1c8bdce68d6483d15779c3d60b58503b5ce4055a6f85281688d9716701fce5486a33ce29bc6cc70ea07673101f508d23cd9e267a7070b1bf532f00ae45e68da3e5a26f9edc4c27041615a2cd99648cda18da8f40ff61b166e0165d1201b677731a1ae0a5058a221c88d6e3eada3176c1
