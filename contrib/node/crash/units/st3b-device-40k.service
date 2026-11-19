@@ -1,0 +1,58 @@
+[Unit]
+Description=ST3b device-level weekly: W-40k's sampled set, C0 on a shard, C1-C6 on a sample (PLAN-ST3b Q8)
+# A deferred week (exit 75: too little disk, or load, or the device lock busy) is tried again
+# every 2 h, at most 6 starts a day; then the unit fails and the ledger's DEFERRED or BUSY rows
+# show the skipped week.
+StartLimitIntervalSec=1d
+StartLimitBurst=6
+# When both start together, the nightly goes first (the ExecStartPre wait covers the rest).
+After=st3b-device-nightly.service
+
+# Install with contrib/node/crash/install-units.sh. Owner ruling (S8): a weekly unit of its own,
+# because W-40k does not fit the nightly's 2 CPU-h. W-40k's IBD alone is about 40 min of rdashd
+# CPU on plain disk (S8 slice, 11-01). It runs nightly-device.sh with the one component
+# d-ibd-40k:ext4. That component records W-40k once over P2P, runs C0 on the week's shard of the
+# points (1 in $ST3B_40K_C0_EVERY), and C1-C6 on one in $ST3B_40K_SAMPLE of those. Both are
+# PROVISIONAL until the owner's first measured run; the summary row gives the recording's point
+# count and C0's CPU-s a point to set them from.
+#
+# A heavy unit: it starts only with >= 260G free on /work and a 5-minute load under 80. Its
+# components stop at 4 CPU-h on this unit's cgroup (a CPU-CAP row), and its timeout is a TIMEOUT
+# row; both sweep the live run. It has its own checkout and release target (as the nightly's, Q9):
+# set up /work/scratch/st3b/device-40k/checkout first, a worktree of the primary repository that
+# `ExecStartPre` detaches at the node/integration tip. Its ledger is its own. Its failure dirs
+# share the nightly's kept list, so one 3-dir/10G cap covers both.
+#
+# Saturdays the nightly starts at 04:10 too. This unit lets it go first: it waits 5 min, then
+# while st3b-device-nightly.service is starting or running, up to 6 h. A running oneshot is
+# `activating`, which `systemctl is-active` reports as not active, so the wait reads ActiveState.
+# The device lock (nightly-device.sh) still keeps any two device runs apart, including runs
+# started by hand.
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+Environment=CARGO_BUILD_JOBS=8
+Environment=ST3B_LEDGER=/work/scratch/st3b/device-40k/ledger.tsv
+Environment=ST3B_KEPT=/work/scratch/st3b/nightly/kept.txt
+Environment=ST3B_MIN_FREE_G=260
+Environment=ST3B_MAX_LOAD=80
+Environment=ST3B_CPU_CAP_S=14400
+Environment=ST3B_40K_C0_EVERY=4
+Environment=ST3B_40K_SAMPLE=10
+WorkingDirectory=/work/scratch/st3b/device-40k
+ExecStartPre=/bin/sh -c 'sleep 300; n=0; while [ $$n -lt 360 ] && systemctl --user show -P ActiveState st3b-device-nightly.service | grep -qxE "activating|active|reloading|deactivating"; do sleep 60; n=$$((n + 1)); done'
+ExecStartPre=/usr/bin/git -C checkout checkout --quiet --detach node/integration
+# One output directory per week.
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/crash/nightly-device.sh "out/$(date -u +%%Y%%m%%d)" d-ibd-40k:ext4'
+RestartForceExitStatus=75
+RestartSec=2h
+Nice=19
+IOSchedulingClass=idle
+MemoryMax=32G
+# systemd arms TimeoutStartSec afresh for each ExecStartPre and for ExecStart, so it bounds the
+# longest of them: ExecStart's build, the lock wait (a hand run's; the nightly's is waited out
+# above), the second heavy-start check and the run. 4 CPU-h is about 4-6 h of wall under the
+# box's load (the campaign checks one point at a time). The wait above bounds itself (6 h). The
+# trap's stop and sweep have TimeoutStopSec.
+TimeoutStartSec=12h
+TimeoutStopSec=5min

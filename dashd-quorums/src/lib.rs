@@ -1,0 +1,20 @@
+//! Runtime quorum management for the Rust Dash node.
+
+#![forbid(unsafe_code)]
+
+pub mod chain;
+pub mod manager;
+pub mod store;
+pub mod traits;
+
+pub use chain::ChainQuorums;
+pub use manager::QuorumManager;
+#[cfg(feature = "testkit-seams")]
+pub use manager::share_seam::{ItemReport, LoadError, LoadReport, Rejection};
+pub use store::{MemKeyStore, NoDkgSessions, NotMasternode};
+pub use traits::{
+    CleanupFacade, LocalMasternode, PlatformQuorums, QuorumKeyStore, QuorumLookup,
+    VerifiedContributions, WarmExecutor,
+};
+#[cfg(feature = "testkit-seams")]
+pub use traits::{MinedQuorum, ShareSeamView};
