@@ -1,0 +1,437 @@
+//! Whether a pending spend carries its coin owner's authorization.
+
+use dashcore::blockdata::constants::MAX_SCRIPT_SIZE;
+use dashcore::hashes::{hash160, Hash};
+use dashcore::script::{Instruction, PushBytes};
+use dashcore::sighash::{EcdsaSighashType, SighashCache};
+use dashcore::{PublicKey, Transaction, TxOut};
+use secp256k1::ecdsa::Signature;
+use secp256k1::Message;
+use std::collections::BTreeMap;
+use std::slice;
+
+/// A pending spend whose authorization cannot be decided by the wallet signer contract.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SpendAuthorizationError {
+    /// The transaction has no input at this index.
+    InputIndexOutOfRange(usize),
+    /// The funding script requires a different authorization verifier.
+    UnsupportedScript,
+    /// The input script carries instructions besides the owner's signature and public key.
+    UnsupportedScriptSig,
+    /// The signature does not commit to the complete transaction.
+    UnsupportedSighash(u8),
+}
+
+impl core::fmt::Display for SpendAuthorizationError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InputIndexOutOfRange(index) => {
+                write!(f, "pending spend has no input at index {}", index)
+            }
+            Self::UnsupportedScript => {
+                write!(f, "pending spend uses an unsupported funding script")
+            }
+            Self::UnsupportedScriptSig => {
+                write!(f, "pending spend uses an unsupported input script")
+            }
+            Self::UnsupportedSighash(mode) => {
+                write!(f, "pending spend uses unsupported signature hash type {:#x}", mode)
+            }
+        }
+    }
+}
+
+impl std::error::Error for SpendAuthorizationError {}
+
+/// Whether input `input_index` carries the owner's P2PKH `SIGHASH_ALL` signature for `prevout`.
+/// The caller takes `prevout` from the funding transaction of that input's outpoint.
+/// An unsupported form or a missing input returns an error, so a pending hold is not released.
+/// A signature or key built at run time, for example by `OP_CAT`, returns `false`.
+pub fn verify_input_authorization(
+    transaction: &Transaction,
+    input_index: usize,
+    prevout: &TxOut,
+) -> Result<bool, SpendAuthorizationError> {
+    let Some(input) = transaction.input.get(input_index) else {
+        return Err(SpendAuthorizationError::InputIndexOutOfRange(input_index));
+    };
+    if transaction
+        .input
+        .iter()
+        .filter(|candidate| candidate.previous_output == input.previous_output)
+        .count()
+        != 1
+    {
+        return Ok(false);
+    }
+    let Some(public_key_hash) = prevout.script_pubkey.p2pkh_public_key_hash_bytes() else {
+        return Err(SpendAuthorizationError::UnsupportedScript);
+    };
+    if input.script_sig.len() > MAX_SCRIPT_SIZE {
+        return Ok(false);
+    }
+    let Ok(instructions) = input.script_sig.instructions().collect::<Result<Vec<_>, _>>() else {
+        return Ok(false);
+    };
+    let pushes = instructions
+        .iter()
+        .filter_map(Instruction::push_bytes)
+        .map(PushBytes::as_bytes)
+        .collect::<Vec<_>>();
+    let push_only = pushes.len() == instructions.len();
+    let is_owner_key =
+        |bytes: &&[u8]| hash160::Hash::hash(bytes).as_byte_array().as_slice() == public_key_hash;
+    // A push-only input script leaves the owner's signature and key as its last two pushes.
+    // Other opcodes can reorder the stack, so then any push can hold the signature.
+    let (signatures, public_key) = if push_only {
+        let [.., signature, public_key] = pushes.as_slice() else {
+            return Ok(false);
+        };
+        (slice::from_ref(signature), Some(*public_key).filter(is_owner_key))
+    } else {
+        (pushes.as_slice(), pushes.iter().copied().find(is_owner_key))
+    };
+    let Some(Ok(public_key)) = public_key.map(PublicKey::from_slice) else {
+        return Ok(false);
+    };
+    // Signatures with the same hash type share a digest, which bounds the hashing per script.
+    let mut digests = BTreeMap::new();
+    let Some(mode) = signatures.iter().find_map(|signature| {
+        let (&mode, der) = signature.split_last()?;
+        let mut signature = Signature::from_der(der).ok()?;
+        // Consensus accepts a high-S signature; the owner signed it all the same.
+        signature.normalize_s();
+        let digest = digests.entry(mode).or_insert_with(|| {
+            SighashCache::new(transaction)
+                .legacy_signature_hash(input_index, &prevout.script_pubkey, u32::from(mode))
+                .ok()
+                .map(|hash| hash.to_byte_array())
+        });
+        signature.verify(Message::from_digest((*digest)?), &public_key.inner).ok()?;
+        Some(mode)
+    }) else {
+        return Ok(false);
+    };
+    // Other modes can authorize only part of a transaction; SINGLE can even
+    // produce a constant digest. They cannot authorize this durable reservation.
+    if u32::from(mode) != EcdsaSighashType::All.to_u32() {
+        return Err(SpendAuthorizationError::UnsupportedSighash(mode));
+    }
+    // The signature hash does not commit to the input script, so anyone can add
+    // instructions to an owner's signature without invalidating it.
+    if !push_only || pushes.len() != 2 {
+        return Err(SpendAuthorizationError::UnsupportedScriptSig);
+    }
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::managed_account::managed_account_trait::ManagedAccountTrait;
+    use crate::test_utils::TestWalletContext;
+    use crate::wallet::managed_wallet_info::transaction_builder::TransactionSigner;
+    use dashcore::blockdata::transaction::special_transaction::{
+        asset_lock::AssetLockPayload, TransactionPayload,
+    };
+    use dashcore::opcodes::all::{OP_DROP, OP_SWAP};
+    use dashcore::script::{Builder, PushBytesBuf};
+    use dashcore::{OutPoint, ScriptBuf, TxIn, Txid};
+    use secp256k1::SecretKey;
+
+    fn secret(byte: u8) -> SecretKey {
+        SecretKey::from_secret_bytes([byte; 32]).unwrap()
+    }
+
+    fn compressed(key: &SecretKey) -> Vec<u8> {
+        secp256k1::PublicKey::from_secret_key(key).serialize().to_vec()
+    }
+
+    fn p2pkh_prevout(public_key: &[u8]) -> TxOut {
+        TxOut {
+            value: 100_000,
+            script_pubkey: ScriptBuf::new_p2pkh(&hash160::Hash::hash(public_key).into()),
+        }
+    }
+
+    /// An unsigned spend of one input per funding output, paying back to the first owner.
+    fn spend_of(prevouts: &[TxOut]) -> Transaction {
+        Transaction {
+            version: 1,
+            lock_time: 0,
+            input: (0..prevouts.len() as u32)
+                .map(|vout| TxIn {
+                    previous_output: OutPoint {
+                        txid: Txid::from_byte_array([3; 32]),
+                        vout,
+                    },
+                    ..Default::default()
+                })
+                .collect(),
+            output: vec![TxOut {
+                value: prevouts.iter().map(|prevout| prevout.value).sum::<u64>() - 10_000,
+                script_pubkey: prevouts[0].script_pubkey.clone(),
+            }],
+            special_transaction_payload: None,
+        }
+    }
+
+    fn signed(uncompressed: bool) -> (Transaction, TxOut) {
+        let key = secret(7);
+        let public_key = if uncompressed {
+            secp256k1::PublicKey::from_secret_key(&key).serialize_uncompressed().to_vec()
+        } else {
+            compressed(&key)
+        };
+        let prevout = p2pkh_prevout(&public_key);
+        let mut tx = spend_of(slice::from_ref(&prevout));
+        sign_input(&mut tx, 0, &prevout, &key, &public_key, 1);
+        (tx, prevout)
+    }
+
+    fn sign_input(
+        tx: &mut Transaction,
+        input_index: usize,
+        prevout: &TxOut,
+        key: &SecretKey,
+        public_key: &[u8],
+        mode: u8,
+    ) {
+        let hash = SighashCache::new(&*tx)
+            .legacy_signature_hash(input_index, &prevout.script_pubkey, u32::from(mode))
+            .unwrap();
+        let mut signature = secp256k1::ecdsa::sign(Message::from_digest(hash.to_byte_array()), key)
+            .serialize_der()
+            .to_vec();
+        signature.push(mode);
+        tx.input[input_index].script_sig = Builder::new()
+            .push_slice(PushBytesBuf::try_from(signature).unwrap())
+            .push_slice(PushBytesBuf::try_from(public_key.to_vec()).unwrap())
+            .into_script();
+    }
+
+    /// Two inputs funded by different owners, each signed by its own.
+    fn signed_by_two_owners() -> (Transaction, Vec<TxOut>) {
+        let keys = [secret(7), secret(9)];
+        let public_keys = keys.iter().map(compressed).collect::<Vec<_>>();
+        let prevouts =
+            public_keys.iter().map(|public_key| p2pkh_prevout(public_key)).collect::<Vec<_>>();
+        let mut tx = spend_of(&prevouts);
+        for index in 0..2 {
+            sign_input(&mut tx, index, &prevouts[index], &keys[index], &public_keys[index], 1);
+        }
+        (tx, prevouts)
+    }
+
+    #[test]
+    fn should_authorize_each_input_only_against_its_own_funding_output() {
+        let (tx, prevouts) = signed_by_two_owners();
+        for index in 0..2 {
+            assert_eq!(verify_input_authorization(&tx, index, &prevouts[index]), Ok(true));
+            assert_eq!(verify_input_authorization(&tx, index, &prevouts[1 - index]), Ok(false));
+        }
+
+        // SIGHASH_ALL commits to every input, so changing one input revokes the other's.
+        let mut resequenced = tx.clone();
+        resequenced.input[1].sequence = 7;
+        assert_eq!(verify_input_authorization(&resequenced, 0, &prevouts[0]), Ok(false));
+
+        // A signature does not follow its input to another position.
+        let mut reordered = tx;
+        reordered.input.swap(0, 1);
+        for index in 0..2 {
+            assert_eq!(
+                verify_input_authorization(&reordered, index, &prevouts[1 - index]),
+                Ok(false)
+            );
+        }
+    }
+
+    #[test]
+    fn should_accept_compressed_and_uncompressed_owner_signatures() {
+        for uncompressed in [false, true] {
+            let (tx, prevout) = signed(uncompressed);
+            assert_eq!(verify_input_authorization(&tx, 0, &prevout), Ok(true));
+        }
+    }
+
+    #[test]
+    fn should_accept_a_high_s_owner_signature() {
+        let (mut tx, prevout) = signed(false);
+        let script = tx.input[0].script_sig.as_bytes().to_vec();
+        let signature_len = usize::from(script[0]);
+        let mut signature = Signature::from_der(&script[1..signature_len]).unwrap();
+        let low = signature.serialize_compact();
+        signature.normalize_s();
+        assert_eq!(signature.serialize_compact(), low, "the signer produces low S");
+        let order = secp256k1::constants::CURVE_ORDER;
+        let mut high = low;
+        let mut borrow = 0i16;
+        for i in (0..32).rev() {
+            let value = i16::from(order[i]) - i16::from(low[32 + i]) - borrow;
+            high[32 + i] = value.rem_euclid(256) as u8;
+            borrow = i16::from(value < 0);
+        }
+        let mut der = Signature::from_compact(&high).unwrap().serialize_der().to_vec();
+        der.push(1);
+        tx.input[0].script_sig = Builder::new()
+            .push_slice(PushBytesBuf::try_from(der).unwrap())
+            .push_slice(PushBytesBuf::try_from(script[signature_len + 2..].to_vec()).unwrap())
+            .into_script();
+        assert_eq!(verify_input_authorization(&tx, 0, &prevout), Ok(true));
+    }
+
+    #[tokio::test]
+    async fn should_accept_what_the_wallet_signer_produces() {
+        let (ctx, _) = TestWalletContext::new_random().with_mempool_funding(100_000).await;
+        let utxo = ctx.first_utxo().clone();
+        let path = ctx.bip44_account().address_derivation_path(&utxo.address).unwrap();
+        let mut unsigned = Transaction::dummy_empty();
+        unsigned.input.push(TxIn {
+            previous_output: utxo.outpoint,
+            ..Default::default()
+        });
+        unsigned.output.push(TxOut {
+            value: 90_000,
+            script_pubkey: utxo.txout.script_pubkey.clone(),
+        });
+        let signed = ctx
+            .wallet
+            .sign_tx(unsigned, vec![utxo.clone()], move |_| Some(path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(verify_input_authorization(&signed, 0, &utxo.txout), Ok(true));
+    }
+
+    #[test]
+    fn should_reject_unsigned_tampered_and_wrong_funding_claims() {
+        let (tx, prevout) = signed(false);
+        let mut unsigned = tx.clone();
+        unsigned.input[0].script_sig = ScriptBuf::new();
+        assert_eq!(verify_input_authorization(&unsigned, 0, &prevout), Ok(false));
+        let mut changed = tx.clone();
+        changed.output[0].value -= 1;
+        assert_eq!(verify_input_authorization(&changed, 0, &prevout), Ok(false));
+        changed = tx.clone();
+        changed.input[0].previous_output.vout += 1;
+        assert_eq!(verify_input_authorization(&changed, 0, &prevout), Ok(false));
+        let (_, different_encoding) = signed(true);
+        assert_eq!(verify_input_authorization(&tx, 0, &different_encoding), Ok(false));
+        assert_eq!(
+            verify_input_authorization(&tx, 1, &prevout),
+            Err(SpendAuthorizationError::InputIndexOutOfRange(1))
+        );
+        // The owner signs a transaction that lists the outpoint twice.
+        let key = secret(7);
+        changed = tx.clone();
+        changed.input.push(tx.input[0].clone());
+        sign_input(&mut changed, 0, &prevout, &key, &compressed(&key), 1);
+        assert_eq!(verify_input_authorization(&changed, 0, &prevout), Ok(false));
+    }
+
+    #[test]
+    fn should_reject_input_scripts_that_cannot_spend_the_funding_output() {
+        let (signed_tx, prevout) = signed(false);
+        let owner_script = signed_tx.input[0].script_sig.as_bytes();
+        let signature_len = usize::from(owner_script[0]);
+        let mut oversized = vec![0x61; MAX_SCRIPT_SIZE + 1];
+        oversized[..owner_script.len()].copy_from_slice(owner_script);
+        let scripts = [
+            [owner_script, &[0x00][..]].concat(),
+            [&[1, 1][..], &owner_script[signature_len + 1..]].concat(),
+            vec![1, 1, 1, 2],
+            oversized,
+        ];
+        for script in scripts {
+            let mut tx = signed_tx.clone();
+            tx.input[0].script_sig = ScriptBuf::from_bytes(script);
+            assert_eq!(verify_input_authorization(&tx, 0, &prevout), Ok(false));
+        }
+    }
+
+    #[test]
+    fn should_bind_asset_lock_payload_to_authorization() {
+        let (mut tx, prevout) = signed(false);
+        let key = secret(7);
+        tx.version = 3;
+        tx.special_transaction_payload =
+            Some(TransactionPayload::AssetLockPayloadType(AssetLockPayload::new(vec![
+                prevout.clone()
+            ])));
+        sign_input(&mut tx, 0, &prevout, &key, &compressed(&key), 1);
+        assert_eq!(verify_input_authorization(&tx, 0, &prevout), Ok(true));
+        if let Some(TransactionPayload::AssetLockPayloadType(payload)) =
+            &mut tx.special_transaction_payload
+        {
+            payload.credit_outputs[0].value -= 1;
+        }
+        assert_eq!(verify_input_authorization(&tx, 0, &prevout), Ok(false));
+    }
+
+    #[test]
+    fn should_preserve_unsupported_authorization_as_an_error() {
+        let (signed_tx, prevout) = signed(false);
+        let key = secret(7);
+        let owner_script = signed_tx.input[0].script_sig.as_bytes();
+        let signature = &owner_script[1..=usize::from(owner_script[0])];
+        let public_key = &owner_script[signature.len() + 2..];
+        let mut tx = signed_tx.clone();
+        for mode in [0, 2, 3, 4, 0x81, 0x82, 0x83, 0xff] {
+            sign_input(&mut tx, 0, &prevout, &key, public_key, mode);
+            assert_eq!(
+                verify_input_authorization(&tx, 0, &prevout),
+                Err(SpendAuthorizationError::UnsupportedSighash(mode))
+            );
+            // Swapping only the flag invalidates the signature instead of making it unsupported.
+            let mut flagged = signed_tx.clone();
+            let mut bytes = owner_script.to_vec();
+            bytes[signature.len()] = mode;
+            flagged.input[0].script_sig = ScriptBuf::from_bytes(bytes);
+            assert_eq!(verify_input_authorization(&flagged, 0, &prevout), Ok(false));
+        }
+        // Without an output for input 0, SINGLE signs the constant digest 1. That signature
+        // still verifies on a changed transaction, and must stay an error there.
+        let mut no_outputs = tx.clone();
+        no_outputs.output.clear();
+        for mode in [3, 0x83] {
+            sign_input(&mut no_outputs, 0, &prevout, &key, public_key, mode);
+            no_outputs.lock_time += 1;
+            assert_eq!(
+                verify_input_authorization(&no_outputs, 0, &prevout),
+                Err(SpendAuthorizationError::UnsupportedSighash(mode))
+            );
+        }
+        let unknown = TxOut {
+            value: prevout.value,
+            script_pubkey: ScriptBuf::new(),
+        };
+        assert_eq!(
+            verify_input_authorization(&tx, 0, &unknown),
+            Err(SpendAuthorizationError::UnsupportedScript)
+        );
+        // Each of these input scripts keeps the owner's spend consensus-valid.
+        let pushes = |items: &[&[u8]]| {
+            items.iter().fold(Builder::new(), |builder, item| {
+                builder.push_slice(PushBytesBuf::try_from(item.to_vec()).unwrap())
+            })
+        };
+        let scripts = [
+            [&[0x00][..], owner_script].concat(),
+            [&[0x61][..], owner_script].concat(),
+            [owner_script, &[0x61][..]].concat(),
+            pushes(&[signature, public_key, &[1]]).push_opcode(OP_DROP).into_bytes(),
+            pushes(&[public_key, signature]).push_opcode(OP_SWAP).into_bytes(),
+        ];
+        for script in scripts {
+            let mut padded = signed_tx.clone();
+            padded.input[0].script_sig = ScriptBuf::from_bytes(script);
+            assert_eq!(
+                verify_input_authorization(&padded, 0, &prevout),
+                Err(SpendAuthorizationError::UnsupportedScriptSig)
+            );
+            padded.output[0].value -= 1;
+            assert_eq!(verify_input_authorization(&padded, 0, &prevout), Ok(false));
+        }
+    }
+}

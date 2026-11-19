@@ -55,6 +55,8 @@ pub const SCRIPT_ADDRESS_PREFIX_TEST: u8 = 19;
 // 0x13
 /// The maximum allowed script size.
 pub const MAX_SCRIPT_ELEMENT_SIZE: usize = 520;
+/// The maximum size of a script Dash Core executes, its `MAX_SCRIPT_SIZE` (consensus rule).
+pub const MAX_SCRIPT_SIZE: usize = 10_000;
 /// How many blocks between halvings.
 pub const SUBSIDY_HALVING_INTERVAL: u32 = 210_000;
 /// Maximum allowed value for an integer in Script.

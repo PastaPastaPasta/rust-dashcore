@@ -331,6 +331,25 @@ impl WalletTransactionChecker for ManagedWalletInfo {
             return result;
         }
 
+        let txid = tx.txid();
+        let is_new = !self.accounts.all_accounts().into_iter().any(|a| a.has_transaction(&txid));
+        result.is_new_transaction = is_new;
+
+        // The outputs of a new transaction were unknown until now, so any
+        // spend of them already recorded was taken on a peer's word.
+        if is_new {
+            let dropped = self.drop_unauthorized_spends_of(tx);
+            if !dropped.is_empty() {
+                result.swept_transactions.extend(dropped.txids);
+                result.swept_transactions.sort_unstable();
+                result.swept_transactions.dedup();
+                result.released_outpoints.extend(dropped.released_outpoints);
+                result.released_outpoints.sort_unstable();
+                result.released_outpoints.dedup();
+                result.state_modified = true;
+            }
+        }
+
         // Wallet-wide view of this transaction's input parents, taken while
         // every account is still readable and before any `update_utxos` call
         // starts removing spent parents. Without it a pooled self-send — the
@@ -339,10 +358,6 @@ impl WalletTransactionChecker for ManagedWalletInfo {
         // the account holding the change, and that change lands in the
         // `unconfirmed` bucket.
         let external_final_parents = self.accounts.final_parents_of(tx);
-
-        let txid = tx.txid();
-        let is_new = !self.accounts.all_accounts().into_iter().any(|a| a.has_transaction(&txid));
-        result.is_new_transaction = is_new;
 
         if !is_new {
             // IS lock on a transaction that is already confirmed is stale — ignore
