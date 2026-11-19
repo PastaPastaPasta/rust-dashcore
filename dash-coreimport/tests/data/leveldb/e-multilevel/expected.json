@@ -1,0 +1,282 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 5,
+          "offset": 35
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 7,
+          "offset": 47
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 2,
+          "offset": 90
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 9,
+          "offset": 92
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 3,
+          "offset": 94
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 4,
+          "offset": 96
+        },
+        {
+          "file": "e-multilevel/blocks/index/MANIFEST-000016",
+          "manifest_tag": 7,
+          "offset": 98
+        },
+        {
+          "file": "e-multilevel/blocks/index/000015.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 1827
+        },
+        {
+          "file": "e-multilevel/blocks/index/000017.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 343
+        }
+      ],
+      "levels": [
+        0,
+        1
+      ],
+      "versions": [
+        {
+          "file": "e-multilevel/blocks/index/000015.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 1,
+          "offset": 1764,
+          "sequence": 27,
+          "value": "00000000"
+        },
+        {
+          "file": "e-multilevel/blocks/index/000017.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 276,
+          "sequence": 34,
+          "value": "00000000"
+        },
+        {
+          "file": "e-multilevel/blocks/index/000017.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 292,
+          "sequence": 32,
+          "value": "00000000"
+        },
+        {
+          "file": "e-multilevel/blocks/index/000018.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 130,
+          "sequence": 38,
+          "value": "00000000"
+        },
+        {
+          "file": "e-multilevel/blocks/index/000018.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 157,
+          "sequence": 39,
+          "value": "00000000"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 5,
+          "offset": 35
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 7,
+          "offset": 47
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 7,
+          "offset": 72
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 7,
+          "offset": 125
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 2,
+          "offset": 190
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 9,
+          "offset": 192
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 3,
+          "offset": 194
+        },
+        {
+          "file": "e-multilevel/chainstate/MANIFEST-000030",
+          "manifest_tag": 4,
+          "offset": 196
+        },
+        {
+          "file": "e-multilevel/chainstate/000028.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 393
+        },
+        {
+          "file": "e-multilevel/chainstate/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 71
+        },
+        {
+          "file": "e-multilevel/chainstate/000022.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 698
+        }
+      ],
+      "levels": [
+        0,
+        1
+      ],
+      "versions": [
+        {
+          "file": "e-multilevel/chainstate/000028.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 43,
+          "value": "7e6cb6427cf1d8322bd37c82b20abb968e4a857549cd4168745b74c52bdbda06"
+        },
+        {
+          "file": "e-multilevel/chainstate/000028.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 44,
+          "sequence": 40,
+          "value": ""
+        },
+        {
+          "file": "e-multilevel/chainstate/000028.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 55,
+          "sequence": 39,
+          "value": "7e6cb6427cf1d8322bd37c82b20abb968e4a857549cd4168745b74c52bdbda06"
+        },
+        {
+          "file": "e-multilevel/chainstate/000028.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 98,
+          "sequence": 35,
+          "value": ""
+        },
+        {
+          "file": "e-multilevel/chainstate/000005.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 1,
+          "offset": 0,
+          "sequence": 1,
+          "value": "087081cbd2106fbd6d"
+        },
+        {
+          "file": "e-multilevel/chainstate/000022.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 1,
+          "offset": 0,
+          "sequence": 34,
+          "value": "d66596203c23e7bb300fc04993162491f50907eeab5bdc5178ede69e13848929"
+        },
+        {
+          "file": "e-multilevel/chainstate/000031.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 44,
+          "value": ""
+        },
+        {
+          "file": "e-multilevel/chainstate/000031.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 94,
+          "sequence": 47,
+          "value": "7e6cb6427cf1d8322bd37c82b20abb968e4a857549cd4168745b74c52bdbda06"
+        },
+        {
+          "file": "e-multilevel/chainstate/000031.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 149,
+          "sequence": 48,
+          "value": ""
+        },
+        {
+          "file": "e-multilevel/chainstate/000031.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 224,
+          "sequence": 51,
+          "value": "7e6cb6427cf1d8322bd37c82b20abb968e4a857549cd4168745b74c52bdbda06"
+        }
+      ]
+    }
+  },
+  "best_block": "6b67b43b17bfda0405fca259a74ecbfefb0665a250b7525b5f659e6c907ded0e",
+  "decoded": {
+    "B": "6b67b43b17bfda0405fca259a74ecbfefb0665a250b7525b5f659e6c907ded0e",
+    "R": false,
+    "last_file": 0,
+    "obfuscation_key": "7081cbd2106fbd6d",
+    "prunedblockfiles": false
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": false,
+  "reindexing": false
+}

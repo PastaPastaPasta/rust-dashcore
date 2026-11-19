@@ -1,0 +1,66 @@
+[package]
+name = "dash-p2p-transport"
+description = "Dash Core's P2P transports for the shared network stack (SB0 §2.2): V1 framing and BIP324 V2 encryption with Dash's short IDs, as sans-io state machines (Core's V1Transport and V2Transport). Starts no threads and does no I/O."
+authors.workspace = true
+edition.workspace = true
+# Ports Dash Core code (MIT); see LICENSE and DEC-07.
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+name = "dash_p2p_transport"
+path = "src/lib.rs"
+
+[features]
+# `Bip324Cipher::encrypt_with_header`: a hostile test peer's header byte, reserved bits included
+# (node-fuzz's p2p_transport_model). Never enabled by a node or wallet crate.
+test-peer = []
+
+[dependencies]
+# BIP324's packet AEAD (RFC 8439) and the ChaCha20 stream of its length cipher and rekeying.
+chacha20 = { version = "0.10.2", default-features = false, features = ["cipher", "zeroize"] }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["zeroize"] }
+# Dash Core's SHA-256 (SH1): V1 checksums and HKDF-HMAC-SHA256.
+dash-sha256 = { path = "../dash-sha256" }
+# V1 headers, command strings, magic and V2 short IDs (BS7).
+dash-p2p-core = { workspace = true, features = ["std"] }
+# Ephemeral keys and garbage of `V2Transport::new`.
+getrandom = { version = "0.3.4", default-features = false }
+# ElligatorSwift keys and BIP324's x-only ECDH.
+secp256k1 = { workspace = true }
+zeroize = { workspace = true }
+
+# base-sdk's `dash-pow`, reached through `dash-primitives`, needs `portable` on targets without
+# the CPU features its accelerated X11 requires; enabling it here, as dashcore_hashes does,
+# keeps this crate building on its own.
+[target.'cfg(all(target_arch = "aarch64", not(all(target_feature = "neon", target_feature = "aes"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "x86_64", not(all(target_feature = "aes", target_feature = "avx", target_feature = "avx2", target_feature = "bmi1", target_feature = "bmi2", target_feature = "f16c", target_feature = "fma", target_feature = "lzcnt", target_feature = "movbe", target_feature = "xsave"))))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(all(target_arch = "wasm32", not(target_feature = "simd128")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+[target.'cfg(not(any(target_arch = "aarch64", target_arch = "x86_64", target_arch = "wasm32")))'.dependencies]
+dash-pow = { workspace = true, features = ["portable"] }
+
+# Likewise base-sdk's `dash-pkc`, whose BLS needs ADX on x86_64 unless built `portable`.
+[target.'cfg(all(target_arch = "x86_64", not(target_feature = "adx")))'.dependencies]
+dash-pkc = { workspace = true, features = ["portable"] }
+
+[dev-dependencies]
+# Frame encode and decode (benches/frame.rs); PF0 runs it through its criterion shim.
+criterion = "0.8.1"
+# Regtest's message start for the dashd interop tests.
+dash-params = { workspace = true, features = ["std"] }
+serde_json = "1.0"
+# Free ports for the dashd interop tests' nodes (BL-221).
+node-test-ports = { path = "../node-test-ports" }
+
+[[bench]]
+name = "frame"
+harness = false

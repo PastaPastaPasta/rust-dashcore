@@ -1,0 +1,11 @@
+{
+  "base": "a-wal",
+  "detail": {
+    "database": "chainstate",
+    "key": "42",
+    "value": "7081cbd2106fbd6d7081cbd2106fbd6d7081cbd2106fbd6d7081cbd2106fbd6d",
+    "sequence": 100,
+    "file": "chainstate/000200.log",
+    "offset": 19
+  }
+}
