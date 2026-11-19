@@ -1,0 +1,154 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "k-l0-older-value/blocks/index/MANIFEST-000002",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "k-l0-older-value/blocks/index/MANIFEST-000002",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "k-l0-older-value/blocks/index/MANIFEST-000002",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "k-l0-older-value/blocks/index/MANIFEST-000002",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "k-l0-older-value/blocks/index/MANIFEST-000002",
+          "manifest_tag": 4,
+          "offset": 48
+        }
+      ],
+      "levels": [],
+      "versions": [
+        {
+          "file": "k-l0-older-value/blocks/index/000003.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 155,
+          "sequence": 5,
+          "value": "00000000"
+        },
+        {
+          "file": "k-l0-older-value/blocks/index/000003.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 1607,
+          "sequence": 15,
+          "value": "00000000"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 2,
+          "offset": 35
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 9,
+          "offset": 38
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 3,
+          "offset": 40
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 4,
+          "offset": 43
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 7,
+          "offset": 45
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 7,
+          "offset": 70
+        },
+        {
+          "file": "k-l0-older-value/chainstate/MANIFEST-000001",
+          "manifest_tag": 7,
+          "offset": 95
+        }
+      ],
+      "levels": [
+        0,
+        1
+      ],
+      "versions": [
+        {
+          "file": "k-l0-older-value/chainstate/000101.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 20,
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "file": "k-l0-older-value/chainstate/000100.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 10,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "k-l0-older-value/chainstate/000010.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 1,
+          "offset": 0,
+          "sequence": 1,
+          "value": "087081cbd2106fbd6d"
+        },
+        {
+          "file": "k-l0-older-value/chainstate/000010.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 1,
+          "offset": 35,
+          "sequence": 30,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        }
+      ]
+    }
+  },
+  "best_block": null,
+  "decoded": {
+    "B": null,
+    "R": false,
+    "last_file": 0,
+    "obfuscation_key": "7081cbd2106fbd6d",
+    "prunedblockfiles": false
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": false,
+  "refusal": "source priority contradiction",
+  "reindexing": false
+}

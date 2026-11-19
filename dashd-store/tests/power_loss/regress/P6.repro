@@ -1,0 +1,10 @@
+# MicroLog planted bug P6 (ST3a §6.1), minimised in 14 replays.
+harness st3a/1
+sut microlog
+config bug=P6 max=1024
+workload s;a200:5;c
+fault nth fs write 1 nospace partial:1
+adversary realistic
+granularity write
+expect R8
+minimality verified
