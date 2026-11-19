@@ -1,0 +1,4 @@
+# script error "Modulo by zero error" (bank slot 36, se_mod_by_zero): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_mod_by_zero
+extend main 1
