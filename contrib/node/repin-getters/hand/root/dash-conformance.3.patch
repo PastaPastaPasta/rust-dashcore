@@ -1,0 +1,15 @@
+diff --git a/conformance/src/verbose.rs b/conformance/src/verbose.rs
+index dda33bd6916af8fac4d27a0c01032494d190acec..7d15d751098dbfd631dd1340b8f2006ffa5be8a6 100644
+--- a/conformance/src/verbose.rs
++++ b/conformance/src/verbose.rs
+@@ -936,8 +936,8 @@ fn bs_payload_flat(p: &SpecialPayload, f: &mut Flattener) {
+             f.kv("proUpRevTx.inputsHash", rev(&bs_bytes(&b.inputs_hash())));
+         }
+         SpecialPayload::CoinbaseCommitment(b) => {
+-            f.kv("cbTx.version", b.version());
+-            f.kv("cbTx.height", b.height());
++            f.kv("cbTx.version", b.version().to_base());
++            f.kv("cbTx.height", b.height().to_u32().cast_signed());
+             f.kv("cbTx.merkleRootMNList", rev(&bs_bytes(&b.merkle_root_mn_list())));
+             if let Some(r) = &b.merkle_root_quorums() {
+                 f.kv("cbTx.merkleRootQuorums", rev(&bs_bytes(r)));

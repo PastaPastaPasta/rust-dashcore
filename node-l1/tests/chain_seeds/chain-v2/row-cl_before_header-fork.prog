@@ -1,0 +1,6 @@
+# A ChainLock on an unsent fork block, then the block (off the av line on S2).
+fork 0 2 hold
+cl unsent#1
+deliver b1
+cl_enforce
+extend main 1
