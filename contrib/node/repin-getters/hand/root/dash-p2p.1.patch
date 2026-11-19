@@ -1,0 +1,93 @@
+diff --git a/dash-p2p/src/policy.rs b/dash-p2p/src/policy.rs
+index 7186b386043985c014e698e35c552fb842289fd7..9fccf0e7ce0761de0c379755bcb291050528593e 100644
+--- a/dash-p2p/src/policy.rs
++++ b/dash-p2p/src/policy.rs
+@@ -14,8 +14,8 @@ use dash_p2p_core::limits::{
+     MAX_SCRIPT_ELEMENT_SIZE, MAX_SIZE,
+ };
+ use dash_p2p_core::{
+-    CommandString, CompressedHeader, DecodedMsg, FilterAdd, FilterLoad, GetQrInfo, GovSync,
+-    Headers2, MsgDecode, P2pDecodeError, P2pMsg, ProtoCtx, ProtocolVersion, SendCmpct,
++    CommandString, DecodedMsg, FilterAdd, FilterLoad, GetQrInfo, GovSync, Headers2, MsgDecode,
++    P2pDecodeError, P2pMsg, ProtoCtx, ProtocolVersion, SendCmpct,
+ };
+ use dash_primitives::{BlockHash, BlockHeader, GovVote};
+ use dash_types::codec::{BaseCodec, DecodeError, EncodeBuf};
+@@ -1258,6 +1258,8 @@ fn gov_rest(cmd: &CommandString, payload: &[u8], consumed: usize) -> Result<usiz
+     }
+ }
+ 
++/// `CompressedHeaderBitField`'s version offset: 0 when the version is on the wire.
++const H2_VERSION_OFFSET: u8 = 0b0000_0111;
+ /// `CompressedHeaderBitField` flags: the previous block hash, the timestamp and `nBits` are on
+ /// the wire.
+ const H2_PREV_HASH: u8 = 0b0000_1000;
+@@ -1304,31 +1306,55 @@ fn uncompress_headers2(
+     }
+     let mut headers: Vec<BlockHeader> = Vec::new();
+     for _ in 0..count {
+-        let c = CompressedHeader::decode(data)?;
+-        let mut h = *c.header();
++        // The entry's wire fields, the others kept at the default header's (zero): base-sdk's
++        // `CompressedHeader` read until fda80b21 made it private (headers2.rs:66-91 at b6853466).
++        let flags = u8::decode(data)?;
++        let zero = BlockHeader::default();
++        let mut version = if flags & H2_VERSION_OFFSET == 0 {
++            i32::decode(data)?
++        } else {
++            zero.version()
++        };
++        let mut prev_hash = if flags & H2_PREV_HASH != 0 {
++            BlockHash::decode(data)?
++        } else {
++            zero.prev_hash()
++        };
++        let merkle_root = BaseCodec::decode(data)?;
++        let (mut time, time_offset) = if flags & H2_TIMESTAMP != 0 {
++            (u32::decode(data)?, 0)
++        } else {
++            (zero.time(), i16::decode(data)?)
++        };
++        let mut bits = if flags & H2_NBITS != 0 {
++            u32::decode(data)?
++        } else {
++            zero.bits()
++        };
++        let nonce = u32::decode(data)?;
+         match headers.last() {
+-            None => save(&mut versions, h.version),
++            None => save(&mut versions, version),
+             Some(last) => {
+-                let offset = usize::from(c.version_offset());
++                let offset = usize::from(flags & H2_VERSION_OFFSET);
+                 if offset == 0 {
+-                    save(&mut versions, h.version);
++                    save(&mut versions, version);
+                 } else if let Some(v) = versions.remove(offset - 1) {
+-                    h.version = v;
++                    version = v;
+                     versions.push_front(v);
+                 }
+-                if c.flags() & H2_PREV_HASH == 0 {
+-                    h.prev_hash = hash(last);
++                if flags & H2_PREV_HASH == 0 {
++                    prev_hash = hash(last);
+                 }
+-                if c.flags() & H2_TIMESTAMP == 0 {
++                if flags & H2_TIMESTAMP == 0 {
+                     // `uint32_t + int16_t`: modulo 2^32.
+-                    h.time = last.time().wrapping_add(i32::from(c.time_offset()) as u32);
++                    time = last.time().wrapping_add(i32::from(time_offset) as u32);
+                 }
+-                if c.flags() & H2_NBITS == 0 {
+-                    h.bits = last.bits();
++                if flags & H2_NBITS == 0 {
++                    bits = last.bits();
+                 }
+             }
+         }
+-        headers.push(h);
++        headers.push(BlockHeader::new(version, prev_hash, merkle_root, time, bits, nonce));
+     }
+     Ok(headers)
+ }
