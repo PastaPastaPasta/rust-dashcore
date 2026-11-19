@@ -1,0 +1,156 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "a-wal/blocks/index/MANIFEST-000002",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "a-wal/blocks/index/MANIFEST-000002",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "a-wal/blocks/index/MANIFEST-000002",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "a-wal/blocks/index/MANIFEST-000002",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "a-wal/blocks/index/MANIFEST-000002",
+          "manifest_tag": 4,
+          "offset": 48
+        }
+      ],
+      "levels": [],
+      "versions": [
+        {
+          "file": "a-wal/blocks/index/000003.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 155,
+          "sequence": 5,
+          "value": "00000000"
+        },
+        {
+          "file": "a-wal/blocks/index/000003.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 1607,
+          "sequence": 15,
+          "value": "00000000"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 4,
+          "offset": 48
+        },
+        {
+          "file": "a-wal/chainstate/MANIFEST-000004",
+          "manifest_tag": 7,
+          "offset": 50
+        },
+        {
+          "file": "a-wal/chainstate/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 71
+        }
+      ],
+      "levels": [
+        0
+      ],
+      "versions": [
+        {
+          "file": "a-wal/chainstate/000005.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 1,
+          "value": "087081cbd2106fbd6d"
+        },
+        {
+          "file": "a-wal/chainstate/000006.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 2,
+          "value": ""
+        },
+        {
+          "file": "a-wal/chainstate/000006.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 582,
+          "sequence": 13,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "a-wal/chainstate/000006.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 637,
+          "sequence": 14,
+          "value": ""
+        },
+        {
+          "file": "a-wal/chainstate/000006.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 712,
+          "sequence": 17,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        }
+      ]
+    }
+  },
+  "best_block": "0d67401fbc3a21024e95d7d0bedb056df02583e81a870a79d7a472f184b0327d",
+  "decoded": {
+    "B": "0d67401fbc3a21024e95d7d0bedb056df02583e81a870a79d7a472f184b0327d",
+    "R": false,
+    "last_file": 0,
+    "obfuscation_key": "7081cbd2106fbd6d",
+    "prunedblockfiles": false
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": false,
+  "reindexing": false
+}

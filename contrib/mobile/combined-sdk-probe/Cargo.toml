@@ -1,0 +1,27 @@
+# The combined-SDK probe (SB17 M2): one Android library holding dash-spv-ffi and a
+# Platform-style rusqlite with `bundled`, as Platform's unified SDK would. Not a workspace
+# member and not built by CI; run it by hand (README.md).
+[package]
+name = "combined-sdk-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+dash-spv-ffi = { path = "../../../dash-spv-ffi" }
+rusqlite = { version = "0.38", features = ["bundled"] }
+
+[workspace]
+
+[patch.crates-io]
+dashcore_hashes = { path = "../../../hashes" }
+
+[profile.mobile]
+inherits = "release"
+lto = false
+codegen-units = 1
+opt-level = "s"
