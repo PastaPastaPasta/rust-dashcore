@@ -191,6 +191,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         let per_wallet_updated_records =
             std::mem::take(&mut check_result.per_wallet_updated_records);
         let mut per_wallet_derived = std::mem::take(&mut check_result.new_addresses);
+        let mut locked_wallets = BTreeSet::new();
 
         for (wallet_id, records) in per_wallet_new_records {
             let Some(info) = self.wallet_infos.get(&wallet_id) else {
@@ -207,6 +208,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             // record so persisters scoping by `record.account_type` get
             // the correct rows.
             let mut derived_for_wallet = per_wallet_derived.remove(&wallet_id).unwrap_or_default();
+            let records_tx = records.iter().any(|record| record.txid == tx.txid());
             for record in records {
                 let record_account = record.account_type;
                 let (for_record, rest): (Vec<_>, Vec<_>) =
@@ -220,6 +222,19 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                     addresses_derived: project_derived_addresses(for_record),
                 };
                 self.emit_event(event);
+            }
+            // A lock that arrived before its transaction comes in with it, and
+            // is announced like a lock on a transaction already recorded, so a
+            // consumer storing locks from this event stores it too.
+            if let Some(lock) = instant_lock.as_ref().filter(|_| records_tx) {
+                locked_wallets.insert(wallet_id);
+                self.emit_event(WalletEvent::TransactionInstantLocked {
+                    wallet_id,
+                    txid: lock.txid,
+                    instant_lock: lock.clone(),
+                    balance,
+                    account_balances: account_balances.clone(),
+                });
             }
             // If any derivations were left unattributed (records vector
             // didn't cover every account that derived), log so the
@@ -278,7 +293,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             let balance = info.balance();
             let account_balances =
                 per_wallet_account_diff.get(&wallet_id).cloned().unwrap_or_default();
-            let mut lock_emitted = false;
+            let mut lock_emitted = locked_wallets.contains(&wallet_id);
             for record in records {
                 let txid = record.txid;
                 // The arriving tx only changes lock status; other txids carry late-input corrections.
