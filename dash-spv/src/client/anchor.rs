@@ -156,7 +156,7 @@ pub enum Phase {
         tip_gen: u64,
         /// The latest header input since the command, acted on after a `Stale` result.
         recorded: Option<HeaderState>,
-        /// The latest unrequested replacement since the command, applied on the result.
+        /// The newest unrequested replacement since the command, applied on the result.
         replaced: Option<Anchor>,
     },
     Established,
@@ -164,7 +164,7 @@ pub enum Phase {
 }
 
 /// The header task's sync state. `tip_gen` rises with every published tip that differs from
-/// the last, a same-height reorg and a new chain included.
+/// the last, a same-height reorg included; it is compared only within one `cand_gen`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeaderState {
     CaughtUp {
@@ -177,6 +177,10 @@ pub enum HeaderState {
 }
 
 impl HeaderState {
+    fn caught_up(&self) -> bool {
+        matches!(self, HeaderState::CaughtUp { .. })
+    }
+
     pub fn tip_gen(&self) -> u64 {
         match *self {
             HeaderState::CaughtUp {
@@ -201,15 +205,19 @@ pub enum EstablishOutcome {
     Failed(String),
 }
 
+/// Header inputs and `Replaced` carry the `cand_gen` the host stamped on the chain that
+/// published them; a header input whose `cand_gen` is not current is dropped.
 #[derive(Clone, Debug)]
 pub enum Input {
     Opened(Option<StoredChain>),
     HeadersCaughtUp {
         tip: BlockRef,
         tip_gen: u64,
+        cand_gen: u64,
     },
     HeadersBehind {
         tip_gen: u64,
+        cand_gen: u64,
     },
     /// The result of the `RunCoverage` with these generations.
     Coverage {
@@ -232,9 +240,11 @@ pub enum Input {
         outcome: EstablishOutcome,
     },
     /// The header task replaced the chain at a generation the driver did not request, and has
-    /// already reset the store and built the new chain.
+    /// already reset the store and built the new chain, stamped `cand_gen`. Applied only when
+    /// `cand_gen` is newer than the driver's, which then adopts it.
     Replaced {
         anchor: Anchor,
+        cand_gen: u64,
     },
 }
 
@@ -276,10 +286,9 @@ pub struct InitialSync {
     birth: Option<u32>,
     tip: Option<BlockRef>,
     tip_gen: Option<u64>,
-    /// `tip_gen` when the current candidate replaced the last one: header inputs at or below it
-    /// describe the old chain.
-    replaced_at: Option<u64>,
     cand_gen: u64,
+    /// The `cand_gen` of `Establishing`'s `replaced`.
+    replaced_gen: u64,
     behind: bool,
     /// Pump rounds spent on coverage's requests, for status only.
     rounds_spent: u64,
@@ -303,8 +312,8 @@ impl InitialSync {
             birth,
             tip: None,
             tip_gen: None,
-            replaced_at: None,
             cand_gen: 0,
+            replaced_gen: 0,
             behind: false,
             rounds_spent: 0,
             next_establish_id: 1,
@@ -320,7 +329,7 @@ impl InitialSync {
         self.rounds_spent
     }
 
-    /// Rises with every `Reset` and every applied `Replaced`.
+    /// Rises with every `Reset`; an applied `Replaced` sets it to the replacement's.
     pub fn cand_gen(&self) -> u64 {
         self.cand_gen
     }
@@ -411,7 +420,8 @@ impl InitialSync {
             Input::HeadersCaughtUp {
                 tip,
                 tip_gen,
-            } => Ok(self.headers(
+                cand_gen,
+            } if cand_gen == self.cand_gen => Ok(self.headers(
                 anchor,
                 HeaderState::CaughtUp {
                     tip,
@@ -420,7 +430,8 @@ impl InitialSync {
             )),
             Input::HeadersBehind {
                 tip_gen,
-            } => Ok(self.headers(
+                cand_gen,
+            } if cand_gen == self.cand_gen => Ok(self.headers(
                 anchor,
                 HeaderState::Behind {
                     tip_gen,
@@ -455,7 +466,8 @@ impl InitialSync {
             } => Ok(vec![unmatched(id)]),
             Input::Replaced {
                 anchor,
-            } => Ok(vec![self.replaced(anchor)]),
+                cand_gen,
+            } if cand_gen > self.cand_gen => Ok(vec![self.replaced(anchor, cand_gen)]),
             _ => Ok(Vec::new()),
         }
     }
@@ -482,9 +494,9 @@ impl InitialSync {
         }
     }
 
-    /// While `Establishing`: header inputs are recorded, a replacement is kept for the result,
-    /// coverage is dropped, and only the result matching `id` and `cand_gen` (never `tip_gen`)
-    /// leaves the phase.
+    /// While `Establishing`: current header inputs are recorded, the newest replacement is kept
+    /// for the result, coverage is dropped, and only the result matching `id` and `cand_gen`
+    /// (never `tip_gen`) leaves the phase.
     fn establishing(&mut self, input: Input) -> Vec<Output> {
         let Phase::Establishing {
             id: outstanding,
@@ -499,7 +511,8 @@ impl InitialSync {
             Input::HeadersCaughtUp {
                 tip,
                 tip_gen,
-            } if self.tip_gen.is_none_or(|g| tip_gen >= g) => {
+                cand_gen,
+            } if cand_gen == self.cand_gen && self.tip_gen.is_none_or(|g| tip_gen >= g) => {
                 *recorded = Some(HeaderState::CaughtUp {
                     tip,
                     tip_gen,
@@ -508,7 +521,8 @@ impl InitialSync {
             }
             Input::HeadersBehind {
                 tip_gen,
-            } if self.tip_gen.is_none_or(|g| tip_gen >= g) => {
+                cand_gen,
+            } if cand_gen == self.cand_gen && self.tip_gen.is_none_or(|g| tip_gen >= g) => {
                 *recorded = Some(HeaderState::Behind {
                     tip_gen,
                 });
@@ -516,7 +530,11 @@ impl InitialSync {
             }
             Input::Replaced {
                 anchor,
-            } => *replaced = Some(anchor),
+                cand_gen,
+            } if cand_gen > self.cand_gen.max(self.replaced_gen) => {
+                *replaced = Some(anchor);
+                self.replaced_gen = cand_gen;
+            }
             Input::EstablishResult {
                 id,
                 cand_gen,
@@ -534,7 +552,7 @@ impl InitialSync {
 
     /// The matched result: a failure stops, a replacement recorded meanwhile is applied, and
     /// otherwise `Established` starts the subscribers and `Stale` resumes coverage on the newer
-    /// of its state and the recorded one.
+    /// of its state and the recorded one, `CaughtUp` winning a tie.
     fn established(&mut self, outcome: EstablishOutcome) -> Vec<Output> {
         let Phase::Establishing {
             anchor,
@@ -549,13 +567,16 @@ impl InitialSync {
             return vec![Output::FailStop(e)];
         }
         if let Some(next) = replaced {
-            return vec![self.replaced(next)];
+            return vec![self.replaced(next, self.replaced_gen)];
         }
         let EstablishOutcome::Stale(state) = outcome else {
             self.phase = Phase::Established;
             return vec![Output::StartSubscribers];
         };
-        let state = recorded.filter(|r| r.tip_gen() > state.tip_gen()).unwrap_or(state);
+        let state = match recorded {
+            Some(r) if (r.tip_gen(), r.caught_up()) > (state.tip_gen(), state.caught_up()) => r,
+            _ => state,
+        };
         self.phase = Phase::Coverage {
             anchor,
         };
@@ -580,19 +601,17 @@ impl InitialSync {
 
     /// The header task already reset the store and built `anchor`'s chain: a new candidate
     /// with no `Reset` or `BuildChain`.
-    fn replaced(&mut self, anchor: Anchor) -> Output {
-        self.new_candidate(anchor.clone());
+    fn replaced(&mut self, anchor: Anchor, cand_gen: u64) -> Output {
+        self.new_candidate(anchor.clone(), cand_gen);
         Output::Diagnostic(format!("the chain was replaced; new candidate {anchor:?}"))
     }
 
-    /// A header input in Candidate or Coverage. One from before a reset, or older than the
-    /// last, is dropped. `CaughtUp` runs coverage on a new tip, or on the same one after
-    /// `Behind`; `Behind` makes Coverage wait for the next `CaughtUp`.
+    /// A current header input in Candidate or Coverage; one older than the last is dropped.
+    /// `CaughtUp` runs coverage on a new tip, or on the same one after `Behind`; `Behind` makes
+    /// Coverage wait for the next `CaughtUp`.
     fn headers(&mut self, anchor: Anchor, state: HeaderState) -> Vec<Output> {
         let tip_gen = state.tip_gen();
-        if self.tip_gen.is_some_and(|g| tip_gen < g)
-            || self.replaced_at.is_some_and(|g| tip_gen <= g)
-        {
+        if self.tip_gen.is_some_and(|g| tip_gen < g) {
             return Vec::new();
         }
         let same = self.tip_gen == Some(tip_gen);
@@ -647,14 +666,14 @@ impl InitialSync {
     /// A new candidate whose store reset the host runs: [`Self::new_candidate`] and its
     /// `Reset`.
     fn reset(&mut self, anchor: &Anchor) -> Output {
-        self.new_candidate(anchor.clone());
+        self.new_candidate(anchor.clone(), self.cand_gen + 1);
         Output::Reset(self.candidate_meta(anchor))
     }
 
-    /// A later `cand_gen`, and no tip until the new chain publishes one.
-    fn new_candidate(&mut self, anchor: Anchor) {
-        self.cand_gen += 1;
-        self.replaced_at = self.tip_gen;
+    /// A later `cand_gen`, and no tip or `tip_gen` until the new chain publishes one.
+    fn new_candidate(&mut self, anchor: Anchor, cand_gen: u64) {
+        self.cand_gen = cand_gen;
+        self.tip_gen = None;
         self.tip = None;
         self.behind = false;
         self.phase = Phase::Candidate {
@@ -976,10 +995,25 @@ mod tests {
         }
     }
 
-    fn caught_up(n: u8, tip_gen: u64) -> Input {
+    fn caught_up(n: u8, tip_gen: u64, cand_gen: u64) -> Input {
         Input::HeadersCaughtUp {
             tip: tip(n),
             tip_gen,
+            cand_gen,
+        }
+    }
+
+    fn behind(tip_gen: u64, cand_gen: u64) -> Input {
+        Input::HeadersBehind {
+            tip_gen,
+            cand_gen,
+        }
+    }
+
+    fn replaced(anchor: Anchor, cand_gen: u64) -> Input {
+        Input::Replaced {
+            anchor,
+            cand_gen,
         }
     }
 
@@ -1108,7 +1142,7 @@ mod tests {
     fn coverage_pending_then_covered_establishes_once() {
         let mut d = driver(true, None);
         let anchor = open(&mut d);
-        assert_eq!(d.advance(caught_up(8, 1)).unwrap(), vec![run(8, 1, 1)]);
+        assert_eq!(d.advance(caught_up(8, 1, 1)).unwrap(), vec![run(8, 1, 1)]);
         assert_eq!(
             d.phase(),
             &Phase::Coverage {
@@ -1141,7 +1175,7 @@ mod tests {
         for lowest in [Some(15000), None] {
             let mut d = driver(true, None);
             open(&mut d);
-            d.advance(caught_up(8, 1)).unwrap();
+            d.advance(caught_up(8, 1, 1)).unwrap();
             let out = d
                 .advance(coverage(
                     Coverage::Below {
@@ -1177,7 +1211,7 @@ mod tests {
                 reopened.advance(reopen(stored, anchor)).unwrap(),
                 vec![Output::BuildChain(anchor.clone()), Output::SyncHeaders]
             );
-            assert_eq!(d.advance(caught_up(8, 2)).unwrap(), vec![run(8, 2, 2)]);
+            assert_eq!(d.advance(caught_up(8, 2, 2)).unwrap(), vec![run(8, 2, 2)]);
             let out = d
                 .advance(coverage(
                     Coverage::Below {
@@ -1191,7 +1225,7 @@ mod tests {
         }
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         let out = d
             .advance(coverage(
                 Coverage::Below {
@@ -1208,7 +1242,7 @@ mod tests {
     fn below_genesis_waits_for_headers() {
         let mut d = configured_driver(true, None, None, false);
         assert_eq!(open(&mut d), Anchor::Genesis);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         let out = d
             .advance(coverage(
                 Coverage::Below {
@@ -1226,14 +1260,14 @@ mod tests {
             }
         );
         assert_eq!(d.cand_gen(), 1);
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
+        assert_eq!(d.advance(caught_up(9, 2, 1)).unwrap(), vec![run(9, 2, 1)]);
     }
 
     #[test]
     fn stale_headers_and_coverage_after_a_fallback_are_dropped() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         d.advance(coverage(
             Coverage::Below {
                 lowest: None,
@@ -1247,18 +1281,16 @@ mod tests {
         };
         assert_eq!(d.phase(), &fallback);
         for stale in [
-            caught_up(8, 1),
-            Input::HeadersBehind {
-                tip_gen: 1,
-            },
-            caught_up(8, 1),
+            caught_up(8, 1, 1),
+            behind(1, 1),
+            caught_up(8, 1, 1),
             coverage(Coverage::Covered, 1, 1),
             coverage(Coverage::Covered, 1, 2),
         ] {
             assert!(d.advance(stale).unwrap().is_empty());
             assert_eq!(d.phase(), &fallback);
         }
-        assert_eq!(d.advance(caught_up(5, 2)).unwrap(), vec![run(5, 2, 2)]);
+        assert_eq!(d.advance(caught_up(5, 2, 2)).unwrap(), vec![run(5, 2, 2)]);
         assert!(d.advance(coverage(Coverage::Covered, 1, 2)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
@@ -1270,20 +1302,15 @@ mod tests {
     fn a_reorg_or_behind_drops_older_coverage() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
-        assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
-        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        d.advance(caught_up(8, 1, 1)).unwrap();
+        assert_eq!(d.advance(caught_up(9, 2, 1)).unwrap(), vec![run(9, 2, 1)]);
+        assert!(d.advance(caught_up(8, 1, 1)).unwrap().is_empty());
+        assert!(d.advance(caught_up(9, 2, 1)).unwrap().is_empty());
         assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
-        assert!(d
-            .advance(Input::HeadersBehind {
-                tip_gen: 2
-            })
-            .unwrap()
-            .is_empty());
+        assert!(d.advance(behind(2, 1)).unwrap().is_empty());
         assert!(d.advance(coverage(Coverage::Covered, 2, 1)).unwrap().is_empty());
         assert!(matches!(d.phase(), Phase::Coverage { .. }));
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
+        assert_eq!(d.advance(caught_up(9, 2, 1)).unwrap(), vec![run(9, 2, 1)]);
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
             vec![establish(1, 9, 2, 1)]
@@ -1303,7 +1330,7 @@ mod tests {
     fn spent_rounds_are_counted_and_never_retry_or_fall_back() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         for round in 1..=3u64 {
             for n in [20, 21] {
                 let out = d.advance(spent(n, 1, 1)).unwrap();
@@ -1316,8 +1343,8 @@ mod tests {
         assert!(d.advance(spent(20, 0, 1)).unwrap().is_empty());
         assert!(d.advance(spent(20, 1, 0)).unwrap().is_empty());
         assert_eq!(d.coverage_rounds_spent(), 6);
-        assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
-        assert_eq!(d.advance(caught_up(10, 2)).unwrap(), vec![run(10, 2, 1)]);
+        assert!(d.advance(caught_up(8, 1, 1)).unwrap().is_empty());
+        assert_eq!(d.advance(caught_up(10, 2, 1)).unwrap(), vec![run(10, 2, 1)]);
         assert!(d.advance(spent(20, 1, 1)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
@@ -1356,7 +1383,7 @@ mod tests {
     fn stale_resumes_coverage_and_failed_stops() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         d.advance(coverage(Coverage::Covered, 1, 1)).unwrap();
         let stale = EstablishOutcome::Stale(HeaderState::CaughtUp {
             tip: tip(9),
@@ -1373,13 +1400,9 @@ mod tests {
             vec![Output::FailStop("disk".into())]
         );
         assert_eq!(d.phase(), &Phase::Failed);
-        for input in [
-            caught_up(10, 3),
-            coverage(Coverage::Covered, 3, 1),
-            Input::Replaced {
-                anchor: Anchor::Genesis,
-            },
-        ] {
+        for input in
+            [caught_up(10, 3, 1), coverage(Coverage::Covered, 3, 1), replaced(Anchor::Genesis, 2)]
+        {
             assert!(d.advance(input).unwrap().is_empty());
         }
         assert_eq!(d.phase(), &Phase::Failed);
@@ -1389,26 +1412,75 @@ mod tests {
     fn replaced_makes_a_new_candidate_without_a_reset() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
-        let out = d
-            .advance(Input::Replaced {
-                anchor: Anchor::Genesis,
-            })
-            .unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
+        let out = d.advance(replaced(Anchor::Genesis, 2)).unwrap();
         assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
-        assert_eq!(
-            d.phase(),
-            &Phase::Candidate {
-                anchor: Anchor::Genesis
-            }
-        );
+        let new = Phase::Candidate {
+            anchor: Anchor::Genesis,
+        };
+        assert_eq!(d.phase(), &new);
         assert_eq!(d.cand_gen(), 2);
-        assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
-        assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
-        assert_eq!(d.advance(caught_up(3, 2)).unwrap(), vec![run(3, 2, 2)]);
+        for stale in [
+            coverage(Coverage::Covered, 1, 1),
+            caught_up(8, 1, 1),
+            caught_up(9, 2, 1),
+            replaced(pack_anchor(&d.packs[0]), 1),
+            replaced(pack_anchor(&d.packs[0]), 2),
+        ] {
+            assert!(d.advance(stale).unwrap().is_empty());
+            assert_eq!(d.phase(), &new);
+        }
+        assert_eq!(d.advance(caught_up(3, 1, 2)).unwrap(), vec![run(3, 1, 2)]);
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 1, 2)).unwrap(),
+            vec![establish(1, 3, 1, 2)]
+        );
+    }
+
+    #[test]
+    fn the_new_chains_input_before_an_unrequested_replaced_is_taken_on_its_refeed() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1, 1)).unwrap();
+        assert!(d.advance(caught_up(9, 2, 2)).unwrap().is_empty());
+        assert!(d.advance(behind(2, 2)).unwrap().is_empty());
+        assert!(matches!(d.phase(), Phase::Coverage { .. }));
+        d.advance(replaced(Anchor::Genesis, 2)).unwrap();
+        assert_eq!(d.advance(caught_up(9, 2, 2)).unwrap(), vec![run(9, 2, 2)]);
+        assert!(d.advance(caught_up(9, 2, 2)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
-            vec![establish(1, 3, 2, 2)]
+            vec![establish(1, 9, 2, 2)]
+        );
+    }
+
+    #[test]
+    fn a_queued_old_chain_input_after_a_fallback_is_dropped() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1, 1)).unwrap();
+        d.advance(coverage(
+            Coverage::Below {
+                lowest: None,
+            },
+            1,
+            1,
+        ))
+        .unwrap();
+        let fallback = Phase::Candidate {
+            anchor: pack_anchor(&d.packs[0]),
+        };
+        for stale in
+            [caught_up(9, 2, 1), behind(3, 1), caught_up(10, 4, 1), replaced(Anchor::Genesis, 2)]
+        {
+            assert!(d.advance(stale).unwrap().is_empty());
+            assert_eq!(d.phase(), &fallback);
+        }
+        assert_eq!(d.advance(caught_up(5, 1, 2)).unwrap(), vec![run(5, 1, 2)]);
+        assert!(d.advance(coverage(Coverage::Covered, 4, 2)).unwrap().is_empty());
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 1, 2)).unwrap(),
+            vec![establish(1, 5, 1, 2)]
         );
     }
 
@@ -1416,7 +1488,7 @@ mod tests {
     fn establishing() -> InitialSync {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 1, 1)).unwrap(),
             vec![establish(1, 8, 1, 1)]
@@ -1433,9 +1505,12 @@ mod tests {
 
     fn established_once(d: &mut InitialSync) {
         assert_eq!(d.phase(), &Phase::Established);
-        for input in
-            [caught_up(9, 2), caught_up(10, 3), coverage(Coverage::Covered, 3, 1), spent(20, 3, 1)]
-        {
+        for input in [
+            caught_up(9, 2, 1),
+            caught_up(10, 3, 1),
+            coverage(Coverage::Covered, 3, 1),
+            spent(20, 3, 1),
+        ] {
             assert!(d.advance(input).unwrap().is_empty());
         }
         let out = d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
@@ -1484,7 +1559,7 @@ mod tests {
     #[test]
     fn established_after_recorded_publication() {
         let mut d = establishing();
-        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert!(d.advance(caught_up(9, 2, 1)).unwrap().is_empty());
         assert!(matches!(
             d.phase(),
             Phase::Establishing {
@@ -1515,12 +1590,7 @@ mod tests {
     #[test]
     fn behind_recorded_before_established_is_discarded() {
         let mut d = establishing();
-        assert!(d
-            .advance(Input::HeadersBehind {
-                tip_gen: 1
-            })
-            .unwrap()
-            .is_empty());
+        assert!(d.advance(behind(1, 1)).unwrap().is_empty());
         assert_eq!(
             d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
             vec![Output::StartSubscribers]
@@ -1531,9 +1601,9 @@ mod tests {
     #[test]
     fn stale_after_recorded_publication() {
         let mut d = establishing();
-        d.advance(caught_up(9, 2)).unwrap();
+        d.advance(caught_up(9, 2, 1)).unwrap();
         assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(9, 2, 1)]);
-        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert!(d.advance(caught_up(9, 2, 1)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
             vec![establish(2, 9, 2, 1)]
@@ -1541,31 +1611,31 @@ mod tests {
 
         let mut d = establishing();
         assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(9, 2, 1)]);
-        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
-        assert_eq!(d.advance(caught_up(10, 3)).unwrap(), vec![run(10, 3, 1)]);
+        assert!(d.advance(caught_up(9, 2, 1)).unwrap().is_empty());
+        assert_eq!(d.advance(caught_up(10, 3, 1)).unwrap(), vec![run(10, 3, 1)]);
     }
 
     #[test]
     fn stale_runs_coverage_on_the_newer_state() {
         let mut d = establishing();
-        d.advance(caught_up(9, 2)).unwrap();
+        d.advance(caught_up(9, 2, 1)).unwrap();
         assert_eq!(d.advance(result(1, 1, stale_on(8, 1))).unwrap(), vec![run(9, 2, 1)]);
 
         let mut d = establishing();
-        d.advance(caught_up(9, 2)).unwrap();
-        d.advance(caught_up(10, 3)).unwrap();
-        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        d.advance(caught_up(9, 2, 1)).unwrap();
+        d.advance(caught_up(10, 3, 1)).unwrap();
+        assert!(d.advance(caught_up(9, 2, 1)).unwrap().is_empty());
         assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(10, 3, 1)]);
 
         let mut d = establishing();
-        d.advance(caught_up(9, 2)).unwrap();
+        d.advance(caught_up(9, 2, 1)).unwrap();
         let behind = EstablishOutcome::Stale(HeaderState::Behind {
             tip_gen: 3,
         });
         assert!(d.advance(result(1, 1, behind)).unwrap().is_empty());
         assert!(matches!(d.phase(), Phase::Coverage { .. }));
         assert!(d.advance(coverage(Coverage::Covered, 3, 1)).unwrap().is_empty());
-        assert_eq!(d.advance(caught_up(11, 3)).unwrap(), vec![run(11, 3, 1)]);
+        assert_eq!(d.advance(caught_up(11, 3, 1)).unwrap(), vec![run(11, 3, 1)]);
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 3, 1)).unwrap(),
             vec![establish(2, 11, 3, 1)]
@@ -1577,14 +1647,14 @@ mod tests {
         for publish_first in [true, false] {
             let mut d = establishing();
             if publish_first {
-                d.advance(caught_up(9, 2)).unwrap();
+                d.advance(caught_up(9, 2, 1)).unwrap();
             }
             assert_eq!(
                 d.advance(result(1, 1, EstablishOutcome::Failed("stopped".into()))).unwrap(),
                 vec![Output::FailStop("stopped".into())]
             );
             assert_eq!(d.phase(), &Phase::Failed);
-            assert!(d.advance(caught_up(10, 3)).unwrap().is_empty());
+            assert!(d.advance(caught_up(10, 3, 1)).unwrap().is_empty());
             let out = d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
             assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
             assert_eq!(d.phase(), &Phase::Failed);
@@ -1622,21 +1692,22 @@ mod tests {
         let replacement = Anchor::Genesis;
         for outcome in [EstablishOutcome::Established, stale_on(9, 2)] {
             let mut d = establishing();
-            assert!(d
-                .advance(Input::Replaced {
-                    anchor: replacement.clone()
-                })
-                .unwrap()
-                .is_empty());
-            d.advance(caught_up(9, 2)).unwrap();
-            assert!(matches!(
+            assert!(d.advance(caught_up(9, 2, 2)).unwrap().is_empty());
+            assert!(d.advance(replaced(replacement.clone(), 2)).unwrap().is_empty());
+            for stale in [caught_up(9, 2, 2), replaced(pack_anchor(&d.packs[0]), 1)] {
+                assert!(d.advance(stale).unwrap().is_empty());
+            }
+            assert_eq!(
                 d.phase(),
-                Phase::Establishing {
+                &Phase::Establishing {
                     id: 1,
-                    replaced: Some(Anchor::Genesis),
-                    ..
+                    anchor: pack_anchor(&d.packs[1]),
+                    tip: tip(8),
+                    tip_gen: 1,
+                    recorded: None,
+                    replaced: Some(replacement.clone()),
                 }
-            ));
+            );
             assert_eq!(d.cand_gen(), 1);
             let out = d.advance(result(1, 1, outcome)).unwrap();
             assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
@@ -1647,19 +1718,29 @@ mod tests {
                 }
             );
             assert_eq!(d.cand_gen(), 2);
-            assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
             assert!(d.advance(coverage(Coverage::Covered, 2, 1)).unwrap().is_empty());
-            assert_eq!(d.advance(caught_up(12, 4)).unwrap(), vec![run(12, 4, 2)]);
+            assert_eq!(d.advance(caught_up(9, 2, 2)).unwrap(), vec![run(9, 2, 2)]);
             assert_eq!(
-                d.advance(coverage(Coverage::Covered, 4, 2)).unwrap(),
-                vec![establish(2, 12, 4, 2)]
+                d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
+                vec![establish(2, 9, 2, 2)]
             );
         }
         let mut d = establishing();
-        d.advance(Input::Replaced {
-            anchor: replacement,
-        })
-        .unwrap();
+        d.advance(replaced(pack_anchor(&d.packs[0]), 2)).unwrap();
+        d.advance(replaced(replacement.clone(), 3)).unwrap();
+        d.advance(caught_up(9, 1, 3)).unwrap();
+        d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
+        assert_eq!(
+            d.phase(),
+            &Phase::Candidate {
+                anchor: replacement.clone()
+            }
+        );
+        assert_eq!(d.cand_gen(), 3);
+        assert_eq!(d.advance(caught_up(9, 1, 3)).unwrap(), vec![run(9, 1, 3)]);
+
+        let mut d = establishing();
+        d.advance(replaced(replacement, 2)).unwrap();
         assert_eq!(
             d.advance(result(1, 1, EstablishOutcome::Failed("disk".into()))).unwrap(),
             vec![Output::FailStop("disk".into())]
@@ -1668,11 +1749,29 @@ mod tests {
     }
 
     #[test]
+    fn stale_behind_with_recorded_caught_up_at_same_gen() {
+        let mut d = establishing();
+        d.advance(caught_up(9, 2, 1)).unwrap();
+        let behind_at_2 = EstablishOutcome::Stale(HeaderState::Behind {
+            tip_gen: 2,
+        });
+        assert_eq!(d.advance(result(1, 1, behind_at_2)).unwrap(), vec![run(9, 2, 1)]);
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
+            vec![establish(2, 9, 2, 1)]
+        );
+
+        let mut d = establishing();
+        d.advance(behind(2, 1)).unwrap();
+        assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(9, 2, 1)]);
+    }
+
+    #[test]
     fn a_reorg_during_coverage_never_establishes_the_older_branch() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
-        d.advance(caught_up(108, 2)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
+        d.advance(caught_up(108, 2, 1)).unwrap();
         assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
         assert!(d.advance(spent(20, 1, 1)).unwrap().is_empty());
         assert!(d
@@ -1696,7 +1795,7 @@ mod tests {
     fn stale_results_after_a_fallback_are_dropped() {
         let mut d = driver(true, None);
         open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         d.advance(coverage(
             Coverage::Below {
                 lowest: None,
@@ -1705,7 +1804,7 @@ mod tests {
             1,
         ))
         .unwrap();
-        d.advance(caught_up(5, 2)).unwrap();
+        d.advance(caught_up(5, 2, 2)).unwrap();
         for stale in [
             coverage(Coverage::Covered, 2, 1),
             coverage(
@@ -1737,7 +1836,7 @@ mod tests {
     fn pending_and_spent_rounds_never_fall_back() {
         let mut d = driver(true, None);
         let anchor = open(&mut d);
-        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(8, 1, 1)).unwrap();
         for _ in 0..50 {
             assert!(d.advance(coverage(Coverage::Pending, 1, 1)).unwrap().is_empty());
             let out = d.advance(spent(20, 1, 1)).unwrap();
