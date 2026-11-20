@@ -149,6 +149,32 @@ mod tests {
     }
 
     #[test]
+    fn test_legacy_anchor_has_its_own_code() {
+        use dash_spv::client::anchor::StoredAnchorError;
+        use dash_spv::SpvError;
+
+        assert_eq!(FFIErrorCode::LegacyAnchorError as i32, 9);
+        let legacy = SpvError::StoredAnchor(StoredAnchorError::LegacyAnchor {
+            height: 25000,
+        });
+        assert_eq!(FFIErrorCode::from(legacy), FFIErrorCode::LegacyAnchorError);
+        for other in [
+            StoredAnchorError::Broken {
+                height: 19999,
+            },
+            StoredAnchorError::BelowDgw {
+                height: 4024,
+                floor: 4025,
+            },
+        ] {
+            assert_eq!(
+                FFIErrorCode::from(SpvError::StoredAnchor(other)),
+                FFIErrorCode::StorageError
+            );
+        }
+    }
+
+    #[test]
     #[serial]
     fn test_error_clearing_between_operations() {
         // Set an error

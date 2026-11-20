@@ -41,12 +41,19 @@ pub enum StoredAnchorError {
     Broken {
         height: u32,
     },
+    /// The store holds nothing below its Established anchor: it predates the window.
     #[error(
-        "the stored Established anchor at height {height} has no anchor window and no anchor \
-         pack at or below it: wipe the storage and resync"
+        "the stored Established anchor at height {height} has no anchor window: wipe the \
+         storage and resync"
     )]
     LegacyAnchor {
         height: u32,
+    },
+    /// No anchor pack is this low: every header above it must be in the DGW era.
+    #[error("the stored anchor at height {height} is below the DGW era's first anchor {floor}")]
+    BelowDgw {
+        height: u32,
+        floor: u32,
     },
 }
 
@@ -62,7 +69,8 @@ pub struct StoredChain {
 enum StoredWindow {
     /// Not read: a genesis anchor, or a Candidate, which opens from its pack.
     Unread,
-    /// The anchor's record with no parent stored: a store from before the window was kept.
+    /// The anchor's record with nothing stored below its height: a store from before the window
+    /// was kept.
     AnchorOnly,
     Held(Anchor),
 }
@@ -120,7 +128,7 @@ fn read_window(
         child = rec.header.prev_hash();
     }
     match (records.len(), records.first()) {
-        (1, _) => Ok(StoredWindow::AnchorOnly),
+        (1, _) if store.active_at(height - 1)?.is_none() => Ok(StoredWindow::AnchorOnly),
         (n, Some(top)) if n == WINDOW as usize => {
             let mut window = Box::new([top.header; WINDOW as usize]);
             for (slot, rec) in window.iter_mut().rev().zip(&records) {
@@ -345,21 +353,13 @@ impl InitialSync {
                     meta,
                     window,
                 }) if meta.anchor_state == AnchorState::Established => {
-                    if let Some(anchor) = self.established_anchor(&meta, window)? {
-                        self.phase = Phase::Established;
-                        return Ok(vec![
-                            Output::BuildChain(anchor),
-                            Output::StartSubscribers,
-                            Output::SyncHeaders,
-                        ]);
-                    }
-                    let height = meta.anchor.1;
-                    let anchor = self.legacy_pack(height)?;
-                    out.push(Output::Diagnostic(format!(
-                        "the stored anchor at height {height} has no window; resyncing from {anchor:?}"
-                    )));
-                    out.push(self.reset(&anchor));
-                    anchor
+                    let anchor = self.established_anchor(&meta, window)?;
+                    self.phase = Phase::Established;
+                    return Ok(vec![
+                        Output::BuildChain(anchor),
+                        Output::StartSubscribers,
+                        Output::SyncHeaders,
+                    ]);
                 }
                 Some(stored) => match self.stored_anchor(&stored.meta) {
                     Some(anchor) => anchor,
@@ -719,37 +719,30 @@ impl InitialSync {
         )
     }
 
-    /// An Established store opens from its own window, never from a pack; `None` for a store
-    /// that kept no window.
+    /// An Established store opens from its own window, never from a pack, and only at a height
+    /// a pack could have: a store that kept no window fails the open.
     fn established_anchor(
         &self,
         meta: &ChainMeta,
         window: StoredWindow,
-    ) -> Result<Option<Anchor>, StoredAnchorError> {
+    ) -> Result<Anchor, StoredAnchorError> {
         let (hash, height) = meta.anchor;
+        let floor = self.llmq.params().consensus.pow_dgw_height.to_u32().saturating_add(24);
         match window {
-            StoredWindow::Held(anchor) => Ok(Some(anchor)),
-            StoredWindow::Unread if self.is_genesis(meta) => Ok(Some(Anchor::Genesis)),
+            StoredWindow::Held(_) if height < floor => Err(StoredAnchorError::BelowDgw {
+                height,
+                floor,
+            }),
+            StoredWindow::Held(anchor) => Ok(anchor),
+            StoredWindow::Unread if self.is_genesis(meta) => Ok(Anchor::Genesis),
             StoredWindow::Unread => Err(StoredAnchorError::MissingAnchor {
                 height,
                 hash,
             }),
-            StoredWindow::AnchorOnly => Ok(None),
-        }
-    }
-
-    /// A store that kept no window resyncs from the newest pack at or below its anchor, so
-    /// nothing the wallet has covered is skipped.
-    fn legacy_pack(&self, height: u32) -> Result<Anchor, StoredAnchorError> {
-        let dgw_era = self.llmq.params().consensus.pow_dgw_height.to_u32().saturating_add(24);
-        self.packs
-            .iter()
-            .filter(|p| (dgw_era..=height).contains(&p.height))
-            .max_by_key(|p| p.height)
-            .map(pack_anchor)
-            .ok_or(StoredAnchorError::LegacyAnchor {
+            StoredWindow::AnchorOnly => Err(StoredAnchorError::LegacyAnchor {
                 height,
-            })
+            }),
+        }
     }
 
     fn is_genesis(&self, meta: &ChainMeta) -> bool {
@@ -906,8 +899,13 @@ mod tests {
             Ok(self.records.iter().find(|r| r.id == id).cloned())
         }
 
-        fn active_at(&self, _: u32) -> Result<Option<BlockId>, StoreError> {
-            Ok(None)
+        /// As the real store's: any height from the lowest stored to the highest, a lost row
+        /// inside the range included.
+        fn active_at(&self, height: u32) -> Result<Option<BlockId>, StoreError> {
+            let lo = self.records.iter().map(|r| r.height).min();
+            let hi = self.records.iter().map(|r| r.height).max();
+            let held = lo.zip(hi).is_some_and(|(lo, hi)| (lo..=hi).contains(&height));
+            Ok(held.then_some(BlockId(height)))
         }
 
         fn from_height(&self, _: u32) -> Result<Vec<HeaderRecord>, StoreError> {
@@ -2006,50 +2004,14 @@ mod tests {
     }
 
     #[test]
-    fn a_legacy_anchor_resets_to_a_pack_at_or_below_it() {
-        for (height, below) in [(25000, 20000), (30000, 30000), (10000, 10000)] {
-            let mut d = driver(true, Some(1));
-            let expected = pack_anchor(d.packs.iter().find(|p| p.height == below).unwrap());
-            let out = d.advance(legacy(height, &d.llmq)).unwrap();
-            assert!(matches!(&out[0], Output::Diagnostic(_)), "{out:?}");
-            assert_eq!(
-                out[1..],
-                [
-                    Output::Reset(d.candidate_meta(&expected)),
-                    Output::BuildChain(expected.clone()),
-                    Output::SyncHeaders
-                ]
-            );
-            assert_eq!(
-                d.phase(),
-                &Phase::Candidate {
-                    anchor: expected
-                }
-            );
-        }
-        let mut d = driver(false, None);
-        let out = d.advance(legacy(25000, &d.llmq)).unwrap();
-        assert!(matches!(
-            &out[..],
-            [
-                Output::Diagnostic(_),
-                Output::Reset(_),
-                Output::BuildChain(Anchor::Checkpoint {
-                    height: 20000,
-                    ..
-                }),
-                Output::EstablishUnguarded,
-                Output::StartSubscribers,
-                Output::SyncHeaders
-            ]
-        ));
-    }
-
-    #[test]
-    fn a_legacy_anchor_with_no_pack_at_or_below_fails_the_open() {
-        for (mut d, height) in
-            [(driver(true, None), 9999), (configured_driver(true, None, None, false), 25000)]
-        {
+    fn a_legacy_anchor_fails_the_open() {
+        for (mut d, height) in [
+            (driver(true, Some(1)), 25000),
+            (driver(true, None), 30000),
+            (driver(true, None), 9999),
+            (driver(false, None), 25000),
+            (configured_driver(true, None, None, false), 25000),
+        ] {
             let err = d.advance(legacy(height, &d.llmq)).unwrap_err();
             assert!(
                 matches!(
@@ -2060,6 +2022,76 @@ mod tests {
             );
             assert!(err.to_string().contains("wipe the storage and resync"), "{err}");
             assert_eq!(d.phase(), &Phase::Unopened);
+            assert_eq!(d.cand_gen(), 0);
         }
+    }
+
+    #[test]
+    fn a_lost_or_unfindable_parent_of_the_anchor_fails_the_open() {
+        let d = configured_driver(true, None, None, false);
+        let anchor = pack_anchor(&pack(20000, 1_000_000));
+        let mut removed = window_records(&anchor);
+        removed.remove(23);
+        let mut rehashed = window_records(&anchor);
+        rehashed[23].hash = BlockHash::from([0xee; 32]);
+        for records in [removed, rehashed] {
+            let err = read(established_at(&anchor, &d.llmq), records).unwrap_err();
+            assert!(
+                matches!(
+                    err,
+                    StoredAnchorError::Broken {
+                        height: 19999
+                    }
+                ),
+                "{err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_anchor_record_that_is_not_the_anchors_fails_the_open() {
+        let d = configured_driver(true, None, None, false);
+        let anchor = pack_anchor(&pack(20000, 1_000_000));
+        let mut records = window_records(&pack_anchor(&pack(20000, 1_000_001)));
+        records.extend(window_records(&anchor).into_iter().map(|mut rec| {
+            if rec.id != BlockId(24) {
+                rec.id = BlockId(rec.id.0 + 100);
+            }
+            rec
+        }));
+        let err = read(established_at(&anchor, &d.llmq), records).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                StoredAnchorError::Broken {
+                    height: 20000
+                }
+            ),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_window_below_the_dgw_era_fails_the_open() {
+        let floor = driver(true, None).llmq.params().consensus.pow_dgw_height.to_u32() + 24;
+        let low = pack_anchor(&pack(floor - 1, 1_000_000));
+        let mut d = driver(true, None);
+        let err = d.advance(reopen(established_at(&low, &d.llmq), &low)).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                SpvError::StoredAnchor(StoredAnchorError::BelowDgw { height, floor: f })
+                    if height == floor - 1 && f == floor
+            ),
+            "{err:?}"
+        );
+        assert_eq!(d.phase(), &Phase::Unopened);
+
+        let lowest = pack_anchor(&pack(floor, 1_000_000));
+        let mut d = driver(true, None);
+        assert_eq!(
+            d.advance(reopen(established_at(&lowest, &d.llmq), &lowest)).unwrap(),
+            vec![Output::BuildChain(lowest), Output::StartSubscribers, Output::SyncHeaders]
+        );
     }
 }

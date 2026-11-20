@@ -1,3 +1,4 @@
+use dash_spv::client::anchor::StoredAnchorError;
 use dash_spv::error::SpvError;
 use std::cell::RefCell;
 use std::ffi::CString;
@@ -23,6 +24,8 @@ pub enum FFIErrorCode {
     SyncError = 6,
     ConfigError = 7,
     RuntimeError = 8,
+    /// The store predates the anchor window: wipe the storage and resync.
+    LegacyAnchorError = 9,
 }
 
 /// Sets the calling thread's last error.
@@ -65,6 +68,9 @@ impl From<SpvError> for FFIErrorCode {
             SpvError::Sync(_) => FFIErrorCode::SyncError,
             SpvError::Config(_) => FFIErrorCode::ConfigError,
             SpvError::QuorumLookupError(_) => FFIErrorCode::ValidationError,
+            SpvError::StoredAnchor(StoredAnchorError::LegacyAnchor {
+                ..
+            }) => FFIErrorCode::LegacyAnchorError,
             SpvError::StoredAnchor(_) => FFIErrorCode::StorageError,
         }
     }
