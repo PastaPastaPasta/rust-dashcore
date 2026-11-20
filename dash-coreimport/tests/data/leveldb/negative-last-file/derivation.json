@@ -1,0 +1,11 @@
+{
+  "base": "a-wal",
+  "detail": {
+    "database": "blocks/index",
+    "key": "6c",
+    "value": "ffffffff",
+    "sequence": 100,
+    "file": "blocks/index/000200.log",
+    "offset": 19
+  }
+}
