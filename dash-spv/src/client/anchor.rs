@@ -1,7 +1,7 @@
 //! Initial anchor selection and coverage transitions, without storage or networking.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use dash_chain::{
     anchor_candidate, anchor_fallback, Anchor, AnchorPack, AnchorState, BlockRef, ChainMeta,
@@ -12,9 +12,6 @@ use dash_mnlist::{Coverage, LlmqConfig, RequestKey};
 
 use super::ClientConfig;
 use crate::error::SpvError;
-
-pub const COVERAGE_ATTEMPTS: u32 = 3;
-pub const COVERAGE_RETRY_DELAY: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Phase {
@@ -94,13 +91,14 @@ pub enum Input {
         tip_gen: u64,
         cand_gen: u64,
     },
-    FetchFailed {
+    /// The pump ended a round for one of coverage's requests: every eligible peer in `tried`
+    /// failed it. The pump keeps the request and its cooldown.
+    CoverageRoundSpent {
         key: RequestKey,
+        tried: Vec<SocketAddr>,
         tip_gen: u64,
         cand_gen: u64,
     },
-    /// The host sends this after the requested retry delay.
-    RetryTick,
     /// Exactly one per `Establish`, with its `id` and `cand_gen`.
     EstablishResult {
         id: u64,
@@ -120,15 +118,13 @@ pub enum Output {
     Reset(ChainMeta),
     BuildChain(Anchor),
     SyncHeaders,
-    /// Coverage on one pin of `tip`; its result echoes both generations. Each attempt in a
-    /// retry round must use different peers.
+    /// Coverage on one pin of `tip`; its result echoes both generations. On `Pending` the pump
+    /// sends the engine's requests, and owns every attempt and cooldown.
     RunCoverage {
         tip: BlockRef,
         tip_gen: u64,
         cand_gen: u64,
-        attempt: u32,
     },
-    SendCoverageRequests,
     /// The guarded establish on the pin `tip_gen` names; the host answers `EstablishResult`
     /// with this `id` and `cand_gen`, once.
     Establish {
@@ -141,7 +137,6 @@ pub enum Output {
     EstablishUnguarded,
     StartSubscribers,
     Fallback(Anchor),
-    RetryAfter(Duration),
     /// The client stops: the establish failed.
     FailStop(String),
     Diagnostic(String),
@@ -160,8 +155,8 @@ pub struct InitialSync {
     replaced_at: Option<u64>,
     cand_gen: u64,
     behind: bool,
-    attempts: u32,
-    waiting: bool,
+    /// Pump rounds spent on coverage's requests, for status only.
+    rounds_spent: u64,
     /// Never reused in the driver's life.
     next_establish_id: u64,
 }
@@ -185,14 +180,18 @@ impl InitialSync {
             replaced_at: None,
             cand_gen: 0,
             behind: false,
-            attempts: 0,
-            waiting: false,
+            rounds_spent: 0,
             next_establish_id: 1,
         }
     }
 
     pub fn phase(&self) -> &Phase {
         &self.phase
+    }
+
+    /// The pump rounds coverage spent: counted, never acted on.
+    pub fn coverage_rounds_spent(&self) -> u64 {
+        self.rounds_spent
     }
 
     /// Rises with every `Reset` and every applied `Replaced`.
@@ -291,36 +290,24 @@ impl InitialSync {
                 result,
                 tip_gen,
                 cand_gen,
-            } if self.current(tip_gen, cand_gen) && !self.waiting => match result {
+            } if self.current(tip_gen, cand_gen) => match result {
                 Coverage::Covered => Ok(vec![self.establish(anchor)]),
-                Coverage::Pending => Ok(vec![Output::SendCoverageRequests]),
+                Coverage::Pending => Ok(Vec::new()),
                 Coverage::Below {
                     lowest,
                 } => Ok(self.below(&anchor, lowest)),
             },
-            Input::FetchFailed {
+            Input::CoverageRoundSpent {
                 key,
+                tried,
                 tip_gen,
                 cand_gen,
-            } if self.current(tip_gen, cand_gen) && !self.waiting => {
-                if self.attempts < COVERAGE_ATTEMPTS {
-                    self.attempts += 1;
-                    Ok(vec![self.run_coverage()])
-                } else {
-                    self.waiting = true;
-                    Ok(vec![
-                        Output::Diagnostic(format!(
-                            "coverage fetch {key:?} failed after {} attempts",
-                            self.attempts
-                        )),
-                        Output::RetryAfter(COVERAGE_RETRY_DELAY),
-                    ])
-                }
-            }
-            Input::RetryTick if self.waiting && !self.behind => {
-                self.waiting = false;
-                self.attempts = 1;
-                Ok(vec![self.run_coverage()])
+            } if self.current(tip_gen, cand_gen) => {
+                self.rounds_spent += 1;
+                Ok(vec![Output::Diagnostic(format!(
+                    "coverage request {key:?} spent a pump round over {} peers",
+                    tried.len()
+                ))])
             }
             Input::EstablishResult {
                 id,
@@ -440,8 +427,6 @@ impl InitialSync {
             } => {
                 self.tip = Some(tip);
                 self.behind = false;
-                self.attempts = 1;
-                self.waiting = false;
                 vec![self.run_coverage()]
             }
             HeaderState::Behind {
@@ -485,8 +470,6 @@ impl InitialSync {
         }
         self.behind = false;
         self.tip = Some(tip);
-        self.attempts = 1;
-        self.waiting = false;
         self.phase = Phase::Coverage {
             anchor,
         };
@@ -506,7 +489,6 @@ impl InitialSync {
             tip: self.tip.expect("coverage runs on a tip"),
             tip_gen: self.tip_gen.expect("coverage runs on a tip"),
             cand_gen: self.cand_gen,
-            attempt: self.attempts,
         }
     }
 
@@ -535,8 +517,6 @@ impl InitialSync {
         self.replaced_at = self.tip_gen;
         self.tip = None;
         self.behind = false;
-        self.attempts = 0;
-        self.waiting = false;
         self.phase = Phase::Candidate {
             anchor,
         };
@@ -706,12 +686,11 @@ mod tests {
         }
     }
 
-    fn run(n: u8, tip_gen: u64, cand_gen: u64, attempt: u32) -> Output {
+    fn run(n: u8, tip_gen: u64, cand_gen: u64) -> Output {
         Output::RunCoverage {
             tip: tip(n),
             tip_gen,
             cand_gen,
-            attempt,
         }
     }
 
@@ -829,17 +808,14 @@ mod tests {
     fn coverage_pending_then_covered_establishes_once() {
         let mut d = driver(true, None);
         let anchor = open(&mut d);
-        assert_eq!(d.advance(caught_up(8, 1)).unwrap(), vec![run(8, 1, 1, 1)]);
+        assert_eq!(d.advance(caught_up(8, 1)).unwrap(), vec![run(8, 1, 1)]);
         assert_eq!(
             d.phase(),
             &Phase::Coverage {
                 anchor
             }
         );
-        assert_eq!(
-            d.advance(coverage(Coverage::Pending, 1, 1)).unwrap(),
-            vec![Output::SendCoverageRequests]
-        );
+        assert!(d.advance(coverage(Coverage::Pending, 1, 1)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 1, 1)).unwrap(),
             vec![establish(1, 8, 1, 1)]
@@ -901,7 +877,7 @@ mod tests {
                 reopened.advance(Input::Opened(Some(stored))).unwrap(),
                 vec![Output::BuildChain(anchor.clone()), Output::SyncHeaders]
             );
-            assert_eq!(d.advance(caught_up(8, 2)).unwrap(), vec![run(8, 2, 2, 1)]);
+            assert_eq!(d.advance(caught_up(8, 2)).unwrap(), vec![run(8, 2, 2)]);
             let out = d
                 .advance(coverage(
                     Coverage::Below {
@@ -950,7 +926,7 @@ mod tests {
             }
         );
         assert_eq!(d.cand_gen(), 1);
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1, 1)]);
+        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
     }
 
     #[test]
@@ -982,7 +958,7 @@ mod tests {
             assert!(d.advance(stale).unwrap().is_empty());
             assert_eq!(d.phase(), &fallback);
         }
-        assert_eq!(d.advance(caught_up(5, 2)).unwrap(), vec![run(5, 2, 2, 1)]);
+        assert_eq!(d.advance(caught_up(5, 2)).unwrap(), vec![run(5, 2, 2)]);
         assert!(d.advance(coverage(Coverage::Covered, 1, 2)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
@@ -995,7 +971,7 @@ mod tests {
         let mut d = driver(true, None);
         open(&mut d);
         d.advance(caught_up(8, 1)).unwrap();
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1, 1)]);
+        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
         assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
         assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
         assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
@@ -1007,42 +983,54 @@ mod tests {
             .is_empty());
         assert!(d.advance(coverage(Coverage::Covered, 2, 1)).unwrap().is_empty());
         assert!(matches!(d.phase(), Phase::Coverage { .. }));
-        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1, 1)]);
+        assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1)]);
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
             vec![establish(1, 9, 2, 1)]
         );
     }
 
+    fn spent(n: u8, tip_gen: u64, cand_gen: u64) -> Input {
+        Input::CoverageRoundSpent {
+            key: RequestKey::QrInfo(BlockHash::from([n; 32])),
+            tried: vec![SocketAddr::from(([127, 0, 0, 1], 9999))],
+            tip_gen,
+            cand_gen,
+        }
+    }
+
     #[test]
-    fn failed_fetches_retry_with_a_bound_and_never_fall_back() {
+    fn spent_rounds_are_counted_and_never_retry_or_fall_back() {
         let mut d = driver(true, None);
         open(&mut d);
         d.advance(caught_up(8, 1)).unwrap();
-        let failed = || Input::FetchFailed {
-            key: RequestKey::QrInfo(BlockHash::from([9; 32])),
-            tip_gen: 1,
-            cand_gen: 1,
-        };
-        for attempt in 2..=3 {
-            assert_eq!(d.advance(failed()).unwrap(), vec![run(8, 1, 1, attempt)]);
+        for round in 1..=3u64 {
+            for n in [20, 21] {
+                let out = d.advance(spent(n, 1, 1)).unwrap();
+                assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+            }
+            assert_eq!(d.coverage_rounds_spent(), 2 * round);
+            assert!(d.advance(coverage(Coverage::Pending, 1, 1)).unwrap().is_empty());
+            assert!(matches!(d.phase(), Phase::Coverage { .. }));
         }
-        let out = d.advance(failed()).unwrap();
-        assert!(matches!(
-            &out[..],
-            [Output::Diagnostic(_), Output::RetryAfter(COVERAGE_RETRY_DELAY)]
-        ));
-        assert!(d.advance(failed()).unwrap().is_empty());
+        assert!(d.advance(spent(20, 0, 1)).unwrap().is_empty());
+        assert!(d.advance(spent(20, 1, 0)).unwrap().is_empty());
+        assert_eq!(d.coverage_rounds_spent(), 6);
         assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
-        assert_eq!(d.advance(Input::RetryTick).unwrap(), vec![run(8, 1, 1, 1)]);
-        assert_eq!(d.advance(caught_up(10, 2)).unwrap(), vec![run(10, 2, 1, 1)]);
+        assert_eq!(d.advance(caught_up(10, 2)).unwrap(), vec![run(10, 2, 1)]);
+        assert!(d.advance(spent(20, 1, 1)).unwrap().is_empty());
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
+            vec![establish(1, 10, 2, 1)]
+        );
         assert!(matches!(
             d.phase(),
-            Phase::Coverage {
+            Phase::Establishing {
                 anchor: Anchor::Checkpoint {
                     height: 20000,
                     ..
-                }
+                },
+                ..
             }
         ));
     }
@@ -1074,7 +1062,7 @@ mod tests {
             tip: tip(9),
             tip_gen: 2,
         });
-        assert_eq!(d.advance(result(1, 1, stale)).unwrap(), vec![run(9, 2, 1, 1)]);
+        assert_eq!(d.advance(result(1, 1, stale)).unwrap(), vec![run(9, 2, 1)]);
         assert!(matches!(d.phase(), Phase::Coverage { .. }));
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
@@ -1117,7 +1105,7 @@ mod tests {
         assert_eq!(d.cand_gen(), 2);
         assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
         assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
-        assert_eq!(d.advance(caught_up(3, 2)).unwrap(), vec![run(3, 2, 2, 1)]);
+        assert_eq!(d.advance(caught_up(3, 2)).unwrap(), vec![run(3, 2, 2)]);
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
             vec![establish(1, 3, 2, 2)]
