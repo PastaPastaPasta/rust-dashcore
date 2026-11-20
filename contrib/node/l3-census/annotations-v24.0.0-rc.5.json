@@ -1,0 +1,14 @@
+{
+ "note": "OD-L3-36: the row rc.5 adds is classified as its siblings CCT#1-#3 (X-reg, DIP3-gated; deferred(O10-5, M4) in the overlay)",
+ "rows": [
+  {
+   "key": "validation.cpp:ContextualCheckTransaction#4:bad-txns-version",
+   "sha": "f045ecc08a7638a3",
+   "paths": ["Submit", "Proposal"],
+   "decision": "X-reg",
+   "guards": {"dip3": true},
+   "covered_by": [],
+   "note": "DIP3-gated"
+  }
+ ]
+}
