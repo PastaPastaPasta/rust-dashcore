@@ -198,6 +198,13 @@ pub trait WalletInterface: Send + Sync + 'static {
         0
     }
 
+    /// Whether a managed wallet dropped `txid` as dead (a conflict loser to a
+    /// final transaction, or abandoned). The mempool manager fetches such a
+    /// transaction again when its lock arrives. The default (`false`) opts out.
+    fn is_dismissed(&self, _txid: &Txid) -> bool {
+        false
+    }
+
     /// Reclaim expired receive-address reservations across every managed
     /// wallet, returning the total number reclaimed.
     ///

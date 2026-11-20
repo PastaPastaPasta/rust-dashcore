@@ -394,3 +394,94 @@ async fn a_replay_brings_back_neither_a_beaten_nor_an_abandoned_payment() {
     assert_eq!(h.context_of(&a, &beaten.txid()).await, None);
     assert_eq!(h.context_of(&a, &abandoned.txid()).await, None);
 }
+
+/// A spend the user abandoned that is in fact live: a peer's relay of it is
+/// ignored, but its verified lock has it fetched again, and it is then
+/// credited locked with its input spent.
+#[tokio::test]
+async fn an_abandoned_spend_a_lock_settles_is_fetched_again_and_credited() {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let funding = Transaction::dummy(&to_a, 31..32, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let spend = signed_spend(&h.wallets, &a, &to_a, &funding, &elsewhere).await;
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.process_mempool_transaction(&spend, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(spend.txid());
+        info.update_balance();
+        wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    }
+    assert_eq!(h.total(&a).await, COIN, "the rescan after the abandon finds the coin");
+
+    assert!(h.announce(&spend).await);
+    assert!(!h.manager.transactions.contains_key(&spend.txid()), "ignored as abandoned");
+
+    h.manager.process_instant_send(lock_for(&spend)).await;
+    h.manager.send_queued(&h.requests).await.unwrap();
+    let asked = h.sent_messages().iter().any(|message| {
+        matches!(message, NetworkMessage::GetData(items)
+            if items.contains(&Inventory::Transaction(spend.txid())))
+    });
+    assert!(asked, "the lock has the abandoned spend fetched again");
+    h.manager.handle_tx(spend.clone(), h.peer, &h.requests).await.unwrap();
+
+    assert!(matches!(
+        h.context_of(&a, &spend.txid()).await,
+        Some(TransactionContext::InstantSend(_))
+    ));
+    let wallets = h.wallets.read().await;
+    let account = wallets.get_wallet_info(&a).unwrap().first_bip44_managed_account().unwrap();
+    assert!(!account.utxos.contains_key(&OutPoint::new(funding.txid(), 0)), "not offered");
+    assert_eq!(wallets.get_wallet_info(&a).unwrap().balance().total(), 0);
+}
+
+/// A payment one wallet abandoned is not credited to a wallet registered
+/// later by the replay; that wallet gets it once a lock or a block settles it.
+#[test_case::test_case(true; "settled by a lock")]
+#[test_case::test_case(false; "settled by a block")]
+#[tokio::test]
+async fn a_wallet_registered_after_an_abandon_gets_the_payment_only_once_settled(by_lock: bool) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let to_b = address_of_unregistered(MNEMONIC_B).await;
+    let mut payment = Transaction::dummy(&to_a, 41..42, &[COIN]);
+    payment.output.push(TxOut {
+        value: COIN,
+        script_pubkey: to_b.script_pubkey(),
+    });
+    assert!(h.announce(&payment).await);
+    {
+        let mut wallets = h.wallets.write().await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+    }
+
+    let b = register(&h.wallets, MNEMONIC_B).await;
+    h.manager.tick(&h.requests).await.unwrap();
+    assert_eq!(h.total(&b).await, 0, "the replay does not hand B what A dropped as dead");
+
+    if by_lock {
+        h.manager.process_instant_send(lock_for(&payment)).await;
+    } else {
+        h.wallets
+            .write()
+            .await
+            .check_transaction_in_all_wallets(&payment, in_block(970), true, true)
+            .await;
+    }
+    assert_eq!(h.total(&b).await, COIN);
+}

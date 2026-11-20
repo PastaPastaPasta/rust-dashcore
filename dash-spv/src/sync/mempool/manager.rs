@@ -715,6 +715,9 @@ impl<W: WalletInterface> MempoolManager<W> {
             Some(instant_lock)
         } else {
             self.remember_pending_lock(instant_lock);
+            if self.seen_txids.contains_key(&txid) && self.wallet.read().await.is_dismissed(&txid) {
+                self.fetch_again(txid);
+            }
             None
         };
         if let Some(lock) = instant_lock_opt {
@@ -724,6 +727,18 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
         }
         events
+    }
+
+    /// Forget `txid` as seen and queue it on every activated peer, so a
+    /// transaction a wallet dropped as dead is fetched again once a lock
+    /// settles it.
+    fn fetch_again(&mut self, txid: Txid) {
+        self.seen_txids.remove(&txid);
+        for queue in self.peers.values_mut().flatten() {
+            if !queue.contains(&txid) {
+                queue.push_back(txid);
+            }
+        }
     }
 
     /// Keep a lock whose transaction is not held, until the transaction is

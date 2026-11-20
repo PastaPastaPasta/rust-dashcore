@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use dashcore::ephemerealdata::chain_lock::ChainLock;
 use dashcore::ephemerealdata::instant_lock::InstantLock;
 use dashcore::prelude::CoreBlockHeight;
-use dashcore::{Address, Block, BlockHash, ScriptBuf, Transaction};
+use dashcore::{Address, Block, BlockHash, ScriptBuf, Transaction, Txid};
 use hex_conservative::DisplayHex;
 use key_wallet::account::AccountType;
 use key_wallet::managed_account::transaction_record::TransactionRecord;
@@ -151,6 +151,12 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         tx: &Transaction,
         instant_lock: Option<InstantLock>,
     ) -> MempoolTransactionResult {
+        if instant_lock.is_none()
+            && (self.is_dismissed(&tx.txid())
+                || tx.input.iter().any(|input| self.is_dismissed(&input.previous_output.txid)))
+        {
+            return MempoolTransactionResult::default();
+        }
         let context = match instant_lock.as_ref() {
             Some(lock) => {
                 debug_assert_eq!(lock.txid, tx.txid(), "InstantLock txid must match transaction");
@@ -363,6 +369,10 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
 
     fn wallet_set_revision(&self) -> u64 {
         self.structural_revision
+    }
+
+    fn is_dismissed(&self, txid: &Txid) -> bool {
+        self.wallet_infos.values().any(|info| info.is_dismissed(txid))
     }
 
     async fn earliest_required_height(&self) -> CoreBlockHeight {
