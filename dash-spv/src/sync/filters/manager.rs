@@ -605,6 +605,15 @@ impl<H: BlockHeaderStorage, FH: FilterHeaderStorage, F: FilterStorage, W: Wallet
                         if wallet.wallet_account_generation(wallet_id) != *generation_at_scan {
                             continue;
                         }
+                        // Coverage guard: a script the wallet started watching
+                        // after the reconcile above (a pool a mempool receipt
+                        // extended meanwhile) was never matched against this
+                        // batch, so the batch cannot certify it. The wallet
+                        // stays behind, as above.
+                        let watched = wallet.scan_script_pubkeys_for(wallet_id);
+                        if batch.untested(wallet_id, &watched).next().is_some() {
+                            continue;
+                        }
                         // Contiguity guard: a batch extends a wallet's certified
                         // coverage only if the wallet was already certified up to
                         // the batch's start; a gap below the batch must be
@@ -1848,6 +1857,48 @@ mod tests {
             multi.read().await.wallets_behind(9999).contains(&wallet_a),
             "the wallet remains behind and is picked up by the tick rescan"
         );
+    }
+
+    /// Coverage guard: a pool extended after the reconcile tested the
+    /// batch (a mempool receipt using an address, with no account added, so
+    /// no new generation) leaves scripts the batch never matched. The commit
+    /// must not certify the wallet over them.
+    #[tokio::test]
+    async fn a_pool_grown_after_the_reconcile_blocks_the_commit_advance() {
+        let wallet_a: WalletId = [0xAB; 32];
+        let watched = dashcore::Address::dummy(Network::Regtest, 1);
+        let grown = dashcore::Address::dummy(Network::Regtest, 2);
+        let multi = Arc::new(RwLock::new(MultiMockWallet::new()));
+        {
+            let mut w = multi.write().await;
+            w.insert_wallet(
+                wallet_a,
+                MockWalletState {
+                    addresses: vec![watched.clone()],
+                    synced_height: 999,
+                    ..MockWalletState::default()
+                },
+            );
+            w.grow_scan_after_reads(wallet_a, 1, vec![watched, grown]);
+        }
+        let mut manager = create_multi_test_manager(multi.clone()).await;
+        manager.set_state(SyncState::Syncing);
+
+        let mut batch = FiltersBatch::new(1000, 5999, HashMap::new());
+        batch.set_pending_blocks(0);
+        batch.mark_scanned();
+        batch.set_scanned_wallets(BTreeMap::from([(wallet_a, 0)]));
+        manager.active_batches.insert(1000, batch);
+
+        manager.try_commit_batches().await.unwrap();
+
+        assert_eq!(manager.progress.committed_height(), 5999);
+        assert_eq!(
+            multi.read().await.wallet_synced_height(&wallet_a),
+            999,
+            "the grown script was never matched against 1000..=5999"
+        );
+        assert!(multi.read().await.wallets_behind(5999).contains(&wallet_a));
     }
 
     /// Generation guard, height-invisible account add: the wallet still sits

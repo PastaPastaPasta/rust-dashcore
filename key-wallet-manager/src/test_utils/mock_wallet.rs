@@ -436,6 +436,11 @@ pub struct MultiMockWallet {
     /// hand the filter scan a query that does not cover everything the wallet
     /// watches.
     scan_addresses: std::collections::BTreeMap<WalletId, Vec<Address>>,
+    /// Per-wallet scan query that replaces the one above once
+    /// `scan_script_pubkeys_for` has been read that many times: a pool that
+    /// grows while the scan is under way.
+    grown_scan: std::collections::BTreeMap<WalletId, (usize, Vec<Address>)>,
+    scan_reads: std::sync::atomic::AtomicUsize,
     event_sender: broadcast::Sender<WalletEvent>,
     /// Track every block processed for assertions.
     processed: Arc<Mutex<Vec<(WalletId, dashcore::BlockHash, u32)>>>,
@@ -453,6 +458,8 @@ impl MultiMockWallet {
         Self {
             wallets: std::collections::BTreeMap::new(),
             scan_addresses: std::collections::BTreeMap::new(),
+            grown_scan: std::collections::BTreeMap::new(),
+            scan_reads: std::sync::atomic::AtomicUsize::new(0),
             event_sender,
             processed: Arc::new(Mutex::new(Vec::new())),
         }
@@ -467,6 +474,17 @@ impl MultiMockWallet {
     /// returns these addresses' scripts instead of the monitored set.
     pub fn set_scan_addresses(&mut self, wallet_id: WalletId, addresses: Vec<Address>) {
         self.scan_addresses.insert(wallet_id, addresses);
+    }
+
+    /// From the `reads`-th read of `scan_script_pubkeys_for` on (counting
+    /// every wallet's), the wallet's scan query is `addresses`.
+    pub fn grow_scan_after_reads(
+        &mut self,
+        wallet_id: WalletId,
+        reads: usize,
+        addresses: Vec<Address>,
+    ) {
+        self.grown_scan.insert(wallet_id, (reads, addresses));
     }
 
     /// Mutable access to a wallet's state, panicking if absent.
@@ -521,6 +539,12 @@ impl WalletInterface for MultiMockWallet {
     }
 
     fn scan_script_pubkeys_for(&self, wallet_id: &WalletId) -> Vec<ScriptBuf> {
+        let read = self.scan_reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if let Some((after, addresses)) = self.grown_scan.get(wallet_id) {
+            if read >= *after {
+                return addresses.iter().map(|a| a.script_pubkey()).collect();
+            }
+        }
         match self.scan_addresses.get(wallet_id) {
             Some(addresses) => addresses.iter().map(|a| a.script_pubkey()).collect(),
             None => self.monitored_script_pubkeys_for(wallet_id),
