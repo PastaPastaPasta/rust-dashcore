@@ -1,0 +1,37 @@
+# Standalone tool, not a workspace member: BS8's differential of base-sdk's
+# overlay messages against Dash Core's reads, from the Core-linked judge
+# (../bs8-judge). It links the base-sdk fork pinned by the root (BS8 is merged
+# into it), through the [patch] below, which repeats the root's table as in
+# ../bs7 and adds dash-p2p-core. dash-consensus links the same base-sdk; the
+# two meet only as transaction bytes (`predict::node_tx`).
+[package]
+name = "bs8-tool"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+hex = "0.4"
+serde_json = "1"
+bitcoin_hashes = "1.2"
+dash-p2p-core = { git = "https://github.com/dashpay/base-sdk", rev = "f748a78f34053c73602a0ba663d03e51def55eed", features = ["std", "serde"] }
+dash-primitives = { git = "https://github.com/dashpay/base-sdk", rev = "f748a78f34053c73602a0ba663d03e51def55eed", features = ["std", "serde"] }
+dash-types = { git = "https://github.com/dashpay/base-sdk", rev = "f748a78f34053c73602a0ba663d03e51def55eed", features = ["std", "serde"] }
+dash-pkc = { git = "https://github.com/dashpay/base-sdk", rev = "f748a78f34053c73602a0ba663d03e51def55eed", features = ["std", "bls"] }
+# The node's transaction read (CS0), for a diff's coinbase transaction.
+dash-consensus = { path = "../../../../dash-consensus" }
+# The node's P2P handler reads (`read::decode`).
+dash-p2p = { path = "../../../../dash-p2p" }
+
+# The root Cargo.toml's table (which has dash-p2p-core too); keep them equal.
+[patch."https://github.com/dashpay/base-sdk"]
+dash-num = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-params = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-pkc = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-pow = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-primitives = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-script = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-types = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }
+dash-p2p-core = { git = "https://github.com/PastaPastaPasta/base-sdk", rev = "de0d0c7ef200f8d6ba1df2f3464d648620298898" }

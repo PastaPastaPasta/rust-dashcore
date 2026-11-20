@@ -1,0 +1,69 @@
+{
+ "name": "a29-iii-on-off",
+ "description": "on \u2192 off: no conflict check at acceptance (C accepted while the flag is still observed on), no enforcement after the check, the CONFLICT mark on B91 still acts",
+ "rows": [
+  "A-29(iii)"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 100,
+   "submit": "connect"
+  },
+  {
+   "op": "spork19",
+   "value": "on"
+  },
+  {
+   "op": "cl",
+   "block": "A100"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A90",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "spork19",
+   "value": "off"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "A90",
+   "count": 15,
+   "submit": "headers"
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B91"
+   ]
+  },
+  {
+   "op": "timer"
+  },
+  {
+   "op": "connect",
+   "blocks": [
+    "C91..C105"
+   ]
+  },
+  {
+   "op": "pnbh",
+   "headers": [
+    "B91"
+   ]
+  }
+ ]
+}
