@@ -25,7 +25,19 @@ pub enum Phase {
     Coverage {
         anchor: Anchor,
     },
+    /// `Establish { id, .. }` is outstanding; only its matched result leaves this phase.
+    Establishing {
+        id: u64,
+        anchor: Anchor,
+        tip: BlockRef,
+        tip_gen: u64,
+        /// The latest header input since the command, acted on after a `Stale` result.
+        recorded: Option<HeaderState>,
+        /// The latest unrequested replacement since the command, applied on the result.
+        replaced: Option<Anchor>,
+    },
     Established,
+    Failed,
 }
 
 /// The header task's sync state. `tip_gen` rises with every published tip that differs from
@@ -55,6 +67,17 @@ impl HeaderState {
     }
 }
 
+/// The host's answer to one `Establish`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EstablishOutcome {
+    /// The guarded establish wrote the Durable `Established`.
+    Established,
+    /// The guard failed and wrote nothing; the header task's current state.
+    Stale(HeaderState),
+    /// The establish failed and the client stops.
+    Failed(String),
+}
+
 #[derive(Clone, Debug)]
 pub enum Input {
     Opened(Option<ChainMeta>),
@@ -78,6 +101,17 @@ pub enum Input {
     },
     /// The host sends this after the requested retry delay.
     RetryTick,
+    /// Exactly one per `Establish`, with its `id` and `cand_gen`.
+    EstablishResult {
+        id: u64,
+        cand_gen: u64,
+        outcome: EstablishOutcome,
+    },
+    /// The header task replaced the chain at a generation the driver did not request, and has
+    /// already reset the store and built the new chain.
+    Replaced {
+        anchor: Anchor,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,10 +129,21 @@ pub enum Output {
         attempt: u32,
     },
     SendCoverageRequests,
-    Establish,
+    /// The guarded establish on the pin `tip_gen` names; the host answers `EstablishResult`
+    /// with this `id` and `cand_gen`, once.
+    Establish {
+        id: u64,
+        tip: BlockRef,
+        tip_gen: u64,
+        cand_gen: u64,
+    },
+    /// MN off: the header task's own establish at open, before any header sync.
+    EstablishUnguarded,
     StartSubscribers,
     Fallback(Anchor),
     RetryAfter(Duration),
+    /// The client stops: the establish failed.
+    FailStop(String),
     Diagnostic(String),
 }
 
@@ -117,6 +162,8 @@ pub struct InitialSync {
     behind: bool,
     attempts: u32,
     waiting: bool,
+    /// Never reused in the driver's life.
+    next_establish_id: u64,
 }
 
 impl InitialSync {
@@ -140,6 +187,7 @@ impl InitialSync {
             behind: false,
             attempts: 0,
             waiting: false,
+            next_establish_id: 1,
         }
     }
 
@@ -147,7 +195,7 @@ impl InitialSync {
         &self.phase
     }
 
-    /// Rises with every `Reset`.
+    /// Rises with every `Reset` and every applied `Replaced`.
     pub fn cand_gen(&self) -> u64 {
         self.cand_gen
     }
@@ -191,7 +239,11 @@ impl InitialSync {
                 out.push(Output::SyncHeaders);
             } else {
                 self.phase = Phase::Established;
-                out.extend([Output::Establish, Output::StartSubscribers, Output::SyncHeaders]);
+                out.extend([
+                    Output::EstablishUnguarded,
+                    Output::StartSubscribers,
+                    Output::SyncHeaders,
+                ]);
             }
             return Ok(out);
         }
@@ -202,7 +254,18 @@ impl InitialSync {
             | Phase::Coverage {
                 anchor,
             } => anchor.clone(),
-            Phase::Established => return Ok(Vec::new()),
+            Phase::Establishing {
+                ..
+            } => return Ok(self.establishing(input)),
+            Phase::Established | Phase::Failed => {
+                return Ok(match input {
+                    Input::EstablishResult {
+                        id,
+                        ..
+                    } => vec![unmatched(id)],
+                    _ => Vec::new(),
+                })
+            }
             Phase::Unopened => return Err(SpvError::Config("initial sync is not open".into())),
         };
         match input {
@@ -229,10 +292,7 @@ impl InitialSync {
                 tip_gen,
                 cand_gen,
             } if self.current(tip_gen, cand_gen) && !self.waiting => match result {
-                Coverage::Covered => {
-                    self.phase = Phase::Established;
-                    Ok(vec![Output::Establish, Output::StartSubscribers])
-                }
+                Coverage::Covered => Ok(vec![self.establish(anchor)]),
                 Coverage::Pending => Ok(vec![Output::SendCoverageRequests]),
                 Coverage::Below {
                     lowest,
@@ -262,8 +322,142 @@ impl InitialSync {
                 self.attempts = 1;
                 Ok(vec![self.run_coverage()])
             }
+            Input::EstablishResult {
+                id,
+                ..
+            } => Ok(vec![unmatched(id)]),
+            Input::Replaced {
+                anchor,
+            } => Ok(vec![self.replaced(anchor)]),
             _ => Ok(Vec::new()),
         }
+    }
+
+    /// `Covered` on the current pin: the one outstanding `Establish`.
+    fn establish(&mut self, anchor: Anchor) -> Output {
+        let id = self.next_establish_id;
+        self.next_establish_id += 1;
+        let tip = self.tip.expect("coverage runs on a tip");
+        let tip_gen = self.tip_gen.expect("coverage runs on a tip");
+        self.phase = Phase::Establishing {
+            id,
+            anchor,
+            tip,
+            tip_gen,
+            recorded: None,
+            replaced: None,
+        };
+        Output::Establish {
+            id,
+            tip,
+            tip_gen,
+            cand_gen: self.cand_gen,
+        }
+    }
+
+    /// While `Establishing`: header inputs are recorded, a replacement is kept for the result,
+    /// coverage is dropped, and only the result matching `id` and `cand_gen` (never `tip_gen`)
+    /// leaves the phase.
+    fn establishing(&mut self, input: Input) -> Vec<Output> {
+        let Phase::Establishing {
+            id: outstanding,
+            recorded,
+            replaced,
+            ..
+        } = &mut self.phase
+        else {
+            unreachable!("only while establishing")
+        };
+        match input {
+            Input::HeadersCaughtUp {
+                tip,
+                tip_gen,
+            } if self.tip_gen.is_none_or(|g| tip_gen >= g) => {
+                *recorded = Some(HeaderState::CaughtUp {
+                    tip,
+                    tip_gen,
+                });
+                self.tip_gen = Some(tip_gen);
+            }
+            Input::HeadersBehind {
+                tip_gen,
+            } if self.tip_gen.is_none_or(|g| tip_gen >= g) => {
+                *recorded = Some(HeaderState::Behind {
+                    tip_gen,
+                });
+                self.tip_gen = Some(tip_gen);
+            }
+            Input::Replaced {
+                anchor,
+            } => *replaced = Some(anchor),
+            Input::EstablishResult {
+                id,
+                cand_gen,
+                outcome,
+            } => {
+                if id != *outstanding || cand_gen != self.cand_gen {
+                    return vec![unmatched(id)];
+                }
+                return self.established(outcome);
+            }
+            _ => {}
+        }
+        Vec::new()
+    }
+
+    /// The matched result: a failure stops, a replacement recorded meanwhile is applied, and
+    /// otherwise `Established` starts the subscribers and `Stale` resumes coverage on the newer
+    /// of its state and the recorded one.
+    fn established(&mut self, outcome: EstablishOutcome) -> Vec<Output> {
+        let Phase::Establishing {
+            anchor,
+            recorded,
+            replaced,
+            ..
+        } = std::mem::replace(&mut self.phase, Phase::Failed)
+        else {
+            unreachable!("only while establishing")
+        };
+        if let EstablishOutcome::Failed(e) = outcome {
+            return vec![Output::FailStop(e)];
+        }
+        if let Some(next) = replaced {
+            return vec![self.replaced(next)];
+        }
+        let EstablishOutcome::Stale(state) = outcome else {
+            self.phase = Phase::Established;
+            return vec![Output::StartSubscribers];
+        };
+        let state = recorded.filter(|r| r.tip_gen() > state.tip_gen()).unwrap_or(state);
+        self.phase = Phase::Coverage {
+            anchor,
+        };
+        self.tip_gen = self.tip_gen.max(Some(state.tip_gen()));
+        match state {
+            HeaderState::CaughtUp {
+                tip,
+                ..
+            } => {
+                self.tip = Some(tip);
+                self.behind = false;
+                self.attempts = 1;
+                self.waiting = false;
+                vec![self.run_coverage()]
+            }
+            HeaderState::Behind {
+                ..
+            } => {
+                self.behind = true;
+                Vec::new()
+            }
+        }
+    }
+
+    /// The header task already reset the store and built `anchor`'s chain: a new candidate
+    /// with no `Reset` or `BuildChain`.
+    fn replaced(&mut self, anchor: Anchor) -> Output {
+        self.new_candidate(anchor.clone());
+        Output::Diagnostic(format!("the chain was replaced; new candidate {anchor:?}"))
     }
 
     /// A header input in Candidate or Coverage. One from before a reset, or older than the
@@ -325,21 +519,27 @@ impl InitialSync {
             )];
         }
         let reset = self.reset(&next);
-        self.phase = Phase::Candidate {
-            anchor: next.clone(),
-        };
         vec![Output::Fallback(next.clone()), reset, Output::BuildChain(next), Output::SyncHeaders]
     }
 
-    /// A new candidate: a later `cand_gen`, and no tip until the new chain publishes one.
+    /// A new candidate whose store reset the host runs: [`Self::new_candidate`] and its
+    /// `Reset`.
     fn reset(&mut self, anchor: &Anchor) -> Output {
+        self.new_candidate(anchor.clone());
+        Output::Reset(self.candidate_meta(anchor))
+    }
+
+    /// A later `cand_gen`, and no tip until the new chain publishes one.
+    fn new_candidate(&mut self, anchor: Anchor) {
         self.cand_gen += 1;
         self.replaced_at = self.tip_gen;
         self.tip = None;
         self.behind = false;
         self.attempts = 0;
         self.waiting = false;
-        Output::Reset(self.candidate_meta(anchor))
+        self.phase = Phase::Candidate {
+            anchor,
+        };
     }
 
     fn candidate_meta(&self, anchor: &Anchor) -> ChainMeta {
@@ -385,6 +585,11 @@ impl InitialSync {
             window: Box::new(pack.headers),
         })
     }
+}
+
+/// A result that is not the outstanding command's, dropped.
+fn unmatched(id: u64) -> Output {
+    Output::Diagnostic(format!("dropped an establish result ({id}) that is not outstanding"))
 }
 
 #[cfg(test)]
@@ -510,6 +715,23 @@ mod tests {
         }
     }
 
+    fn establish(id: u64, n: u8, tip_gen: u64, cand_gen: u64) -> Output {
+        Output::Establish {
+            id,
+            tip: tip(n),
+            tip_gen,
+            cand_gen,
+        }
+    }
+
+    fn result(id: u64, cand_gen: u64, outcome: EstablishOutcome) -> Input {
+        Input::EstablishResult {
+            id,
+            cand_gen,
+            outcome,
+        }
+    }
+
     fn open(driver: &mut InitialSync) -> Anchor {
         let out = driver.advance(Input::Opened(None)).unwrap();
         let Output::BuildChain(anchor) = &out[1] else {
@@ -620,7 +842,19 @@ mod tests {
         );
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 1, 1)).unwrap(),
-            vec![Output::Establish, Output::StartSubscribers]
+            vec![establish(1, 8, 1, 1)]
+        );
+        assert!(matches!(
+            d.phase(),
+            Phase::Establishing {
+                id: 1,
+                ..
+            }
+        ));
+        assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
+            vec![Output::StartSubscribers]
         );
         assert_eq!(d.phase(), &Phase::Established);
         assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
@@ -752,7 +986,7 @@ mod tests {
         assert!(d.advance(coverage(Coverage::Covered, 1, 2)).unwrap().is_empty());
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
-            vec![Output::Establish, Output::StartSubscribers]
+            vec![establish(1, 5, 2, 2)]
         );
     }
 
@@ -776,7 +1010,7 @@ mod tests {
         assert_eq!(d.advance(caught_up(9, 2)).unwrap(), vec![run(9, 2, 1, 1)]);
         assert_eq!(
             d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
-            vec![Output::Establish, Output::StartSubscribers]
+            vec![establish(1, 9, 2, 1)]
         );
     }
 
@@ -822,11 +1056,71 @@ mod tests {
             [
                 Output::Reset(_),
                 Output::BuildChain(_),
-                Output::Establish,
+                Output::EstablishUnguarded,
                 Output::StartSubscribers,
                 Output::SyncHeaders
             ]
         ));
         assert_eq!(d.phase(), &Phase::Established);
+    }
+
+    #[test]
+    fn stale_resumes_coverage_and_failed_stops() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(coverage(Coverage::Covered, 1, 1)).unwrap();
+        let stale = EstablishOutcome::Stale(HeaderState::CaughtUp {
+            tip: tip(9),
+            tip_gen: 2,
+        });
+        assert_eq!(d.advance(result(1, 1, stale)).unwrap(), vec![run(9, 2, 1, 1)]);
+        assert!(matches!(d.phase(), Phase::Coverage { .. }));
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
+            vec![establish(2, 9, 2, 1)]
+        );
+        assert_eq!(
+            d.advance(result(2, 1, EstablishOutcome::Failed("disk".into()))).unwrap(),
+            vec![Output::FailStop("disk".into())]
+        );
+        assert_eq!(d.phase(), &Phase::Failed);
+        for input in [
+            caught_up(10, 3),
+            coverage(Coverage::Covered, 3, 1),
+            Input::Replaced {
+                anchor: Anchor::Genesis,
+            },
+        ] {
+            assert!(d.advance(input).unwrap().is_empty());
+        }
+        assert_eq!(d.phase(), &Phase::Failed);
+    }
+
+    #[test]
+    fn replaced_makes_a_new_candidate_without_a_reset() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        let out = d
+            .advance(Input::Replaced {
+                anchor: Anchor::Genesis,
+            })
+            .unwrap();
+        assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+        assert_eq!(
+            d.phase(),
+            &Phase::Candidate {
+                anchor: Anchor::Genesis
+            }
+        );
+        assert_eq!(d.cand_gen(), 2);
+        assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
+        assert!(d.advance(caught_up(8, 1)).unwrap().is_empty());
+        assert_eq!(d.advance(caught_up(3, 2)).unwrap(), vec![run(3, 2, 2, 1)]);
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 2)).unwrap(),
+            vec![establish(1, 3, 2, 2)]
+        );
     }
 }
