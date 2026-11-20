@@ -229,6 +229,19 @@ impl ManagedWalletInfo {
         result
     }
 
+    /// The first input of `tx` spending a coin this wallet holds that
+    /// [`verify_input_authorization`] rejects for that coin's output. An input
+    /// it cannot decide on (another script or signature hash type) passes.
+    pub(crate) fn unauthorized_spend_of_held_coin(&self, tx: &Transaction) -> Option<OutPoint> {
+        let funds: Vec<_> =
+            self.accounts.all_accounts().into_iter().filter_map(|a| a.as_funds()).collect();
+        tx.input.iter().enumerate().find_map(|(index, input)| {
+            let outpoint = input.previous_output;
+            let utxo = funds.iter().find_map(|account| account.utxos.get(&outpoint))?;
+            (verify_input_authorization(tx, index, &utxo.txout) == Ok(false)).then_some(outpoint)
+        })
+    }
+
     /// Drop each pending spend of an output of `tx` whose input does not
     /// carry that output's owner's authorization, with everything built on
     /// it.

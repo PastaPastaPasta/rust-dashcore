@@ -77,6 +77,17 @@ pub(crate) async fn signed_by_wallet(
     manager.wallets[wallet_id].sign_tx(tx, coins, move |_| Some(path.clone())).await.unwrap()
 }
 
+/// `tx` with each input spending a coin the wallet holds signed as that
+/// coin's owner signs it.
+pub(crate) async fn signed_spend(
+    manager: &WalletManager<ManagedWalletInfo>,
+    wallet_id: &WalletId,
+    tx: Transaction,
+) -> Transaction {
+    let (wallet, info) = (&manager.wallets[wallet_id], &manager.wallet_infos[wallet_id]);
+    key_wallet::test_utils::sign_owned_inputs(wallet, info, tx, &[]).await
+}
+
 pub(crate) fn drain_events(rx: &mut broadcast::Receiver<WalletEvent>) -> Vec<WalletEvent> {
     let mut events = Vec::new();
     while let Ok(e) = rx.try_recv() {

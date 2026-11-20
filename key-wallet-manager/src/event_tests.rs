@@ -523,6 +523,7 @@ async fn setup_known_mempool_spend_only_asset_lock(
         "AssetLock credit output must not pay the wallet"
     );
 
+    let asset_lock_tx = signed_spend(&manager, &wallet_id, asset_lock_tx).await;
     let mempool_result = manager.process_mempool_transaction(&asset_lock_tx, None).await;
     assert!(mempool_result.is_relevant, "mempool sighting must spend the wallet UTXO");
     assert_eq!(mempool_result.net_amount, -(TX_AMOUNT as i64));
@@ -920,6 +921,7 @@ async fn test_block_winner_emits_swept_event_naming_the_released_outpoints() {
     };
 
     let loser = spend(vec![coin_a, coin_b], 800_000);
+    let loser = signed_spend(&manager, &wallet_id, loser).await;
     manager.process_mempool_transaction(&loser, None).await;
 
     // Subscribe only now: the funding block and the loser's arrival are
@@ -1042,6 +1044,7 @@ async fn test_is_locked_mempool_winner_sweeps_with_no_mined_height() {
     };
 
     let loser = spend(vec![coin_a, coin_b], 800_000);
+    let loser = signed_spend(&manager, &wallet_id, loser).await;
     manager.process_mempool_transaction(&loser, None).await;
 
     let mut rx = manager.subscribe_events();

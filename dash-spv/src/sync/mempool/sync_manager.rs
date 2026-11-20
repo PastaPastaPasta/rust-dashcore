@@ -898,6 +898,14 @@ mod tests {
         let foreign = dashcore::Address::dummy(dashcore::Network::Testnet, 999);
         let mut outgoing = Transaction::dummy(&foreign, 20..21, &[99_000]);
         outgoing.input[0].previous_output = OutPoint::new(funding.txid(), 0);
+        let outgoing = {
+            let wallets = wallet.read().await;
+            let (signer, info) = (
+                wallets.get_wallet(&wallet_id).unwrap(),
+                wallets.get_wallet_info(&wallet_id).unwrap(),
+            );
+            key_wallet::test_utils::sign_owned_inputs(signer, info, outgoing, &[&funding]).await
+        };
         manager
             .handle_message(
                 Message::new(peer, NetworkMessage::Tx(outgoing.clone().into())),

@@ -48,7 +48,7 @@ pub struct DerivedAddressInfo {
 }
 
 /// Result of checking a transaction against accounts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TransactionCheckResult {
     /// Whether the transaction belongs to any account
     pub is_relevant: bool,

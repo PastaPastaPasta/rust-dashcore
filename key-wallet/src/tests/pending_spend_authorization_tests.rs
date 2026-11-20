@@ -1,5 +1,5 @@
-//! A pending spend seen before its funding holds the coin back only when the
-//! coin's owner signed it.
+//! A pending spend holds a coin back only when the coin's owner signed it,
+//! whether it is seen before or after the coin's funding.
 
 use dashcore::blockdata::script::ScriptBuf;
 use dashcore::hashes::Hash;
@@ -135,6 +135,64 @@ async fn a_settled_spend_needs_no_signature_check(context: TransactionContext) {
 
     let result = ctx.check_transaction(&funding, in_block(100)).await;
     assert!(result.swept_transactions.is_empty());
+    assert!(!holds_coin(&ctx, &funding));
+    assert_eq!(ctx.managed_wallet.balance().total(), CHANGE);
+}
+
+/// The wallet holding a mined coin, and an unsigned spend of it paying change
+/// back to the wallet.
+async fn coin_held() -> (TestWalletContext, Transaction, Transaction) {
+    let (mut ctx, funding, spend) = spend_first();
+    assert!(ctx.check_transaction(&funding, in_block(100)).await.is_relevant);
+    assert_eq!(ctx.managed_wallet.balance().total(), FUNDED);
+    (ctx, funding, spend)
+}
+
+#[tokio::test]
+async fn an_authorized_spend_from_another_device_spends_a_held_coin() {
+    let (mut ctx, funding, spend) = coin_held().await;
+    let spend = signed(&ctx, &funding, spend).await;
+
+    let result = ctx.check_transaction(&spend, TransactionContext::Mempool).await;
+    assert!(result.is_relevant);
+    assert!(!holds_coin(&ctx, &funding), "the coin is spent");
+    assert!(ctx.bip44_account().transactions().contains_key(&spend.txid()));
+    assert_eq!(ctx.managed_wallet.balance().total(), CHANGE);
+}
+
+#[tokio::test]
+async fn an_unauthorized_claim_on_a_held_coin_is_ignored() {
+    let (mut ctx, funding, spend) = coin_held().await;
+
+    let result = ctx.check_transaction(&spend, TransactionContext::Mempool).await;
+    assert!(!result.is_relevant);
+    assert!(result.new_records.is_empty());
+    assert!(holds_coin(&ctx, &funding), "the coin stays counted");
+    assert!(!ctx.bip44_account().transactions().contains_key(&spend.txid()));
+    assert!(ctx.bip44_account().utxos.keys().all(|outpoint| outpoint.txid != spend.txid()));
+    assert_eq!(ctx.managed_wallet.balance().total(), FUNDED);
+}
+
+#[tokio::test]
+async fn a_claim_on_a_held_coin_signed_for_another_coin_is_ignored() {
+    let (mut ctx, funding, mut spend) = coin_held().await;
+    let other = Transaction::dummy(&ctx.receive_address, 1..2, &[FUNDED]);
+    spend.input[0].previous_output = OutPoint::new(other.txid(), 0);
+    let mut spend = signed(&ctx, &other, spend).await;
+    spend.input[0].previous_output = OutPoint::new(funding.txid(), 0);
+
+    assert!(!ctx.check_transaction(&spend, TransactionContext::Mempool).await.is_relevant);
+    assert!(holds_coin(&ctx, &funding));
+    assert_eq!(ctx.managed_wallet.balance().total(), FUNDED);
+}
+
+#[test_case::test_case(in_block(101); "mined")]
+#[test_case::test_case(TransactionContext::InstantSend(dashcore::InstantLock::default()); "instant send locked")]
+#[tokio::test]
+async fn a_settled_spend_of_a_held_coin_needs_no_signature_check(context: TransactionContext) {
+    let (mut ctx, funding, spend) = coin_held().await;
+
+    assert!(ctx.check_transaction(&spend, context).await.is_relevant);
     assert!(!holds_coin(&ctx, &funding));
     assert_eq!(ctx.managed_wallet.balance().total(), CHANGE);
 }

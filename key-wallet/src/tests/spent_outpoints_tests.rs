@@ -497,7 +497,7 @@ async fn deliver_funding_then_spender(
     } else {
         dashcore::Address::dummy(Network::Testnet, 0)
     };
-    let spender = spend_paying(&[coin], &payee);
+    let spender = ctx.signed(spend_paying(&[coin], &payee), &[&funding]).await;
     let claim = [(coin, claim_names_spender.then(|| spender.txid()))];
     if matches!(restore, Restore::BeforeFunding) {
         assert!(ctx.managed_wallet.restore_spent_outpoints(&claim).is_empty());
@@ -828,7 +828,7 @@ async fn processing_a_spend_releases_its_reservation() {
     account.reservations().reserve(&[funded], 0, ReservationToken::next());
     assert!(account.reservations().reserved(0).contains(&funded));
 
-    let spend = spending_tx(&[funded]);
+    let spend = ctx.signed(spending_tx(&[funded]), &[&funding_tx]).await;
     ctx.check_transaction(&spend, TransactionContext::Mempool).await;
 
     let account = ctx.managed_wallet.first_bip44_managed_account().expect("BIP44 account");
