@@ -1,0 +1,4 @@
+{
+  "base": "a-wal",
+  "detail": "Tombstone the obfuscation-key record and store plaintext RPC-known B; absent key decodes as eight zero bytes"
+}
