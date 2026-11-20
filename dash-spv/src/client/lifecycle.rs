@@ -591,7 +591,10 @@ mod tests {
     /// manager with ChainLocks on runs, the only source of the chainlocks it applies.
     #[tokio::test]
     async fn chain_lock_resync_reads_the_store_only_with_chain_locks_on() {
-        async fn reads(config: ClientConfig) -> bool {
+        async fn reads_with(
+            config: ClientConfig,
+            gate: impl FnOnce(ClientConfig) -> ClientConfig,
+        ) -> bool {
             let dir = TempDir::new().unwrap();
             let config = config.without_filters().with_storage_path(dir.path());
             let wallet =
@@ -600,7 +603,10 @@ mod tests {
                 DashSpvClient::new(config.clone(), MockNetworkManager::new(), wallet, vec![])
                     .await
                     .unwrap();
-            client.chain_lock_resync_store(&config).await.is_some()
+            client.chain_lock_resync_store(&gate(config)).await.is_some()
+        }
+        async fn reads(config: ClientConfig) -> bool {
+            reads_with(config, |config| config).await
         }
 
         assert!(!reads(ClientConfig::testnet().with_chainlocks_enabled(Some(false))).await);
@@ -614,5 +620,6 @@ mod tests {
             .await
         );
         assert!(reads(ClientConfig::mainnet().with_chainlocks_enabled(Some(false))).await);
+        assert!(!reads_with(ClientConfig::testnet(), |config| config.without_masternodes()).await);
     }
 }

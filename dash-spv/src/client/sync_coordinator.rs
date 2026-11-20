@@ -1,9 +1,10 @@
 //! Sync coordination and orchestration.
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
 use tokio_util::sync::CancellationToken;
 
 use super::core::SyncLoop;
@@ -67,12 +68,13 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         let network_event_rx = self.subscribe_network_events().await;
         let progress_rx = self.subscribe_progress().await;
         let wallet_event_rx = self.wallet.read().await.subscribe_events();
+        let progress_resync = Arc::new(Notify::new());
 
         let sync_task = spawn_broadcast_monitor(
             "SyncEvent",
             sync_event_rx,
             handlers.clone(),
-            self.subscribe_progress().await,
+            progress_resync.clone(),
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_sync_event(event),
@@ -80,7 +82,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
 
         let chainlock_dispatch_task = spawn_chainlock_wallet_dispatch(
             chainlock_dispatch_rx,
-            self.subscribe_progress().await,
+            progress_rx.clone(),
             stored_chain_locks,
             self.wallet.clone(),
             loop_shutdown.clone(),
@@ -91,7 +93,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
             "NetworkEvent",
             network_event_rx,
             handlers.clone(),
-            self.subscribe_progress().await,
+            progress_resync.clone(),
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_network_event(event),
@@ -101,7 +103,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
             "WalletEvent",
             wallet_event_rx,
             handlers.clone(),
-            self.subscribe_progress().await,
+            progress_resync.clone(),
             monitor_shutdown.clone(),
             monitor_failure_tx.clone(),
             |h, event| h.on_wallet_event(event),
@@ -110,6 +112,7 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         let progress_task = spawn_progress_monitor(
             progress_rx,
             handlers.clone(),
+            progress_resync,
             monitor_shutdown.clone(),
             monitor_failure_tx,
         );
@@ -132,10 +135,9 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         // Spawn the reservation sweep only after startup succeeds: it mutates
         // wallet state, so a slow or failing startup must not let it reclaim
         // reservations while `run()` is still on its way to returning an error.
-        let reservation_sweep_task =
-            self.config.read().await.reservation_sweep_ttl_secs.map(|ttl| {
-                spawn_reservation_sweep(self.wallet.clone(), ttl, loop_shutdown.clone())
-            });
+        let reservation_sweep_task = config
+            .reservation_sweep_ttl_secs
+            .map(|ttl| spawn_reservation_sweep(self.wallet.clone(), ttl, loop_shutdown.clone()));
 
         // Set before the loop starts, so a loop failing right away clears it.
         self.running.store(true, Ordering::Release);

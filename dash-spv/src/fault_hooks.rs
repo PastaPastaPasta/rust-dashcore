@@ -1,7 +1,5 @@
-//! Test-only fault hooks (the internal `__fault-hooks` feature).
-//!
-//! Every hook is inert unless a test arms it, because `--all-features` turns the feature on in
-//! every consumer.
+//! Test-only fault hooks (the internal `__fault-hooks` feature). Every hook is inert
+//! unless a test arms it, because `--all-features` turns the feature on in every consumer.
 
 use std::future::Future;
 

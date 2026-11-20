@@ -210,23 +210,28 @@ mod tests {
     /// client's life: only a change that keeps ChainLocks on or off is accepted.
     #[tokio::test]
     async fn update_config_rejects_a_chainlocks_switch_change() {
-        let temp_dir = TempDir::new().unwrap();
-        let config = ClientConfig::regtest()
-            .without_filters()
-            .without_masternodes()
-            .with_storage_path(temp_dir.path());
-        let wallet = Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
-        let client = DashSpvClient::new(config.clone(), MockNetworkManager::new(), wallet, vec![])
-            .await
-            .expect("client construction must succeed");
+        async fn update(
+            config: ClientConfig,
+            chainlocks_enabled: Option<bool>,
+        ) -> crate::error::Result<()> {
+            let temp_dir = TempDir::new().unwrap();
+            let config =
+                config.without_filters().without_masternodes().with_storage_path(temp_dir.path());
+            let wallet =
+                Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
+            let client =
+                DashSpvClient::new(config.clone(), MockNetworkManager::new(), wallet, vec![])
+                    .await
+                    .expect("client construction must succeed");
+            client.update_config(config.with_chainlocks_enabled(chainlocks_enabled)).await
+        }
 
-        let error = client
-            .update_config(config.clone().with_chainlocks_enabled(Some(true)))
-            .await
-            .unwrap_err();
+        let error = update(ClientConfig::regtest(), Some(true)).await.unwrap_err();
         assert!(error.to_string().contains("chainlocks_enabled"));
-
-        client.update_config(config.with_chainlocks_enabled(Some(false))).await.unwrap();
+        update(ClientConfig::regtest(), Some(false)).await.unwrap();
+        update(ClientConfig::mainnet(), Some(false)).await.unwrap();
+        let error = update(ClientConfig::testnet(), Some(false)).await.unwrap_err();
+        assert!(error.to_string().contains("chainlocks_enabled"));
     }
 
     #[tokio::test]

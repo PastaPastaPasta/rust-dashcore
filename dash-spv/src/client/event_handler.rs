@@ -8,7 +8,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use tokio::sync::{broadcast, mpsc, watch, RwLock};
+use tokio::sync::{broadcast, mpsc, watch, Notify, RwLock};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
@@ -25,6 +25,9 @@ const PROGRESS_LOG_INTERVAL: Duration = Duration::from_secs(5);
 ///
 /// All methods have default no-op implementations, so consumers only
 /// need to override the events they care about.
+///
+/// A monitor that falls behind skips events and resyncs `on_progress`; derive state
+/// from `SyncProgress`, not from single events.
 pub trait EventHandler: Send + Sync + 'static {
     /// Called for sync lifecycle events (headers stored, sync complete, etc.).
     fn on_sync_event(&self, _event: &SyncEvent) {}
@@ -49,15 +52,14 @@ impl EventHandler for () {}
 /// subscribers, set a per-target filter such as
 /// `dash_spv::client::event_handler=warn`.
 ///
-/// A lag skips the missed events: the monitor logs a warning, delivers the latest
-/// `progress` to `on_progress` once and keeps receiving. An unexpected channel close
-/// is sent via `on_failure` so the coordinator can report it as the single source of
-/// error handling. On `shutdown` it delivers the events already queued before it exits.
+/// A lag skips the missed events, signals `progress_resync` and keeps receiving.
+/// An unexpected close goes to `on_failure`. On `shutdown` it delivers the events
+/// already queued before it exits.
 pub(crate) fn spawn_broadcast_monitor<E, F>(
     name: &'static str,
     mut receiver: broadcast::Receiver<E>,
     handlers: Arc<Vec<Arc<dyn EventHandler>>>,
-    progress: watch::Receiver<SyncProgress>,
+    progress_resync: Arc<Notify>,
     shutdown: CancellationToken,
     on_failure: mpsc::Sender<String>,
     dispatch_fn: F,
@@ -89,10 +91,7 @@ where
                         Err(broadcast::error::RecvError::Lagged(_)) if shutdown.is_cancelled() => break,
                         Err(broadcast::error::RecvError::Lagged(n)) => {
                             tracing::warn!("{} monitor lagged, skipped {} events", name, n);
-                            let snapshot = progress.borrow().clone();
-                            for handler in handlers.iter() {
-                                handler.on_progress(&snapshot);
-                            }
+                            progress_resync.notify_one();
                         }
                     }
                 }
@@ -122,13 +121,15 @@ where
 
 /// Spawns a task that monitors a watch channel for progress updates.
 ///
-/// Sends the initial progress value, then monitors for changes. Every value reaches
-/// the consumer handlers. A value is mirrored into `tracing::info!` when a manager
-/// changes state or [`PROGRESS_LOG_INTERVAL`] has passed since the last logged one,
-/// because sync updates progress many times a second.
+/// Sends the initial progress value, then every change, to the consumer handlers. A
+/// `resync` signal delivers the current value again.
+///
+/// A value is mirrored into `tracing::info!` when a manager changes state or
+/// [`PROGRESS_LOG_INTERVAL`] has passed since the last logged one.
 pub(crate) fn spawn_progress_monitor(
     mut receiver: watch::Receiver<SyncProgress>,
     handlers: Arc<Vec<Arc<dyn EventHandler>>>,
+    resync: Arc<Notify>,
     shutdown: CancellationToken,
     on_failure: mpsc::Sender<String>,
 ) -> JoinHandle<()> {
@@ -166,6 +167,7 @@ pub(crate) fn spawn_progress_monitor(
                         }
                     }
                 }
+                _ = resync.notified() => dispatch(&receiver.borrow_and_update()),
                 _ = shutdown.cancelled() => break,
             }
         }
@@ -185,11 +187,8 @@ pub(crate) fn spawn_progress_monitor(
 /// subsequent validated chainlock is applied directly. Only validated
 /// chainlocks advance the wallet.
 ///
-/// A lag resyncs instead of stopping: a synced `progress` completes the
-/// initial sync, then the best chainlock in `stored_chain_locks` (which
-/// the ChainLock manager saves before it emits one) takes the path of a
-/// validated arrival. `stored_chain_locks` is `None` when this client's
-/// ChainLocks are off, so nothing stored is read.
+/// A lag resyncs: synced progress completes the initial sync, then the stored best
+/// chainlock (`None` when ChainLocks are off) takes the validated path.
 ///
 /// This is the single-writer point that the architecture relies on:
 /// promotions never interleave with each other.
@@ -358,7 +357,7 @@ where
 mod tests {
     use std::collections::BTreeSet;
     use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
-    use std::sync::{mpsc as std_mpsc, Arc};
+    use std::sync::{mpsc as std_mpsc, Arc, Barrier};
     use std::time::Duration;
 
     use dashcore::bls_sig_utils::BLSSignature;
@@ -366,7 +365,7 @@ mod tests {
     use dashcore::ephemerealdata::instant_lock::InstantLock;
     use dashcore::prelude::CoreBlockHeight;
     use dashcore::{Address, Block, BlockHash, OutPoint, ScriptBuf, Transaction};
-    use tokio::sync::{broadcast, mpsc, watch, RwLock};
+    use tokio::sync::{broadcast, mpsc, watch, Notify, RwLock};
     use tokio_util::sync::CancellationToken;
 
     use super::{
@@ -430,8 +429,8 @@ mod tests {
         Arc::new(entries.into_iter().collect())
     }
 
-    fn idle_progress() -> watch::Receiver<SyncProgress> {
-        watch::channel(SyncProgress::default()).1
+    fn resync() -> Arc<Notify> {
+        Arc::new(Notify::new())
     }
 
     fn synced_progress() -> SyncProgress {
@@ -509,28 +508,41 @@ mod tests {
         panic!("timed out waiting until {what}");
     }
 
-    /// Sleeps in every sync event, so its monitor falls behind a fast sender.
+    /// Holds event 0 until the sender's burst is sent, then sleeps 50 ms per event, so its
+    /// monitor lags once. The first event after the lag changes the progress silently.
     struct SlowHandler {
-        delay: Duration,
+        burst_sent: Barrier,
         entered: AtomicBool,
+        progress: watch::Sender<SyncProgress>,
         last_tip: AtomicU32,
-        progress_count: AtomicUsize,
+        synced_seen: watch::Sender<Vec<bool>>,
         error_count: AtomicUsize,
     }
 
     impl EventHandler for SlowHandler {
         fn on_sync_event(&self, event: &SyncEvent) {
-            self.entered.store(true, Ordering::SeqCst);
-            std::thread::sleep(self.delay);
-            if let SyncEvent::BlockHeadersStored {
+            let SyncEvent::BlockHeadersStored {
                 tip_height,
             } = event
-            {
-                self.last_tip.store(*tip_height, Ordering::SeqCst);
+            else {
+                return;
+            };
+            if *tip_height == 0 {
+                self.entered.store(true, Ordering::SeqCst);
+                self.burst_sent.wait();
+            } else {
+                if self.last_tip.load(Ordering::SeqCst) == 0 {
+                    self.progress.send_if_modified(|progress| {
+                        *progress = synced_progress();
+                        false
+                    });
+                }
+                std::thread::sleep(Duration::from_millis(50));
             }
+            self.last_tip.store(*tip_height, Ordering::SeqCst);
         }
-        fn on_progress(&self, _progress: &SyncProgress) {
-            self.progress_count.fetch_add(1, Ordering::SeqCst);
+        fn on_progress(&self, progress: &SyncProgress) {
+            self.synced_seen.send_modify(|seen| seen.push(progress.is_synced()));
         }
         fn on_error(&self, _error: &str) {
             self.error_count.fetch_add(1, Ordering::SeqCst);
@@ -714,7 +726,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
-            idle_progress(),
+            resync(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -753,7 +765,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
-            idle_progress(),
+            resync(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -776,7 +788,7 @@ mod tests {
             "test",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
-            idle_progress(),
+            resync(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -791,30 +803,45 @@ mod tests {
         assert_eq!(handler.error_count.load(Ordering::SeqCst), 0);
     }
 
-    /// A handler too slow for the bus makes its monitor lag: the monitor skips what it
-    /// missed, resyncs the progress and keeps delivering, and nothing stops the client.
+    /// A handler too slow for the bus makes its monitor lag once: it skips what it missed
+    /// and keeps delivering, and the progress monitor resyncs the current progress once.
     #[tokio::test]
     async fn slow_handler_lag_resyncs_and_keeps_running() {
         let mut warnings = Warnings::capture();
         let bus = with_sync_event_capacity(4, async { sync_event_bus() }).await;
+        let (progress, progress_rx) = watch::channel(SyncProgress::default());
         let handler = Arc::new(SlowHandler {
-            delay: Duration::from_millis(50),
+            burst_sent: Barrier::new(2),
             entered: AtomicBool::new(false),
+            progress,
             last_tip: AtomicU32::new(u32::MAX),
-            progress_count: AtomicUsize::new(0),
+            synced_seen: watch::Sender::new(Vec::new()),
             error_count: AtomicUsize::new(0),
         });
+        let all = handlers([handler.clone() as Arc<dyn EventHandler>]);
+        let progress_resync = resync();
         let shutdown = CancellationToken::new();
         let (failure_tx, mut failure_rx) = mpsc::channel(1);
+        let progress_task = spawn_progress_monitor(
+            progress_rx,
+            all.clone(),
+            progress_resync.clone(),
+            shutdown.clone(),
+            failure_tx.clone(),
+        );
         let task = spawn_broadcast_monitor(
             "SyncEvent",
             bus.subscribe(),
-            handlers([handler.clone() as Arc<dyn EventHandler>]),
-            idle_progress(),
+            all,
+            progress_resync,
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
         );
+        wait_until("the initial progress was delivered", async || {
+            handler.synced_seen.borrow().len() == 1
+        })
+        .await;
 
         let sender = {
             let bus = bus.clone();
@@ -827,6 +854,7 @@ mod tests {
                 for tip_height in 1..64 {
                     bus.send(headers_stored(tip_height)).unwrap();
                 }
+                handler.burst_sent.wait();
             })
         };
         wait_until("the monitor delivered the last of the 64 events", async || {
@@ -834,6 +862,8 @@ mod tests {
         })
         .await;
         sender.join().unwrap();
+        wait_until("the progress was resynced", async || handler.synced_seen.borrow().len() == 2)
+            .await;
 
         bus.send(headers_stored(1000)).unwrap();
         wait_until("the monitor delivered the next event", async || {
@@ -843,11 +873,12 @@ mod tests {
 
         assert!(matches!(failure_rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
         assert_eq!(warnings.count("SyncEvent monitor lagged, skipped"), 1, "{}", warnings.text);
-        assert_eq!(handler.progress_count.load(Ordering::SeqCst), 1);
+        assert_eq!(*handler.synced_seen.borrow(), vec![false, true]);
         assert_eq!(handler.error_count.load(Ordering::SeqCst), 0);
 
         shutdown.cancel();
         task.await.unwrap();
+        progress_task.await.unwrap();
     }
 
     /// A dispatch that lags across the end of the initial sync resyncs from the progress
@@ -912,6 +943,7 @@ mod tests {
         let task = spawn_progress_monitor(
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            resync(),
             shutdown.clone(),
             failure_tx,
         );
@@ -941,6 +973,7 @@ mod tests {
         let task = spawn_progress_monitor(
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
+            resync(),
             shutdown.clone(),
             failure_tx,
         );
@@ -972,7 +1005,7 @@ mod tests {
             "network",
             rx,
             handlers([handler.clone() as Arc<dyn EventHandler>]),
-            idle_progress(),
+            resync(),
             shutdown.clone(),
             failure_tx,
             |h, event: &NetworkEvent| h.on_network_event(event),
@@ -1005,7 +1038,7 @@ mod tests {
                 first.clone() as Arc<dyn EventHandler>,
                 second.clone() as Arc<dyn EventHandler>,
             ]),
-            idle_progress(),
+            resync(),
             shutdown.clone(),
             failure_tx,
             |h, event: &SyncEvent| h.on_sync_event(event),
@@ -1038,6 +1071,7 @@ mod tests {
                 first.clone() as Arc<dyn EventHandler>,
                 second.clone() as Arc<dyn EventHandler>,
             ]),
+            resync(),
             shutdown.clone(),
             failure_tx,
         );

@@ -221,11 +221,6 @@ impl std::io::Write for WarningWriter {
 /// A handler sleeping 250 ms in every sync event lags the `SyncEvent` monitor on a
 /// 32-event bus during the initial sync. The monitor resyncs instead of stopping the
 /// client: the client reaches synced and keeps running, and `on_error` is never called.
-///
-/// A smaller bus also makes the sync managers lag, and a manager does not recover the
-/// events it skipped, so the sync stalls; the handler is slow enough to lag this bus.
-///
-/// The client's tasks run on worker threads, which log their warnings to this test.
 #[test]
 fn slow_handler_never_stops_the_client() {
     let (sender, warnings) = std_mpsc::channel();
