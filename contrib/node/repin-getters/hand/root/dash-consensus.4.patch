@@ -1,0 +1,21 @@
+diff --git a/dash-consensus/tests/common/mod.rs b/dash-consensus/tests/common/mod.rs
+index f98282b0c83b4b998dc1ab72dbd786d084b9e113..98000ce7467d8ab1bcff36da15cf645ec1e44da9 100644
+--- a/dash-consensus/tests/common/mod.rs
++++ b/dash-consensus/tests/common/mod.rs
+@@ -304,12 +304,13 @@ fn debug_fields(debug: &str) -> Vec<(String, String)> {
+ /// parameters, the release's deployments, both address parameters and every configured LLMQ's
+ /// parameters. A field `dash-params` adds and [`scrambled`] misses fails here (the types are
+ /// `non_exhaustive`, so the compiler cannot). Each level has at least the fields it had at
+-/// 1976a145, so a `Debug` the parser misreads cannot pass with a few.
++/// 1976a145, with the six policy fields base-sdk #100 moved from the parameters to the setup
++/// counted at the setup, so a `Debug` the parser misreads cannot pass with a few.
+ fn assert_all_differ(chain: &ChainSetup, scrambled: &ChainSetup) {
+     let none: &[&str] = &[];
+     let mut levels = vec![
+-        (format!("{chain:#?}"), format!("{scrambled:#?}"), &["network", "release", "pins"][..], 18),
+-        (format!("{:#?}", **chain), format!("{:#?}", **scrambled), none, 23),
++        (format!("{chain:#?}"), format!("{scrambled:#?}"), &["network", "release", "pins"][..], 24),
++        (format!("{:#?}", **chain), format!("{:#?}", **scrambled), none, 17),
+         (format!("{:#?}", chain.consensus), format!("{:#?}", scrambled.consensus), none, 3),
+         (format!("{:#?}", *chain.consensus), format!("{:#?}", *scrambled.consensus), none, 55),
+         (

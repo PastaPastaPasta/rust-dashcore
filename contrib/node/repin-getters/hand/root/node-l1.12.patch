@@ -1,0 +1,28 @@
+diff --git a/node-l1/tests/l1_specialtx_trivial.rs b/node-l1/tests/l1_specialtx_trivial.rs
+index 87c1a2d54695e2e991fafd00f5126ce86b25c4fa..8dec7bc610811a125353a995055249965b83b78d 100644
+--- a/node-l1/tests/l1_specialtx_trivial.rs
++++ b/node-l1/tests/l1_specialtx_trivial.rs
+@@ -322,13 +322,17 @@ fn shared_variants(p: &SpecialPayload) -> Vec<(String, Vec<u8>)> {
+     };
+     let sigs = |n: usize| {
+         move |q: &mut Shared| {
+-            let sigs = match q {
+-                Shared::Dis(q) => &mut q.sigs,
+-                Shared::Reg(q) => &mut q.sigs,
++            match q {
++                Shared::Dis(q) => {
++                    let first = q.sigs[0];
++                    q.sigs.resize(n, first);
++                }
++                Shared::Reg(q) => {
++                    let first = q.sigs[0];
++                    q.sigs.resize(n, first);
++                }
+                 Shared::Share(_) => unreachable!(),
+-            };
+-            let first = sigs[0];
+-            sigs.resize(n, first);
++            }
+         }
+     };
+     match p {

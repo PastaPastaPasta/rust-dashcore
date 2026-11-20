@@ -1,0 +1,3270 @@
+# Hand edits: one entry per hunk of hand/**.patch. Classes: ctor setter rebuild ref/copy clone api mirror fork-api
+
+[[edit]]
+patch = "dash-chain.1.patch"
+file = "dash-chain/src/mem_store.rs"
+hunk = 1
+class = "rebuild"
+note = "tuple assignment; header rebuilt through BlockHeader::new"
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/inouts.rs"
+hunk = 1
+class = "rebuild"
+note = "sort_bip69: clone, sort, rebuild (with_in_outs helper)"
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 1
+class = "api"
+note = "import for the edit it goes with"
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 2
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 3
+class = "ctor"
+note = "DsQueue: unsigned new(), then the signed one (sig computed between)"
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 4
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 5
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 6
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 7
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 8
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 9
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 10
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.1.patch"
+file = "dash-coinjoin/src/server.rs"
+hunk = 11
+class = "ctor"
+note = "DsTx: unsigned new(), then the signed one"
+
+[[edit]]
+patch = "dash-coinjoin.2.patch"
+file = "dash-coinjoin/tests/relay_rules.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.2.patch"
+file = "dash-coinjoin/tests/relay_rules.rs"
+hunk = 2
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-coinjoin.2.patch"
+file = "dash-coinjoin/tests/relay_rules.rs"
+hunk = 3
+class = "clone"
+note = "sig of a temporary"
+
+[[edit]]
+patch = "dash-coinjoin.2.patch"
+file = "dash-coinjoin/tests/sessions.rs"
+hunk = 1
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dash-conformance.0.patch"
+file = "conformance/src/payload.rs"
+hunk = 1
+class = "fork-api"
+note = "rec-sig wrappers via EcdsaRecSigArray; version/height as before"
+
+[[edit]]
+patch = "dash-conformance.0.patch"
+file = "conformance/src/payload.rs"
+hunk = 2
+class = "fork-api"
+note = "rec-sig wrappers via EcdsaRecSigArray; version/height as before"
+
+[[edit]]
+patch = "dash-conformance.0.patch"
+file = "conformance/src/payload.rs"
+hunk = 3
+class = "fork-api"
+note = "rec-sig wrappers via EcdsaRecSigArray; version/height as before"
+
+[[edit]]
+patch = "dash-conformance.1.patch"
+file = "conformance/src/check.rs"
+hunk = 1
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-conformance.1.patch"
+file = "conformance/src/payload.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-conformance.2.patch"
+file = "conformance/tests/segment.rs"
+hunk = 1
+class = "ctor"
+note = ""
+
+[[edit]]
+patch = "dash-conformance.3.patch"
+file = "conformance/src/verbose.rs"
+hunk = 1
+class = "fork-api"
+note = "cbTx.version/height printed as Core's integers (CbCommitmentVersion Display is the variant name)"
+
+[[edit]]
+patch = "dash-consensus.1.patch"
+file = "dash-consensus/src/primitives/commitment.rs"
+hunk = 1
+class = "rebuild"
+note = "test commitment rebuilt through Commitment::new"
+
+[[edit]]
+patch = "dash-consensus.1.patch"
+file = "dash-consensus/src/primitives/commitment.rs"
+hunk = 2
+class = "ctor"
+note = ""
+
+[[edit]]
+patch = "dash-consensus.1.patch"
+file = "dash-consensus/src/primitives/commitment.rs"
+hunk = 3
+class = "ctor"
+note = ""
+
+[[edit]]
+patch = "dash-consensus.1.patch"
+file = "dash-consensus/src/primitives/tx.rs"
+hunk = 1
+class = "rebuild"
+note = "Tx::new rebuilds only a non-canonical tx_type (TxType::is_canonical); a canonical one is kept as is"
+
+[[edit]]
+patch = "dash-consensus.2.patch"
+file = "dash-consensus/src/primitives/commitment.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-consensus.2.patch"
+file = "dash-consensus/src/primitives/serialize.rs"
+hunk = 1
+class = "ctor"
+note = "NON-EQUIV (test): 6 of 9 rows of bitsets_take_cores_length_and_padding are skipped: DynBitset::new refuses their length/padding and nothing else builds such a bitset"
+
+[[edit]]
+patch = "dash-consensus.3.patch"
+file = "dash-consensus/src/block.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base"
+
+[[edit]]
+patch = "dash-consensus.4.patch"
+file = "dash-consensus/tests/common/mod.rs"
+hunk = 1
+class = "fork-api"
+note = "field floors: six policy fields moved ChainParams -> ChainSetup (base-sdk #100)"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/snapshot/checks.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/snapshot/checks.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/snapshot/checks.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/cbtx.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/cbtx.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/cbtx.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/testctx.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/testctx.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.0.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 4
+class = "fork-api"
+note = "base-sdk #108/#113: rec-sig wrappers, ECDSA_REC_SIG_LEN, CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-dml.1.patch"
+file = "dash-dml/src/build/mod.rs"
+hunk = 1
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-dml.1.patch"
+file = "dash-dml/src/build/mod.rs"
+hunk = 2
+class = "rebuild"
+note = "pro_up_share: CollateralShare::new with the new script_reward (production, clones script_refund)"
+
+[[edit]]
+patch = "dash-dml.1.patch"
+file = "dash-dml/src/codec.rs"
+hunk = 1
+class = "ref/copy"
+note = "NetInfoV1(service) pattern -> v1.service()"
+
+[[edit]]
+patch = "dash-dml.1.patch"
+file = "dash-dml/src/netinfo/add.rs"
+hunk = 1
+class = "rebuild"
+note = "process_candidate: groups cloned, edited, NetInfoV2::new (production, clone)"
+
+[[edit]]
+patch = "dash-dml.1.patch"
+file = "dash-dml/src/netinfo/add.rs"
+hunk = 2
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.10.patch"
+file = "dash-dml/benches/qc_block.rs"
+hunk = 1
+class = "api"
+note = "clippy manual_is_multiple_of on the num_bits() getter"
+
+[[edit]]
+patch = "dash-dml.10.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "type_5 CbTx built through at_version (base-sdk #88 presence-driven encode)"
+
+[[edit]]
+patch = "dash-dml.2.patch"
+file = "dash-dml/src/blockprocessor/pool.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-dml.2.patch"
+file = "dash-dml/src/snapshot/codec.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/benches/qc_block.rs"
+hunk = 1
+class = "rebuild"
+note = "all-set bitsets via DynBitset::new, commitment via Commitment::new"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 1
+class = "rebuild"
+note = "zeroed bitsets via DynBitset::new, set through Commitment::new"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 2
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 3
+class = "rebuild"
+note = "zeroed bitsets via DynBitset::new, set through Commitment::new"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 4
+class = "rebuild"
+note = "AddrV1::from_bytes + ServiceV1::new"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/sig/tests.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/testctx.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 1
+class = "api"
+note = "import for the edit it goes with"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 2
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 3
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 4
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 5
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 6
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 7
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 8
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 9
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 10
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 11
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 12
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 13
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 14
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 15
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 16
+class = "setter"
+note = "sig = Default::default() -> reset_signature() (exact)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 17
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 18
+class = "rebuild"
+note = "TxOut::from_duffs(value - x, script)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 19
+class = "rebuild"
+note = "TxOut::from_duffs(value - x, script)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 20
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 21
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 22
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 23
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 24
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 2
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 3
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 4
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 5
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 6
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/tests/updates.rs"
+hunk = 7
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 1
+class = "rebuild"
+note = "tuple assignment -> ProUpServTx::new, sig restored by with_sig (dash-dml.5)"
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 2
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-dml.3.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 3
+class = "rebuild"
+note = "tuple assignment -> ProUpRegTx::new, sig restored by with_sig (dash-dml.5)"
+
+[[edit]]
+patch = "dash-dml.4.patch"
+file = "dash-dml/src/blockprocessor/tests.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/testctx.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 2
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 3
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 4
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.5.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.6.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 1
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 2
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 3
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 4
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 5
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 6
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 7
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 8
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 9
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/specialtx/trivial/tests.rs"
+hunk = 10
+class = "rebuild"
+note = "NON-EQUIV: ProTx rebuilt through new keeps sig reset (old one can't be put back; marked in place)"
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 1
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-dml.7.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 2
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 3
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/snapshot/tests.rs"
+hunk = 4
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/cbtx/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/cbtx/tests.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/cbtx/tests.rs"
+hunk = 3
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/cbtx/tests.rs"
+hunk = 4
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/cbtx/tests.rs"
+hunk = 5
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.8.patch"
+file = "dash-dml/src/specialtx/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight from Core int32 heights"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 1
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 2
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 3
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 4
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 5
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 6
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 7
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-dml.9.patch"
+file = "dash-dml/src/testkit.rs"
+hunk = 8
+class = "api"
+note = "WithSig splices from sig_hash_bytes + Core vector bytes, no BaseCodec::encode (dash-dml clippy forbid, E0453)"
+
+[[edit]]
+patch = "dash-evo.1.patch"
+file = "dash-evo/src/llmq/commitment_tests.rs"
+hunk = 1
+class = "ctor"
+note = "NON-EQUIV: a padded DynBitset can't be built; test asserts DynBitset::new refuses it"
+
+[[edit]]
+patch = "dash-evo.1.patch"
+file = "dash-evo/src/sml/entry.rs"
+hunk = 1
+class = "api"
+note = "import for the edit it goes with"
+
+[[edit]]
+patch = "dash-evo.1.patch"
+file = "dash-evo/src/sml/entry.rs"
+hunk = 2
+class = "ref/copy"
+note = "NetInfoV1(service) pattern -> v1.service()"
+
+[[edit]]
+patch = "dash-evo.2.patch"
+file = "dash-evo/src/llmq/commitment_tests.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-evo.2.patch"
+file = "dash-evo/src/llmq/tests.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-evo.2.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 1
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dash-evo.3.patch"
+file = "dash-evo/src/cbtx.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-evo.3.patch"
+file = "dash-evo/src/cbtx.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-evo.4.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new/to_base in tests"
+
+[[edit]]
+patch = "dash-evo.4.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::new/to_base in tests"
+
+[[edit]]
+patch = "dash-evo.4.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 3
+class = "fork-api"
+note = "CbCommitmentVersion::new/to_base in tests"
+
+[[edit]]
+patch = "dash-evo.4.patch"
+file = "dash-evo/tests/cbtx_root_history.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new/to_base in tests"
+
+[[edit]]
+patch = "dash-evo.5.patch"
+file = "dash-evo/src/cbtx.rs"
+hunk = 1
+class = "fork-api"
+note = "at_version: the fields CCbTx serializes at its version (cbtx.h:54-70); base-sdk #88 encode is presence-driven"
+
+[[edit]]
+patch = "dash-evo.5.patch"
+file = "dash-evo/src/cbtx.rs"
+hunk = 2
+class = "fork-api"
+note = "at_version: the fields CCbTx serializes at its version (cbtx.h:54-70); base-sdk #88 encode is presence-driven"
+
+[[edit]]
+patch = "dash-evo.5.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 1
+class = "fork-api"
+note = "at_version: the fields CCbTx serializes at its version (cbtx.h:54-70); base-sdk #88 encode is presence-driven"
+
+[[edit]]
+patch = "dash-evo.5.patch"
+file = "dash-evo/tests/cbtx.rs"
+hunk = 2
+class = "fork-api"
+note = "at_version: the fields CCbTx serializes at its version (cbtx.h:54-70); base-sdk #88 encode is presence-driven"
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 1
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 2
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 3
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 4
+class = "api"
+note = "accessor lends the cached quorum_hash (getter is get_copy)"
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 5
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 6
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 7
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 8
+class = "api"
+note = "accessor lends the cached quorum_hash"
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 9
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 10
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 11
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 12
+class = "api"
+note = "accessor lends the cached quorum_hash"
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 13
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 14
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.1.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 15
+class = "api"
+note = "accessor lends the cached quorum_hash"
+
+[[edit]]
+patch = "dash-llmq.2.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-llmq.2.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 2
+class = "ctor"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.2.patch"
+file = "dash-llmq/src/dkg/wire.rs"
+hunk = 3
+class = "ctor"
+note = ""
+
+[[edit]]
+patch = "dash-llmq.2.patch"
+file = "dash-llmq/src/dkg/wire/testing.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/edges.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/edges.rs"
+hunk = 2
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/edges.rs"
+hunk = 3
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/edges.rs"
+hunk = 4
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/mod.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/regtest.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/regtest.rs"
+hunk = 2
+class = "rebuild"
+note = "flipped row -> DynBitset::new -> QuorumSnapshot::new -> QrInfo::new"
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/regtest.rs"
+hunk = 3
+class = "api"
+note = "oldest() -> &mut into QrInfo replaced by edit_oldest(&mut q, |d| ..)"
+
+[[edit]]
+patch = "dash-mnlist.1.patch"
+file = "dash-mnlist/src/tests/regtest.rs"
+hunk = 4
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dash-mnlist.2.patch"
+file = "dash-mnlist/src/tests/regtest.rs"
+hunk = 1
+class = "ref/copy"
+note = "new_quorums() is &Vec: .iter() for the old .into_iter()"
+
+[[edit]]
+patch = "dash-mnlist.3.patch"
+file = "dash-mnlist/src/engine.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-mnlist.3.patch"
+file = "dash-mnlist/src/engine.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-mnlist.3.patch"
+file = "dash-mnlist/src/engine/store.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base, BlockHeight as Core int32"
+
+[[edit]]
+patch = "dash-p2p.1.patch"
+file = "dash-p2p/src/policy.rs"
+hunk = 1
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-p2p.1.patch"
+file = "dash-p2p/src/policy.rs"
+hunk = 2
+class = "api"
+note = ""
+
+[[edit]]
+patch = "dash-p2p.1.patch"
+file = "dash-p2p/src/policy.rs"
+hunk = 3
+class = "api"
+note = "base-sdk made CompressedHeader private; its entry read inlined from headers2.rs:66-91 at b6853466 (same reads, production)"
+
+[[edit]]
+patch = "dashcore-crypto.1.patch"
+file = "crypto/Cargo.toml"
+hunk = 1
+class = "api"
+note = "dash-types `codec` feature: type_id/impl_bytes gated behind it at the new pin"
+
+[[edit]]
+patch = "dashd-chainstate.0.patch"
+file = "dashd-chainstate/src/evo/cl.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base"
+
+[[edit]]
+patch = "dashd-chainstate.0.patch"
+file = "dashd-chainstate/src/evo/cl.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::to_base"
+
+[[edit]]
+patch = "dashd-chainstate.1.patch"
+file = "dashd-chainstate/src/crash/synth.rs"
+hunk = 1
+class = "setter"
+note = ""
+
+[[edit]]
+patch = "dashd-chainstate.2.patch"
+file = "dashd-chainstate/benches/coins_flush.rs"
+hunk = 1
+class = "setter"
+note = ""
+
+[[edit]]
+patch = "dashd-chainstate.2.patch"
+file = "dashd-chainstate/benches/connect_block_micro.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dashd-chainstate.2.patch"
+file = "dashd-chainstate/src/chain/tests/node_evo.rs"
+hunk = 1
+class = "ctor"
+note = "wrong_size: DynBitset::new(num_bits + 8, data + [0]) + Commitment::new (8 zero bits keep the padding rule)"
+
+[[edit]]
+patch = "dashd-chainstate.2.patch"
+file = "dashd-chainstate/src/recovery/tests.rs"
+hunk = 1
+class = "setter"
+note = ""
+
+[[edit]]
+patch = "dashd-chainstate.2.patch"
+file = "dashd-chainstate/tests/support/signed.rs"
+hunk = 1
+class = "rebuild"
+note = ""
+
+[[edit]]
+patch = "dashd-chainstate.3.patch"
+file = "dashd-chainstate/src/evo/ev1_tests.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: reset_signature / test-only WithSig::with_sig (encode, splice, decode, asserted)"
+
+[[edit]]
+patch = "dashd-chainstate.4.patch"
+file = "dashd-chainstate/src/chain/tests/node_evo.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new; best_cl_signature as Option"
+
+[[edit]]
+patch = "dashd-chainstate.4.patch"
+file = "dashd-chainstate/src/chain/tests/node_evo.rs"
+hunk = 2
+class = "fork-api"
+note = "CbCommitmentVersion::new; best_cl_signature as Option"
+
+[[edit]]
+patch = "dashd-chainstate.4.patch"
+file = "dashd-chainstate/src/chain/tests/node_evo.rs"
+hunk = 3
+class = "fork-api"
+note = "CbCommitmentVersion::new; best_cl_signature as Option"
+
+[[edit]]
+patch = "dashd-chainstate.5.patch"
+file = "dashd-chainstate/src/chain/tests/mineable.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding (integration site f17a4ca3d)"
+
+[[edit]]
+patch = "dashd-masternode.1.patch"
+file = "dashd-masternode/tests/spork_transcripts.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-mining.1.patch"
+file = "dashd-mining/src/evo.rs"
+hunk = 1
+class = "rebuild"
+note = "coinbase commitment built at each return from the fields so far (builder closure)"
+
+[[edit]]
+patch = "dashd-mining.2.patch"
+file = "dashd-mining/src/evo/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::new, BlockHeight"
+
+[[edit]]
+patch = "dashd-mining.2.patch"
+file = "dashd-mining/tests/evo_dashd.rs"
+hunk = 1
+class = "ctor"
+note = "DynBitset::new validates length and padding"
+
+[[edit]]
+patch = "dashd-mining.3.patch"
+file = "dashd-mining/src/evo.rs"
+hunk = 1
+class = "fork-api"
+note = "build_cbtx through at_version: a field the version has and no era step set keeps CCbTx's default (base-sdk #88)"
+
+[[edit]]
+patch = "dashd-mining.3.patch"
+file = "dashd-mining/src/evo.rs"
+hunk = 2
+class = "fork-api"
+note = "build_cbtx through at_version: a field the version has and no era step set keeps CCbTx's default (base-sdk #88)"
+
+[[edit]]
+patch = "dashd-mining.3.patch"
+file = "dashd-mining/src/evo.rs"
+hunk = 3
+class = "fork-api"
+note = "build_cbtx through at_version: a field the version has and no era step set keeps CCbTx's default (base-sdk #88)"
+
+[[edit]]
+patch = "dashd-mining.3.patch"
+file = "dashd-mining/src/evo.rs"
+hunk = 4
+class = "fork-api"
+note = "build_cbtx through at_version: a field the version has and no era step set keeps CCbTx's default (base-sdk #88)"
+
+[[edit]]
+patch = "dashd-mining.3.patch"
+file = "dashd-mining/src/evo/tests.rs"
+hunk = 1
+class = "fork-api"
+note = "build_cbtx through at_version: a field the version has and no era step set keeps CCbTx's default (base-sdk #88)"
+
+[[edit]]
+patch = "dashd-net.1.patch"
+file = "dashd-net/tests/relay.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-node.1.patch"
+file = "dashd-node/src/p2p/realv_peers.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-node.2.patch"
+file = "dashd-node/tests/ev1_j/mod.rs"
+hunk = 1
+class = "rebuild"
+note = "assemble(): payee outputs written through outputs[1..].iter_mut() -> clone outputs, TxOut::from_duffs(amount, script) per payee, one Transaction::new with the miner output (test helper; same values)"
+
+[[edit]]
+patch = "dashd-p2p.1.patch"
+file = "dashd-p2p/src/processing/blocks.rs"
+hunk = 1
+class = "clone"
+note = "txs().iter().cloned(): the old code consumed the decoded Vec"
+
+[[edit]]
+patch = "dashd-p2p.1.patch"
+file = "dashd-p2p/src/processing/serve.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.1.patch"
+file = "dashd-p2p/src/sim/cmpct_reconstruct.rs"
+hunk = 1
+class = "clone"
+note = "txs().iter().cloned()"
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/src/processing/headers.rs"
+hunk = 1
+class = "api"
+note = "wire2_parts (test): CompressedHeader::encode gone; parts split from Headers2::encode by each entry's flags (same bytes)"
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_compact.rs"
+hunk = 1
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_m2.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_m2.rs"
+hunk = 2
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_m2.rs"
+hunk = 3
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_p5a.rs"
+hunk = 1
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_serve_blocks.rs"
+hunk = 1
+class = "clone"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.2.patch"
+file = "dashd-p2p/tests/sim_sync.rs"
+hunk = 1
+class = "ref/copy"
+note = ""
+
+[[edit]]
+patch = "dashd-p2p.3.patch"
+file = "dashd-p2p/src/processing/bloom.rs"
+hunk = 1
+class = "api"
+note = "local keep_sig helper (no dash-dml dep): splices the fixture's sig bytes back after a ProTx new"
+
+[[edit]]
+patch = "dashd-p2p.3.patch"
+file = "dashd-p2p/src/processing/bloom.rs"
+hunk = 2
+class = "rebuild"
+note = "ProTx rebuilt through new, fixture sig spliced back by local keep_sig (no dash-dml dep)"
+
+[[edit]]
+patch = "dashd-p2p.3.patch"
+file = "dashd-p2p/src/processing/bloom.rs"
+hunk = 3
+class = "rebuild"
+note = "ProTx rebuilt through new, fixture sig spliced back by local keep_sig (no dash-dml dep)"
+
+[[edit]]
+patch = "dashd-p2p.4.patch"
+file = "dashd-p2p/src/processing/compact.rs"
+hunk = 1
+class = "ref/copy"
+note = "prefilled() getter returns a slice ref: iter(), clippy into_iter_on_ref"
+
+[[edit]]
+patch = "dashd-rpc.1.patch"
+file = "dashd-rpc/src/core_write/evo.rs"
+hunk = 1
+class = "fork-api"
+note = "cbtx JSON: version/height as Core ints"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "Cargo.lock"
+hunk = 1
+class = "mirror"
+note = "bitcoin-primitives (base-sdk's crates.io version) to name ScriptPubKeyBuf in mirror and Rebuild fields"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "bitcoin-primitives (base-sdk's crates.io version) to name ScriptPubKeyBuf in mirror and Rebuild fields"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 1
+class = "mirror"
+note = "operator key located through the mirror; superseded by node-l1.4 (bsdk_recorded path-includes this file without the lib)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml.rs"
+hunk = 1
+class = "ref/copy"
+note = "getter returns a reference"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the ProTx types now come from the mirror"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 2
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 4
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 5
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 6
+class = "rebuild"
+note = "rebuilt through the plain constructor"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 2
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 4
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 5
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 6
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 7
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/lib.rs"
+hunk = 1
+class = "mirror"
+note = "module declarations: protx_mirror (test/fuzz only), rebuild"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 1
+class = "mirror"
+note = "the ProTx mirror (DEC-1066): pub-field payloads, base-sdk fda80b21 encoders"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 1
+class = "mirror"
+note = "round-trip test of the mirror encoder against base-sdk (DEC-1066 condition 2)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the ProTx types now come from the mirror"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 2
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 4
+class = "rebuild"
+note = "rebuilt through the plain constructor"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 5
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 6
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 7
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 8
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 9
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 10
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 11
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 12
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 13
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 14
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 15
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 16
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 17
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 18
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 19
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 20
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 21
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 22
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 23
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 24
+class = "ctor"
+note = "literal -> constructor"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 25
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.1.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 26
+class = "rebuild"
+note = "write-back guard binding (NetInfoV2 / ServiceV1 rebuilt on drop)"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "contrib/node/layers.toml"
+hunk = 1
+class = "api"
+note = "P6 [[params.allow]] record follows the node-fuzz port's line move (netinfo.rs:215 -> :217); re-check the line at landing"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 1
+class = "mirror"
+note = "layer rule P5: import ChainSetup, not the static AddrParams"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 2
+class = "mirror"
+note = "sign_string takes &ChainSetup and reads setup.base_sdk_addr_params() (P5); same prefixes, same string"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 3
+class = "mirror"
+note = "sign_string: destination_string gets the setup (P5)"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 4
+class = "mirror"
+note = "destination_string takes &ChainSetup and passes setup.base_sdk_addr_params() to Recipient::to_base58c (P5)"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 1
+class = "mirror"
+note = "equality test passes the ChainSetup to sign_string (P5)"
+
+[[edit]]
+patch = "node-l1.10.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "mirror"
+note = "Case::sign passes the ChainSetup to sign_string (P5)"
+
+[[edit]]
+patch = "node-l1.11.patch"
+file = "node-l1/examples/quorum_root_history.rs"
+hunk = 1
+class = "fork-api"
+note = "CbCommitmentVersion::to_base"
+
+[[edit]]
+patch = "node-l1.12.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 1
+class = "fork-api"
+note = "per-type sig vectors (DissolveSig, SharedRegistrarSig)"
+
+[[edit]]
+patch = "node-l1.13.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 1
+class = "fork-api"
+note = "mutation harness encodes the CbTx through at_version, as Core serializes an edited CCbTx (base-sdk #88)"
+
+[[edit]]
+patch = "node-l1.13.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "fork-api"
+note = "mutation harness encodes the CbTx through at_version, as Core serializes an edited CCbTx (base-sdk #88)"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/coinjoin.rs"
+hunk = 1
+class = "ctor"
+note = "literal -> constructor"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 5
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 6
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 7
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 8
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the ProTx types now come from the mirror"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 2
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 5
+class = "rebuild"
+note = "commitment read through getters, rebuilt through Commitment/FinalCommitment::new"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 6
+class = "ref/copy"
+note = "field read -> getter"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 7
+class = "rebuild"
+note = "commitment / bitset rebuilt through its constructor"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the ProTx types now come from the mirror"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 2
+class = "rebuild"
+note = "commitment read through getters, rebuilt through Commitment/FinalCommitment::new"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 5
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 6
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/gov_superblock.rs"
+hunk = 7
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/lib.rs"
+hunk = 1
+class = "mirror"
+note = "module declarations: protx_mirror (test/fuzz only), rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/payments.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/payments.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/payments.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/payments.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/rebuild.rs"
+hunk = 1
+class = "rebuild"
+note = "Rebuild trait: copy fields out, edit, rebuild through the plain constructor"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 5
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 6
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 7
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 8
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 9
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 10
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 11
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 12
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 13
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 14
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 15
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 16
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 17
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 18
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 19
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 20
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 21
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 22
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 23
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 24
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 25
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 26
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 27
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 28
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 29
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 5
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 6
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.2.patch"
+file = "node-l1/src/specialtx/quorum.rs"
+hunk = 7
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.3.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 1
+class = "ref/copy"
+note = "pattern on private CbTx fields -> getters (same arms)"
+
+[[edit]]
+patch = "node-l1.3.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 1
+class = "ref/copy"
+note = "pattern on private fields -> getters"
+
+[[edit]]
+patch = "node-l1.3.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "ctor"
+note = "literal -> constructor"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/credit_pool.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/payload.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/payload.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 4
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/rebuild.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/rebuild.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 4
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 5
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 6
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 7
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 8
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 1
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 2
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.4.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 3
+class = "fork-api"
+note = "base-sdk #108/#113: JoinSig/DissolveSig/SharedRegistrarSig, ECDSA_REC_SIG_LEN, CbCommitmentVersion, BlockHeight"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/examples/payments_quirk_vectors.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/examples/payments_quirk_vectors.rs"
+hunk = 2
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/examples/quorum_root_history.rs"
+hunk = 1
+class = "ref/copy"
+note = "field read -> getter"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 1
+class = "api"
+note = "imports for the edits they go with"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 2
+class = "rebuild"
+note = "operator key copies rebuilt through new(): sig reset alike in both, key precedes sig, offset unchanged"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/src/rebuild.rs"
+hunk = 1
+class = "rebuild"
+note = "Rebuild trait: copy fields out, edit, rebuild through the plain constructor"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/src/rebuild.rs"
+hunk = 2
+class = "rebuild"
+note = "Rebuild trait: copy fields out, edit, rebuild through the plain constructor"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_dml_block.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_dml_block.rs"
+hunk = 2
+class = "clone"
+note = "extra_payload() of a temporary: owned copy"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_dml_block.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_dml_block.rs"
+hunk = 4
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_llmq.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_llmq.rs"
+hunk = 2
+class = "rebuild"
+note = "commitment / bitset rebuilt through its constructor"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_llmq.rs"
+hunk = 3
+class = "rebuild"
+note = "bitset with a bit cleared, rebuilt through DynBitset::new"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_llmq.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_lq2.rs"
+hunk = 1
+class = "api"
+note = "import: Rebuild"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_lq2.rs"
+hunk = 2
+class = "ref/copy"
+note = "field read -> getter"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_lq2.rs"
+hunk = 3
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_lq2.rs"
+hunk = 4
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_specialtx.rs"
+hunk = 1
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_specialtx_d17.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.5.patch"
+file = "node-l1/tests/l1_specialtx_d17.rs"
+hunk = 2
+class = "mirror"
+note = "ProTx field write kept on the mirror (vch_sig -> sig)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 2
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 4
+class = "ref/copy"
+note = "field read -> getter"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 5
+class = "mirror"
+note = "ProTx field write restored on the mirror (the tool had rebuilt it)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_sig.rs"
+hunk = 6
+class = "rebuild"
+note = "field write through Rebuild::edit"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 2
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 3
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.6.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 4
+class = "mirror"
+note = "ProTx written through the mirror (DEC-1066)"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/src/bsdk_decode.rs"
+hunk = 1
+class = "api"
+note = "unused import after the pattern change"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/src/dml_apply/checked.rs"
+hunk = 1
+class = "clone"
+note = "clippy clone_on_copy on the tool getter output (deref instead)"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 1
+class = "api"
+note = "unused imports (ProUpRegTx, ProUpSharedRegTx come from the mirror)"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/src/dml_apply/input.rs"
+hunk = 2
+class = "api"
+note = "unused mut after the commitment rebuild"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 1
+class = "mirror"
+note = "round-trip test of the mirror encoder against base-sdk (DEC-1066 condition 2)"
+
+[[edit]]
+patch = "node-l1.7.patch"
+file = "node-l1/tests/l1_specialtx_trivial.rs"
+hunk = 1
+class = "mirror"
+note = "clippy large_enum_variant on the test-local mirror enum"
+
+[[edit]]
+patch = "node-l1.8.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "mirror"
+note = "imports: sha256d for the consent hash; make_sign_string / shared_reg_consent_hash no longer used here"
+
+[[edit]]
+patch = "node-l1.8.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 2
+class = "mirror"
+note = "shared-reg consent hash through the mirror's copy of base-sdk's shared_consent_bytes, over the payload as written (DEC-1066 decision 1); 0 of 10,752 signings differ from the old computation"
+
+[[edit]]
+patch = "node-l1.8.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 3
+class = "mirror"
+note = "ProRegTx sign string through the mirror's copy of base-sdk's sign_string (DEC-1066 decision 1); 0 of 35,261 signings differ"
+
+[[edit]]
+patch = "node-l1.8.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 4
+class = "mirror"
+note = "comment: ProDisTx through to_bsdk is exact (3,232 of 3,232 signings)"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "Cargo.lock"
+hunk = 1
+class = "mirror"
+note = "node-l1 gains the dash-script edge"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "Cargo.lock"
+hunk = 2
+class = "mirror"
+note = "node-l1 gains the hex-conservative edge"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "workspace dependency dash-script (base-sdk, upstream rev): the copied destination_string calls its public Recipient"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "Cargo.toml"
+hunk = 2
+class = "mirror"
+note = "base-sdk [patch] entry for dash-script at the fork rev (base_sdk_pins.py: declared = patched)"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "dash-script (codec, std) and hex-conservative for the copied sign-string helpers"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 1
+class = "mirror"
+note = "module doc: the two copied ProRegTx digests"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 2
+class = "mirror"
+note = "imports for the copies"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 3
+class = "mirror"
+note = "ProRegTx::sign_string and shared_consent_bytes, copied from fda80b21 proregtx.rs:404-429 and :443-475"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror.rs"
+hunk = 4
+class = "mirror"
+note = "private helpers hash256, destination_string, write_tx_header, copied from fda80b21 payload/sighash.rs:38-41, :43-49, :95-101"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 1
+class = "mirror"
+note = "test doc and imports"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 2
+class = "mirror"
+note = "vector loading moved into texts(), shared by both tests"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 3
+class = "mirror"
+note = "mirror_encodes_as_base_sdk reads texts()"
+
+[[edit]]
+patch = "node-l1.9.patch"
+file = "node-l1/src/protx_mirror/tests.rs"
+hunk = 4
+class = "mirror"
+note = "mirror_sighashes_as_base_sdk: consent hash and sign string (3 networks) against base-sdk's on 94 ProRegTx cases (11 shared, 73 external collateral)"
+
+[[edit]]
+patch = "rdashd.1.patch"
+file = "rdashd/tests/common/peer.rs"
+hunk = 1
+class = "clone"
+note = ".cloned(): the old code moved the Vec out of a decoded message"
+
+[[edit]]
+patch = "rdashd.2.patch"
+file = "rdashd/tests/common/peer.rs"
+hunk = 1
+class = "ref/copy"
+note = "inventory() getter returns a slice ref: iter(), clippy into_iter_on_ref"
+
+[[edit]]
+patch = "node-fuzz.0.patch"
+file = "node-fuzz/src/models/prodis_arith.rs"
+hunk = 1
+class = "fork-api"
+note = "DissolveSig, ECDSA_REC_SIG_LEN"
+
+[[edit]]
+patch = "node-fuzz.0.patch"
+file = "node-fuzz/src/models/prodis_arith.rs"
+hunk = 2
+class = "fork-api"
+note = "DissolveSig, ECDSA_REC_SIG_LEN"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 1
+class = "mirror"
+note = "imports: the mirror and Rebuild"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 2
+class = "ref/copy"
+note = "platform_node_id() is a copy: keep the Option, borrow it later"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 3
+class = "ref/copy"
+note = "platform_node_id() is a copy: keep the Option, borrow it later"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 4
+class = "ref/copy"
+note = "platform_node_id() is a copy: keep the Option, borrow it later"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 5
+class = "mirror"
+note = "tx_verdict: net info and platform fields set in the mirror, encoded by it (DEC-1066)"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 6
+class = "rebuild"
+note = "extra payload set through Rebuild::edit"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/p2p_decode_model.rs"
+hunk = 1
+class = "api"
+note = "import: CompressedHeader is private"
+
+[[edit]]
+patch = "node-fuzz.1.patch"
+file = "node-fuzz/src/models/p2p_decode_model.rs"
+hunk = 2
+class = "api"
+note = "CompressedHeader::decode private at fda80b21: its wire-field read inline (b6853466 headers2.rs:66-91), as dash-p2p.1"
+
+[[edit]]
+patch = "node-fuzz.2.patch"
+file = "node-fuzz/src/models/netinfo.rs"
+hunk = 1
+class = "mirror"
+note = "clippy needless_late_init on the mirror match"
+
+[[edit]]
+patch = "node-fuzz.3.patch"
+file = "node-fuzz/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "repeat the root's dash-script [patch] entry (node-l1.8); cargo adds node-l1's two lock edges, as it did bitcoin-primitives"
+
+[[edit]]
+patch = "cs2-diff.1.patch"
+file = "contrib/node/cs2-diff/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "repeat the root's dash-script [patch] entry (node-l1.8; base_sdk_pins.py check_nested); lock unchanged"
+
+[[edit]]
+patch = "spv-feature-off.1.patch"
+file = "contrib/node/spv-feature-off/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "repeat the root's dash-script [patch] entry (node-l1.8); lock unchanged"
+
+[[edit]]
+patch = "bs7-tool.1.patch"
+file = "contrib/node/dde-probe/bs7/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "repeat the root's dash-script [patch] entry (node-l1.8); lock unchanged"
+
+[[edit]]
+patch = "bs8-tool.1.patch"
+file = "contrib/node/dde-probe/bs8/Cargo.toml"
+hunk = 1
+class = "mirror"
+note = "repeat the root's dash-script [patch] entry (node-l1.8); lock unchanged"
+
+[[edit]]
+patch = "dashd-rpc.2.patch"
+file = "dashd-rpc/src/rawtransaction/tests.rs"
+hunk = 1
+class = "rebuild"
+note = "with_script_sigs (BL-688 test): each TxIn rebuilt with its new script_sig, the Transaction through Transaction::new"
+
+[[edit]]
+patch = "dashd-rpc.2.patch"
+file = "dashd-rpc/src/sign.rs"
+hunk = 1
+class = "api"
+note = "import for the edit it goes with"
+
+[[edit]]
+patch = "dashd-rpc.2.patch"
+file = "dashd-rpc/src/sign.rs"
+hunk = 2
+class = "rebuild"
+note = "UpdateInput (BL-688): the input rebuilt through TxIn::new, the Transaction through Transaction::new; clones outputs and payload, same value"
+
+[[edit]]
+patch = "rdashd.3.patch"
+file = "rdashd/tests/rpc_diff.rs"
+hunk = 1
+class = "rebuild"
+note = "evo_net_info_edits (BL-701): NetInfoV2 edits rebuilt through NetInfoV2::new (entries is groups)"
+
+[[edit]]
+patch = "rdashd.3.patch"
+file = "rdashd/tests/rpc_diff.rs"
+hunk = 2
+class = "ref/copy"
+note = "payload decodes read extra_payload() by reference"
+
+[[edit]]
+patch = "rdashd.3.patch"
+file = "rdashd/tests/rpc_diff.rs"
+hunk = 3
+class = "rebuild"
+note = "bls_candidate (BL-701): extra_payload spliced on a copy, the Transaction rebuilt; the auto pass had read it through the getter (splice was not a write method)"
+
+[[edit]]
+patch = "dash-evo.6.patch"
+file = "dash-evo/src/cbtx/historical.rs"
+hunk = 1
+class = "api"
+note = "import for the edit it goes with (Numeric, for to_base/to_u32)"
+
+[[edit]]
+patch = "dash-evo.6.patch"
+file = "dash-evo/src/cbtx/historical.rs"
+hunk = 2
+class = "fork-api"
+note = "load_carrier (T159-T167): CbCommitmentVersion compared through to_base(), the BlockHeight cbtx height through to_u32().cast_signed() against the i32 carrier height, as dash-dml snapshot/checks.rs does"
+
+[[edit]]
+patch = "node-l1.14.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 1
+class = "rebuild"
+note = "edit_platform_primary (T176 platform_primary): the purpose's first entry handed to a closure inside the ExtEntries write-back guard, as a &mut into the guard cannot be returned"
+
+[[edit]]
+patch = "node-l1.14.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 2
+class = "rebuild"
+note = "move_core_primary (T176): one ExtEntries guard; the core primary and the Platform primaries on its old address rebuilt through ServiceV2::new with their own ports"
+
+[[edit]]
+patch = "node-l1.14.patch"
+file = "node-l1/src/specialtx.rs"
+hunk = 3
+class = "rebuild"
+note = "nf:2c.i through set_core_addr; nf:2c.ii and nf:2c.iii through edit_platform_primary, entries rebuilt through ServiceV2::new"
+
+[[edit]]
+patch = "dashd-chainstate.6.patch"
+file = "dashd-chainstate/src/evo/ev1_tests.rs"
+hunk = 1
+class = "api"
+note = "ProTx signature: test-only WithSig::with_sig (encode, splice, decode, asserted) for revocation's operator signature"
+
+[[edit]]
+patch = "dashd-chainstate.6.patch"
+file = "dashd-chainstate/src/evo/ev1_tests.rs"
+hunk = 2
+class = "api"
+note = "ProTx signature: test-only WithSig::with_sig for ipv6_service_update's operator signature"
+
+[[edit]]
+patch = "dashd-chainstate.6.patch"
+file = "dashd-chainstate/src/evo/ev1_tests.rs"
+hunk = 3
+class = "setter"
+note = "ProRegTx vch_sig = Default::default() -> Signable::reset_signature (CollateralSig::default(), the same value)"
