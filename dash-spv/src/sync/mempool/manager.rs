@@ -40,6 +40,9 @@ const MAX_IN_FLIGHT: usize = 100;
 /// Maximum number of pending IS locks awaiting their corresponding transaction.
 const MAX_PENDING_IS_LOCKS: usize = 1000;
 
+/// Held transactions replayed to the wallet under one write guard.
+pub(super) const REPLAY_BATCH: usize = 32;
+
 /// How long a downloaded txid stays in the dedup map.
 /// Covers the window where multiple peers respond to the initial `mempool` request.
 const SEEN_TXID_EXPIRY: Duration = Duration::from_secs(180);
@@ -215,7 +218,14 @@ impl<W: WalletInterface> MempoolManager<W> {
     /// scan or to a wallet registered since) is fetched and checked again.
     /// Peers never announce a transaction twice, so the txids downloaded and
     /// found irrelevant are forgotten first.
+    ///
+    /// The revisions acknowledged are those read before the replay: a wallet
+    /// registered while it runs is looked at again on the next tick.
     pub(super) async fn refresh_wallet_view(&mut self, requests: &RequestSender) -> SyncResult<()> {
+        let (monitor_revision, wallet_set_revision) = {
+            let wallet = self.wallet.read().await;
+            (wallet.monitor_revision(), wallet.wallet_set_revision())
+        };
         self.reevaluate_held().await;
         self.seen_txids.retain(|txid, _| self.transactions.contains_key(txid));
         let activated: Vec<SocketAddr> =
@@ -227,30 +237,35 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
             requests.request_mempool(peer)?;
         }
-        let wallet = self.wallet.read().await;
-        self.last_monitor_revision = wallet.monitor_revision();
-        self.last_wallet_set_revision = Some(wallet.wallet_set_revision());
+        self.last_monitor_revision = monitor_revision;
+        self.last_wallet_set_revision = Some(wallet_set_revision);
         Ok(())
     }
 
     /// Pass every held transaction to the wallet again, oldest first so a
-    /// parent comes before its child, each with its verified lock.
-    async fn reevaluate_held(&mut self) {
+    /// parent comes before its child, each with its verified lock. The wallet
+    /// is written in batches of [`REPLAY_BATCH`], so sends, scanning and
+    /// persistence get the wallet between them.
+    pub(super) async fn reevaluate_held(&mut self) {
         let mut held: Vec<(Instant, Txid)> =
             self.transactions.iter().map(|(txid, tx)| (tx.first_seen, *txid)).collect();
         held.sort_unstable();
-        let mut wallet = self.wallet.write().await;
-        for (_, txid) in held {
-            let Some(entry) = self.transactions.get_mut(&txid) else {
-                continue;
-            };
-            let lock = self.held_locks.get(&txid).cloned();
-            let result = wallet.process_mempool_transaction(&entry.transaction, lock).await;
-            if result.is_relevant {
-                entry.is_outgoing = result.is_outgoing;
-                entry.addresses = result.addresses;
-                entry.net_amount = result.net_amount;
+        for batch in held.chunks(REPLAY_BATCH) {
+            let mut wallet = self.wallet.write().await;
+            for (_, txid) in batch {
+                let Some(entry) = self.transactions.get_mut(txid) else {
+                    continue;
+                };
+                let lock = self.held_locks.get(txid).cloned();
+                let result = wallet.process_mempool_transaction(&entry.transaction, lock).await;
+                if result.is_relevant {
+                    entry.is_outgoing = result.is_outgoing;
+                    entry.addresses = result.addresses;
+                    entry.net_amount = result.net_amount;
+                }
             }
+            drop(wallet);
+            tokio::task::yield_now().await;
         }
     }
 
@@ -2647,5 +2662,56 @@ mod tests {
 
         assert!(manager.broadcasts.contains_key(&fresh_txid));
         assert!(!manager.broadcasts.contains_key(&stale_txid));
+    }
+
+    fn hold(manager: &mut MempoolManager<MockWallet>, tx: Transaction) {
+        manager.transactions.insert(
+            tx.txid(),
+            UnconfirmedTransaction::new(tx, Amount::ZERO, false, false, Vec::new(), 0),
+        );
+    }
+
+    /// A wallet registered while the held transactions are replayed is not
+    /// acknowledged by that look: the next tick looks again for it.
+    #[tokio::test]
+    async fn a_wallet_registered_during_the_replay_is_looked_at_again() {
+        let (mut manager, requests, _rx) = create_test_manager();
+        hold(&mut manager, test_transaction(40));
+        manager.wallet.write().await.set_registers_wallet_on_mempool(true);
+
+        manager.refresh_wallet_view(&requests).await.unwrap();
+
+        assert_eq!(manager.wallet.read().await.wallet_set_revision(), 1, "the precondition");
+        assert_eq!(manager.last_wallet_set_revision, Some(0));
+    }
+
+    /// The replay lets others at the wallet between batches.
+    #[tokio::test]
+    async fn the_replay_releases_the_wallet_between_batches() {
+        let (mut manager, _requests, _rx) = create_test_manager();
+        let total = 2 * REPLAY_BATCH + 1;
+        for n in 0..total {
+            hold(&mut manager, test_transaction(1_000 + n as u16));
+        }
+        let wallet = Arc::clone(&manager.wallet);
+        let processed = wallet.read().await.processed_transactions();
+        let observer = tokio::spawn(async move {
+            let mut seen = Vec::new();
+            loop {
+                {
+                    let _guard = wallet.read().await;
+                    seen.push(processed.lock().await.len());
+                }
+                if seen.last().is_some_and(|n| *n >= total) {
+                    return seen;
+                }
+                tokio::task::yield_now().await;
+            }
+        });
+
+        manager.reevaluate_held().await;
+
+        let seen = observer.await.unwrap();
+        assert!(seen.contains(&REPLAY_BATCH), "nobody got the wallet mid-replay: {seen:?}");
     }
 }
