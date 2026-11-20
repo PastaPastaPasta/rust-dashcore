@@ -1,0 +1,43 @@
+[package]
+name = "dash-network"
+description = "The `Network` enum and its pure helpers (magic bytes, activation heights, default P2P ports) extracted from `dashcore` into a lightweight crate so that lightweight consumers can depend on it without pulling in the full protocol library."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "dash_network"
+path = "src/lib.rs"
+
+[features]
+default = []
+# serde::{Serialize, Deserialize} impls for Network.
+serde = ["dep:serde"]
+# bincode::{Encode, Decode} impls for Network.
+bincode = ["dep:bincode", "dep:bincode_derive"]
+# C-ABI `FFINetwork` mirror + `dashcore_network_get_name` extern fn.
+ffi = ["dep:cbindgen"]
+
+[dependencies]
+bsdk-params = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+bincode = { workspace = true, optional = true }
+bincode_derive = { workspace = true, optional = true }
+
+[dev-dependencies]
+# Turns the optional impls on for this crate's own tests, so `cargo test --workspace` runs
+# them. It also means no test build has the features off. This dev-dependency is dropped on
+# publish, but `dash-params` comes from base-sdk's git source pinned by the workspace, which
+# `cargo package` refuses.
+dash-network = { path = ".", features = ["bincode", "ffi", "serde"] }
+serde_json = { workspace = true }
+test-case = { workspace = true }
+
+[build-dependencies]
+cbindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true
