@@ -1,0 +1,117 @@
+diff --git a/dash-dml/src/snapshot/tests.rs b/dash-dml/src/snapshot/tests.rs
+index 8fcffb7f7c20519408d1e19ddd372af7ffa1b2d7..9c3b73478783e0b36a09536637b3d90ca3061a89 100644
+--- a/dash-dml/src/snapshot/tests.rs
++++ b/dash-dml/src/snapshot/tests.rs
+@@ -2067,8 +2067,8 @@ fn agreeing_cbtx(snapshot: &EvoSnapshot, version: u16) -> CoinbaseCommitment {
+         .collect();
+     hashes.sort_unstable();
+     CoinbaseCommitment {
+-        version,
+-        height: snapshot.mn_list.height(),
++        version: dash_primitives::CbCommitmentVersion::new(version),
++        height: snapshot.mn_list.height().cast_unsigned().into(),
+         merkle_root_mn_list: crate::sml::merkle_root_mn_list_full(&snapshot.mn_list)
+             .expect("unmutated"),
+         merkle_root_quorums: (version >= 2).then(|| {
+@@ -2148,7 +2148,7 @@ fn cbtx_cross_checks() {
+     assert_eq!(
+         changed(&|c| *c = dash_primitives::CoinbaseCommitment::new(
+             c.version(),
+-            c.height() + 1,
++            (c.height().to_u32().cast_signed() + 1).cast_unsigned().into(),
+             c.merkle_root_mn_list(),
+             c.merkle_root_quorums(),
+             c.best_cl_height_diff(),
+@@ -2161,7 +2161,7 @@ fn cbtx_cross_checks() {
+     assert_eq!(
+         changed(&|c| *c = dash_primitives::CoinbaseCommitment::new(
+             c.version(),
+-            c.height() - 1,
++            (c.height().to_u32().cast_signed() - 1).cast_unsigned().into(),
+             c.merkle_root_mn_list(),
+             c.merkle_root_quorums(),
+             c.best_cl_height_diff(),
+@@ -2237,7 +2237,7 @@ fn cbtx_checks_run_in_core_order() {
+     let mut cbtx = agreeing_cbtx(&snapshot, 3);
+     cbtx = dash_primitives::CoinbaseCommitment::new(
+         cbtx.version(),
+-        cbtx.height() + 1,
++        (cbtx.height().to_u32().cast_signed() + 1).cast_unsigned().into(),
+         cbtx.merkle_root_mn_list(),
+         cbtx.merkle_root_quorums(),
+         cbtx.best_cl_height_diff(),
+diff --git a/dash-dml/src/specialtx/cbtx/tests.rs b/dash-dml/src/specialtx/cbtx/tests.rs
+index a48fe8c0382fb6e3052a0c031334caee6e04d60a..ad80808abc0e44f8a20fe82ca77055faa73e1757 100644
+--- a/dash-dml/src/specialtx/cbtx/tests.rs
++++ b/dash-dml/src/specialtx/cbtx/tests.rs
+@@ -16,6 +16,7 @@ use super::{cbtx_payload, check_cbtx};
+ use crate::specialtx::testctx::{NoCheckpoints, encoded, special, tx_of, txin, txout};
+ use crate::testkit::MemChain;
+ use crate::testkit::replay::{mainnet, testnet};
++use dash_types::Numeric as _;
+ 
+ /// Buried deployments at `params`' heights for a check whose `pindexPrev` is at `prev_height`,
+ /// as `DeploymentActiveAt(*pindexPrev)` and `DeploymentActiveAfter(pindexPrev)` read them
+@@ -83,8 +84,8 @@ fn verdict(
+ /// A CbTx of `version` at `height`. `CheckCbTx` reads only those two fields.
+ fn cbtx(version: u16, height: u32) -> CoinbaseCommitment {
+     CoinbaseCommitment {
+-        version,
+-        height: i32::try_from(height).expect("a Core height"),
++        version: dash_primitives::CbCommitmentVersion::new(version),
++        height: i32::try_from(height).expect("a Core height").cast_unsigned().into(),
+         merkle_root_mn_list: MerkleRoot::default(),
+         merkle_root_quorums: (version >= 2).then(MerkleRoot::default),
+         best_cl_height_diff: None,
+@@ -303,7 +304,10 @@ fn testnet_coinbases_core_accepted() {
+     for (height, version, raw) in testnet_coinbases() {
+         let tx = Tx::new(raw.clone());
+         let payload = cbtx_payload(&tx, tx.payload()).expect("a CbTx");
+-        assert_eq!((payload.version(), i64::from(payload.height())), (version, i64::from(height)));
++        assert_eq!(
++            (payload.version().to_base(), i64::from(payload.height().to_u32().cast_signed())),
++            (version, i64::from(height))
++        );
+         assert_eq!(caller_verdict(height, raw), Ok(()), "at {height}");
+     }
+ }
+@@ -321,11 +325,11 @@ fn check_cbtx_boundaries_on_testnet_payloads() {
+         assert_eq!(later, Err("bad-cbtx-height".into()), "at {height}");
+         let mut other = payload.clone();
+         other = dash_primitives::CoinbaseCommitment::new(
+-            if version == 2 {
++            dash_primitives::CbCommitmentVersion::new(if version == 2 {
+                 3
+             } else {
+                 2
+-            },
++            }),
+             other.height(),
+             other.merkle_root_mn_list(),
+             other.merkle_root_quorums(),
+@@ -416,7 +420,7 @@ fn payload_of_a_non_coinbase_is_refused() {
+ fn payload_must_decode_to_its_last_byte() {
+     let bytes = encoded(&cbtx(2, 10));
+     let tx = type5(true, bytes.clone());
+-    assert_eq!(cbtx_payload(&tx, tx.payload()).map(|c| c.height()), Ok(10));
++    assert_eq!(cbtx_payload(&tx, tx.payload()).map(|c| c.height().to_u32().cast_signed()), Ok(10));
+     let mut trailing = bytes.clone();
+     trailing.push(0);
+     let short = bytes[..bytes.len() - 1].to_vec();
+diff --git a/dash-dml/src/specialtx/tests.rs b/dash-dml/src/specialtx/tests.rs
+index 3b75c4a1674378435fa78d1ae722709e0c75d714..45d17319ee53b2b5618353f84f2b47d095c94725 100644
+--- a/dash-dml/src/specialtx/tests.rs
++++ b/dash-dml/src/specialtx/tests.rs
+@@ -112,9 +112,9 @@ fn type_5_dispatches_to_check_cbtx() {
+     let coinbase = |cbtx: &CoinbaseCommitment| {
+         special(TxType::CoinbaseCommitment, vec![txin([0; 32], u32::MAX)], vec![], cbtx)
+     };
+-    let cbtx = |version, height| CoinbaseCommitment {
+-        version,
+-        height,
++    let cbtx = |version: u16, height: i32| CoinbaseCommitment {
++        version: dash_primitives::CbCommitmentVersion::new(version),
++        height: height.cast_unsigned().into(),
+         merkle_root_mn_list: MerkleRoot::default(),
+         merkle_root_quorums: (version >= 2).then(MerkleRoot::default),
+         best_cl_height_diff: None,
