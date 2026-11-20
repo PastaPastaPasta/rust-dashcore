@@ -63,6 +63,9 @@ impl<W: WalletInterface, N: NetworkManager> DashSpvClient<W, N> {
         // Subscribe and spawn monitors before startup so we don't miss early
         // connection events.
         let sync_event_rx = self.subscribe_sync_events().await;
+        #[cfg(feature = "__fault-hooks")]
+        let sync_event_rx =
+            crate::fault_hooks::monitor_event_receiver(sync_event_rx, monitor_shutdown.clone());
         let mut fork_rx = self.subscribe_sync_events().await;
         let chainlock_dispatch_rx = self.subscribe_sync_events().await;
         let network_event_rx = self.subscribe_network_events().await;

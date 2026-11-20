@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{mpsc as std_mpsc, Arc};
 use std::time::Duration;
 
@@ -180,21 +180,32 @@ async fn test_empty_wallet_manager_no_spurious_rescan() {
     client_handle.stop().await;
 }
 
-/// Sleeps 250 ms in every sync event, then hands it on like `TestEventHandler`.
+/// Holds its first sync event until the progress is synced, then hands events on like
+/// `TestEventHandler`.
 struct SlowSyncHandler {
     inner: dash_spv::test_utils::TestEventHandler,
     errors: AtomicUsize,
+    sync_events: AtomicUsize,
+    synced: AtomicBool,
 }
 
 impl EventHandler for SlowSyncHandler {
     fn on_sync_event(&self, event: &SyncEvent) {
-        std::thread::sleep(Duration::from_millis(250));
+        if self.sync_events.fetch_add(1, Ordering::SeqCst) == 0 {
+            let deadline = std::time::Instant::now() + dash_spv::test_utils::SYNC_TIMEOUT;
+            while !self.synced.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
         self.inner.on_sync_event(event);
     }
     fn on_network_event(&self, event: &dash_spv::network::NetworkEvent) {
         self.inner.on_network_event(event);
     }
     fn on_progress(&self, progress: &dash_spv::SyncProgress) {
+        if progress.is_synced() {
+            self.synced.store(true, Ordering::SeqCst);
+        }
         self.inner.on_progress(progress);
     }
     fn on_wallet_event(&self, event: &WalletEvent) {
@@ -218,9 +229,9 @@ impl std::io::Write for WarningWriter {
     }
 }
 
-/// A handler sleeping 250 ms in every sync event lags the `SyncEvent` monitor on a
-/// 32-event bus during the initial sync. The monitor resyncs instead of stopping the
-/// client: the client reaches synced and keeps running, and `on_error` is never called.
+/// A handler holding its first sync event until synced lags the `SyncEvent` monitor on an
+/// 8-event monitor bus once. The monitor resyncs instead of stopping the client: the client
+/// syncs and keeps running, and `on_error` is never called.
 #[test]
 fn slow_handler_never_stops_the_client() {
     let (sender, warnings) = std_mpsc::channel();
@@ -245,23 +256,31 @@ fn slow_handler_never_stops_the_client() {
         let handler = Arc::new(SlowSyncHandler {
             inner: dash_spv::test_utils::TestEventHandler::new(),
             errors: AtomicUsize::new(0),
+            sync_events: AtomicUsize::new(0),
+            synced: AtomicBool::new(false),
         });
         let mut progress = handler.inner.subscribe_progress();
         let network = dash_spv::network::PeerNetworkManager::new(&ctx.client_config).await;
-        let client = dash_spv::fault_hooks::with_sync_event_capacity(
-            32,
-            dash_spv::DashSpvClient::new(
-                ctx.client_config.clone(),
-                network,
-                Arc::clone(&ctx.wallet),
-                vec![handler.clone()],
-            ),
+        let client = dash_spv::DashSpvClient::new(
+            ctx.client_config.clone(),
+            network,
+            Arc::clone(&ctx.wallet),
+            vec![handler.clone()],
         )
         .await
         .expect("Failed to create client");
-        client.run().await.expect("client run failed");
+        dash_spv::fault_hooks::with_monitor_event_capacity(8, client.run())
+            .await
+            .expect("client run failed");
 
         wait_for_sync(&mut progress, ctx.dashd.initial_height).await;
+        tokio::time::timeout(dash_spv::test_utils::SYNC_TIMEOUT, async {
+            while handler.sync_events.load(Ordering::SeqCst) < 2 && client.is_running() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the held monitor never resumed");
         assert!(client.is_running(), "the client stopped");
         assert_eq!(handler.errors.load(Ordering::SeqCst), 0, "on_error was called");
 
@@ -277,4 +296,5 @@ fn slow_handler_never_stops_the_client() {
     let text: String =
         warnings.try_iter().map(|chunk| String::from_utf8_lossy(&chunk).into_owned()).collect();
     assert!(text.contains("SyncEvent monitor lagged, skipped"), "no lag warning in:\n{text}");
+    assert!(!text.contains("monitor relay lagged"), "the relay lagged:\n{text}");
 }
