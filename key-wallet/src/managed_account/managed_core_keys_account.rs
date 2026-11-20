@@ -84,6 +84,10 @@ pub struct ManagedCoreKeysAccount {
     /// (e.g. new addresses generated). Used to detect bloom filter staleness.
     #[cfg_attr(feature = "serde", serde(skip))]
     monitor_revision: u64,
+    /// Times a pool of this account was widened past the scripts already
+    /// watched, as [`ManagedAccountTrait::pool_widenings`] reports it.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pool_widenings: u64,
 }
 
 impl ManagedCoreKeysAccount {
@@ -98,6 +102,7 @@ impl ManagedCoreKeysAccount {
             #[cfg(not(feature = "keep-finalized-transactions"))]
             finalized_summaries: HashMap::new(),
             monitor_revision: 0,
+            pool_widenings: 0,
         }
     }
 
@@ -478,5 +483,13 @@ impl ManagedAccountTrait for ManagedCoreKeysAccount {
 
     fn bump_monitor_revision(&mut self) {
         self.monitor_revision += 1;
+    }
+
+    fn pool_widenings(&self) -> u64 {
+        self.pool_widenings
+    }
+
+    fn note_pool_widened(&mut self) {
+        self.pool_widenings += 1;
     }
 }

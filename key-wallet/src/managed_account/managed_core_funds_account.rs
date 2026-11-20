@@ -1668,6 +1668,14 @@ impl ManagedAccountTrait for ManagedCoreFundsAccount {
     fn bump_monitor_revision(&mut self) {
         self.keys.bump_monitor_revision()
     }
+
+    fn pool_widenings(&self) -> u64 {
+        self.keys.pool_widenings()
+    }
+
+    fn note_pool_widened(&mut self) {
+        self.keys.note_pool_widened()
+    }
 }
 
 /// Rebuild the account-local `spent_outpoints` set from recorded transactions.

@@ -1917,6 +1917,65 @@ mod tests {
         );
     }
 
+    /// A pool the engine widens after a batch was matched, as it does after
+    /// the wallet is published to the scanner, keeps that batch from
+    /// certifying the wallet: widening bumps the account generation the
+    /// commit-time guard compares, so the range is matched again with the
+    /// wide pool.
+    #[tokio::test]
+    async fn a_pool_widened_after_its_batch_was_matched_blocks_the_commit_advance() {
+        use key_wallet::account::StandardAccountType;
+        use key_wallet::managed_account::address_pool::KeySource;
+        use key_wallet::managed_account::managed_account_trait::ManagedAccountTrait;
+        use key_wallet::wallet::initialization::WalletAccountCreationOptions;
+        use key_wallet::wallet::managed_wallet_info::ManagedWalletInfo;
+        use key_wallet::AccountType;
+        use key_wallet_manager::WalletManager;
+
+        let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon \
+                        abandon abandon abandon about";
+        let mut wallets = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+        let wallet_id = wallets
+            .create_wallet_from_mnemonic(mnemonic, 0, WalletAccountCreationOptions::Default)
+            .unwrap();
+        wallets.update_wallet_synced_height(&wallet_id, 999);
+        let wallets = Arc::new(RwLock::new(wallets));
+        let storage = DiskStorageManager::with_temp_dir().await.unwrap();
+        let mut manager = FiltersManager::new(
+            wallets.clone(),
+            storage.block_headers(),
+            storage.filter_headers(),
+            storage.filters(),
+        )
+        .await;
+        manager.set_state(SyncState::Syncing);
+
+        let generation = wallets.read().await.wallet_account_generation(&wallet_id);
+        let mut batch = FiltersBatch::new(1000, 5999, HashMap::new());
+        batch.set_pending_blocks(0);
+        batch.mark_scanned();
+        batch.set_scanned_wallets(BTreeMap::from([(wallet_id, generation)]));
+        manager.active_batches.insert(1000, batch);
+
+        {
+            let mut wallets = wallets.write().await;
+            let (wallet, info) = wallets.get_wallet_and_info_mut(&wallet_id).unwrap();
+            let xpub = wallet.accounts.standard_bip44_accounts[&0].account_xpub;
+            let bip44 = AccountType::Standard {
+                index: 0,
+                standard_account_type: StandardAccountType::BIP44Account,
+            };
+            let account = info.accounts.funds_account_mut(&bip44).unwrap();
+            assert!(!account.set_gap_limit(200, &KeySource::Public(xpub)).unwrap().is_empty());
+        }
+
+        manager.try_commit_batches().await.unwrap();
+
+        let wallets = wallets.read().await;
+        assert_eq!(wallets.wallet_synced_height(&wallet_id), 999);
+        assert!(wallets.wallets_behind(5999).contains(&wallet_id));
+    }
+
     /// A generation bump after commit does not retroactively matter, and an
     /// unchanged generation lets contiguous batches advance exactly as before:
     /// the guard is transparent in normal operation.

@@ -134,6 +134,15 @@ impl<'a> ManagedAccountRef<'a> {
         }
     }
 
+    /// How many times a pool of this account was widened; see
+    /// [`ManagedAccountTrait::pool_widenings`].
+    pub fn pool_widenings(self) -> u64 {
+        match self {
+            ManagedAccountRef::Funds(a) => a.pool_widenings(),
+            ManagedAccountRef::Keys(a) => a.pool_widenings(),
+        }
+    }
+
     /// Whether `address` belongs to this account.
     pub fn contains_address(self, address: &Address) -> bool {
         match self {

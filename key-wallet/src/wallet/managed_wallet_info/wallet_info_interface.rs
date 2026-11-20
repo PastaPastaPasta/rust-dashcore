@@ -359,7 +359,7 @@ impl WalletInfoInterface for ManagedWalletInfo {
     }
 
     fn account_generation(&self) -> u64 {
-        self.account_generation
+        ManagedWalletInfo::account_generation(self)
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {

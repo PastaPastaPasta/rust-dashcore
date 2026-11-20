@@ -82,6 +82,17 @@ pub trait ManagedAccountTrait {
     /// Increment the monitor revision to signal that the monitored address set changed.
     fn bump_monitor_revision(&mut self);
 
+    /// How many times [`Self::set_gap_limit`] widened a pool of this account
+    /// with addresses a filter scan already under way did not test. Part of
+    /// the wallet's account generation, so such a scan cannot certify
+    /// coverage. Ordinary gap-limit maintenance does not count: the scan
+    /// re-tests what it derives.
+    fn pool_widenings(&self) -> u64;
+
+    /// Record that a pool of this account was widened (see
+    /// [`Self::pool_widenings`]).
+    fn note_pool_widened(&mut self);
+
     // ----- Provided: defaults built on the primitives above -----
 
     /// Get the account index
@@ -583,6 +594,7 @@ pub trait ManagedAccountTrait {
         // pool failed — otherwise the revision would stay stale despite changed monitored state.
         if !generated.is_empty() {
             self.bump_monitor_revision();
+            self.note_pool_widened();
         }
 
         if let Some(e) = first_error {

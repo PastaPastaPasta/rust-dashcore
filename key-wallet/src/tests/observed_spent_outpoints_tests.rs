@@ -204,6 +204,38 @@ fn adding_account_from_xpub_rewinds_sync_checkpoint() {
     );
 }
 
+/// Widening a pool past the addresses a scan already tested bumps the account
+/// generation as an account add does, so a filter batch matched with the
+/// narrow pool cannot certify coverage for the wide one. Widening that derives
+/// nothing new, and ordinary gap maintenance, leave it alone.
+#[test]
+fn widening_a_pool_bumps_the_account_generation() {
+    use crate::managed_account::address_pool::KeySource;
+    use crate::managed_account::managed_account_trait::ManagedAccountTrait;
+
+    let mut ctx = TestWalletContext::new_random();
+    let account_type = AccountType::Standard {
+        index: 0,
+        standard_account_type: crate::account::StandardAccountType::BIP44Account,
+    };
+    let key_source = KeySource::Public(ctx.xpub);
+    let before = ctx.managed_wallet.account_generation();
+
+    let account = ctx.managed_wallet.accounts.funds_account_mut(&account_type).unwrap();
+    assert!(!account.set_gap_limit(200, &key_source).unwrap().is_empty());
+    assert_eq!(ctx.managed_wallet.account_generation(), before + 1);
+
+    let account = ctx.managed_wallet.accounts.funds_account_mut(&account_type).unwrap();
+    assert!(account.set_gap_limit(200, &key_source).unwrap().is_empty());
+    let address = account.next_receive_address(Some(&ctx.xpub), true).unwrap();
+    account.mark_address_used(&address);
+    assert_eq!(
+        ctx.managed_wallet.account_generation(),
+        before + 1,
+        "deriving nothing new, or using an address, is no widening"
+    );
+}
+
 /// Regression for the "born-fully-spent" history record-loss reported by
 /// HashEngineering against #851/#866 (dashpay/rust-dashcore#649, and the
 /// #846-class invisible-record family): a funding transaction recovered

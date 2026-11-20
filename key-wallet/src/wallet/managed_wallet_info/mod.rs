@@ -611,9 +611,14 @@ impl ManagedWalletInfo {
     }
 
     /// Current generation of the wallet's account set; see the
-    /// [`Self::account_generation`] field doc. Bumped on every account add.
+    /// [`Self::account_generation`] field doc. Bumped on every account add,
+    /// and on every pool widening an in-flight scan did not test
+    /// ([`ManagedAccountTrait::pool_widenings`]).
+    ///
+    /// [`ManagedAccountTrait::pool_widenings`]: crate::managed_account::managed_account_trait::ManagedAccountTrait::pool_widenings
     pub fn account_generation(&self) -> u64 {
         self.account_generation
+            + self.accounts.all_accounts().into_iter().map(|a| a.pool_widenings()).sum::<u64>()
     }
 
     pub fn next_change_address(
