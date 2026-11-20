@@ -191,6 +191,13 @@ pub trait WalletInterface: Send + Sync + 'static {
         0
     }
 
+    /// Return a revision counter that changes whenever a wallet is added or
+    /// removed. The mempool manager uses it to look at the mempool again for
+    /// a newly registered wallet. The default (constant `0`) opts out.
+    fn wallet_set_revision(&self) -> u64 {
+        0
+    }
+
     /// Reclaim expired receive-address reservations across every managed
     /// wallet, returning the total number reclaimed.
     ///

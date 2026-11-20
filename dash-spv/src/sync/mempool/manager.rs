@@ -66,7 +66,13 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     /// Connected peers and their activation state.
     pub(super) peers: HashMap<SocketAddr, Option<VecDeque<Txid>>>,
     /// IS locks that arrived before their corresponding transaction, with insertion time.
+    /// A lock whose transaction matched no wallet stays here, so the
+    /// transaction can take it when it is fetched again for a wallet that
+    /// may now match it.
     pending_is_locks: HashMap<Txid, (InstantLock, Instant)>,
+    /// The verified lock of each held transaction that has one, passed to the
+    /// wallet again with it when the held transactions are re-evaluated.
+    held_locks: HashMap<Txid, InstantLock>,
     /// Txids already downloaded, with download timestamp.
     /// Prevents duplicate downloads when multiple peers announce the same transactions.
     /// Entries expire after `SEEN_TXID_EXPIRY`.
@@ -80,6 +86,11 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     /// Filter sync has completed at least once: the wallet knows every
     /// address and coin it owns.
     pub(super) filters_synced: bool,
+    /// Wallet-set revision at the last look at the mempool; `None` before it.
+    pub(super) last_wallet_set_revision: Option<u64>,
+    /// A wallet was registered after filter sync completed, so the scan that
+    /// covers it must be followed by another look at the mempool.
+    pub(super) refresh_after_scan: bool,
 }
 
 impl<W: WalletInterface> MempoolManager<W> {
@@ -103,10 +114,13 @@ impl<W: WalletInterface> MempoolManager<W> {
             pending_requests: HashMap::new(),
             peers: HashMap::new(),
             pending_is_locks: HashMap::new(),
+            held_locks: HashMap::new(),
             seen_txids: HashMap::new(),
             last_monitor_revision: initial_monitor_revision,
             activate_during_sync: false,
             filters_synced: false,
+            last_wallet_set_revision: None,
+            refresh_after_scan: false,
         }
     }
 
@@ -190,17 +204,19 @@ impl<W: WalletInterface> MempoolManager<W> {
         Ok(())
     }
 
-    /// Ask every activated peer for its mempool again once filter sync first
-    /// completes, when relay started before it (`activate_during_sync`). The
-    /// wallet now knows every address and coin it owns, so a transaction it
+    /// Look at the mempool again after the wallets' view changed: a scan
+    /// completed, or a wallet was registered.
+    ///
+    /// Every held transaction is passed to the wallet again, with its lock, so
+    /// a wallet that matches it only now (a spend of a coin its scan just
+    /// found) records it; a wallet that already has it changes nothing. Then
+    /// every activated peer is asked for its mempool again, so a transaction
     /// judged irrelevant before (a payment to an address derived during the
-    /// scan, a spend of a coin the scan had not found) is fetched and checked
-    /// again. Peers never announce a transaction twice, so the txids
-    /// downloaded and found irrelevant are forgotten first.
-    pub(super) async fn refresh_after_filter_sync(
-        &mut self,
-        requests: &RequestSender,
-    ) -> SyncResult<()> {
+    /// scan or to a wallet registered since) is fetched and checked again.
+    /// Peers never announce a transaction twice, so the txids downloaded and
+    /// found irrelevant are forgotten first.
+    pub(super) async fn refresh_wallet_view(&mut self, requests: &RequestSender) -> SyncResult<()> {
+        self.reevaluate_held().await;
         self.seen_txids.retain(|txid, _| self.transactions.contains_key(txid));
         let activated: Vec<SocketAddr> =
             self.peers.iter().filter(|(_, v)| v.is_some()).map(|(k, _)| *k).collect();
@@ -211,8 +227,31 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
             requests.request_mempool(peer)?;
         }
-        self.last_monitor_revision = self.wallet.read().await.monitor_revision();
+        let wallet = self.wallet.read().await;
+        self.last_monitor_revision = wallet.monitor_revision();
+        self.last_wallet_set_revision = Some(wallet.wallet_set_revision());
         Ok(())
+    }
+
+    /// Pass every held transaction to the wallet again, oldest first so a
+    /// parent comes before its child, each with its verified lock.
+    async fn reevaluate_held(&mut self) {
+        let mut held: Vec<(Instant, Txid)> =
+            self.transactions.iter().map(|(txid, tx)| (tx.first_seen, *txid)).collect();
+        held.sort_unstable();
+        let mut wallet = self.wallet.write().await;
+        for (_, txid) in held {
+            let Some(entry) = self.transactions.get_mut(&txid) else {
+                continue;
+            };
+            let lock = self.held_locks.get(&txid).cloned();
+            let result = wallet.process_mempool_transaction(&entry.transaction, lock).await;
+            if result.is_relevant {
+                entry.is_outgoing = result.is_outgoing;
+                entry.addresses = result.addresses;
+                entry.net_amount = result.net_amount;
+            }
+        }
     }
 
     /// Rebuild the bloom filter on all activated peers.
@@ -427,16 +466,23 @@ impl<W: WalletInterface> MempoolManager<W> {
         self.progress.add_received(1);
 
         // Check for a pre-arrived IS lock before wallet processing consumes it
-        let pending_lock = self.pending_is_locks.remove(&txid).map(|(lock, _)| lock);
+        let pending_lock = self.pending_is_locks.remove(&txid);
         let is_locked = pending_lock.is_some();
 
         let result = {
             let mut wallet = self.wallet.write().await;
-            wallet.process_mempool_transaction(&tx, pending_lock).await
+            let lock = pending_lock.as_ref().map(|(lock, _)| lock.clone());
+            wallet.process_mempool_transaction(&tx, lock).await
         };
 
         if !result.is_relevant {
+            if let Some(pending) = pending_lock {
+                self.pending_is_locks.insert(txid, pending);
+            }
             return Ok(events);
+        }
+        if let Some((lock, _)) = pending_lock {
+            self.held_locks.insert(txid, lock);
         }
 
         self.progress.add_relevant(1);
@@ -612,6 +658,8 @@ impl<W: WalletInterface> MempoolManager<W> {
             if self.transactions.remove(txid).is_some() {
                 removed.push(*txid);
             }
+            self.held_locks.remove(txid);
+            self.pending_is_locks.remove(txid);
         }
         if !removed.is_empty() {
             self.progress.add_removed(removed.len() as u32);
@@ -648,17 +696,10 @@ impl<W: WalletInterface> MempoolManager<W> {
         let instant_lock_opt = if let Some(tx) = self.transactions.get_mut(&txid) {
             tx.is_instant_send = true;
             tracing::debug!("Marked mempool tx {} as InstantSend-locked", txid);
+            self.held_locks.insert(txid, instant_lock.clone());
             Some(instant_lock)
-        } else if self.pending_is_locks.len() < MAX_PENDING_IS_LOCKS {
-            self.pending_is_locks.insert(txid, (instant_lock, Instant::now()));
-            tracing::debug!("IS lock arrived before tx {}, remembering for later", txid);
-            None
         } else {
-            tracing::warn!(
-                "Pending IS locks at capacity ({}), dropping IS lock for {}",
-                MAX_PENDING_IS_LOCKS,
-                txid
-            );
+            self.remember_pending_lock(instant_lock);
             None
         };
         if let Some(lock) = instant_lock_opt {
@@ -668,6 +709,30 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
         }
         events
+    }
+
+    /// Keep a lock whose transaction is not held, until the transaction is
+    /// fetched. Most are for other wallets' transactions, so when the map is
+    /// full the oldest one goes: a lock for a transaction still on its way is
+    /// the newest.
+    fn remember_pending_lock(&mut self, instant_lock: InstantLock) {
+        let txid = instant_lock.txid;
+        if self.pending_is_locks.len() >= MAX_PENDING_IS_LOCKS
+            && !self.pending_is_locks.contains_key(&txid)
+        {
+            if let Some(oldest) =
+                self.pending_is_locks.iter().min_by_key(|(_, (_, at))| *at).map(|(txid, _)| *txid)
+            {
+                tracing::debug!(
+                    "Pending IS locks at capacity ({}), dropping the oldest, for {}",
+                    MAX_PENDING_IS_LOCKS,
+                    oldest
+                );
+                self.pending_is_locks.remove(&oldest);
+            }
+        }
+        self.pending_is_locks.insert(txid, (instant_lock, Instant::now()));
+        tracing::debug!("IS lock for tx {} not held, remembering for later", txid);
     }
 
     /// Prune transactions and pending IS locks older than `timeout`.
@@ -693,6 +758,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             tracing::debug!("Pruned {} expired mempool transactions", expired_txids.len());
             for txid in &expired_txids {
                 self.pending_is_locks.remove(txid);
+                self.held_locks.remove(txid);
             }
         }
 
@@ -1603,8 +1669,9 @@ mod tests {
         // Transaction arrives but wallet says it's not relevant
         manager.handle_tx(tx, test_socket_address(1), &requests).await.unwrap();
 
-        // Pending IS lock cleaned up (no leak)
-        assert!(manager.pending_is_locks.is_empty());
+        // The lock stays for a later fetch of the transaction that a wallet
+        // may then match; the InstantSend manager does not announce it again.
+        assert!(manager.pending_is_locks.contains_key(&txid));
 
         // Irrelevant tx should not be stored
         assert!(!manager.transactions.contains_key(&txid));
@@ -1623,10 +1690,17 @@ mod tests {
         }
         assert_eq!(manager.pending_is_locks.len(), MAX_PENDING_IS_LOCKS);
 
-        // Next IS lock should be dropped
+        // The next IS lock is kept and the oldest one goes
+        let oldest = *manager
+            .pending_is_locks
+            .iter()
+            .min_by_key(|(_, (_, at))| *at)
+            .map(|(txid, _)| txid)
+            .unwrap();
         let overflow_txid = Txid::from_byte_array([0xff; 32]);
         manager.process_instant_send(dummy_instant_lock(overflow_txid)).await;
-        assert!(!manager.pending_is_locks.contains_key(&overflow_txid));
+        assert!(manager.pending_is_locks.contains_key(&overflow_txid));
+        assert!(!manager.pending_is_locks.contains_key(&oldest));
         assert_eq!(manager.pending_is_locks.len(), MAX_PENDING_IS_LOCKS);
     }
 

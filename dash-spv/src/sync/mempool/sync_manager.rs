@@ -70,8 +70,11 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
             } => {
                 let first = !self.filters_synced;
                 self.filters_synced = true;
-                if self.state() == SyncState::Synced && first && self.activate_during_sync {
-                    self.refresh_after_filter_sync(requests).await?;
+                if self.state() == SyncState::Synced
+                    && (first && self.activate_during_sync || self.refresh_after_scan)
+                {
+                    self.refresh_after_scan = false;
+                    self.refresh_wallet_view(requests).await?;
                     return Ok(vec![]);
                 }
                 if self.state() != SyncState::Synced {
@@ -79,6 +82,8 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
                     let has_activated = self.peers.values().any(|v| v.is_some());
                     if has_activated {
                         self.set_state(SyncState::Synced);
+                        self.last_wallet_set_revision =
+                            Some(self.wallet.read().await.wallet_set_revision());
                         tracing::info!("Mempool manager activated after filter sync");
                         return Ok(vec![]);
                     } else {
@@ -143,10 +148,24 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
         // filter rebuilds and the read lock is non-contending.
         //
         // Activated during sync, the filter is rebuilt once filter sync
-        // completes (`refresh_after_filter_sync`), not on every block the
-        // scan credits.
+        // completes (`refresh_wallet_view`), not on every block the scan
+        // credits.
         if self.activate_during_sync && !self.filters_synced {
             return Ok(events);
+        }
+        // A wallet registered since the last look: fetch the payments to it
+        // already in the mempool now, and look again once its scan has found
+        // its coins.
+        let wallet_set_revision = self.wallet.read().await.wallet_set_revision();
+        match self.last_wallet_set_revision {
+            None => self.last_wallet_set_revision = Some(wallet_set_revision),
+            Some(last) if last != wallet_set_revision => {
+                tracing::info!("Wallet set changed, looking at the mempool again");
+                self.refresh_after_scan = true;
+                self.refresh_wallet_view(requests).await?;
+                return Ok(events);
+            }
+            Some(_) => {}
         }
         let current_revision = self.wallet.read().await.monitor_revision();
         if current_revision != self.last_monitor_revision {

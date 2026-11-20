@@ -361,6 +361,10 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         self.monitor_revision()
     }
 
+    fn wallet_set_revision(&self) -> u64 {
+        self.structural_revision
+    }
+
     async fn earliest_required_height(&self) -> CoreBlockHeight {
         self.wallet_infos.values().map(|info| info.birth_height()).min().unwrap_or(0)
     }
