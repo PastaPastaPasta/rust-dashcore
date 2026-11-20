@@ -1,0 +1,130 @@
+{
+ "schema": "o2b4-census-floor/1",
+ "floor_version": 2,
+ "target": "diff_chain_par",
+ "profile": "S1",
+ "encoding": "chain-v2",
+ "inventory_sha256": "12d7543c91cc2137c9c0767d67b4092194f2dd6e8239256046df57f97f8e8f10",
+ "overlay_sha256": "e001ae2b267528b9e9edad5b04ae84241fae3d0e32e7586c5c85a4a23e369709",
+ "require": {
+  "inventory": [
+   "specialtxman.cpp:CheckSpecialTxInner#1:bad-tx-type-dip3-inactive",
+   "specialtxman.cpp:ProcessSpecialTxsInBlock#2:bad-cbtx-payload",
+   "specialtxman.cpp:ProcessSpecialTxsInBlock@W:CheckSpecialTxInner",
+   "tx_check.cpp:CheckTransaction#10:bad-txns-prevout-null",
+   "tx_check.cpp:CheckTransaction#1:bad-txns-vin-empty",
+   "tx_check.cpp:CheckTransaction#2:bad-txns-vout-empty",
+   "tx_check.cpp:CheckTransaction#3:bad-txns-oversize",
+   "tx_check.cpp:CheckTransaction#4:bad-txns-payload-oversize",
+   "tx_check.cpp:CheckTransaction#5:bad-txns-vout-negative",
+   "tx_check.cpp:CheckTransaction#6:bad-txns-vout-toolarge",
+   "tx_check.cpp:CheckTransaction#7:bad-txns-txouttotal-toolarge",
+   "tx_check.cpp:CheckTransaction#8:bad-txns-inputs-duplicate",
+   "tx_check.cpp:CheckTransaction#9:bad-cb-length",
+   "tx_verify.cpp:Consensus::CheckTxInputs#1:bad-txns-inputs-missingorspent",
+   "tx_verify.cpp:Consensus::CheckTxInputs#2:bad-txns-premature-spend-of-coinbase",
+   "tx_verify.cpp:Consensus::CheckTxInputs#4:bad-txns-in-belowout",
+   "validation.cpp:AcceptBlockHeader#3:prev-blk-not-found",
+   "validation.cpp:AcceptBlockHeader#4:bad-prevblk",
+   "validation.cpp:AcceptBlockHeader#5:bad-prevblk-chainlock",
+   "validation.cpp:AcceptBlockHeader#6:bad-prevblk",
+   "validation.cpp:AcceptBlockHeader#7:bad-chainlock",
+   "validation.cpp:CheckBlock#1:bad-blk-length",
+   "validation.cpp:CheckBlock#2:bad-cb-missing",
+   "validation.cpp:CheckBlock#3:bad-cb-multiple",
+   "validation.cpp:CheckBlock#4:bad-blk-sigops",
+   "validation.cpp:CheckBlock@W:CheckTransaction",
+   "validation.cpp:CheckBlockHeader#1:high-hash",
+   "validation.cpp:CheckMerkleRoot#1:bad-txnmrklroot",
+   "validation.cpp:CheckMerkleRoot#2:bad-txns-duplicate",
+   "validation.cpp:ConnectBlock#1:bad-chainlock",
+   "validation.cpp:ConnectBlock#2:bad-txns-BIP30",
+   "validation.cpp:ConnectBlock#5:bad-txns-nonfinal",
+   "validation.cpp:ConnectBlock#6:bad-blk-sigops",
+   "validation.cpp:ConnectBlock#7:block-validation-failed",
+   "validation.cpp:ConnectBlock#9:bad-cb-amount",
+   "validation.cpp:ConnectBlock@W:Consensus::CheckTxInputs",
+   "validation.cpp:ContextualCheckBlock#2:bad-txns-nonfinal",
+   "validation.cpp:ContextualCheckBlock#4:bad-cb-height",
+   "validation.cpp:ContextualCheckBlock@W:ContextualCheckTransaction",
+   "validation.cpp:ContextualCheckBlockHeader#2:bad-diffbits",
+   "validation.cpp:ContextualCheckBlockHeader#4:time-too-old",
+   "validation.cpp:ContextualCheckBlockHeader#5:time-too-new",
+   "validation.cpp:ContextualCheckBlockHeader#6:bad-version(0x%08x)",
+   "validation.cpp:ContextualCheckTransaction#5:bad-txns-oversize",
+   "validation.cpp:TestBlockValidity#1:bad-chainlock"
+  ],
+  "ops": [
+   "activate:ok",
+   "block:inconclusive",
+   "block:ok",
+   "block:reject",
+   "cl_enforce:ok",
+   "cl_record:ok",
+   "cl_record:reject",
+   "flush:ok",
+   "header:ok",
+   "header:reject",
+   "invalidate:ok",
+   "invalidate:reject",
+   "precious:ok",
+   "precious:reject",
+   "proposal:ok",
+   "proposal:reject",
+   "reconsider:ok",
+   "reconsider:reject",
+   "restart:ok",
+   "restart:reject",
+   "settime:ok",
+   "spork:ok"
+  ],
+  "rejects": [
+   "Must submit previous header (<hash>) first",
+   "bad-chainlock",
+   "bad-prevblk-chainlock",
+   "duplicate-inconclusive",
+   "duplicate-invalid",
+   "inconclusive-not-best-prevblk",
+   "prev-blk-not-found"
+  ],
+  "rows": [
+   "cl_before_header",
+   "ibd_flip_settime",
+   "invalidate_undone_by_restart",
+   "kill_with_unflushed_entries",
+   "multi_failure_s1",
+   "precious_switch",
+   "reconsider_ignore_cl_conflict",
+   "refused_load",
+   "reorg_3",
+   "spork_on_then_cl_record",
+   "spork_then_clean_keeps",
+   "spork_then_kill_reverts",
+   "testdummy_active"
+  ]
+ },
+ "bounds": {
+  "discard_rate_max": 0.01,
+  "unexpected_max": 0,
+  "replay_mismatches_max": 0,
+  "queue_drain_share_max": 0.05,
+  "legb_share_min": null
+ },
+ "report_only": [
+  "cl_dropped_any",
+  "cl_timer_enforce",
+  "spork_on_then_cl_enforce"
+ ],
+ "declared_gaps": {
+  "inventory": [
+   "validation.cpp:AcceptBlockHeader#1:duplicate",
+   "validation.cpp:AcceptBlockHeader#2:duplicate"
+  ],
+  "ops": [
+   "block:duplicate"
+  ],
+  "rejects": [
+   "duplicate"
+  ]
+ }
+}

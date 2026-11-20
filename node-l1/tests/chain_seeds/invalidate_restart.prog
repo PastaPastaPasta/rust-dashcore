@@ -1,0 +1,10 @@
+# INVALIDATE of the tip, undone by the load's failure-flag reset (D32); then reconsider.
+extend main 2
+flush always
+invalidate main@-0
+restart clean
+invalidate main@-1
+reconsider main@-1
+invalidate random
+reconsider random
+precious random

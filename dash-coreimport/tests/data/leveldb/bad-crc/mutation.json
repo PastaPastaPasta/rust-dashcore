@@ -1,0 +1,5 @@
+{
+  "file": "bad-crc/chainstate/000008.ldb",
+  "offset": 0,
+  "mutation": "bad-crc"
+}
