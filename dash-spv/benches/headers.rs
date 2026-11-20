@@ -9,6 +9,11 @@
 //! - `headers2/decompress_and_bridge/8000`: a full `headers2` reply decompressed into
 //!   `dash-consensus` (one X11 per header) and dash-spv's hashed headers taken from it.
 
+// PROCESS.md: benches measure production only, so a build with the test feature fails. Clippy's
+// `--all-features` run is exempt.
+#[cfg(all(not(clippy), feature = "__fault-hooks"))]
+compile_error!("dash-spv's benches measure production only: build them without `__fault-hooks`");
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use dash_consensus::Header;
 use dash_spv::bridge::headers::{headers_from_consensus, headers_to_consensus};

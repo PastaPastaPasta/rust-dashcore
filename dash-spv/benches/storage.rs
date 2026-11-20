@@ -1,3 +1,8 @@
+// PROCESS.md: benches measure production only, so a build with the test feature fails. Clippy's
+// `--all-features` run is exempt.
+#[cfg(all(not(clippy), feature = "__fault-hooks"))]
+compile_error!("dash-spv's benches measure production only: build them without `__fault-hooks`");
+
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};

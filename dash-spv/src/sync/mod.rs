@@ -29,7 +29,7 @@ pub use events::SyncEvent;
 pub(crate) use header_completion::HeaderCompletionGate;
 pub use identifier::ManagerIdentifier;
 pub use progress::{ProgressPercentage, SyncProgress, SyncState};
-#[cfg(test)]
+#[cfg(all(test, feature = "__fault-hooks"))]
 pub(crate) use sync_coordinator::sync_event_bus;
 pub use sync_coordinator::{Managers, SyncCoordinator};
 pub use sync_manager::{SyncManager, SyncManagerProgress, SyncManagerTaskContext};

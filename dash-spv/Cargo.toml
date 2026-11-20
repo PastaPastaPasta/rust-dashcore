@@ -100,7 +100,7 @@ dash-mnlist = { path = "../dash-mnlist", features = ["test-util"] }
 # ST3a's power-loss model: the SPV store's crash sweep runs it on FaultyEngine (SB13). It adds
 # modules to dash-kv and no hook to engine code, as in dash-kv-sqlite.
 dash-kv = { path = "../dash-kv", features = ["faulty"] }
-dash-spv = { workspace = true, features = ["test-utils", "__fault-hooks"] }
+dash-spv = { workspace = true, features = ["test-utils"] }
 dashcore = { workspace = true, features = ["test-utils"] }
 key-wallet = { workspace = true, features = ["test-utils"] }
 key-wallet-manager = { workspace = true, features = ["test-utils"] }
@@ -109,6 +109,11 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["full", "test-util"] }
 test-case = { workspace = true }
 dash-p2p = { path = "../dash-p2p", default-features = false }
+
+[[test]]
+name = "dashd_fault_hooks"
+path = "tests/dashd_fault_hooks/main.rs"
+required-features = ["__fault-hooks"]
 
 [[bench]]
 name = "storage"
@@ -134,10 +139,11 @@ required-features = ["logging"]
 # they run only with the (internal) feature, which the gate's feature-tests step turns on, and
 # only in debug builds (a release test run compiles them out). That step runs only the tests
 # whose names match `test-filter` (the bridge's, hash counts included): the main test step
-# already runs every other test, the dashd suites among them (SB12a D14).
+# already runs every other test, the dashd suites among them (SB12a D14). The lib tests that
+# arm `__fault-hooks` hooks (`fault_hooks::`, the event monitors' `lag::`) run there too.
 [package.metadata.gate]
-test-features = ["__x11-count"]
-test-filter = ["bridge::"]
+test-features = ["__fault-hooks", "__x11-count"]
+test-filter = ["bridge::", "fault_hooks::", "client::event_handler::tests::lag::"]
 
 [lib]
 name = "dash_spv"
@@ -157,7 +163,8 @@ env-filter = ["logging", "tracing-subscriber/env-filter"]
 # They compile only with debug assertions: a release build emits no counter, all features on.
 __x11-count = ["dash-consensus/__x11-count", "dashcore_hashes/__x11-count"]
 # Internal, test-only: fault hooks a test arms through `dash_spv::fault_hooks`, such as a smaller
-# sync event bus. Inert unless armed; dash-spv's own test builds turn it on (dev-dependencies).
+# sync event bus. Inert unless armed; the gate turns it on for the lib tests in `test-filter` and
+# the `dashd_fault_hooks` target, which requires it. The benches fail to build with it.
 __fault-hooks = []
 test-utils = [
     "logging",
