@@ -1,0 +1,14 @@
+{
+ "nodes": [
+  "node0",
+  "node1"
+ ],
+ "recorded": [
+  "node0",
+  "node1"
+ ],
+ "source": "backfill: frozen/ and unstarted_nodes",
+ "test": "feature_evo_shares_activation.py",
+ "test_args": [],
+ "unstarted": []
+}

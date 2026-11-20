@@ -1,0 +1,139 @@
+{
+ "network": "regtest",
+ "provenance": {
+  "tool": "hand-made sample for the parser tests of dashd-node/tests/lk1b_is_diff.rs; not a capture"
+ },
+ "run": "sample",
+ "schema": "lk1b-is/1",
+ "steps": [
+  {
+   "checkpoint": null,
+   "conflict": null,
+   "decisions": [
+    "{\"k\":\"H\",\"v\":1,\"file\":\"decisions\",\"src\":\"dashd\",\"ver\":\"v24.0.0-sample\",\"chain\":\"regtest\",\"run\":\"1-1\"}"
+   ],
+   "digest": [
+    "{\"k\":\"H\",\"v\":1,\"file\":\"digest\",\"src\":\"dashd\",\"ver\":\"v24.0.0-sample\",\"chain\":\"regtest\",\"run\":\"1-1\"}"
+   ],
+   "label": "IS on",
+   "mocktime": 1700000001,
+   "op": {
+    "id": 10001,
+    "name": "SPORK_2_INSTANTSEND_ENABLED",
+    "op": "SPORK",
+    "value": 0
+   },
+   "scenario": "setup",
+   "step": 1
+  },
+  {
+   "checkpoint": null,
+   "conflict": null,
+   "decisions": [],
+   "digest": [],
+   "label": "lock",
+   "mocktime": 1700000002,
+   "op": {
+    "bytes": "01013333333333333333333333333333333333333333333333333333333333333333000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f204444444444444444444444444444444444444444444444444444444444444444555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555",
+    "core_tx": null,
+    "inv_hash": "618db6faccd19ff4a9c9fc9de5976bf885c220e93ec638f86ea54cc72cd51f50",
+    "mined_height": null,
+    "op": "ISLOCK",
+    "source": "built",
+    "txid": "201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201"
+   },
+   "scenario": "c",
+   "step": 2
+  },
+  {
+   "checkpoint": null,
+   "conflict": [
+    "2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e"
+   ],
+   "decisions": [
+    "{\"k\":\"A\",\"h\":105,\"b\":\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",\"org\":\"tip\",\"t\":1700000100,\"q\":[[\"ibd\",false],[\"is_conflict\",\"0000000000000000000000000000000000000000000000000000000000007702\",[\"618db6faccd19ff4a9c9fc9de5976bf885c220e93ec638f86ea54cc72cd51f50\",\"201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201\"]],[\"cl_has\",105,\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",false]],\"x\":{\"seq\":2}}"
+   ],
+   "digest": [
+    "{\"k\":\"R\",\"h\":105,\"b\":\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",\"org\":\"tip\",\"s\":{\"res\":\"invalid\",\"cls\":\"chainlock\",\"why\":\"conflict-tx-lock\"},\"o\":{\"fx\":[]},\"x\":{\"seq\":2,\"dbg\":null}}"
+   ],
+   "label": "conflicting block",
+   "mocktime": 1700000003,
+   "op": {
+    "bytes": "00000030d61b9202d88c4665dae6e931e596ec85c9732dc7f393a8a87d131fea45583276d48aaade75310cd350fd2a8374f9920b71987397674773d39c7239c0f4fc4b2e2b978054ffff7f200000000000",
+    "core_reply": "conflict-tx-lock",
+    "hash": "2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e",
+    "op": "BLOCK",
+    "source": "built"
+   },
+   "scenario": "c",
+   "step": 3
+  },
+  {
+   "checkpoint": null,
+   "conflict": [
+    "2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e"
+   ],
+   "decisions": [
+    "{\"k\":\"A\",\"h\":105,\"b\":\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",\"org\":\"tip\",\"t\":1700000101,\"q\":[[\"ibd\",false],[\"is_conflict\",\"0000000000000000000000000000000000000000000000000000000000007702\",[\"618db6faccd19ff4a9c9fc9de5976bf885c220e93ec638f86ea54cc72cd51f50\",\"201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201\"]],[\"cl_has\",105,\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",true]],\"x\":{\"seq\":3}}"
+   ],
+   "digest": [
+    "{\"k\":\"C\",\"h\":105,\"b\":\"2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e\",\"org\":\"tip\",\"s\":{\"prev\":\"000000000000000000000000000000000000000000000000000000000000b104\",\"ver\":536870912,\"mrkl\":\"000000000000000000000000000000000000000000000000000000000000aaa1\",\"time\":1700000100,\"bits\":545259519,\"nonce\":7,\"work\":\"00000000000000000000000000000000000000000000000000000000000001ca\",\"ntx\":2,\"undo\":\"000000000000000000000000000000000000000000000000000000000000dd01\",\"mnl\":null,\"qc\":null,\"cp\":null,\"ehf\":null,\"bls\":true,\"bur\":0,\"dep\":[]},\"o\":{\"fx\":[[\"is_rm\",\"618db6faccd19ff4a9c9fc9de5976bf885c220e93ec638f86ea54cc72cd51f50\",\"0000000000000000000000000000000000000000000000000000000000007702\"]]},\"x\":{\"seq\":3}}"
+   ],
+   "label": "ChainLock of the conflicting block",
+   "mocktime": 1700000004,
+   "op": {
+    "hash": "2161a08f28a6bcf5d06e1fb1f4903a2eb57e9c447c362f5f5a73077a3211f62e",
+    "height": 105,
+    "inv_hash": "e6b2379c12026bc65771a5e5280b56748f96d3cb07467097dd4a47a5dd43c84c",
+    "op": "CL_RECORD",
+    "sig": "666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666",
+    "source": "built"
+   },
+   "scenario": "c",
+   "step": 4
+  },
+  {
+   "checkpoint": {
+    "counts": {
+     "is_a1": 1,
+     "is_a2": 1,
+     "is_v": 1
+    },
+    "is_locks": "8623c59de20b80c8d0f63c88aef60710269cba21f5ce45d0eeb378c06975da86",
+    "rows": [
+     [
+      "0469735f76",
+      "01000000",
+      "is_v"
+     ],
+     [
+      "0569735f6131ffffff96501fd52cc74ca56ef838c63ee920c285f86b97e59dfcc9a9f49fd1ccfab68d61",
+      "01",
+      "is_a1"
+     ],
+     [
+      "0569735f6132501fd52cc74ca56ef838c63ee920c285f86b97e59dfcc9a9f49fd1ccfab68d61",
+      "01",
+      "is_a2"
+     ]
+    ]
+   },
+   "conflict": null,
+   "decisions": [
+    "{\"k\":\"H\",\"v\":1,\"file\":\"decisions\",\"src\":\"dashd\",\"ver\":\"v24.0.0-sample\",\"chain\":\"regtest\",\"run\":\"2-2\"}"
+   ],
+   "digest": [
+    "{\"k\":\"H\",\"v\":1,\"file\":\"digest\",\"src\":\"dashd\",\"ver\":\"v24.0.0-sample\",\"chain\":\"regtest\",\"run\":\"2-2\"}"
+   ],
+   "label": "checkpoint",
+   "mocktime": 1700000005,
+   "op": {
+    "args": [],
+    "kind": "CLEAN",
+    "op": "RESTART"
+   },
+   "scenario": "c",
+   "step": 5
+  }
+ ]
+}

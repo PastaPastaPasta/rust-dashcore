@@ -1,0 +1,306 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 7,
+          "offset": 35
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 2,
+          "offset": 78
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 9,
+          "offset": 80
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 3,
+          "offset": 82
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 4,
+          "offset": 84
+        },
+        {
+          "file": "c-overwrite/blocks/index/MANIFEST-000007",
+          "manifest_tag": 7,
+          "offset": 86
+        },
+        {
+          "file": "c-overwrite/blocks/index/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 1675
+        },
+        {
+          "file": "c-overwrite/blocks/index/000008.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 142
+        }
+      ],
+      "levels": [
+        0
+      ],
+      "versions": [
+        {
+          "file": "c-overwrite/blocks/index/000005.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 1598,
+          "sequence": 15,
+          "value": "00000000"
+        },
+        {
+          "file": "c-overwrite/blocks/index/000005.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 1614,
+          "sequence": 5,
+          "value": "00000000"
+        },
+        {
+          "file": "c-overwrite/blocks/index/000008.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 76,
+          "sequence": 20,
+          "value": "00000000"
+        },
+        {
+          "file": "c-overwrite/blocks/index/000008.ldb",
+          "key": "6c",
+          "kind": 1,
+          "level": 0,
+          "offset": 92,
+          "sequence": 19,
+          "value": "00000000"
+        },
+        {
+          "file": "c-overwrite/blocks/index/000009.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 155,
+          "sequence": 25,
+          "value": "00000000"
+        },
+        {
+          "file": "c-overwrite/blocks/index/000009.log",
+          "key": "6c",
+          "kind": 1,
+          "level": "wal",
+          "offset": 341,
+          "sequence": 27,
+          "value": "00000000"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 7,
+          "offset": 35
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 7,
+          "offset": 88
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 7,
+          "offset": 113
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 2,
+          "offset": 145
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 9,
+          "offset": 147
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 3,
+          "offset": 149
+        },
+        {
+          "file": "c-overwrite/chainstate/MANIFEST-000015",
+          "manifest_tag": 4,
+          "offset": 151
+        },
+        {
+          "file": "c-overwrite/chainstate/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 71
+        },
+        {
+          "file": "c-overwrite/chainstate/000013.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 322
+        },
+        {
+          "file": "c-overwrite/chainstate/000008.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 877
+        }
+      ],
+      "levels": [
+        0
+      ],
+      "versions": [
+        {
+          "file": "c-overwrite/chainstate/000005.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 1,
+          "value": "087081cbd2106fbd6d"
+        },
+        {
+          "file": "c-overwrite/chainstate/000013.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 25,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "c-overwrite/chainstate/000013.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 44,
+          "sequence": 22,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000013.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 55,
+          "sequence": 21,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "c-overwrite/chainstate/000013.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 98,
+          "sequence": 18,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000008.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 17,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "c-overwrite/chainstate/000008.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 44,
+          "sequence": 14,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000008.ldb",
+          "key": "42",
+          "kind": 1,
+          "level": 0,
+          "offset": 55,
+          "sequence": 13,
+          "value": "0db37b56e11d19ba098b4cc8f8ec989d1d84106cc0b8282372a0f16e0f2fda60"
+        },
+        {
+          "file": "c-overwrite/chainstate/000008.ldb",
+          "key": "42",
+          "kind": 0,
+          "level": 0,
+          "offset": 98,
+          "sequence": 2,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000016.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 26,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000016.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 155,
+          "sequence": 30,
+          "value": "d66596203c23e7bb300fc04993162491f50907eeab5bdc5178ede69e13848929"
+        },
+        {
+          "file": "c-overwrite/chainstate/000016.log",
+          "key": "42",
+          "kind": 0,
+          "level": "wal",
+          "offset": 210,
+          "sequence": 31,
+          "value": ""
+        },
+        {
+          "file": "c-overwrite/chainstate/000016.log",
+          "key": "42",
+          "kind": 1,
+          "level": "wal",
+          "offset": 285,
+          "sequence": 34,
+          "value": "d66596203c23e7bb300fc04993162491f50907eeab5bdc5178ede69e13848929"
+        }
+      ]
+    }
+  },
+  "best_block": "4434eb034c2d6c083c6134bb3ccc8885fc9979839b0b8e40d65a4c2cf25de4a6",
+  "decoded": {
+    "B": "4434eb034c2d6c083c6134bb3ccc8885fc9979839b0b8e40d65a4c2cf25de4a6",
+    "R": false,
+    "last_file": 0,
+    "obfuscation_key": "7081cbd2106fbd6d",
+    "prunedblockfiles": false
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": false,
+  "reindexing": false
+}
