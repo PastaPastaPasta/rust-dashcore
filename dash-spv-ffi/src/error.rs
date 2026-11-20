@@ -24,7 +24,8 @@ pub enum FFIErrorCode {
     SyncError = 6,
     ConfigError = 7,
     RuntimeError = 8,
-    /// The store predates the anchor window: wipe the storage and resync.
+    /// The store holds nothing below its Established anchor, so it predates the anchor window:
+    /// wipe the storage and resync. A damaged window is `StorageError`.
     LegacyAnchorError = 9,
 }
 

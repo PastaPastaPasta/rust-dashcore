@@ -41,7 +41,8 @@ pub enum StoredAnchorError {
     Broken {
         height: u32,
     },
-    /// The store holds nothing below its Established anchor: it predates the window.
+    /// The store holds no record of any kind below its Established anchor: it predates the
+    /// window. A window that lost rows is `Broken` or `Rehash`.
     #[error(
         "the stored Established anchor at height {height} has no anchor window: wipe the \
          storage and resync"
@@ -69,8 +70,8 @@ pub struct StoredChain {
 enum StoredWindow {
     /// Not read: a genesis anchor, or a Candidate, which opens from its pack.
     Unread,
-    /// The anchor's record with nothing stored below its height: a store from before the window
-    /// was kept.
+    /// The anchor's record with no record of any kind stored below its height: a store from
+    /// before the window was kept.
     AnchorOnly,
     Held(Anchor),
 }
@@ -128,7 +129,9 @@ fn read_window(
         child = rec.header.prev_hash();
     }
     match (records.len(), records.first()) {
-        (1, _) if store.active_at(height - 1)?.is_none() => Ok(StoredWindow::AnchorOnly),
+        (1, _) if store.min_height()?.is_some_and(|lo| lo >= height) => {
+            Ok(StoredWindow::AnchorOnly)
+        }
         (n, Some(top)) if n == WINDOW as usize => {
             let mut window = Box::new([top.header; WINDOW as usize]);
             for (slot, rec) in window.iter_mut().rev().zip(&records) {
@@ -774,8 +777,13 @@ fn unmatched(id: u64) -> Output {
 
 #[cfg(test)]
 mod tests {
-    use dash_chain::{ClPersisted, HeaderRecord, RecordKind, Status, Work, CHAIN_SCHEMA};
+    use dash_chain::{
+        ChainConfig, ClPersisted, Durability, Evicting, FailStop, HeaderChain, HeaderRecord,
+        HeaderStepSink, NoStore, RecordKind, Services, StaticSporks, Status, StepTail, Work,
+        CHAIN_SCHEMA,
+    };
     use dash_clock::MockClock;
+    use dash_kv::MemoryEngine;
     use dash_primitives::{BlockHeader, MerkleRoot};
     use dashcore::Network;
 
@@ -899,11 +907,11 @@ mod tests {
             Ok(self.records.iter().find(|r| r.id == id).cloned())
         }
 
-        /// As the real store's: any height from the lowest stored to the highest, a lost row
-        /// inside the range included.
+        /// As both real stores': accepted rows only, from the lowest to the highest.
         fn active_at(&self, height: u32) -> Result<Option<BlockId>, StoreError> {
-            let lo = self.records.iter().map(|r| r.height).min();
-            let hi = self.records.iter().map(|r| r.height).max();
+            let accepted = self.records.iter().filter(|r| r.kind == RecordKind::Accepted);
+            let lo = accepted.clone().map(|r| r.height).min();
+            let hi = accepted.map(|r| r.height).max();
             let held = lo.zip(hi).is_some_and(|(lo, hi)| (lo..=hi).contains(&height));
             Ok(held.then_some(BlockId(height)))
         }
@@ -935,6 +943,10 @@ mod tests {
 
         fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
             Ok(None)
+        }
+
+        fn min_height(&self) -> Result<Option<u32>, StoreError> {
+            Ok(self.records.iter().map(|r| r.height).min())
         }
     }
 
@@ -2046,6 +2058,97 @@ mod tests {
                 "{err:?}"
             );
         }
+    }
+
+    struct NoFail;
+
+    impl FailStop for NoFail {
+        fn read_failed(&self, _: &str) {}
+
+        fn is_tripped(&self) -> bool {
+            false
+        }
+    }
+
+    /// The pack's first header step, as `BuildChain` writes it after the `Reset`.
+    fn first_step(d: &InitialSync, pack: &AnchorPack, sink: &mut dyn HeaderStepSink) -> StepTail {
+        let params = d.llmq.params_arc().clone();
+        let svc = Services {
+            clock: Arc::new(MockClock::at(2_000_000)),
+            sporks: Arc::new(StaticSporks::for_network(&params, Some(false))),
+            fail: Arc::new(NoFail),
+        };
+        let cfg = ChainConfig::spv(&params, 10_000);
+        let mut chain =
+            HeaderChain::<NoStore, Evicting>::new_anchored(params, cfg, svc, NoStore, pack)
+                .unwrap();
+        chain.write_header_step(None, sink).unwrap()
+    }
+
+    /// The hybrid store after `Reset`, `BuildChain` and the establish.
+    fn built_hybrid(
+        d: &InitialSync,
+        pack: &AnchorPack,
+        dir: &tempfile::TempDir,
+    ) -> crate::storage::store::Store<MemoryEngine> {
+        let store = crate::storage::store::Store::in_memory(dir);
+        store.reset(d.candidate_meta(&pack_anchor(pack))).unwrap();
+        let mut step = store.begin_step().unwrap();
+        let tail = first_step(d, pack, &mut step);
+        step.commit(&tail, Durability::Buffered).unwrap();
+        store.establish().unwrap();
+        store
+    }
+
+    fn is_broken_at(read: Result<Option<StoredChain>, StoredAnchorError>, at: u32) -> bool {
+        matches!(read, Err(StoredAnchorError::Broken { height }) if height == at)
+    }
+
+    #[test]
+    fn an_sb_built_window_that_lost_its_anchor_parent_fails_as_broken() {
+        let mut d = configured_driver(true, None, None, false);
+        let pack = pack(20000, 1_000_000);
+        let anchor = pack_anchor(&pack);
+        let parent = BlockId(23);
+        for rekeyed in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = built_hybrid(&d, &pack, &dir);
+            assert_eq!(store.active_at(19999).unwrap(), None, "context rows are off-chain");
+            assert_eq!(store.min_height().unwrap(), Some(19976));
+            let intact = StoredChain::read(&store).unwrap();
+            assert_eq!(
+                configured_driver(true, None, None, false).advance(Input::Opened(intact)).unwrap(),
+                vec![
+                    Output::BuildChain(anchor.clone()),
+                    Output::StartSubscribers,
+                    Output::SyncHeaders
+                ]
+            );
+            match rekeyed {
+                true => store.rekey_offchain(parent, [0xee; 32]),
+                false => store.lose_offchain(parent),
+            }
+            let read = StoredChain::read(&store);
+            assert!(is_broken_at(read, 19999), "rekeyed {rekeyed}");
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let legacy = crate::storage::store::Store::in_memory(&dir);
+        let raw: Vec<_> = window_records(&anchor)
+            .iter()
+            .map(|r| (*r.hash.as_bytes(), r.to_row().header))
+            .collect();
+        legacy.put_headers(19976, &raw).unwrap();
+        let err = d.advance(Input::Opened(StoredChain::read(&legacy).unwrap())).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                SpvError::StoredAnchor(StoredAnchorError::LegacyAnchor {
+                    height: 19976
+                })
+            ),
+            "{err:?}"
+        );
     }
 
     #[test]

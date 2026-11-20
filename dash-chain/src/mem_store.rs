@@ -30,6 +30,7 @@ pub enum ReadKind {
     ActiveFrom,
     WalkDown,
     MaxId,
+    MinHeight,
 }
 
 /// How a read hands back a corrupt record ([`Faults::corrupt`]).
@@ -729,6 +730,14 @@ impl HeaderStore for MemHeaderStore {
 
     fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
         self.read(ReadKind::MaxId, |t| t.hdr.last_key_value().map(|(&id, _)| id))
+    }
+
+    /// Records [`Corrupt::Gone`] hides are skipped.
+    fn min_height(&self) -> Result<Option<u32>, StoreError> {
+        let mut db = self.db();
+        db.faults.read(ReadKind::MinHeight)?;
+        let gone = |id| matches!(db.faults.corrupt.get(id), Some(Corrupt::Gone));
+        Ok(db.current.by_height.iter().find(|(_, id)| !gone(id)).map(|&(h, _)| h))
     }
 }
 

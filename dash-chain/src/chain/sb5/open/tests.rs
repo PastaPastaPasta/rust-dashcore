@@ -506,6 +506,9 @@ impl HeaderStore for Tampered {
     fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
         self.store.max_id()
     }
+    fn min_height(&self) -> Result<Option<u32>, StoreError> {
+        self.store.min_height()
+    }
 }
 
 /// `active` rows that are not the tip's ancestry: a stale id in the window, a stale id at the

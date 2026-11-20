@@ -925,6 +925,17 @@ proptest! {
     }
 }
 
+/// `min_height` sees the context rows below the active anchor and skips a `Gone` record.
+#[test]
+fn min_height_counts_context_rows() {
+    assert_eq!(MemHeaderStore::new().min_height().unwrap(), None);
+    let s = opened();
+    assert_eq!(s.active_at(ANCHOR_H - 1).unwrap(), None);
+    assert_eq!(s.min_height().unwrap(), Some(ANCHOR_H - 2));
+    s.faults(|f| f.corrupt(BlockId(0), Corrupt::Gone));
+    assert_eq!(s.min_height().unwrap(), Some(ANCHOR_H - 1));
+}
+
 /// `HeaderStore::walk_down`'s default (SB5-A18: by id, then each parent by hash) answers as
 /// `MemHeaderStore`'s own walk does.
 #[test]
@@ -975,6 +986,10 @@ fn the_default_walk_down_matches() {
 
         fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
             self.0.max_id()
+        }
+
+        fn min_height(&self) -> Result<Option<u32>, StoreError> {
+            self.0.min_height()
         }
     }
 

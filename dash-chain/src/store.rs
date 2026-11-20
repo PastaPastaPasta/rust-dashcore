@@ -83,6 +83,9 @@ pub trait HeaderStore: Send + Sync + 'static {
     }
     /// The largest stored id (SB5 n4).
     fn max_id(&self) -> Result<Option<BlockId>, StoreError>;
+    /// The lowest height of any stored record, active or not, context rows included: one index
+    /// lookup, never a walk.
+    fn min_height(&self) -> Result<Option<u32>, StoreError>;
 }
 
 /// The node's store: the node keeps every entry resident and never reads a cold tier.
@@ -128,6 +131,10 @@ impl HeaderStore for NoStore {
     }
 
     fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
+        Ok(None)
+    }
+
+    fn min_height(&self) -> Result<Option<u32>, StoreError> {
         Ok(None)
     }
 }

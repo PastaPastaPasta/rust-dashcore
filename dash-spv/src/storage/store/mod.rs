@@ -1460,6 +1460,19 @@ impl<E: KvEngine + 'static, F: HdrIo> HeaderStore for Store<E, F> {
     fn max_id(&self) -> Result<Option<BlockId>, dash_chain::StoreError> {
         Ok(self.view().max_id)
     }
+
+    /// The active start, or the first `hdr_h` key below it: off-chain and context rows.
+    fn min_height(&self) -> Result<Option<u32>, dash_chain::StoreError> {
+        let start = self.hdr().start;
+        let offchain = match self.db() {
+            Some(db) => kv(scan::first_key(db, HDR_H))?
+                .map(|k| read_u32("hdr_h height", k.get(..4).unwrap_or(&k)))
+                .transpose()
+                .map_err(Error::from)?,
+            None => None,
+        };
+        Ok(start.into_iter().chain(offchain).min())
+    }
 }
 
 impl<E: KvEngine, F: HdrIo> Store<E, F> {

@@ -101,4 +101,8 @@ impl HeaderStore for RowStore {
     fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
         unimplemented!("the cache reads rows only")
     }
+
+    fn min_height(&self) -> Result<Option<u32>, StoreError> {
+        unimplemented!("the cache reads rows only")
+    }
 }

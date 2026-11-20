@@ -1257,6 +1257,7 @@ pub fn dash_chain::NoStore::children_from(&self, &dash_primitives::block::BlockH
 pub fn dash_chain::NoStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 pub fn dash_chain::NoStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
 pub fn dash_chain::NoStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::min_height(&self) -> core::result::Result<core::option::Option<u32>, dash_chain::StoreError>
 pub fn dash_chain::NoStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 pub struct dash_chain::NodeIndex<'c, S: dash_chain::HeaderStore, R: dash_chain::Residency>
 impl<S: dash_chain::HeaderStore, R: dash_chain::Residency> dash_chain::NodeIndex<'_, S, R>
@@ -1562,6 +1563,7 @@ pub fn dash_chain::HeaderStore::children_from(&self, &dash_primitives::block::Bl
 pub fn dash_chain::HeaderStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 pub fn dash_chain::HeaderStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
 pub fn dash_chain::HeaderStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::HeaderStore::min_height(&self) -> core::result::Result<core::option::Option<u32>, dash_chain::StoreError>
 pub fn dash_chain::HeaderStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 impl dash_chain::HeaderStore for dash_chain::NoStore
 pub fn dash_chain::NoStore::active_at(&self, u32) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
@@ -1573,6 +1575,7 @@ pub fn dash_chain::NoStore::children_from(&self, &dash_primitives::block::BlockH
 pub fn dash_chain::NoStore::from_height(&self, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 pub fn dash_chain::NoStore::leaves_from(&self, dash_consensus::ctx::BlockId, &mut [(dash_consensus::ctx::BlockId, dash_chain::Work)]) -> core::result::Result<usize, dash_chain::StoreError>
 pub fn dash_chain::NoStore::max_id(&self) -> core::result::Result<core::option::Option<dash_consensus::ctx::BlockId>, dash_chain::StoreError>
+pub fn dash_chain::NoStore::min_height(&self) -> core::result::Result<core::option::Option<u32>, dash_chain::StoreError>
 pub fn dash_chain::NoStore::walk_down(&self, dash_consensus::ctx::BlockId, u32) -> core::result::Result<alloc::vec::Vec<dash_chain::HeaderRecord>, dash_chain::StoreError>
 pub trait dash_chain::IndexAccess: core::marker::Send + core::marker::Sync
 pub fn dash_chain::IndexAccess::ancestor(&self, dash_consensus::ctx::BlockId, u32) -> core::option::Option<dash_consensus::ctx::BlockId>

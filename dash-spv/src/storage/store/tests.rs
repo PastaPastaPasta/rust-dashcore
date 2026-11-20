@@ -1310,6 +1310,7 @@ fn open_commits_through_the_write_barrier() {
 }
 
 mod prepend;
+mod window;
 
 #[test]
 fn establish_on_an_empty_store_creates_no_database() {
