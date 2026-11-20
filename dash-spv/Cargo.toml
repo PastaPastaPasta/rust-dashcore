@@ -139,8 +139,9 @@ required-features = ["logging"]
 # they run only with the (internal) feature, which the gate's feature-tests step turns on, and
 # only in debug builds (a release test run compiles them out). That step runs only the tests
 # whose names match `test-filter` (the bridge's, hash counts included): the main test step
-# already runs every other test, the dashd suites among them (SB12a D14). The lib tests that
-# arm `__fault-hooks` hooks (`fault_hooks::`, the event monitors' `lag::`) run there too.
+# already runs every other test, the dashd suites among them (SB12a D14), but
+# `dashd_fault_hooks`, which the features shard runs. The lib tests that arm `__fault-hooks`
+# hooks (`fault_hooks::`, the event monitors' `lag::`) run in this step too.
 [package.metadata.gate]
 test-features = ["__fault-hooks", "__x11-count"]
 test-filter = ["bridge::", "fault_hooks::", "client::event_handler::tests::lag::"]
