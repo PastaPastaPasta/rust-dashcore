@@ -65,6 +65,7 @@ impl From<SpvError> for FFIErrorCode {
             SpvError::Sync(_) => FFIErrorCode::SyncError,
             SpvError::Config(_) => FFIErrorCode::ConfigError,
             SpvError::QuorumLookupError(_) => FFIErrorCode::ValidationError,
+            SpvError::StoredAnchor(_) => FFIErrorCode::StorageError,
         }
     }
 }

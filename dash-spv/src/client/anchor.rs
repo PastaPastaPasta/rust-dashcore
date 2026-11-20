@@ -5,13 +5,139 @@ use std::sync::Arc;
 
 use dash_chain::{
     anchor_candidate, anchor_fallback, Anchor, AnchorPack, AnchorState, BlockRef, ChainMeta,
-    ClPersisted, CoverageMiss, CHAIN_SCHEMA,
+    ClPersisted, CoverageMiss, HeaderStore, StoreError, CHAIN_SCHEMA,
 };
-use dash_consensus::BlockId;
+use dash_consensus::{BlockId, Header};
 use dash_mnlist::{Coverage, LlmqConfig, RequestKey};
+use dash_primitives::BlockHash;
 
 use super::ClientConfig;
 use crate::error::SpvError;
+
+/// The anchor and the 24 headers below it.
+const WINDOW: u32 = 25;
+
+/// Why the store's anchor cannot be opened. Every one fails the open: nothing is reset.
+#[derive(Debug, thiserror::Error)]
+pub enum StoredAnchorError {
+    #[error("reading the stored anchor window: {0}")]
+    Storage(#[from] StoreError),
+    #[error("the stored anchor {hash:?} at height {height} has no record")]
+    MissingAnchor {
+        height: u32,
+        hash: BlockHash,
+    },
+    /// The stored header does not hash to the hash stored with it.
+    #[error(
+        "the stored header at height {height} hashes to {computed:?}, not its stored {stored:?}"
+    )]
+    Rehash {
+        height: u32,
+        stored: BlockHash,
+        computed: BlockHash,
+    },
+    /// The window is not the stored anchor's parent chain down to anchor − 24.
+    #[error("the stored anchor window breaks at height {height}")]
+    Broken {
+        height: u32,
+    },
+    #[error(
+        "the stored Established anchor at height {height} has no anchor window and no anchor \
+         pack at or below it: wipe the storage and resync"
+    )]
+    LegacyAnchor {
+        height: u32,
+    },
+}
+
+/// What the host reads from the store at open: `meta`, and an Established checkpoint anchor's
+/// window, every (header, hash) pair re-hashed.
+#[derive(Clone, Debug)]
+pub struct StoredChain {
+    meta: ChainMeta,
+    window: StoredWindow,
+}
+
+#[derive(Clone, Debug)]
+enum StoredWindow {
+    /// Not read: a genesis anchor, or a Candidate, which opens from its pack.
+    Unread,
+    /// The anchor's record with no parent stored: a store from before the window was kept.
+    AnchorOnly,
+    Held(Anchor),
+}
+
+impl StoredChain {
+    /// `None` for a store with no `meta`. An Established checkpoint anchor's window is
+    /// [`HeaderStore::walk_down`] from the anchor's record. Each pair is re-hashed and must
+    /// name its child's parent, the top one the meta's anchor; a broken or partial window fails.
+    pub fn read(store: &impl HeaderStore) -> Result<Option<StoredChain>, StoredAnchorError> {
+        let Some(meta) = store.chain_meta()? else {
+            return Ok(None);
+        };
+        let window = match (meta.anchor_state, meta.anchor) {
+            (AnchorState::Established, (hash, height)) if height != 0 => {
+                read_window(store, hash, height)?
+            }
+            _ => StoredWindow::Unread,
+        };
+        Ok(Some(StoredChain {
+            meta,
+            window,
+        }))
+    }
+
+    pub fn meta(&self) -> &ChainMeta {
+        &self.meta
+    }
+}
+
+fn read_window(
+    store: &impl HeaderStore,
+    hash: BlockHash,
+    height: u32,
+) -> Result<StoredWindow, StoredAnchorError> {
+    let top = store.by_hash(&hash)?.ok_or(StoredAnchorError::MissingAnchor {
+        height,
+        hash,
+    })?;
+    let records = store.walk_down(top.id, WINDOW)?;
+    let mut child = hash;
+    for (below, rec) in (0..).zip(&records) {
+        let computed = Header::new(rec.header).hash();
+        if computed != rec.hash {
+            return Err(StoredAnchorError::Rehash {
+                height: rec.height,
+                stored: rec.hash,
+                computed,
+            });
+        }
+        if computed != child || height.checked_sub(below) != Some(rec.height) {
+            return Err(StoredAnchorError::Broken {
+                height: rec.height,
+            });
+        }
+        child = rec.header.prev_hash();
+    }
+    match (records.len(), records.first()) {
+        (1, _) => Ok(StoredWindow::AnchorOnly),
+        (n, Some(top)) if n == WINDOW as usize => {
+            let mut window = Box::new([top.header; WINDOW as usize]);
+            for (slot, rec) in window.iter_mut().rev().zip(&records) {
+                *slot = rec.header;
+            }
+            Ok(StoredWindow::Held(Anchor::Checkpoint {
+                height,
+                hash,
+                chain_work: top.chain_work,
+                window,
+            }))
+        }
+        (n, _) => Err(StoredAnchorError::Broken {
+            height: height.saturating_sub(n as u32),
+        }),
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Phase {
@@ -77,7 +203,7 @@ pub enum EstablishOutcome {
 
 #[derive(Clone, Debug)]
 pub enum Input {
-    Opened(Option<ChainMeta>),
+    Opened(Option<StoredChain>),
     HeadersCaughtUp {
         tip: BlockRef,
         tip_gen: u64,
@@ -206,18 +332,19 @@ impl InitialSync {
             }
             let mut out = Vec::new();
             let anchor = match meta {
-                Some(meta) => {
-                    let anchor = self.stored_anchor(&meta)?;
-                    if meta.anchor_state == AnchorState::Established {
-                        self.phase = Phase::Established;
-                        return Ok(vec![
-                            Output::BuildChain(anchor),
-                            Output::StartSubscribers,
-                            Output::SyncHeaders,
-                        ]);
-                    }
-                    anchor
+                Some(StoredChain {
+                    meta,
+                    window,
+                }) if meta.anchor_state == AnchorState::Established => {
+                    let anchor = self.established_anchor(&meta, window)?;
+                    self.phase = Phase::Established;
+                    return Ok(vec![
+                        Output::BuildChain(anchor),
+                        Output::StartSubscribers,
+                        Output::SyncHeaders,
+                    ]);
                 }
+                Some(stored) => self.stored_anchor(&stored.meta)?,
                 None => {
                     let anchor = anchor_candidate(
                         &self.packs,
@@ -550,8 +677,32 @@ impl InitialSync {
         }
     }
 
+    /// An Established store opens from its own window, never from a pack.
+    fn established_anchor(
+        &self,
+        meta: &ChainMeta,
+        window: StoredWindow,
+    ) -> Result<Anchor, StoredAnchorError> {
+        let (hash, height) = meta.anchor;
+        match window {
+            StoredWindow::Held(anchor) => Ok(anchor),
+            StoredWindow::Unread if self.is_genesis(meta) => Ok(Anchor::Genesis),
+            StoredWindow::Unread => Err(StoredAnchorError::MissingAnchor {
+                height,
+                hash,
+            }),
+            StoredWindow::AnchorOnly => Err(StoredAnchorError::LegacyAnchor {
+                height,
+            }),
+        }
+    }
+
+    fn is_genesis(&self, meta: &ChainMeta) -> bool {
+        meta.anchor == (self.llmq.params().consensus.hash_genesis_block.into(), 0)
+    }
+
     fn stored_anchor(&self, meta: &ChainMeta) -> Result<Anchor, SpvError> {
-        if meta.anchor == (self.llmq.params().consensus.hash_genesis_block.into(), 0) {
+        if self.is_genesis(meta) {
             return Ok(Anchor::Genesis);
         }
         let pack =
@@ -574,9 +725,9 @@ fn unmatched(id: u64) -> Output {
 
 #[cfg(test)]
 mod tests {
-    use dash_chain::{ClPersisted, Work, CHAIN_SCHEMA};
+    use dash_chain::{ClPersisted, HeaderRecord, RecordKind, Status, Work, CHAIN_SCHEMA};
     use dash_clock::MockClock;
-    use dash_primitives::{BlockHash, BlockHeader};
+    use dash_primitives::{BlockHeader, MerkleRoot};
     use dashcore::Network;
 
     use super::*;
@@ -601,18 +752,14 @@ mod tests {
         let llmq = llmq_config(&config).unwrap();
         let packs = [10000, 20000, 30000]
             .map(|height| {
-                let mut header = BlockHeader::default();
-                header.set_time(if height == 30000 {
-                    2_000_000
-                } else {
-                    1_000_000
-                });
-                AnchorPack {
+                pack(
                     height,
-                    hash: BlockHash::from([u8::try_from(height / 10000).unwrap(); 32]),
-                    chain_work: Work::from(u64::from(height)),
-                    headers: [header; 25],
-                }
+                    if height == 30000 {
+                        2_000_000
+                    } else {
+                        1_000_000
+                    },
+                )
             })
             .to_vec();
         assert!(packs
@@ -628,6 +775,126 @@ mod tests {
             },
             birth,
         )
+    }
+
+    /// 25 headers each naming the one before by its X11, the last at `time`.
+    fn pack(height: u32, time: u32) -> AnchorPack {
+        let mut headers = [BlockHeader::default(); 25];
+        let mut prev = BlockHash::from([0; 32]);
+        for (k, header) in (0..).zip(headers.iter_mut()) {
+            *header = BlockHeader::new(
+                1,
+                prev,
+                MerkleRoot::from([7; 32]),
+                time - (24 - k) * 150,
+                0x207f_ffff,
+                height,
+            );
+            prev = Header::new(*header).hash();
+        }
+        AnchorPack {
+            height,
+            hash: prev,
+            chain_work: Work::from(u64::from(height)),
+            headers,
+        }
+    }
+
+    /// The store's records of a checkpoint anchor's window, the anchor last.
+    fn window_records(anchor: &Anchor) -> Vec<HeaderRecord> {
+        let Anchor::Checkpoint {
+            height,
+            chain_work,
+            window,
+            ..
+        } = anchor
+        else {
+            return Vec::new();
+        };
+        (0..)
+            .zip(window.iter())
+            .map(|(k, header)| HeaderRecord {
+                id: BlockId(k),
+                hash: Header::new(*header).hash(),
+                height: height - 24 + k,
+                header: *header,
+                skip: None,
+                status: Status::default(),
+                chain_work: if k == 24 {
+                    *chain_work
+                } else {
+                    Work::from(1u64)
+                },
+                time_max: header.time(),
+                kind: if k == 24 {
+                    RecordKind::Accepted
+                } else {
+                    RecordKind::Context
+                },
+            })
+            .collect()
+    }
+
+    #[derive(Default)]
+    struct Store {
+        meta: Option<ChainMeta>,
+        records: Vec<HeaderRecord>,
+    }
+
+    impl HeaderStore for Store {
+        fn by_hash(&self, h: &BlockHash) -> Result<Option<HeaderRecord>, StoreError> {
+            Ok(self.records.iter().find(|r| r.hash == *h).cloned())
+        }
+
+        fn by_id(&self, id: BlockId) -> Result<Option<HeaderRecord>, StoreError> {
+            Ok(self.records.iter().find(|r| r.id == id).cloned())
+        }
+
+        fn active_at(&self, _: u32) -> Result<Option<BlockId>, StoreError> {
+            Ok(None)
+        }
+
+        fn from_height(&self, _: u32) -> Result<Vec<HeaderRecord>, StoreError> {
+            Ok(Vec::new())
+        }
+
+        fn leaves_from(&self, _: BlockId, _: &mut [(BlockId, Work)]) -> Result<usize, StoreError> {
+            Ok(0)
+        }
+
+        fn children_from(
+            &self,
+            _: &BlockHash,
+            _: BlockId,
+            _: &mut [BlockId],
+        ) -> Result<usize, StoreError> {
+            Ok(0)
+        }
+
+        fn chain_meta(&self) -> Result<Option<ChainMeta>, StoreError> {
+            Ok(self.meta)
+        }
+
+        fn active_from(&self, _: u32) -> Result<Vec<(u32, BlockId)>, StoreError> {
+            Ok(Vec::new())
+        }
+
+        fn max_id(&self) -> Result<Option<BlockId>, StoreError> {
+            Ok(None)
+        }
+    }
+
+    fn read(meta: ChainMeta, records: Vec<HeaderRecord>) -> Result<StoredChain, StoredAnchorError> {
+        let store = Store {
+            meta: Some(meta),
+            records,
+        };
+        StoredChain::read(&store).map(|stored| stored.expect("a meta row"))
+    }
+
+    /// `meta`, with the anchor's window as the store keeps it.
+    fn reopen(meta: ChainMeta, anchor: &Anchor) -> Input {
+        Input::Opened(Some(read(meta, window_records(anchor)).unwrap()))
     }
 
     fn meta(anchor: &Anchor, state: AnchorState, llmq: &LlmqConfig) -> ChainMeta {
@@ -660,6 +927,16 @@ mod tests {
             hash: pack.hash,
             chain_work: pack.chain_work,
             window: Box::new(pack.headers),
+        }
+    }
+
+    fn anchor_hash(anchor: &Anchor) -> BlockHash {
+        match anchor {
+            Anchor::Checkpoint {
+                hash,
+                ..
+            } => *hash,
+            Anchor::Genesis => unreachable!("a checkpoint"),
         }
     }
 
@@ -770,7 +1047,7 @@ mod tests {
             let anchor = open(&mut original);
             let stored = meta(&anchor, state, &original.llmq);
             let mut resumed = driver(true, Some(1));
-            let out = resumed.advance(Input::Opened(Some(stored))).unwrap();
+            let out = resumed.advance(reopen(stored, &anchor)).unwrap();
             let expected = if state == AnchorState::Candidate {
                 vec![Output::BuildChain(anchor.clone()), Output::SyncHeaders]
             } else {
@@ -800,7 +1077,7 @@ mod tests {
         let mut d = driver(true, None);
         let mut stored = meta(&Anchor::Genesis, AnchorState::Candidate, &d.llmq);
         stored.anchor = (BlockHash::from([99; 32]), 999);
-        assert!(d.advance(Input::Opened(Some(stored))).is_err());
+        assert!(d.advance(reopen(stored, &Anchor::Genesis)).is_err());
         assert_eq!(d.phase(), &Phase::Unopened);
     }
 
@@ -874,7 +1151,7 @@ mod tests {
             let stored = meta(anchor, AnchorState::Candidate, &d.llmq);
             let mut reopened = driver(true, None);
             assert_eq!(
-                reopened.advance(Input::Opened(Some(stored))).unwrap(),
+                reopened.advance(reopen(stored, anchor)).unwrap(),
                 vec![Output::BuildChain(anchor.clone()), Output::SyncHeaders]
             );
             assert_eq!(d.advance(caught_up(8, 2)).unwrap(), vec![run(8, 2, 2)]);
@@ -1450,5 +1727,146 @@ mod tests {
             }
         );
         assert_eq!(d.cand_gen(), 1);
+    }
+
+    fn established_at(anchor: &Anchor, llmq: &LlmqConfig) -> ChainMeta {
+        meta(anchor, AnchorState::Established, llmq)
+    }
+
+    #[test]
+    fn established_opens_from_its_own_window_without_a_pack() {
+        let with_packs = driver(true, None);
+        let stored = pack_anchor(&with_packs.packs[1]);
+        let off_pack = pack_anchor(&pack(25000, 1_500_000));
+        for (mut d, anchor) in [
+            (configured_driver(true, None, None, false), stored.clone()),
+            (driver(true, None), off_pack.clone()),
+            (driver(false, None), off_pack),
+        ] {
+            let out = d.advance(reopen(established_at(&anchor, &d.llmq), &anchor)).unwrap();
+            assert_eq!(
+                out,
+                vec![Output::BuildChain(anchor), Output::StartSubscribers, Output::SyncHeaders]
+            );
+            assert_eq!(d.phase(), &Phase::Established);
+            assert_eq!(d.cand_gen(), 0);
+        }
+    }
+
+    #[test]
+    fn a_corrupted_window_body_under_an_intact_hash_fails_the_open() {
+        let d = configured_driver(true, None, None, false);
+        let anchor = pack_anchor(&pack(20000, 1_000_000));
+        for k in [0, 10, 24] {
+            let mut records = window_records(&anchor);
+            let intact = records[k].hash;
+            let nonce = records[k].header.nonce() ^ 1;
+            records[k].header.set_nonce(nonce);
+            let err = read(established_at(&anchor, &d.llmq), records).unwrap_err();
+            assert!(
+                matches!(
+                    err,
+                    StoredAnchorError::Rehash { height, stored, .. }
+                        if height == 19976 + k as u32 && stored == intact
+                ),
+                "{err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_window_that_does_not_lead_to_the_anchor_fails_the_open() {
+        let d = configured_driver(true, None, None, false);
+        let anchor = pack_anchor(&pack(20000, 1_000_000));
+        let meta = established_at(&anchor, &d.llmq);
+        let other = window_records(&pack_anchor(&pack(20000, 1_000_001)));
+
+        let mut moved = meta;
+        moved.anchor.0 = other[24].hash;
+        let err = read(moved, window_records(&anchor)).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                StoredAnchorError::MissingAnchor {
+                    height: 20000,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+
+        let mut swapped = window_records(&anchor);
+        swapped[24] = other[24].clone();
+        swapped[24].hash = anchor_hash(&anchor);
+        let err = read(meta, swapped).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                StoredAnchorError::Rehash {
+                    height: 20000,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+
+        let mut moved = meta;
+        moved.anchor.1 = 20001;
+        let err = read(moved, window_records(&anchor)).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                StoredAnchorError::Broken {
+                    height: 20000
+                }
+            ),
+            "{err:?}"
+        );
+
+        let mut relinked = window_records(&anchor);
+        relinked[10] = other[10].clone();
+        relinked[10].hash = relinked[11].header.prev_hash();
+        let err = read(meta, relinked).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                StoredAnchorError::Rehash {
+                    height: 19986,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+
+        for gone in [0, 12, 22] {
+            let mut records = window_records(&anchor);
+            records.remove(gone);
+            let err = read(meta, records).unwrap_err();
+            assert!(
+                matches!(err, StoredAnchorError::Broken { height } if height == 19976 + gone as u32),
+                "{err:?}"
+            );
+        }
+        let err = read(meta, Vec::new()).unwrap_err();
+        assert!(matches!(err, StoredAnchorError::MissingAnchor { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn a_legacy_anchor_without_a_window_fails_the_open() {
+        let mut d = configured_driver(true, None, None, false);
+        let anchor = pack_anchor(&pack(25000, 1_500_000));
+        let stored = read(established_at(&anchor, &d.llmq), window_records(&anchor)[24..].to_vec());
+        let err = d.advance(Input::Opened(Some(stored.unwrap()))).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                SpvError::StoredAnchor(StoredAnchorError::LegacyAnchor {
+                    height: 25000
+                })
+            ),
+            "{err:?}"
+        );
+        assert!(err.to_string().contains("wipe the storage and resync"), "{err}");
+        assert_eq!(d.phase(), &Phase::Unopened);
     }
 }

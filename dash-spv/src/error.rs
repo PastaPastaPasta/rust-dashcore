@@ -27,6 +27,9 @@ pub enum SpvError {
 
     #[error("Quorum lookup error: {0}")]
     QuorumLookupError(String),
+
+    #[error("Stored anchor: {0}")]
+    StoredAnchor(#[from] crate::client::anchor::StoredAnchorError),
 }
 
 /// Logging-related errors.
