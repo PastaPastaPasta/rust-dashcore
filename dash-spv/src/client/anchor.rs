@@ -42,7 +42,8 @@ pub enum StoredAnchorError {
         height: u32,
     },
     /// The store holds no record of any kind below its Established anchor: it predates the
-    /// window. A window that lost rows is `Broken` or `Rehash`.
+    /// window, or lost every row of it. A window with rows left that lost or damaged some fails
+    /// as `Broken`, `Rehash` or `Storage`.
     #[error(
         "the stored Established anchor at height {height} has no anchor window: wipe the \
          storage and resync"
@@ -217,8 +218,8 @@ pub enum EstablishOutcome {
 }
 
 /// The host binds each `cand_gen` to one SB14b `ChainGen` (a `Reset`'s is the one its
-/// `replace()` returns) and stamps each header input at dequeue from that input's `ChainGen`.
-/// A header input whose `cand_gen` is not current is dropped.
+/// `replace()` returns), stamps each header input at dequeue from that input's `ChainGen`, and
+/// re-feeds the latest header state after every `cand_gen` change. Stale `cand_gen`s are dropped.
 #[derive(Clone, Debug)]
 pub enum Input {
     Opened(Option<StoredChain>),
@@ -252,8 +253,8 @@ pub enum Input {
         outcome: EstablishOutcome,
     },
     /// A replacement the driver did not request, already built, stamped `cand_gen`. The host
-    /// feeds it only when its `ChainGen` is newer than the current candidate's, after an
-    /// in-flight `Reset`'s `ChainGen`; the driver applies a newer `cand_gen` only, and adopts it.
+    /// feeds it only when its `ChainGen` is newer than the current candidate's, deciding once an
+    /// in-flight `Reset`'s `ChainGen` is known; the driver applies a newer `cand_gen` only.
     Replaced {
         anchor: Anchor,
         cand_gen: u64,
