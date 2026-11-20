@@ -1738,6 +1738,11 @@ mod tests {
         let mut d = establishing();
         d.advance(replaced(pack_anchor(&d.packs[0]), 2)).unwrap();
         d.advance(replaced(replacement.clone(), 3)).unwrap();
+        assert!(d.advance(replaced(pack_anchor(&d.packs[2]), 2)).unwrap().is_empty());
+        assert!(matches!(
+            d.phase(),
+            Phase::Establishing { replaced: Some(r), .. } if *r == replacement
+        ));
         d.advance(caught_up(9, 1, 3)).unwrap();
         d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
         assert_eq!(
