@@ -1,0 +1,26 @@
+diff --git a/node-fuzz/src/models/prodis_arith.rs b/node-fuzz/src/models/prodis_arith.rs
+index efdd46bdbd8d929358e6fc581479e6c2a4de331c..508221e6b93e846c4e9021ed79dc8fde9b77eff1 100644
+--- a/node-fuzz/src/models/prodis_arith.rs
++++ b/node-fuzz/src/models/prodis_arith.rs
+@@ -30,9 +30,10 @@ use dash_dml::specialtx::{check_pro_dis_tx_for_list, pro_rata_floor};
+ use dash_dml::testkit::{dmn_with, pro_tx};
+ use dash_dml::{Dmn, MnList, MnType};
+ use dash_num::Arith256;
++use dash_pkc::ecdsa::ECDSA_REC_SIG_LEN;
+ use dash_primitives::{
+-    BlockHash, COMPACT_SIG_LEN, CollateralShare, CompactSig, NetInfo, NetInfoV2, ProDisTx,
+-    Transaction, TxHash, TxIn, TxOut, TxType,
++    BlockHash, CollateralShare, DissolveSig, NetInfo, NetInfoV2, ProDisTx, Transaction, TxHash,
++    TxIn, TxOut, TxType,
+ };
+ use dash_types::codec::BaseCodec;
+ use node_l1::Divergence;
+@@ -204,7 +205,7 @@ impl Dissolution {
+                 script_pubkey: refund(i).into(),
+             })
+             .collect();
+-        let sig = CompactSig::decode(&mut &[0; COMPACT_SIG_LEN][..]).map_err(|_| Divergence {
++        let sig = DissolveSig::decode(&mut &[0; ECDSA_REC_SIG_LEN][..]).map_err(|_| Divergence {
+             field: "signature",
+         })?;
+         let p = ProDisTx {

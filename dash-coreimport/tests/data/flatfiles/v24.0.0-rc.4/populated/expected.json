@@ -1,0 +1,1449 @@
+{
+ "captured_node_index": 0,
+ "getblockcount": 179,
+ "getbestblockhash": "6cf02e9ff77aeec231a5704a4d84c4099436b41fc8837052c8fdb9d769049ac0",
+ "spork_show": {
+  "SPORK_2_INSTANTSEND_ENABLED": 4070908800,
+  "SPORK_17_QUORUM_DKG_ENABLED": 4070908801,
+  "SPORK_19_CHAINLOCKS_ENABLED": 19,
+  "SPORK_21_QUORUM_ALL_CONNECTED": 21,
+  "SPORK_23_QUORUM_POSE": 4070908802
+},
+ "spork_active": {
+  "SPORK_2_INSTANTSEND_ENABLED": false,
+  "SPORK_17_QUORUM_DKG_ENABLED": false,
+  "SPORK_19_CHAINLOCKS_ENABLED": true,
+  "SPORK_21_QUORUM_ALL_CONNECTED": true,
+  "SPORK_23_QUORUM_POSE": false
+},
+ "gobject_count": {
+  "objects_total": 5,
+  "proposals": 3,
+  "triggers": 2,
+  "other": 0,
+  "erased": 1,
+  "votes": 37
+},
+ "gobject_list_all": {
+  "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f": {
+    "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f32222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20322e322c20227061796d656e745f61646472657373223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+    "DataString": "{\"type\": 1, \"name\": \"Proposal_2\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 2.2, \"payment_address\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN\", \"url\": \"https://dash.org\"}",
+    "Hash": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f",
+    "CollateralHash": "c98211b9b9e0929980c9ddcc460ec05da8c5e776afec212e6188d1485ec68ca6",
+    "ObjectType": 1,
+    "CreationTime": 1417715827,
+    "fBlockchainValidity": true,
+    "IsValidReason": "",
+    "fCachedValid": true,
+    "fCachedFunding": true,
+    "fCachedDelete": false,
+    "fCachedEndorsed": false,
+    "AbsoluteYesCount": 12,
+    "YesCount": 12,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "b8ba1a3288879b99ce72dfd375b00d3a515824acc5d0ef777dbfef6706b6a621": {
+    "DataHex": "7b226576656e745f626c6f636b5f686569676874223a203138302c20227061796d656e745f616464726573736573223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e7c7957594b53384b7271505731356a70735a6b717643434441697a514b4a766d714561222c20227061796d656e745f616d6f756e7473223a2022322e32303030303030307c342e3430303030303030222c202270726f706f73616c5f686173686573223a2022626436353538616436393039336637633561353661616336623630663038623638316139346432633033383330646265376338643562393132346438393930667c62633065363739646139656537346530646262333264313139373662323935623732636163393562306239303462323939313138386339383864393939366139222c202274797065223a327d",
+    "DataString": "{\"event_block_height\": 180, \"payment_addresses\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN|yWYKS8KrqPW15jpsZkqvCCDAizQKJvmqEa\", \"payment_amounts\": \"2.20000000|4.40000000\", \"proposal_hashes\": \"bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f|bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9\", \"type\":2}",
+    "Hash": "b8ba1a3288879b99ce72dfd375b00d3a515824acc5d0ef777dbfef6706b6a621",
+    "CollateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ObjectType": 2,
+    "CreationTime": 1417715923,
+    "SigningMasternode": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2",
+    "fBlockchainValidity": true,
+    "IsValidReason": "",
+    "fCachedValid": true,
+    "fCachedFunding": true,
+    "fCachedDelete": false,
+    "fCachedEndorsed": false,
+    "AbsoluteYesCount": 10,
+    "YesCount": 11,
+    "NoCount": 1,
+    "AbstainCount": 0
+  },
+  "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124": {
+    "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f30222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20312e312c20227061796d656e745f61646472657373223a2022796668644e483748474c7650696851444670556350774731624c455555334b686f73222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+    "DataString": "{\"type\": 1, \"name\": \"Proposal_0\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 1.1, \"payment_address\": \"yfhdNH7HGLvPihQDFpUcPwG1bLEUU3Khos\", \"url\": \"https://dash.org\"}",
+    "Hash": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124",
+    "CollateralHash": "b2a45821c75df5217a4575ca6c32b15027f4a2a07e5ffb81538411e3ef8666c9",
+    "ObjectType": 1,
+    "CreationTime": 1417715827,
+    "fBlockchainValidity": true,
+    "IsValidReason": "",
+    "fCachedValid": true,
+    "fCachedFunding": false,
+    "fCachedDelete": false,
+    "fCachedEndorsed": true,
+    "AbsoluteYesCount": 0,
+    "YesCount": 4,
+    "NoCount": 4,
+    "AbstainCount": 4
+  },
+  "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47": {
+    "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f31222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20332e332c20227061796d656e745f61646472657373223a2022794c656f77546d544a4268477250565041584b3759585a514e423872663372523350222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+    "DataString": "{\"type\": 1, \"name\": \"Proposal_1\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 3.3, \"payment_address\": \"yLeowTmTJBhGrPVPAXK7YXZQNB8rf3rR3P\", \"url\": \"https://dash.org\"}",
+    "Hash": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47",
+    "CollateralHash": "c26bc1c0459b17beb51c71179f7027e67284844e709c8549871b72a57edf9244",
+    "ObjectType": 1,
+    "CreationTime": 1417715827,
+    "fBlockchainValidity": true,
+    "IsValidReason": "",
+    "fCachedValid": false,
+    "fCachedFunding": false,
+    "fCachedDelete": false,
+    "fCachedEndorsed": false,
+    "AbsoluteYesCount": -1,
+    "YesCount": 5,
+    "NoCount": 6,
+    "AbstainCount": 1
+  },
+  "f3dce3f459039f243f4927cc49ee99a32f97fc68515e49bb17c082c84b96fd4d": {
+    "DataHex": "7b226576656e745f626c6f636b5f686569676874223a203138302c20227061796d656e745f616464726573736573223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e7c7957594b53384b7271505731356a70735a6b717643434441697a514b4a766d714561222c20227061796d656e745f616d6f756e7473223a2022322e32303030303030307c342e3430303030303030222c202270726f706f73616c5f686173686573223a2022626436353538616436393039336637633561353661616336623630663038623638316139346432633033383330646265376338643562393132346438393930667c62633065363739646139656537346530646262333264313139373662323935623732636163393562306239303462323939313138386339383864393939366139222c202274797065223a327d",
+    "DataString": "{\"event_block_height\": 180, \"payment_addresses\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN|yWYKS8KrqPW15jpsZkqvCCDAizQKJvmqEa\", \"payment_amounts\": \"2.20000000|4.40000000\", \"proposal_hashes\": \"bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f|bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9\", \"type\":2}",
+    "Hash": "f3dce3f459039f243f4927cc49ee99a32f97fc68515e49bb17c082c84b96fd4d",
+    "CollateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ObjectType": 2,
+    "CreationTime": 1417716013,
+    "SigningMasternode": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1",
+    "fBlockchainValidity": true,
+    "IsValidReason": "",
+    "fCachedValid": true,
+    "fCachedFunding": false,
+    "fCachedDelete": false,
+    "fCachedEndorsed": false,
+    "AbsoluteYesCount": -10,
+    "YesCount": 1,
+    "NoCount": 11,
+    "AbstainCount": 0
+  }
+},
+ "gobject_list_prepared": [
+  {
+    "objectHash": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124",
+    "parentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "collateralHash": "b2a45821c75df5217a4575ca6c32b15027f4a2a07e5ffb81538411e3ef8666c9",
+    "createdAt": 1417715827,
+    "revision": 1,
+    "data": {
+      "type": 1,
+      "name": "Proposal_0",
+      "start_epoch": 1417715827,
+      "end_epoch": 1417802227,
+      "payment_amount": 1.1,
+      "payment_address": "yfhdNH7HGLvPihQDFpUcPwG1bLEUU3Khos",
+      "url": "https://dash.org",
+      "hex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f30222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20312e312c20227061796d656e745f61646472657373223a2022796668644e483748474c7650696851444670556350774731624c455555334b686f73222c202275726c223a202268747470733a2f2f646173682e6f7267227d"
+    }
+  },
+  {
+    "objectHash": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47",
+    "parentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "collateralHash": "c26bc1c0459b17beb51c71179f7027e67284844e709c8549871b72a57edf9244",
+    "createdAt": 1417715827,
+    "revision": 1,
+    "data": {
+      "type": 1,
+      "name": "Proposal_1",
+      "start_epoch": 1417715827,
+      "end_epoch": 1417802227,
+      "payment_amount": 3.3,
+      "payment_address": "yLeowTmTJBhGrPVPAXK7YXZQNB8rf3rR3P",
+      "url": "https://dash.org",
+      "hex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f31222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20332e332c20227061796d656e745f61646472657373223a2022794c656f77546d544a4268477250565041584b3759585a514e423872663372523350222c202275726c223a202268747470733a2f2f646173682e6f7267227d"
+    }
+  },
+  {
+    "objectHash": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f",
+    "parentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "collateralHash": "c98211b9b9e0929980c9ddcc460ec05da8c5e776afec212e6188d1485ec68ca6",
+    "createdAt": 1417715827,
+    "revision": 1,
+    "data": {
+      "type": 1,
+      "name": "Proposal_2",
+      "start_epoch": 1417715827,
+      "end_epoch": 1417802227,
+      "payment_amount": 2.2,
+      "payment_address": "yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN",
+      "url": "https://dash.org",
+      "hex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f32222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20322e322c20227061796d656e745f61646472657373223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e222c202275726c223a202268747470733a2f2f646173682e6f7267227d"
+    }
+  },
+  {
+    "objectHash": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9",
+    "parentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "collateralHash": "88a8467fb3dd8d80ea40f00caf5067f217ea183aa7c033edc373bce2913217f2",
+    "createdAt": 1417715827,
+    "revision": 1,
+    "data": {
+      "type": 1,
+      "name": "Proposal_3",
+      "start_epoch": 1417715827,
+      "end_epoch": 1417802227,
+      "payment_amount": 4.4,
+      "payment_address": "yWYKS8KrqPW15jpsZkqvCCDAizQKJvmqEa",
+      "url": "https://dash.org",
+      "hex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f33222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20342e342c20227061796d656e745f61646472657373223a20227957594b53384b7271505731356a70735a6b717643434441697a514b4a766d714561222c202275726c223a202268747470733a2f2f646173682e6f7267227d"
+    }
+  }
+],
+ "masternodelist": {
+  "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1": {
+    "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19549"
+      ]
+    },
+    "payee": "yj3pFJwwC6MVMuoWxUWEAwVpyecy2Sxtnk",
+    "status": "ENABLED",
+    "type": "Regular",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716283,
+    "lastpaidblock": 175,
+    "owneraddress": "ySAEWV729ppjo9jYQiztmBdkN2SxJBZbUF",
+    "votingaddress": "yU7Qa3ZYvNr1BtRSHYWCJn87VdPJcXYTW1",
+    "collateraladdress": "yeCgMixvHtzFoas7JNvYy3sjqhqUsfLKHE",
+    "pubkeyoperator": "94ccf6e95277bd6c32a1e2b55154f5351a28df9fa0b1e0eed620e1438b404ee795e722435e86b2bd22e7a3993b424dc4"
+  },
+  "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1": {
+    "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19551"
+      ]
+    },
+    "payee": "yjPS44RyPTBCsDqMpAEcj8G4VcN626SJyn",
+    "status": "ENABLED",
+    "type": "Regular",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716463,
+    "lastpaidblock": 177,
+    "owneraddress": "yUGfce6k83pFszstpYcNQoqLwFpa5XsnoJ",
+    "votingaddress": "yZ1nrff6BzJKsmcxkYAPsVuE49xGWcR7NJ",
+    "collateraladdress": "yLsXKan5sGctsTZNjuefdCKK4PUpCJAUnz",
+    "pubkeyoperator": "82ecb8561b9832ef03ef926ee9a557019485bc04746f1db2b1361b8259f3aabdbb7403ae7b6173fbff322811825ca51f"
+  },
+  "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2": {
+    "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19554"
+      ],
+      "platform_https": [
+        "127.0.0.1:19656"
+      ],
+      "platform_p2p": [
+        "127.0.0.1:19655"
+      ]
+    },
+    "payee": "yNUjGjBQBVgEttYhuj13tFYxme1ERtBpJu",
+    "status": "ENABLED",
+    "type": "Evo",
+    "platformNodeID": "401225887c1f4a2a684037e566f13b742e9580c2",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716193,
+    "lastpaidblock": 174,
+    "owneraddress": "yYAs8CBknHaEU2XEnZ52obbVqsh8aqFiU2",
+    "votingaddress": "yTU1rL4FEmB614MP1rjLjiAYhunPAQ7jbw",
+    "collateraladdress": "yinU7GiqPTZfnJLDzfyV1BUPnxKPdhGN8f",
+    "pubkeyoperator": "a915f740350998295fb10a0659395fea661214323c96307d10d3655a7568a26cfe78ad9098faf31f6883d759fea2394d"
+  },
+  "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1": {
+    "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19552"
+      ]
+    },
+    "payee": "yRkDQmSvJQGqLScCRTCbKPsdLBaXW7Kjot",
+    "status": "ENABLED",
+    "type": "Regular",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716373,
+    "lastpaidblock": 176,
+    "owneraddress": "yi1omaC1hWSagBNGQksxLYR9E78xxcrdnW",
+    "votingaddress": "yZomo1HxnmDpRgeSk1jW8YBuyrcRvkPxsH",
+    "collateraladdress": "yZuAyaKoH4nitX5XxJkw5bp1CWKPm9jcKq",
+    "pubkeyoperator": "ad3374b1860105d4f1021ccdb0db951d8e3f0287b6c9aaa82a333c6db91c06b786540145825068150bfdc8853a1009c3"
+  },
+  "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1": {
+    "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19550"
+      ]
+    },
+    "payee": "yMwchK2REucXxwN48ZSBe2xaiQdGnCWae6",
+    "status": "ENABLED",
+    "type": "Regular",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716554,
+    "lastpaidblock": 179,
+    "owneraddress": "yZnFTqxRmZkCLFR1k4jpLYCWT2XxCZo6va",
+    "votingaddress": "yMncgGMXPFbNnnovN952jBbmf9d5a9o9zn",
+    "collateraladdress": "ycBvv1x19uKWDJ6hr7rSBnaTynQpw9HgQy",
+    "pubkeyoperator": "9985db529b644fa8e8be732a4af410f6d3ac14d117dad581986043289e37028dac35ed4c5c69aca72f649ef625147536"
+  },
+  "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2": {
+    "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f",
+    "addresses": {
+      "core_p2p": [
+        "127.0.0.1:19553"
+      ],
+      "platform_https": [
+        "127.0.0.1:19655"
+      ],
+      "platform_p2p": [
+        "127.0.0.1:19654"
+      ]
+    },
+    "payee": "yVZbFzavhYEG7CK8UaLcF2g5ytF697twBt",
+    "status": "ENABLED",
+    "type": "Evo",
+    "platformNodeID": "e1eef78d2126e8a7173bac24a8946a3df5b11d48",
+    "pospenaltyscore": 0,
+    "consecutivePayments": 0,
+    "lastpaidtime": 1417716553,
+    "lastpaidblock": 178,
+    "owneraddress": "yjLAtfxsmEXrFe2m6Zs87KAMGmfxcUmwHA",
+    "votingaddress": "yfAqskJumygNmbEYT68EJD6ZR425jL4Gm9",
+    "collateraladdress": "yV4WyLVWJwEKVKE6pWMiRaLStz7NG3GU73",
+    "pubkeyoperator": "900ed37890cc2bf424768469a7f2a5231d68da78713bf9127a5c5263e6b71dcc30a4e942655ffdff6c783eb0ec4484ab"
+  }
+},
+ "masternodelist_status": {
+  "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1": "ENABLED",
+  "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1": "ENABLED",
+  "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2": "ENABLED",
+  "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1": "ENABLED",
+  "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1": "ENABLED",
+  "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2": "ENABLED"
+},
+ "protx_list_valid": [
+  "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603",
+  "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6",
+  "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67",
+  "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e",
+  "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558",
+  "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f"
+],
+ "protx_list_valid_detailed": [
+  {
+    "type": "Regular",
+    "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603",
+    "collateralHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603",
+    "collateralIndex": 1,
+    "collateralAddress": "yeCgMixvHtzFoas7JNvYy3sjqhqUsfLKHE",
+    "operatorReward": 0,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19549"
+        ]
+      },
+      "registeredHeight": 132,
+      "lastPaidHeight": 175,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "ySAEWV729ppjo9jYQiztmBdkN2SxJBZbUF",
+      "votingAddress": "yU7Qa3ZYvNr1BtRSHYWCJn87VdPJcXYTW1",
+      "payoutAddress": "yj3pFJwwC6MVMuoWxUWEAwVpyecy2Sxtnk",
+      "pubKeyOperator": "94ccf6e95277bd6c32a1e2b55154f5351a28df9fa0b1e0eed620e1438b404ee795e722435e86b2bd22e7a3993b424dc4"
+    },
+    "confirmations": 48,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": false
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  {
+    "type": "Regular",
+    "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6",
+    "collateralHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6",
+    "collateralIndex": 1,
+    "collateralAddress": "yLsXKan5sGctsTZNjuefdCKK4PUpCJAUnz",
+    "operatorReward": 2,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19551"
+        ]
+      },
+      "registeredHeight": 134,
+      "lastPaidHeight": 177,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "yUGfce6k83pFszstpYcNQoqLwFpa5XsnoJ",
+      "votingAddress": "yZ1nrff6BzJKsmcxkYAPsVuE49xGWcR7NJ",
+      "payoutAddress": "yjPS44RyPTBCsDqMpAEcj8G4VcN626SJyn",
+      "pubKeyOperator": "82ecb8561b9832ef03ef926ee9a557019485bc04746f1db2b1361b8259f3aabdbb7403ae7b6173fbff322811825ca51f",
+      "operatorPayoutAddress": "yfEBoc8UFbK2vCEAgTbiiNpFG5uK6JfSEM"
+    },
+    "confirmations": 46,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": true
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  {
+    "type": "Evo",
+    "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67",
+    "collateralHash": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1",
+    "collateralIndex": 2,
+    "collateralAddress": "yinU7GiqPTZfnJLDzfyV1BUPnxKPdhGN8f",
+    "operatorReward": 6,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19554"
+        ],
+        "platform_https": [
+          "127.0.0.1:19656"
+        ],
+        "platform_p2p": [
+          "127.0.0.1:19655"
+        ]
+      },
+      "registeredHeight": 156,
+      "lastPaidHeight": 174,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "yYAs8CBknHaEU2XEnZ52obbVqsh8aqFiU2",
+      "votingAddress": "yTU1rL4FEmB614MP1rjLjiAYhunPAQ7jbw",
+      "platformNodeID": "401225887c1f4a2a684037e566f13b742e9580c2",
+      "payoutAddress": "yNUjGjBQBVgEttYhuj13tFYxme1ERtBpJu",
+      "pubKeyOperator": "a915f740350998295fb10a0659395fea661214323c96307d10d3655a7568a26cfe78ad9098faf31f6883d759fea2394d"
+    },
+    "confirmations": 25,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": false
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  {
+    "type": "Regular",
+    "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e",
+    "collateralHash": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb",
+    "collateralIndex": 1,
+    "collateralAddress": "yZuAyaKoH4nitX5XxJkw5bp1CWKPm9jcKq",
+    "operatorReward": 3,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19552"
+        ]
+      },
+      "registeredHeight": 136,
+      "lastPaidHeight": 176,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "yi1omaC1hWSagBNGQksxLYR9E78xxcrdnW",
+      "votingAddress": "yZomo1HxnmDpRgeSk1jW8YBuyrcRvkPxsH",
+      "payoutAddress": "yRkDQmSvJQGqLScCRTCbKPsdLBaXW7Kjot",
+      "pubKeyOperator": "ad3374b1860105d4f1021ccdb0db951d8e3f0287b6c9aaa82a333c6db91c06b786540145825068150bfdc8853a1009c3",
+      "operatorPayoutAddress": "ydDaXzFM9bbNMEeT8FrEZbKN6LT5kQeHGa"
+    },
+    "confirmations": 45,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": true
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  {
+    "type": "Regular",
+    "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558",
+    "collateralHash": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14",
+    "collateralIndex": 1,
+    "collateralAddress": "ycBvv1x19uKWDJ6hr7rSBnaTynQpw9HgQy",
+    "operatorReward": 1,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19550"
+        ]
+      },
+      "registeredHeight": 133,
+      "lastPaidHeight": 179,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "yZnFTqxRmZkCLFR1k4jpLYCWT2XxCZo6va",
+      "votingAddress": "yMncgGMXPFbNnnovN952jBbmf9d5a9o9zn",
+      "payoutAddress": "yMwchK2REucXxwN48ZSBe2xaiQdGnCWae6",
+      "pubKeyOperator": "9985db529b644fa8e8be732a4af410f6d3ac14d117dad581986043289e37028dac35ed4c5c69aca72f649ef625147536",
+      "operatorPayoutAddress": "yQcEP7xRgba2cXnu3HD3xkTB2HnL8osNr5"
+    },
+    "confirmations": 48,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": true
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  {
+    "type": "Evo",
+    "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f",
+    "collateralHash": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d",
+    "collateralIndex": 2,
+    "collateralAddress": "yV4WyLVWJwEKVKE6pWMiRaLStz7NG3GU73",
+    "operatorReward": 5,
+    "state": {
+      "version": 2,
+      "addresses": {
+        "core_p2p": [
+          "127.0.0.1:19553"
+        ],
+        "platform_https": [
+          "127.0.0.1:19655"
+        ],
+        "platform_p2p": [
+          "127.0.0.1:19654"
+        ]
+      },
+      "registeredHeight": 146,
+      "lastPaidHeight": 178,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": -1,
+      "revocationReason": 0,
+      "ownerAddress": "yjLAtfxsmEXrFe2m6Zs87KAMGmfxcUmwHA",
+      "votingAddress": "yfAqskJumygNmbEYT68EJD6ZR425jL4Gm9",
+      "platformNodeID": "e1eef78d2126e8a7173bac24a8946a3df5b11d48",
+      "payoutAddress": "yVZbFzavhYEG7CK8UaLcF2g5ytF697twBt",
+      "pubKeyOperator": "900ed37890cc2bf424768469a7f2a5231d68da78713bf9127a5c5263e6b71dcc30a4e942655ffdff6c783eb0ec4484ab"
+    },
+    "confirmations": 35,
+    "wallet": {
+      "hasOwnerKey": true,
+      "hasOperatorKey": false,
+      "hasVotingKey": true,
+      "ownsCollateral": true,
+      "ownsPayeeScript": true,
+      "ownsOperatorRewardScript": false
+    },
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1417716890,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1417716890,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  }
+],
+ "masternode_count": {
+  "total": 6,
+  "enabled": 6,
+  "detailed": {
+    "regular": {
+      "total": 4,
+      "enabled": 4
+    },
+    "evo": {
+      "total": 2,
+      "enabled": 2
+    }
+  }
+},
+ "getgovernanceinfo": {
+  "governanceminquorum": 1,
+  "proposalfee": 1.00000000,
+  "superblockcycle": 20,
+  "superblockmaturitywindow": 10,
+  "lastsuperblock": 160,
+  "nextsuperblock": 180,
+  "fundingthreshold": 1,
+  "governancebudget": 18.57142860
+},
+ "mnsync_status": {
+  "AssetID": 999,
+  "AssetName": "MASTERNODE_SYNC_FINISHED",
+  "AssetStartTime": 1417716890,
+  "Attempt": 0,
+  "IsBlockchainSynced": true,
+  "IsSynced": true
+},
+ "getpeerinfo_addr": [
+  {
+    "id": 0,
+    "addr": "127.0.0.1:47124",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603",
+    "verified_pubkey_hash": "3ee50f06cb91a3fd4db094ba1e256f1d37eff675c28d1eceee03c8c70097b88e",
+    "lastsend": 1417716860,
+    "lastrecv": 1417716860,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 62433,
+    "bytesrecv": 7989,
+    "conntime": 1417713351,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode1)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 136,
+    "synced_headers": 136,
+    "synced_blocks": 136,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 13556,
+      "blocktxn": 10913,
+      "cmpctblock": 15703,
+      "getdata": 122,
+      "getheaders2": 637,
+      "govobj": 2470,
+      "govobjvote": 8195,
+      "govsync": 1536,
+      "headers2": 887,
+      "inv": 2560,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "tx": 3950,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 602,
+      "getdata": 3267,
+      "getheaders2": 637,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 122,
+      "mnauth": 152,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 224,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  },
+  {
+    "id": 1,
+    "addr": "127.0.0.1:47130",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558",
+    "verified_pubkey_hash": "52c774d7c69c0eaadf9799fcaa45ff0fdfb7a235bb17a23bdd62a5a516e152ef",
+    "lastsend": 1417716866,
+    "lastrecv": 1417716866,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 62195,
+    "bytesrecv": 8531,
+    "conntime": 1417713351,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode2)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 136,
+    "synced_headers": 136,
+    "synced_blocks": 136,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 15291,
+      "blocktxn": 9532,
+      "cmpctblock": 15703,
+      "getdata": 158,
+      "getheaders2": 637,
+      "govobj": 1903,
+      "govobjvote": 8195,
+      "govsync": 1536,
+      "headers2": 887,
+      "inv": 2499,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "tx": 3950,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 541,
+      "getdata": 3267,
+      "getheaders2": 637,
+      "govobj": 567,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 158,
+      "mnauth": 152,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 224,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  },
+  {
+    "id": 2,
+    "addr": "127.0.0.1:47144",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6",
+    "verified_pubkey_hash": "8ce6ed08df426b9dd9367d8c6d80efa4b5ecfaf392c8b68623fb05fd2395a9d9",
+    "lastsend": 1417716872,
+    "lastrecv": 1417716872,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 64499,
+    "bytesrecv": 8233,
+    "conntime": 1417713351,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode3)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 136,
+    "synced_headers": 136,
+    "synced_blocks": 136,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 17003,
+      "blocktxn": 9532,
+      "cmpctblock": 15703,
+      "getdata": 122,
+      "getheaders2": 637,
+      "govobj": 2470,
+      "govobjvote": 8195,
+      "govsync": 1536,
+      "headers2": 887,
+      "inv": 2560,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "tx": 3950,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 541,
+      "getdata": 3572,
+      "getheaders2": 637,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 122,
+      "mnauth": 152,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 224,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  },
+  {
+    "id": 3,
+    "addr": "127.0.0.1:47152",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e",
+    "verified_pubkey_hash": "e7948aef6662b5e16f897f0c8e8ad09e14d32aeb0c1143b41d87281a4033f6bd",
+    "lastsend": 1417716878,
+    "lastrecv": 1417716878,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 64155,
+    "bytesrecv": 8197,
+    "conntime": 1417713351,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode4)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 136,
+    "synced_headers": 136,
+    "synced_blocks": 136,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 16592,
+      "blocktxn": 9532,
+      "cmpctblock": 15703,
+      "getdata": 122,
+      "getheaders2": 637,
+      "govobj": 2470,
+      "govobjvote": 8195,
+      "govsync": 1536,
+      "headers2": 954,
+      "inv": 2560,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "tx": 3950,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 541,
+      "getdata": 3536,
+      "getheaders2": 637,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 122,
+      "mnauth": 152,
+      "ping": 320,
+      "pong": 320,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 224,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  },
+  {
+    "id": 4,
+    "addr": "127.0.0.1:47798",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f",
+    "verified_pubkey_hash": "6300a35e1780dd7fb35f668977318af141b7671c7d92a8ef5975f2a747ac9063",
+    "lastsend": 1417716884,
+    "lastrecv": 1417716884,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 53213,
+    "bytesrecv": 8523,
+    "conntime": 1417714581,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode5)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 146,
+    "synced_headers": 146,
+    "synced_blocks": 146,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 12842,
+      "blocktxn": 8815,
+      "cmpctblock": 12119,
+      "getdata": 158,
+      "getheaders2": 669,
+      "govobj": 1903,
+      "govobjvote": 8195,
+      "govsync": 1536,
+      "headers2": 848,
+      "inv": 2377,
+      "ping": 256,
+      "pong": 256,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "tx": 1975,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 482,
+      "getdata": 3414,
+      "getheaders2": 669,
+      "govobj": 567,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 158,
+      "mnauth": 152,
+      "ping": 256,
+      "pong": 256,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 224,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  },
+  {
+    "id": 5,
+    "addr": "127.0.0.1:36224",
+    "addrbind": "127.0.0.1:19548",
+    "network": "not_publicly_routable",
+    "services": "0000000000000c45",
+    "servicesnames": [
+      "NETWORK",
+      "BLOOM",
+      "COMPACT_FILTERS",
+      "NETWORK_LIMITED",
+      "HEADERS_COMPRESSED"
+    ],
+    "relaytxes": true,
+    "verified_proregtx_hash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67",
+    "verified_pubkey_hash": "7c8c7f4cbeeb2130e8a38ddef8dd627bd0537ba56e1ff54c94991c2252177340",
+    "lastsend": 1417716854,
+    "lastrecv": 1417716854,
+    "last_transaction": 0,
+    "last_block": 0,
+    "bytessent": 39548,
+    "bytesrecv": 6772,
+    "conntime": 1417715803,
+    "timeoffset": 0,
+    "minping": 0,
+    "version": 70242,
+    "subver": "/Dash Core:24.0.0(testnode6)/",
+    "inbound": true,
+    "bip152_hb_to": false,
+    "bip152_hb_from": true,
+    "masternode": false,
+    "startingheight": 156,
+    "synced_headers": 156,
+    "synced_blocks": 156,
+    "inflight": [
+    ],
+    "addr_relay_enabled": true,
+    "addr_processed": 0,
+    "addr_rate_limited": 0,
+    "permissions": [
+    ],
+    "bytessent_per_msg": {
+      "block": 12696,
+      "blocktxn": 2574,
+      "cmpctblock": 6635,
+      "getdata": 122,
+      "getheaders2": 669,
+      "govobj": 2470,
+      "govobjvote": 8195,
+      "govsync": 1470,
+      "headers2": 753,
+      "inv": 2316,
+      "ping": 192,
+      "pong": 192,
+      "sendaddrv2": 24,
+      "sendcmpct": 33,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "spork": 770,
+      "ssc": 192,
+      "verack": 24,
+      "version": 172
+    },
+    "bytesrecv_per_msg": {
+      "getaddr": 24,
+      "getblocktxn": 179,
+      "getdata": 2729,
+      "getheaders2": 669,
+      "govobjvote": 410,
+      "govsync": 1470,
+      "headers2": 106,
+      "inv": 122,
+      "mnauth": 152,
+      "ping": 192,
+      "pong": 192,
+      "sendaddrv2": 24,
+      "sendcmpct": 66,
+      "senddsq": 25,
+      "sendheaders2": 24,
+      "ssc": 192,
+      "verack": 24,
+      "version": 172
+    },
+    "connection_type": "inbound",
+    "transport_protocol_type": "v1",
+    "session_id": ""
+  }
+],
+ "gobject_getcurrentvotes": {
+  "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f": {
+  "d77b03544eb460d8056ffa98afe02207d558e4b8e4db4988e6517c7d6b3eba32": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:yes:funding:1",
+  "2ce3d3a21e2f83728667abe8ffa72b0507e406408baa836e977c5220f1f8223d": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:yes:valid:1",
+  "4f182e40c0b95cdfca54fd2cf0391c8b9596f9a05c72cf3472174992a1ad6c4e": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417715833:yes:funding:1",
+  "930991f7d9bbecd35726b73bbbd1a41a1186fa8dc654e52bc71f43ecc94bcdd5": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417715833:yes:valid:1",
+  "5a99ef04b05a54f5b5e5df962d78efd75e753bf48327e7db628df4a567193718": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2:1417715833:yes:funding:4",
+  "dc7e3614a10f59d7339386cfc5fcc2bafd4dd4d97ce90521be53c9728ec3cf3e": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417715833:yes:funding:1",
+  "24441d27ba4042fd593599f4dfe94bcb31f08a3138dfd9cde55183f0079ebe3a": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2:1417715833:yes:funding:4",
+  "f61cde2ab9326a9ebe8f70882c9340833d9152bdba86128b049946cf61a1f580": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1:1417715833:yes:funding:1"
+},
+  "b8ba1a3288879b99ce72dfd375b00d3a515824acc5d0ef777dbfef6706b6a621": {
+  "0f8373ddb82e16b46807bb71753c3e8c38376a14b5c6a2bd609491f59f672217": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417716103:yes:funding:1",
+  "4b2627c7a6a798b8f6c092fa78a060d67bbb95dccbe7766faa94027c1d20431c": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417716103:no:funding:1",
+  "84911242a7c2758ac34d3ff3c00d661d8c80253526d16a9da0c7e97d5de39c91": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2:1417715923:yes:funding:4",
+  "b4f6591a7b78503579c7b8485b2cb002b45288028441065afd6b5d5c45001ab7": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417716103:yes:funding:1",
+  "68c229ba815c4eebc91d92f6c235248ec9a0889cd73669aa2953e9c995563882": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2:1417716103:yes:funding:4",
+  "184a37c882da82ec496f778d7a1a1ef0f9e201ac5e5f79303d09aee12c56be7a": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1:1417716103:yes:funding:1"
+},
+  "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124": {
+  "43c0e013322de92f4fa5b821e55b778dd91034040b294f56d2e685414c1260ed": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:yes:funding:1",
+  "f2d0c0329fdd5f1d9143cdc5f6295ced68c5594140612051acc87fe7e5162ca2": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:yes:valid:1",
+  "8f8104d96324b7e509a679df374e8980c03e21634990a0d01f46eb1cc60d6bd6": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:yes:endorsed:1",
+  "405f940f348ee695dcadc598bee2e6db6f4b73eca77a0722a5ae140136574509": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417715833:yes:funding:1",
+  "93c3a9f8fcb4357d3a2831cd61ce40789331d99bd70214121312f3adad99d6f4": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417715833:yes:valid:1",
+  "8df5b24f089c53b03e1e6eeec82e2fbc5cf6e8caeb0aff8c94d02d0fa060f027": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2:1417715833:no:funding:4",
+  "c622e0e758f30255765794b6cf496f5b63b39fa781b8236ae8e8e793f26b4a16": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417715833:yes:funding:1",
+  "7feb59cfbc230e894ca667d61ca3a57ca7ae4365177ba57b6482e3f600a9caa1": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417715833:yes:valid:1",
+  "9d429108090dd047e97553312b342889634dbbae76bb90891b681c89835a72de": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2:1417715833:abstain:funding:4",
+  "1b1f0c41cae09274915cea71b2c8c1e5a4ed6bb0ab1dacaf77fa23d8e84788b4": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1:1417715833:yes:funding:1"
+},
+  "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47": {
+  "a4cc86f17e043474f5b5ba81baa2fe3a370858eadcb1aaf74973c9ef2c2f46f3": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:no:funding:1",
+  "553d76eb42712b3293df16cf2d088132771530f8ae18835291d7c3eb26a162f5": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417715833:no:valid:1",
+  "a5ff4401bc32cbc079145b4a093be609f7450cc1bda857afc685a7b79006495b": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417715833:no:funding:1",
+  "53d96855d145c355ad11e68e00d94ee3d009b9aa34cc2bc9bf5886035b319b89": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2:1417715833:yes:funding:4",
+  "ab42572263793de94ddb91795d2757b6f0b45e7d717af1a07791d3f5183c6744": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417715833:yes:funding:1",
+  "8c6a439ce6b4b2e720ecbf161d30e0f4d5aead47f9daac5ff2cf0d5359680ee7": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2:1417715833:no:funding:4",
+  "177d7d964e1b6b8bf02e1e99ba0ed4278a7a642c3fe2f6284b47aeca3953b408": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1:1417715833:abstain:funding:1"
+},
+  "f3dce3f459039f243f4927cc49ee99a32f97fc68515e49bb17c082c84b96fd4d": {
+  "c7c1e8ad3332c14458c4d4c49c06e735ed2d4456d34e71ecc74bf222df4ef9b4": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603-1:1417716193:no:funding:1",
+  "0e1f35d64e70dd78aac01e08d268568f86c85ce5216220029777675943041538": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1:1417716013:yes:funding:1",
+  "9f0dccf82119c87459da2049928c4d0fa3e612344638e84fab869ab64dc34acc": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2:1417716193:no:funding:4",
+  "09e573a4521c57d27b7c855cfd7092ce00d9d7987c0fe62be3dd0140912aefd8": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6-1:1417716193:no:funding:1",
+  "f86325ab6021f50893f07439bacfa26f6fb1e75141f0566a9930e987d60a7ecf": "3ceee96f20af8691db8e0a43195b24dccdc214853a2564ba099ede427e3c6cc1-2:1417716193:no:funding:4",
+  "1f2c0d5f153ff5cd83e51bed7957155a109b1e4e45b89728c322df07c7aea8d9": "e9702e4028596646b12f216293f34b6bc24be465321bf158d54a6c5fbe5263eb-1:1417716193:no:funding:1"
+}
+ },
+ "gobject_get": {
+  "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f": {
+  "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f32222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20322e322c20227061796d656e745f61646472657373223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+  "DataString": "{\"type\": 1, \"name\": \"Proposal_2\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 2.2, \"payment_address\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN\", \"url\": \"https://dash.org\"}",
+  "Hash": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f",
+  "CollateralHash": "c98211b9b9e0929980c9ddcc460ec05da8c5e776afec212e6188d1485ec68ca6",
+  "ObjectType": 1,
+  "CreationTime": 1417715827,
+  "fLocalValidity": true,
+  "IsValidReason": "",
+  "fCachedValid": true,
+  "fCachedFunding": true,
+  "fCachedDelete": false,
+  "fCachedEndorsed": false,
+  "FundingResult": {
+    "AbsoluteYesCount": 12,
+    "YesCount": 12,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "ValidResult": {
+    "AbsoluteYesCount": 2,
+    "YesCount": 2,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "DeleteResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "EndorsedResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  }
+},
+  "b8ba1a3288879b99ce72dfd375b00d3a515824acc5d0ef777dbfef6706b6a621": {
+  "DataHex": "7b226576656e745f626c6f636b5f686569676874223a203138302c20227061796d656e745f616464726573736573223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e7c7957594b53384b7271505731356a70735a6b717643434441697a514b4a766d714561222c20227061796d656e745f616d6f756e7473223a2022322e32303030303030307c342e3430303030303030222c202270726f706f73616c5f686173686573223a2022626436353538616436393039336637633561353661616336623630663038623638316139346432633033383330646265376338643562393132346438393930667c62633065363739646139656537346530646262333264313139373662323935623732636163393562306239303462323939313138386339383864393939366139222c202274797065223a327d",
+  "DataString": "{\"event_block_height\": 180, \"payment_addresses\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN|yWYKS8KrqPW15jpsZkqvCCDAizQKJvmqEa\", \"payment_amounts\": \"2.20000000|4.40000000\", \"proposal_hashes\": \"bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f|bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9\", \"type\":2}",
+  "Hash": "b8ba1a3288879b99ce72dfd375b00d3a515824acc5d0ef777dbfef6706b6a621",
+  "CollateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "ObjectType": 2,
+  "CreationTime": 1417715923,
+  "SigningMasternode": "0348110a429ef4d4e1247787d869efb68d81a907bb171bafdaa32e396fd4ba8d-2",
+  "fLocalValidity": true,
+  "IsValidReason": "",
+  "fCachedValid": true,
+  "fCachedFunding": true,
+  "fCachedDelete": false,
+  "fCachedEndorsed": false,
+  "FundingResult": {
+    "AbsoluteYesCount": 10,
+    "YesCount": 11,
+    "NoCount": 1,
+    "AbstainCount": 0
+  },
+  "ValidResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "DeleteResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "EndorsedResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  }
+},
+  "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124": {
+  "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f30222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20312e312c20227061796d656e745f61646472657373223a2022796668644e483748474c7650696851444670556350774731624c455555334b686f73222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+  "DataString": "{\"type\": 1, \"name\": \"Proposal_0\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 1.1, \"payment_address\": \"yfhdNH7HGLvPihQDFpUcPwG1bLEUU3Khos\", \"url\": \"https://dash.org\"}",
+  "Hash": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124",
+  "CollateralHash": "b2a45821c75df5217a4575ca6c32b15027f4a2a07e5ffb81538411e3ef8666c9",
+  "ObjectType": 1,
+  "CreationTime": 1417715827,
+  "fLocalValidity": true,
+  "IsValidReason": "",
+  "fCachedValid": true,
+  "fCachedFunding": false,
+  "fCachedDelete": false,
+  "fCachedEndorsed": true,
+  "FundingResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 4,
+    "NoCount": 4,
+    "AbstainCount": 4
+  },
+  "ValidResult": {
+    "AbsoluteYesCount": 3,
+    "YesCount": 3,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "DeleteResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "EndorsedResult": {
+    "AbsoluteYesCount": 1,
+    "YesCount": 1,
+    "NoCount": 0,
+    "AbstainCount": 0
+  }
+},
+  "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47": {
+  "DataHex": "7b2274797065223a20312c20226e616d65223a202250726f706f73616c5f31222c202273746172745f65706f6368223a20313431373731353832372c2022656e645f65706f6368223a20313431373830323232372c20227061796d656e745f616d6f756e74223a20332e332c20227061796d656e745f61646472657373223a2022794c656f77546d544a4268477250565041584b3759585a514e423872663372523350222c202275726c223a202268747470733a2f2f646173682e6f7267227d",
+  "DataString": "{\"type\": 1, \"name\": \"Proposal_1\", \"start_epoch\": 1417715827, \"end_epoch\": 1417802227, \"payment_amount\": 3.3, \"payment_address\": \"yLeowTmTJBhGrPVPAXK7YXZQNB8rf3rR3P\", \"url\": \"https://dash.org\"}",
+  "Hash": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47",
+  "CollateralHash": "c26bc1c0459b17beb51c71179f7027e67284844e709c8549871b72a57edf9244",
+  "ObjectType": 1,
+  "CreationTime": 1417715827,
+  "fLocalValidity": true,
+  "IsValidReason": "",
+  "fCachedValid": false,
+  "fCachedFunding": false,
+  "fCachedDelete": false,
+  "fCachedEndorsed": false,
+  "FundingResult": {
+    "AbsoluteYesCount": -1,
+    "YesCount": 5,
+    "NoCount": 6,
+    "AbstainCount": 1
+  },
+  "ValidResult": {
+    "AbsoluteYesCount": -1,
+    "YesCount": 0,
+    "NoCount": 1,
+    "AbstainCount": 0
+  },
+  "DeleteResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "EndorsedResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  }
+},
+  "f3dce3f459039f243f4927cc49ee99a32f97fc68515e49bb17c082c84b96fd4d": {
+  "DataHex": "7b226576656e745f626c6f636b5f686569676874223a203138302c20227061796d656e745f616464726573736573223a202279517a4e77764a4b4c424d58526b68566e4b677661624e48554664564d54384b654e7c7957594b53384b7271505731356a70735a6b717643434441697a514b4a766d714561222c20227061796d656e745f616d6f756e7473223a2022322e32303030303030307c342e3430303030303030222c202270726f706f73616c5f686173686573223a2022626436353538616436393039336637633561353661616336623630663038623638316139346432633033383330646265376338643562393132346438393930667c62633065363739646139656537346530646262333264313139373662323935623732636163393562306239303462323939313138386339383864393939366139222c202274797065223a327d",
+  "DataString": "{\"event_block_height\": 180, \"payment_addresses\": \"yQzNwvJKLBMXRkhVnKgvabNHUFdVMT8KeN|yWYKS8KrqPW15jpsZkqvCCDAizQKJvmqEa\", \"payment_amounts\": \"2.20000000|4.40000000\", \"proposal_hashes\": \"bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f|bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9\", \"type\":2}",
+  "Hash": "f3dce3f459039f243f4927cc49ee99a32f97fc68515e49bb17c082c84b96fd4d",
+  "CollateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "ObjectType": 2,
+  "CreationTime": 1417716013,
+  "SigningMasternode": "bdf8707ab638ef3a9db94a33bdb4597eea668bd76dd4bb1d03292afc8ca5cc14-1",
+  "fLocalValidity": true,
+  "IsValidReason": "",
+  "fCachedValid": true,
+  "fCachedFunding": false,
+  "fCachedDelete": false,
+  "fCachedEndorsed": false,
+  "FundingResult": {
+    "AbsoluteYesCount": -10,
+    "YesCount": 1,
+    "NoCount": 11,
+    "AbstainCount": 0
+  },
+  "ValidResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "DeleteResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  },
+  "EndorsedResult": {
+    "AbsoluteYesCount": 0,
+    "YesCount": 0,
+    "NoCount": 0,
+    "AbstainCount": 0
+  }
+}
+ },
+ "proposal_hashes_submitted": {"Proposal_0": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "Proposal_1": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "Proposal_2": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "Proposal_3_deleted": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9"},
+ "votes_cast_by_script": [{"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "yes", "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "yes", "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "no", "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "funding", "outcome": "abstain", "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "valid", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "valid", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "valid", "outcome": "yes", "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6"}, {"object": "ea9548144d0192aeb1a19db924c9a74078f1544e820e9de1a31a3a5bb29a0124", "signal": "endorsed", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "no", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "no", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "yes", "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "abstain", "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "yes", "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "funding", "outcome": "no", "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67"}, {"object": "02a173872a91ba49f662b185f42e83e9bd66d215ed08b4ae428de211d39c8c47", "signal": "valid", "outcome": "no", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "funding", "outcome": "yes", "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "valid", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "bd6558ad69093f7c5a56aac6b60f08b681a94d2c03830dbe7c8d5b9124d8990f", "signal": "valid", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "funding", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "funding", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f"}, {"object": "bc0e679da9ee74e0dbb32d11976b295b72cac95b0b904b2991188c988d9996a9", "signal": "delete", "outcome": "yes", "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67"}],
+ "masternodes": [{"index": 0, "evo": false, "proTxHash": "7368ae84baa7ad29a4f690a6adbd5dc2d7a0cc2fbb570c0c41984d879e29f603", "nodeIdx": 1}, {"index": 1, "evo": false, "proTxHash": "43019c80129c94c6b636b0672466512a8cffca6463bdb690b3cf42213ec21558", "nodeIdx": 2}, {"index": 2, "evo": false, "proTxHash": "d0f169d7b4db6f30f6755e016821b4896c1aecf30bf504a3e5856bbfbd4c55a6", "nodeIdx": 3}, {"index": 3, "evo": false, "proTxHash": "64221b03c01a948efc69785c01711265cdafbed82ba399e9908bbdeb1186eb6e", "nodeIdx": 4}, {"index": 4, "evo": true, "proTxHash": "334f00957ee9fa0df694d23cdcc9a4fbc794dde74cb2e8f591f7f7abd70ea63f", "nodeIdx": 5}, {"index": 5, "evo": true, "proTxHash": "b8091337e33de7cc29f86fa2bb3c44f380dbbedae5877a4092a8c1cca80fcb67", "nodeIdx": 6}],
+ "spork_values_set_by_script": {"SPORK_2_INSTANTSEND_ENABLED": 4070908800, "SPORK_17_QUORUM_DKG_ENABLED": 4070908801, "SPORK_19_CHAINLOCKS_ENABLED": 19, "SPORK_21_QUORUM_ALL_CONNECTED": 21, "SPORK_23_QUORUM_POSE": 4070908802},
+ "sha256": {"governance.dat": "e5f1f3395df4bd711e369521674d3b8d6e6ab69ed77940700292141dc0d9836a", "mncache.dat": "e1d4bcdb09b012bc7682ca8d3fbe4692fc765406b3fe44f89bb9d1c27c3bd060", "netfulfilled.dat": "963107f61b3b79b45917de145d7d4e537d0ddb6816dfc4c718491efd98db9f64", "sporks.dat": "35bc6505c25b163a21088b06beffc0a5f32e3ba1a4ad78298c7205f32551f3dc"}
+}

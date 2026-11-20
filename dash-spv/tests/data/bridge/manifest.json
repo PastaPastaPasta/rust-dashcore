@@ -1,0 +1,229 @@
+{
+ "captured": "2026-10-16T02:35:08Z",
+ "files": [
+  {
+   "net": "mainnet",
+   "kind": "headers",
+   "file": "mainnet/headers-1016001.bin",
+   "size": 162003,
+   "sha256": "de4c17f9760f40222637e55dfa3b01097323dfb8831bc3b07b124521467643e3",
+   "source": "P2P reply to getheaders, locator = block 1016000"
+  },
+  {
+   "net": "mainnet",
+   "kind": "headers2",
+   "file": "mainnet/headers2-1016001.bin",
+   "size": 344539,
+   "sha256": "8914c34ba71363f0681624ed3fa7caf26693077ce86c7bc5fa79e5a1ee244bba",
+   "source": "P2P reply to getheaders2, locator = block 1016000"
+  },
+  {
+   "net": "mainnet",
+   "kind": "headers",
+   "file": "mainnet/headers-2080001.bin",
+   "size": 162003,
+   "sha256": "9a1808dfe4d5c6ca0a9f9f5af30efcc5b65823013a1f32d755bec1756d488043",
+   "source": "P2P reply to getheaders, locator = block 2080000"
+  },
+  {
+   "net": "mainnet",
+   "kind": "headers2",
+   "file": "mainnet/headers2-2080001.bin",
+   "size": 344067,
+   "sha256": "827b3b11356b9498ccd554c703bfcc28a20b4d798b2898f0e5b3d882c62dce76",
+   "source": "P2P reply to getheaders2, locator = block 2080000"
+  },
+  {
+   "net": "testnet",
+   "kind": "headers",
+   "file": "testnet/headers-1376001.bin",
+   "size": 162003,
+   "sha256": "2055ad309639b8ac3f67dc068520118c545c24bbe9c1d0abe1d629c3957a3845",
+   "source": "P2P reply to getheaders, locator = block 1376000"
+  },
+  {
+   "net": "testnet",
+   "kind": "headers2",
+   "file": "testnet/headers2-1376001.bin",
+   "size": 344185,
+   "sha256": "2eb589c1035aac304aac6ff695b8e644e928ca41334b47a8e044da75f69b0034",
+   "source": "P2P reply to getheaders2, locator = block 1376000"
+  },
+  {
+   "net": "testnet",
+   "kind": "headers",
+   "file": "testnet/headers-1500001.bin",
+   "size": 162003,
+   "sha256": "c1ea61cc79adac2e4b51f8825b30708a3a32e26ed3e6d13ee36a5673cc6a4162",
+   "source": "P2P reply to getheaders, locator = block 1500000"
+  },
+  {
+   "net": "testnet",
+   "kind": "headers2",
+   "file": "testnet/headers2-1500001.bin",
+   "size": 344033,
+   "sha256": "002a0bc5332d3e59fe04b09fcb5328f6cbb88807fb05656d6601da7729da04ab",
+   "source": "P2P reply to getheaders2, locator = block 1500000"
+  },
+  {
+   "net": "mainnet",
+   "kind": "block",
+   "file": "mainnet/block-2089979.bin",
+   "size": 15283,
+   "sha256": "4459a167175fc3429ba8fd21955ae27812ca6db99fd0358c6931cfa70f8c043b",
+   "source": "getblock 00000000000000022e6559b5ffc74bfb3ed6b286fb71768b7c8e2c9a55d65da1 0 (height 2089979)"
+  },
+  {
+   "net": "mainnet",
+   "kind": "block",
+   "file": "mainnet/block-2089999.bin",
+   "size": 11484,
+   "sha256": "0b354cc078f8340f91bf10a1c894336c2ef363db74923616abe7d291cc7fcfbf",
+   "source": "getblock 0000000000000001937a46bfeed1988bb47aed6fccdf157457341c460a49c6a7 0 (height 2089999)"
+  },
+  {
+   "net": "testnet",
+   "kind": "block",
+   "file": "testnet/block-1573194.bin",
+   "size": 59904,
+   "sha256": "5120378062d8704387082df47c0b404dcae3ee468bb277084056824ecd4b9fb6",
+   "source": "getblock 000000e13ea77f3b2c4b8bd72f76274339a9616496350a60ffcc9151be6c431a 0 (height 1573194)"
+  },
+  {
+   "net": "testnet",
+   "kind": "block",
+   "file": "testnet/block-1573270.bin",
+   "size": 8092,
+   "sha256": "33eb8a138bee52fc917928e5f0a909d2833639e0a2d635591df21f560c77cebd",
+   "source": "getblock 0000012ff56477c60f0536919590567342eb3baedbefa6580bea7a0cc2f0041f 0 (height 1573270)"
+  },
+  {
+   "net": "testnet",
+   "kind": "block",
+   "file": "testnet/block-1573283.bin",
+   "size": 15113,
+   "sha256": "2a7856c5a67e2f880997c1e521140cae7b50d5a5c67418c46cf9c98e7c8a134d",
+   "source": "getblock 0000003019b48a6cb58090cb2b5d13719afda955b2cec127c44657b24f95b785 0 (height 1573283)"
+  },
+  {
+   "net": "testnet",
+   "kind": "block",
+   "file": "testnet/block-1573299.bin",
+   "size": 51408,
+   "sha256": "0da106f5e7034d9c5c0609966d4bdc79039b3e694e10b512759a11f84918fa46",
+   "source": "getblock 000000677de0d06c5873f908b8bab2980c28a32cf56597f9eb79767473db7e21 0 (height 1573299)"
+  },
+  {
+   "net": "mainnet",
+   "kind": "cfilter",
+   "file": "mainnet/cfilter-2089001.bin",
+   "size": 54,
+   "sha256": "f8a2060d9b247a28aacad64787674abff8712608c43353ff60c7af49da41aec4",
+   "source": "getblockfilter 000000000000001434ee81e3b4f92f51aa0d561e3088dbacdf5daedf65d519dc (height 2089001) as CFilter"
+  },
+  {
+   "net": "mainnet",
+   "kind": "cfheaders",
+   "file": "mainnet/cfheaders-2089001-2090000.bin",
+   "size": 32068,
+   "sha256": "dde95e492d6ac11aa92fc0f895c6e0af8e200af5fe35d2003defeeabea4df77f",
+   "source": "getblockfilter for heights 2089000..2090000 as CFHeaders"
+  },
+  {
+   "net": "testnet",
+   "kind": "cfilter",
+   "file": "testnet/cfilter-1572300.bin",
+   "size": 41,
+   "sha256": "dba53f443d853d423d6351f4648df4a2821527bf69b0a1ca8aad8fe19f130775",
+   "source": "getblockfilter 00000035fc1cecfd87e3c2082fd66ef234c5132ebeec671a08d2857659524157 (height 1572300) as CFilter"
+  },
+  {
+   "net": "testnet",
+   "kind": "cfheaders",
+   "file": "testnet/cfheaders-1572300-1573299.bin",
+   "size": 32068,
+   "sha256": "9d65942728b787fc07b5053acb57130fa08ae5b029c11e9f4ac9d5d46f0b3432",
+   "source": "getblockfilter for heights 1572299..1573299 as CFHeaders"
+  },
+  {
+   "net": "mainnet",
+   "kind": "clsig",
+   "file": "mainnet/clsig-cbtx-2088999.bin",
+   "size": 132,
+   "sha256": "527091bd22666d8a8711fcc99ec37819f141d0da0f286460ea617f60326e9883",
+   "source": "bestCLSignature of block 2089000's coinbase, for height 2088999"
+  },
+  {
+   "net": "testnet",
+   "kind": "clsig",
+   "file": "testnet/clsig-cbtx-1573298.bin",
+   "size": 132,
+   "sha256": "72cfe06fec34501346d46ceba64b856c5d398fc1425771fae9ef1ea6e24bd256",
+   "source": "bestCLSignature of block 1573299's coinbase, for height 1573298"
+  },
+  {
+   "net": "testnet",
+   "kind": "clsig",
+   "file": "testnet/clsig-rpc-1573309.bin",
+   "size": 132,
+   "sha256": "77f3a9a69344580aaf6070d1b08bded7e87d773adda4f0dd59266ccd3ca6b931",
+   "source": "getbestchainlock hex"
+  },
+  {
+   "net": "testnet",
+   "kind": "isdlock",
+   "file": "testnet/isdlock-rpc-338d2f1d9b0e23bf.bin",
+   "size": 270,
+   "sha256": "87feb580551f12b5f92d0c04d3681db1fd38ecfcaec948df38969b3ef2cc8a7a",
+   "source": "getislocks [338d2f1d9b0e23bf6bcd8a217eb1ebb704c898b1da1c1881b88c7e9dc1cdc3b0] hex (block 1573307)"
+  },
+  {
+   "net": "testnet",
+   "kind": "isdlock",
+   "file": "testnet/isdlock-rpc-d6f78d98226aae5a.bin",
+   "size": 270,
+   "sha256": "4290d8064453f184c9ca85cadbc3e9e98e7eb518f853f7c527e426028287b6f9",
+   "source": "getislocks [d6f78d98226aae5a31bbce9bc8304709cb43ca472673935dac795d5fa29d0bb1] hex (block 1573307)"
+  },
+  {
+   "net": "testnet",
+   "kind": "isdlock",
+   "file": "testnet/isdlock-rpc-099a3e4da621dd64.bin",
+   "size": 306,
+   "sha256": "120873654f19ccbb34d8f4f4b6d76f9bf957d951f125394bac7aaaf5f86c3145",
+   "source": "getislocks [099a3e4da621dd6415a983f56b347d60a556e22ba30bcaeaabecdfb3f1ce2a40] hex (block 1573307)"
+  },
+  {
+   "net": "testnet",
+   "kind": "isdlock",
+   "file": "testnet/isdlock-p2p-682916b0ea4ac370.bin",
+   "size": 414,
+   "sha256": "682916b0ea4ac370244db8e18f7fc5d1a334a7a2701f3de5e0c73c180bd0290e",
+   "source": "P2P isdlock after the oracle's inv"
+  },
+  {
+   "net": "testnet",
+   "kind": "isdlock",
+   "file": "testnet/isdlock-p2p-236e67d43df00f71.bin",
+   "size": 270,
+   "sha256": "236e67d43df00f71c7bd4cab8579584727b4969bcf76da0febb09dda2914121f",
+   "source": "P2P isdlock after the oracle's inv"
+  },
+  {
+   "net": "testnet",
+   "kind": "clsig",
+   "file": "testnet/clsig-p2p-8e1eb2f841b0d610.bin",
+   "size": 132,
+   "sha256": "8e1eb2f841b0d610db847cd3c2de90155d606cc2f557e3b86d56396e8d256cdd",
+   "source": "P2P clsig after the oracle's inv"
+  },
+  {
+   "net": "testnet",
+   "kind": "clsig",
+   "file": "testnet/clsig-p2p-054abe45c36ff2c4.bin",
+   "size": 132,
+   "sha256": "054abe45c36ff2c4a65bb02314069f1d4f6d12ee61152295f9f333256b11e3d6",
+   "source": "P2P clsig after the oracle's inv"
+  }
+ ]
+}

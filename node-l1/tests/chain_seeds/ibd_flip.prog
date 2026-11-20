@@ -1,0 +1,5 @@
+# Started with a tip seven hours old (in IBD); the clock moved back below the 6 h age.
+start old
+extend main 1
+warp 30
+extend main 1
