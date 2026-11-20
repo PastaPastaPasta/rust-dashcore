@@ -17,7 +17,7 @@ use key_wallet::wallet::managed_wallet_info::transaction_builder::TransactionSig
 use key_wallet::wallet::managed_wallet_info::wallet_info_interface::WalletInfoInterface;
 use key_wallet::wallet::managed_wallet_info::ManagedWalletInfo;
 use key_wallet::Utxo;
-use key_wallet_manager::{WalletEvent, WalletId, WalletManager};
+use key_wallet_manager::{WalletEvent, WalletId, WalletInterface, WalletManager};
 use tokio::sync::{broadcast, mpsc, RwLock};
 
 use super::{BroadcastConfig, MempoolManager};
@@ -356,4 +356,41 @@ async fn a_verified_lock_reaches_the_wallet_for_storage_in_either_order(lock_fir
 
     assert_eq!(locks_announced(&drain(&mut events)), vec![(a, lock)]);
     assert!(h.manager.transactions[&payment.txid()].is_instant_send);
+}
+
+/// A held payment the wallet dropped as dead, beaten by a locked rival or
+/// abandoned, is not credited again when another wallet's registration
+/// replays what the manager holds.
+#[tokio::test]
+async fn a_replay_brings_back_neither_a_beaten_nor_an_abandoned_payment() {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+
+    let beaten = Transaction::dummy(&to_a, 11..12, &[COIN]);
+    let abandoned = Transaction::dummy(&to_a, 12..13, &[COIN]);
+    assert!(h.announce(&beaten).await);
+    assert!(h.announce(&abandoned).await);
+    assert_eq!(h.total(&a).await, 2 * COIN);
+
+    let mut winner = Transaction::dummy(&elsewhere, 0..1, &[COIN]);
+    winner.input = beaten.input.clone();
+    h.wallets.write().await.process_mempool_transaction(&winner, Some(lock_for(&winner))).await;
+    {
+        let mut wallets = h.wallets.write().await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(abandoned.txid());
+        info.update_balance();
+    }
+    assert_eq!(h.total(&a).await, 0, "the precondition");
+
+    register(&h.wallets, MNEMONIC_C).await;
+    h.manager.tick(&h.requests).await.unwrap();
+
+    assert_eq!(h.total(&a).await, 0);
+    assert_eq!(h.context_of(&a, &beaten.txid()).await, None);
+    assert_eq!(h.context_of(&a, &abandoned.txid()).await, None);
 }

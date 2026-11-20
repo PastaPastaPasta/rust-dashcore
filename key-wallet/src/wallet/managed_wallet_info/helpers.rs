@@ -212,6 +212,9 @@ impl ManagedWalletInfo {
             // per-account results overlap.
             result.txids.sort_unstable();
             result.txids.dedup();
+            for txid in &result.txids {
+                self.dismissed.insert(*txid);
+            }
             let removed = result.txids.iter().copied().collect();
             result.released_outpoints.extend(self.release_spent_claims(&removed));
             result.released_outpoints.sort_unstable();
@@ -227,6 +230,18 @@ impl ManagedWalletInfo {
             });
         }
         result
+    }
+
+    /// Whether `tx`, arriving unconfirmed and unlocked, is a transaction the
+    /// wallet dropped as dead or spends an output of one. Such a spend is
+    /// dropped with it.
+    pub(crate) fn dismiss_if_dead(&mut self, tx: &Transaction, txid: Txid) -> bool {
+        let dead = self.dismissed.contains(&txid)
+            || tx.input.iter().any(|input| self.dismissed.contains(&input.previous_output.txid));
+        if dead {
+            self.dismissed.insert(txid);
+        }
+        dead
     }
 
     /// The first input of `tx` spending a coin this wallet holds that
@@ -513,6 +528,9 @@ impl ManagedWalletInfo {
         }
 
         self.release_spent_claims(&abandoned);
+        for txid in &abandoned {
+            self.dismissed.insert(*txid);
+        }
 
         AbandonOutcome {
             abandoned,
