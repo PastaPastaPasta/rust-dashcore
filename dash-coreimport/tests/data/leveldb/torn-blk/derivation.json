@@ -1,0 +1,8 @@
+{
+  "base": "a-wal",
+  "detail": {
+    "file": "blocks/blk00000.dat",
+    "offset": 1721,
+    "change": "torn-blk"
+  }
+}
