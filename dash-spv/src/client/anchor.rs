@@ -1111,4 +1111,344 @@ mod tests {
             vec![establish(1, 3, 2, 2)]
         );
     }
+
+    /// Covered on tip 8 (`tip_gen` 1, `cand_gen` 1): `Establish { id: 1 }` is outstanding.
+    fn establishing() -> InitialSync {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 1, 1)).unwrap(),
+            vec![establish(1, 8, 1, 1)]
+        );
+        d
+    }
+
+    fn stale_on(n: u8, tip_gen: u64) -> EstablishOutcome {
+        EstablishOutcome::Stale(HeaderState::CaughtUp {
+            tip: tip(n),
+            tip_gen,
+        })
+    }
+
+    fn established_once(d: &mut InitialSync) {
+        assert_eq!(d.phase(), &Phase::Established);
+        for input in
+            [caught_up(9, 2), caught_up(10, 3), coverage(Coverage::Covered, 3, 1), spent(20, 3, 1)]
+        {
+            assert!(d.advance(input).unwrap().is_empty());
+        }
+        let out = d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
+        assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+        assert_eq!(d.phase(), &Phase::Established);
+    }
+
+    #[test]
+    fn covered_establishes_only_on_the_hosts_result() {
+        let mut d = establishing();
+        assert!(matches!(
+            d.phase(),
+            Phase::Establishing {
+                id: 1,
+                tip_gen: 1,
+                recorded: None,
+                replaced: None,
+                ..
+            }
+        ));
+        for input in [
+            coverage(Coverage::Covered, 1, 1),
+            coverage(
+                Coverage::Below {
+                    lowest: None,
+                },
+                1,
+                1,
+            ),
+            spent(20, 1, 1),
+        ] {
+            assert!(d.advance(input).unwrap().is_empty());
+        }
+        assert!(d.advance(Input::Opened(None)).is_err());
+        assert_eq!(d.cand_gen(), 1);
+        assert_eq!(d.coverage_rounds_spent(), 0);
+        assert!(matches!(
+            d.phase(),
+            Phase::Establishing {
+                id: 1,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn established_after_recorded_publication() {
+        let mut d = establishing();
+        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert!(matches!(
+            d.phase(),
+            Phase::Establishing {
+                recorded: Some(HeaderState::CaughtUp {
+                    tip_gen: 2,
+                    ..
+                }),
+                ..
+            }
+        ));
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
+            vec![Output::StartSubscribers]
+        );
+        established_once(&mut d);
+    }
+
+    #[test]
+    fn established_then_publication() {
+        let mut d = establishing();
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
+            vec![Output::StartSubscribers]
+        );
+        established_once(&mut d);
+    }
+
+    #[test]
+    fn behind_recorded_before_established_is_discarded() {
+        let mut d = establishing();
+        assert!(d
+            .advance(Input::HeadersBehind {
+                tip_gen: 1
+            })
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
+            vec![Output::StartSubscribers]
+        );
+        established_once(&mut d);
+    }
+
+    #[test]
+    fn stale_after_recorded_publication() {
+        let mut d = establishing();
+        d.advance(caught_up(9, 2)).unwrap();
+        assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(9, 2, 1)]);
+        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
+            vec![establish(2, 9, 2, 1)]
+        );
+
+        let mut d = establishing();
+        assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(9, 2, 1)]);
+        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert_eq!(d.advance(caught_up(10, 3)).unwrap(), vec![run(10, 3, 1)]);
+    }
+
+    #[test]
+    fn stale_runs_coverage_on_the_newer_state() {
+        let mut d = establishing();
+        d.advance(caught_up(9, 2)).unwrap();
+        assert_eq!(d.advance(result(1, 1, stale_on(8, 1))).unwrap(), vec![run(9, 2, 1)]);
+
+        let mut d = establishing();
+        d.advance(caught_up(9, 2)).unwrap();
+        d.advance(caught_up(10, 3)).unwrap();
+        assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+        assert_eq!(d.advance(result(1, 1, stale_on(9, 2))).unwrap(), vec![run(10, 3, 1)]);
+
+        let mut d = establishing();
+        d.advance(caught_up(9, 2)).unwrap();
+        let behind = EstablishOutcome::Stale(HeaderState::Behind {
+            tip_gen: 3,
+        });
+        assert!(d.advance(result(1, 1, behind)).unwrap().is_empty());
+        assert!(matches!(d.phase(), Phase::Coverage { .. }));
+        assert!(d.advance(coverage(Coverage::Covered, 3, 1)).unwrap().is_empty());
+        assert_eq!(d.advance(caught_up(11, 3)).unwrap(), vec![run(11, 3, 1)]);
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 3, 1)).unwrap(),
+            vec![establish(2, 11, 3, 1)]
+        );
+    }
+
+    #[test]
+    fn failed_after_recorded_publication() {
+        for publish_first in [true, false] {
+            let mut d = establishing();
+            if publish_first {
+                d.advance(caught_up(9, 2)).unwrap();
+            }
+            assert_eq!(
+                d.advance(result(1, 1, EstablishOutcome::Failed("stopped".into()))).unwrap(),
+                vec![Output::FailStop("stopped".into())]
+            );
+            assert_eq!(d.phase(), &Phase::Failed);
+            assert!(d.advance(caught_up(10, 3)).unwrap().is_empty());
+            let out = d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
+            assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+            assert_eq!(d.phase(), &Phase::Failed);
+        }
+    }
+
+    #[test]
+    fn result_with_wrong_id_or_cand_gen_is_dropped() {
+        let mut d = establishing();
+        for (id, cand_gen) in [(2, 1), (0, 1), (1, 0), (1, 2)] {
+            for outcome in [
+                EstablishOutcome::Established,
+                stale_on(9, 2),
+                EstablishOutcome::Failed("x".into()),
+            ] {
+                let out = d.advance(result(id, cand_gen, outcome)).unwrap();
+                assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+                assert!(matches!(
+                    d.phase(),
+                    Phase::Establishing {
+                        id: 1,
+                        ..
+                    }
+                ));
+            }
+        }
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Established)).unwrap(),
+            vec![Output::StartSubscribers]
+        );
+    }
+
+    #[test]
+    fn replaced_while_establishing() {
+        let replacement = Anchor::Genesis;
+        for outcome in [EstablishOutcome::Established, stale_on(9, 2)] {
+            let mut d = establishing();
+            assert!(d
+                .advance(Input::Replaced {
+                    anchor: replacement.clone()
+                })
+                .unwrap()
+                .is_empty());
+            d.advance(caught_up(9, 2)).unwrap();
+            assert!(matches!(
+                d.phase(),
+                Phase::Establishing {
+                    id: 1,
+                    replaced: Some(Anchor::Genesis),
+                    ..
+                }
+            ));
+            assert_eq!(d.cand_gen(), 1);
+            let out = d.advance(result(1, 1, outcome)).unwrap();
+            assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+            assert_eq!(
+                d.phase(),
+                &Phase::Candidate {
+                    anchor: replacement.clone()
+                }
+            );
+            assert_eq!(d.cand_gen(), 2);
+            assert!(d.advance(caught_up(9, 2)).unwrap().is_empty());
+            assert!(d.advance(coverage(Coverage::Covered, 2, 1)).unwrap().is_empty());
+            assert_eq!(d.advance(caught_up(12, 4)).unwrap(), vec![run(12, 4, 2)]);
+            assert_eq!(
+                d.advance(coverage(Coverage::Covered, 4, 2)).unwrap(),
+                vec![establish(2, 12, 4, 2)]
+            );
+        }
+        let mut d = establishing();
+        d.advance(Input::Replaced {
+            anchor: replacement,
+        })
+        .unwrap();
+        assert_eq!(
+            d.advance(result(1, 1, EstablishOutcome::Failed("disk".into()))).unwrap(),
+            vec![Output::FailStop("disk".into())]
+        );
+        assert_eq!(d.phase(), &Phase::Failed);
+    }
+
+    #[test]
+    fn a_reorg_during_coverage_never_establishes_the_older_branch() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(caught_up(108, 2)).unwrap();
+        assert!(d.advance(coverage(Coverage::Covered, 1, 1)).unwrap().is_empty());
+        assert!(d.advance(spent(20, 1, 1)).unwrap().is_empty());
+        assert!(d
+            .advance(coverage(
+                Coverage::Below {
+                    lowest: None
+                },
+                1,
+                1
+            ))
+            .unwrap()
+            .is_empty());
+        assert_eq!(d.coverage_rounds_spent(), 0);
+        assert_eq!(
+            d.advance(coverage(Coverage::Covered, 2, 1)).unwrap(),
+            vec![establish(1, 108, 2, 1)]
+        );
+    }
+
+    #[test]
+    fn stale_results_after_a_fallback_are_dropped() {
+        let mut d = driver(true, None);
+        open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        d.advance(coverage(
+            Coverage::Below {
+                lowest: None,
+            },
+            1,
+            1,
+        ))
+        .unwrap();
+        d.advance(caught_up(5, 2)).unwrap();
+        for stale in [
+            coverage(Coverage::Covered, 2, 1),
+            coverage(
+                Coverage::Below {
+                    lowest: None,
+                },
+                2,
+                1,
+            ),
+            spent(20, 2, 1),
+        ] {
+            assert!(d.advance(stale).unwrap().is_empty());
+        }
+        let out = d.advance(result(1, 1, EstablishOutcome::Established)).unwrap();
+        assert!(matches!(&out[..], [Output::Diagnostic(_)]), "{out:?}");
+        assert_eq!(d.coverage_rounds_spent(), 0);
+        assert!(matches!(
+            d.phase(),
+            Phase::Coverage {
+                anchor: Anchor::Checkpoint {
+                    height: 10000,
+                    ..
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn pending_and_spent_rounds_never_fall_back() {
+        let mut d = driver(true, None);
+        let anchor = open(&mut d);
+        d.advance(caught_up(8, 1)).unwrap();
+        for _ in 0..50 {
+            assert!(d.advance(coverage(Coverage::Pending, 1, 1)).unwrap().is_empty());
+            let out = d.advance(spent(20, 1, 1)).unwrap();
+            assert!(out.iter().all(|o| matches!(o, Output::Diagnostic(_))), "{out:?}");
+        }
+        assert_eq!(
+            d.phase(),
+            &Phase::Coverage {
+                anchor
+            }
+        );
+        assert_eq!(d.cand_gen(), 1);
+    }
 }
