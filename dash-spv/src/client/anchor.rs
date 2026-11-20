@@ -216,8 +216,9 @@ pub enum EstablishOutcome {
     Failed(String),
 }
 
-/// Header inputs and `Replaced` carry the `cand_gen` the host stamped on the chain that
-/// published them; a header input whose `cand_gen` is not current is dropped.
+/// The host binds each `cand_gen` to one SB14b `ChainGen` (a `Reset`'s is the one its
+/// `replace()` returns) and stamps each header input at dequeue from that input's `ChainGen`.
+/// A header input whose `cand_gen` is not current is dropped.
 #[derive(Clone, Debug)]
 pub enum Input {
     Opened(Option<StoredChain>),
@@ -250,9 +251,9 @@ pub enum Input {
         cand_gen: u64,
         outcome: EstablishOutcome,
     },
-    /// The header task replaced the chain at a generation the driver did not request, and has
-    /// already reset the store and built the new chain, stamped `cand_gen`. Applied only when
-    /// `cand_gen` is newer than the driver's, which then adopts it.
+    /// A replacement the driver did not request, already built, stamped `cand_gen`. The host
+    /// feeds it only when its `ChainGen` is newer than the current candidate's, after an
+    /// in-flight `Reset`'s `ChainGen`; the driver applies a newer `cand_gen` only, and adopts it.
     Replaced {
         anchor: Anchor,
         cand_gen: u64,
