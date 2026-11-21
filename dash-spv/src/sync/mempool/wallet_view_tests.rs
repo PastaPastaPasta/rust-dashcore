@@ -511,8 +511,8 @@ async fn a_wallet_registered_after_an_abandon_gets_the_payment_only_once_settled
 }
 
 /// The user abandoned P, which is in fact live; another device spent P's
-/// change in C. P comes back with its lock; C, ignored unlocked, is credited
-/// once its own lock arrives or it is mined, and not before.
+/// change in C. C is ignored unlocked until P comes back with its lock, which
+/// settles C too; C's own lock or block then settles it.
 #[test_case::test_case(true; "settled by a lock")]
 #[test_case::test_case(false; "settled by a block")]
 #[tokio::test]
@@ -579,15 +579,12 @@ async fn a_spend_of_an_abandoned_payment_comes_back_once_settled(by_lock: bool) 
     h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
     assert_eq!(h.total(&a).await, change, "P is back with its change");
 
-    let again = h.wallets.write().await.process_mempool_transaction(&child, None).await;
-    assert!(!again.is_relevant, "C is still not credited unlocked");
-    assert_eq!(h.total(&a).await, change);
+    h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
+    assert!(h.manager.transactions.contains_key(&child.txid()), "P's lock settles C");
+    assert_eq!(h.total(&a).await, 0);
 
     if by_lock {
         h.manager.process_instant_send(lock_for(&child)).await;
-        h.manager.send_queued(&h.requests).await.unwrap();
-        assert!(asked_for(&h.sent_messages(), child.txid()), "C's lock has it fetched again");
-        h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
         assert!(matches!(
             h.context_of(&a, &child.txid()).await,
             Some(TransactionContext::InstantSend(_))
@@ -888,4 +885,72 @@ async fn a_locked_spend_fetched_before_its_parent_is_back_keeps_the_change_spent
         h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
     }
     assert_eq!(h.total(&a).await, 0, "C, locked, spends P's change");
+}
+
+/// The user abandoned P, which is in fact live; C spends P's change and pays
+/// the wallet, so it arrives dismissed with P. P's verified lock settles P,
+/// and C delivered again unlocked is credited. A lock not yet verified
+/// settles nothing.
+#[test_case::test_case(true; "by a verified lock")]
+#[test_case::test_case(false; "not by an unverified lock")]
+#[tokio::test]
+async fn a_spend_of_an_abandoned_payment_is_credited_once_its_lock_settles_it(validated: bool) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let change_a = next_unused_receive_address(&h.wallets, &a).await;
+    let back_to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let funding = Transaction::dummy(&to_a, 107..108, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let change = 690_000;
+    let payment = signed_spend_of(
+        &h.wallets,
+        &a,
+        &to_a,
+        OutPoint::new(funding.txid(), 0),
+        &funding,
+        vec![pays(300_000, &elsewhere), pays(change, &change_a)],
+    )
+    .await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![pays(change - 10_000, &back_to_a)],
+    )
+    .await;
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.process_mempool_transaction(&payment, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+        wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+        assert!(!wallets.process_mempool_transaction(&child, None).await.is_relevant);
+    }
+
+    let event = SyncEvent::InstantLockReceived {
+        instant_lock: lock_for(&payment),
+        validated,
+    };
+    h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
+    h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    let credited = h.wallets.write().await.process_mempool_transaction(&child, None).await;
+
+    assert_eq!(credited.is_relevant, validated, "P is settled");
+    let expected = if validated {
+        change - 10_000
+    } else {
+        COIN
+    };
+    assert_eq!(h.total(&a).await, expected);
 }

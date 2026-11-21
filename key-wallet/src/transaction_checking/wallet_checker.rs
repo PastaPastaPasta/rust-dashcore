@@ -284,9 +284,7 @@ impl WalletTransactionChecker for ManagedWalletInfo {
         } else {
             self.dismissed.remove(&txid);
             self.inherited.remove(&txid);
-            if context.confirmed() {
-                self.inherited.release_spends_of(&txid);
-            }
+            self.inherited.release_spends_of(&txid);
         }
 
         // Classify the transaction

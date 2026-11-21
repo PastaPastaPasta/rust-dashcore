@@ -53,9 +53,10 @@ impl DismissedTxids {
 /// mined, or no longer dismissed for that reason either.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct InheritedDismissals {
-    order: VecDeque<Txid>,
-    parents: HashMap<Txid, Vec<Txid>>,
+    order: VecDeque<(Txid, u64)>,
+    parents: HashMap<Txid, (u64, Vec<Txid>)>,
     spends: HashMap<Txid, Vec<Txid>>,
+    next: u64,
 }
 
 impl InheritedDismissals {
@@ -68,13 +69,25 @@ impl InheritedDismissals {
         for parent in &parents {
             self.spends.entry(*parent).or_default().push(txid);
         }
-        self.parents.insert(txid, parents);
-        self.order.push_back(txid);
-        if self.order.len() > MAX_INHERITED {
-            if let Some(oldest) = self.order.pop_front() {
-                self.forget(&oldest);
+        let seq = self.next;
+        self.next += 1;
+        self.parents.insert(txid, (seq, parents));
+        self.order.push_back((txid, seq));
+        while self.parents.len() > MAX_INHERITED {
+            if let Some((oldest, seq)) = self.order.pop_front() {
+                if self.is_live(&oldest, seq) {
+                    self.forget(&oldest);
+                }
             }
         }
+        if self.order.len() > 2 * MAX_INHERITED {
+            let parents = &self.parents;
+            self.order.retain(|(t, seq)| parents.get(t).is_some_and(|(s, _)| s == seq));
+        }
+    }
+
+    fn is_live(&self, txid: &Txid, seq: u64) -> bool {
+        self.parents.get(txid).is_some_and(|(s, _)| *s == seq)
     }
 
     pub(crate) fn contains(&self, txid: &Txid) -> bool {
@@ -82,13 +95,11 @@ impl InheritedDismissals {
     }
 
     pub(crate) fn remove(&mut self, txid: &Txid) {
-        if self.forget(txid) {
-            self.order.retain(|t| t != txid);
-        }
+        self.forget(txid);
     }
 
     fn forget(&mut self, txid: &Txid) -> bool {
-        let Some(parents) = self.parents.remove(txid) else {
+        let Some((_, parents)) = self.parents.remove(txid) else {
             return false;
         };
         for parent in parents {
@@ -108,7 +119,7 @@ impl InheritedDismissals {
         let mut released = vec![*txid];
         while let Some(parent) = released.pop() {
             for spend in self.spends.remove(&parent).unwrap_or_default() {
-                let Some(parents) = self.parents.get_mut(&spend) else {
+                let Some((_, parents)) = self.parents.get_mut(&spend) else {
                     continue;
                 };
                 parents.retain(|p| *p != parent);
@@ -195,7 +206,7 @@ mod tests {
         assert!(inherited.contains(&txid(5)));
         inherited.release_spends_of(&txid(9));
         assert!(!inherited.contains(&txid(4)));
-        assert_eq!(inherited.order, VecDeque::from([txid(5)]));
+        assert_eq!(inherited.parents.keys().collect::<Vec<_>>(), vec![&txid(5)]);
         assert!(inherited.spends.is_empty());
 
         for n in 10..=10 + MAX_INHERITED as u32 {
@@ -203,5 +214,17 @@ mod tests {
         }
         assert!(!inherited.contains(&txid(5)), "the oldest goes first");
         assert_eq!(inherited.spends[&txid(1)].len(), MAX_INHERITED);
+
+        inherited.remove(&txid(11));
+        inherited.insert(txid(11), vec![txid(1)]);
+        inherited.insert(txid(20_000), vec![txid(1)]);
+        assert!(inherited.contains(&txid(11)), "one dismissed again takes its new place");
+        assert!(!inherited.contains(&txid(12)));
+        for _ in 0..3 * MAX_INHERITED {
+            inherited.remove(&txid(11));
+            inherited.insert(txid(11), vec![txid(1)]);
+        }
+        assert!(inherited.order.len() <= 2 * MAX_INHERITED);
+        assert_eq!(inherited.parents.len(), MAX_INHERITED);
     }
 }
