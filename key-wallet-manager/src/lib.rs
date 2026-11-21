@@ -109,6 +109,9 @@ pub struct CheckTransactionsResult {
     /// see [`crate::events::WalletEvent::TransactionsSwept`] for why a
     /// consumer needs this set named explicitly instead of re-deriving it.
     pub per_wallet_released_outpoints: BTreeMap<WalletId, Vec<OutPoint>>,
+    /// Transactions no longer dismissed in some wallet because this one is
+    /// mined or locked.
+    pub released_dismissals: Vec<Txid>,
 }
 
 impl CheckTransactionsResult {
@@ -613,6 +616,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
                     )
                     .await;
 
+                result.released_dismissals.extend(check_result.released_dismissals);
                 if check_result.is_relevant {
                     result.affected_wallets.push(*wallet_id);
                     if check_result.is_new_transaction {

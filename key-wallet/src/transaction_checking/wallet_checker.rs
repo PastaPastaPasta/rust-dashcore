@@ -273,6 +273,7 @@ impl WalletTransactionChecker for ManagedWalletInfo {
         // a spend of one, delivered again unconfirmed and unlocked brings
         // nothing back. Mined or locked, it is real after all.
         let txid = tx.txid();
+        let mut released_dismissals = Vec::new();
         if !context.confirmed()
             && !context.is_instant_send()
             && !self.instant_send_locks.contains(&txid)
@@ -284,7 +285,7 @@ impl WalletTransactionChecker for ManagedWalletInfo {
         } else {
             self.dismissed.remove(&txid);
             self.inherited.remove(&txid);
-            self.inherited.release_spends_of(&txid);
+            released_dismissals = self.inherited.release_spends_of(&txid);
         }
 
         // Classify the transaction
@@ -295,6 +296,7 @@ impl WalletTransactionChecker for ManagedWalletInfo {
 
         // Check only relevant account types
         let mut result = self.accounts.check_transaction(tx, &relevant_types);
+        result.released_dismissals = released_dismissals;
 
         // #649: remember every spend seen in a block, independent of the
         // spending tx's classification or whether the wallet can attribute it.

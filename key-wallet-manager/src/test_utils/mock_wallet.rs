@@ -169,6 +169,7 @@ impl WalletInterface for MockWallet {
                 .get(&height)
                 .map(|heights| BTreeMap::from([(self.wallet_id, heights.clone())]))
                 .unwrap_or_default(),
+            released_dismissals: Vec::new(),
         }
     }
 
@@ -198,6 +199,7 @@ impl WalletInterface for MockWallet {
             is_outgoing: self.mempool_net_amount < 0,
             addresses: self.mempool_addresses.clone(),
             new_addresses: self.mempool_new_addresses.clone(),
+            released_dismissals: Vec::new(),
         }
     }
 

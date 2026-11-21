@@ -64,7 +64,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             };
             let txid = tx.txid();
             for info in self.wallet_infos.values_mut() {
-                info.undismiss(&txid);
+                result.released_dismissals.extend(info.undismiss(&txid));
             }
             let check_result =
                 self.check_transaction_in_wallets(tx, block_context, wallets, true, false).await;
@@ -125,6 +125,8 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             );
         }
 
+        result.released_dismissals.sort_unstable();
+        result.released_dismissals.dedup();
         for (wallet_id, positions) in relevant_positions {
             let Some(info) = self.wallet_infos.get(&wallet_id) else {
                 continue;
@@ -339,12 +341,16 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         }
 
         let new_addresses: Vec<Address> = check_result.all_new_addresses().cloned().collect();
+        let mut released_dismissals = check_result.released_dismissals;
+        released_dismissals.sort_unstable();
+        released_dismissals.dedup();
         MempoolTransactionResult {
             is_relevant,
             net_amount,
             is_outgoing: net_amount < 0,
             addresses: check_result.involved_addresses,
             new_addresses,
+            released_dismissals,
         }
     }
 

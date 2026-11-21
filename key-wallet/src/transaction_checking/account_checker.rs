@@ -88,6 +88,9 @@ pub struct TransactionCheckResult {
     /// replay the dead transaction on the next load and re-create the phantom
     /// balance this removal just cleared.
     pub swept_transactions: Vec<Txid>,
+    /// Transactions dismissed only for spending this one, no longer
+    /// dismissed now that it is mined or locked.
+    pub released_dismissals: Vec<Txid>,
     /// Outpoints the sweep that removed `swept_transactions` released:
     /// [`WalletConflictSweep::released_outpoints`] passed through, which
     /// states the rule. Empty whenever `swept_transactions` is.
@@ -459,6 +462,7 @@ impl ManagedAccountCollection {
             updated_records: Vec::new(),
             swept_transactions: Vec::new(),
             released_outpoints: Vec::new(),
+            released_dismissals: Vec::new(),
         };
 
         for account_type in account_types {

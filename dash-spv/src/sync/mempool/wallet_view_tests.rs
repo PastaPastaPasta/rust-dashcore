@@ -108,6 +108,15 @@ impl Harness {
         asked
     }
 
+    async fn answer_fetch(&mut self, tx: &Transaction) -> bool {
+        self.manager.send_queued(&self.requests).await.unwrap();
+        let asked = asked_for(&self.sent_messages(), tx.txid());
+        if asked {
+            self.manager.handle_tx(tx.clone(), self.peer, &self.requests).await.unwrap();
+        }
+        asked
+    }
+
     async fn filters_synced(&mut self) {
         let event = SyncEvent::FiltersSyncComplete {
             tip_height: 1000,
@@ -512,7 +521,8 @@ async fn a_wallet_registered_after_an_abandon_gets_the_payment_only_once_settled
 
 /// The user abandoned P, which is in fact live; another device spent P's
 /// change in C. C is ignored unlocked until P comes back with its lock, which
-/// settles C too; C's own lock or block then settles it.
+/// has C fetched again; C is then credited, and its own lock or block settles
+/// it.
 #[test_case::test_case(true; "settled by a lock")]
 #[test_case::test_case(false; "settled by a block")]
 #[tokio::test]
@@ -578,10 +588,8 @@ async fn a_spend_of_an_abandoned_payment_comes_back_once_settled(by_lock: bool) 
     assert!(asked_for(&h.sent_messages(), payment.txid()));
     h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
     assert_eq!(h.total(&a).await, change, "P is back with its change");
-
-    h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
-    assert!(h.manager.transactions.contains_key(&child.txid()), "P's lock settles C");
-    assert_eq!(h.total(&a).await, 0);
+    assert!(h.answer_fetch(&child).await, "P's lock has C fetched again");
+    assert_eq!(h.total(&a).await, 0, "P's change is not offered once C is credited");
 
     if by_lock {
         h.manager.process_instant_send(lock_for(&child)).await;
@@ -597,6 +605,104 @@ async fn a_spend_of_an_abandoned_payment_comes_back_once_settled(by_lock: bool) 
             .await;
     }
     assert_eq!(h.total(&a).await, 0, "P's change is no longer offered");
+}
+
+/// P was abandoned and C, spending P's change, ignored. A block mining P, with
+/// no lock, has C fetched again; when P's lock came first, C is fetched once.
+#[test_case::test_case(false; "mined without a lock")]
+#[test_case::test_case(true; "locked then mined")]
+#[tokio::test]
+async fn a_spend_of_an_abandoned_payment_is_fetched_again_once_its_parent_is_mined(
+    locked_first: bool,
+) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let change_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let funding = Transaction::dummy(&to_a, 53..54, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let change = 690_000;
+    let payment = signed_spend_of(
+        &h.wallets,
+        &a,
+        &to_a,
+        OutPoint::new(funding.txid(), 0),
+        &funding,
+        vec![
+            TxOut {
+                value: 300_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            },
+            TxOut {
+                value: change,
+                script_pubkey: change_a.script_pubkey(),
+            },
+        ],
+    )
+    .await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: change - 10_000,
+            script_pubkey: elsewhere.script_pubkey(),
+        }],
+    )
+    .await;
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.process_mempool_transaction(&payment, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+        wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    }
+    assert!(h.announce(&payment).await);
+    assert!(h.announce(&child).await);
+    assert!(!h.manager.transactions.contains_key(&child.txid()), "ignored unlocked");
+
+    if locked_first {
+        h.manager.process_instant_send(lock_for(&payment)).await;
+        h.manager.send_queued(&h.requests).await.unwrap();
+        assert!(asked_for(&h.sent_messages(), payment.txid()));
+        h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+        assert!(h.answer_fetch(&child).await, "P's lock has C fetched again");
+    }
+
+    let block = Block::dummy(970, vec![payment.clone()]);
+    let wallets = BTreeSet::from([a]);
+    let result = h
+        .wallets
+        .write()
+        .await
+        .process_block_for_wallets(&block, block.block_hash(), 970, &wallets)
+        .await;
+    let event = SyncEvent::BlockProcessed {
+        block_hash: block.block_hash(),
+        height: 970,
+        wallets,
+        new_scripts: Default::default(),
+        confirmed_txids: vec![payment.txid()],
+        released_dismissals: result.released_dismissals,
+    };
+    h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
+    if locked_first {
+        assert!(!h.answer_fetch(&child).await, "C is fetched once");
+    } else {
+        assert!(h.answer_fetch(&child).await, "P's block has C fetched again");
+    }
+    assert!(h.context_of(&a, &child.txid()).await.is_some(), "C is credited");
+    assert_eq!(h.total(&a).await, 0, "P's change is not offered once C is credited");
 }
 
 /// A lock for a dismissed transaction whose seen entry is gone still has it
@@ -870,7 +976,8 @@ async fn a_locked_spend_fetched_before_its_parent_is_back_keeps_the_change_spent
     } else {
         let block = Block::dummy(970, vec![payment.clone()]);
         let wallets = BTreeSet::from([a]);
-        h.wallets
+        let result = h
+            .wallets
             .write()
             .await
             .process_block_for_wallets(&block, block.block_hash(), 970, &wallets)
@@ -881,6 +988,7 @@ async fn a_locked_spend_fetched_before_its_parent_is_back_keeps_the_change_spent
             wallets,
             new_scripts: Default::default(),
             confirmed_txids: vec![payment.txid()],
+            released_dismissals: result.released_dismissals,
         };
         h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
     }

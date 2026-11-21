@@ -227,6 +227,7 @@ async fn drive_to_quiescence(
                 wallets,
                 new_scripts: result.new_scripts,
                 confirmed_txids,
+                released_dismissals: result.released_dismissals,
             };
             next_events.extend(
                 manager.handle_sync_event(&event, &requests).await.expect("BlockProcessed"),

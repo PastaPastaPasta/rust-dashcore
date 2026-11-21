@@ -1669,6 +1669,7 @@ mod tests {
             wallets: BTreeSet::new(),
             new_scripts,
             confirmed_txids: vec![Txid::from_byte_array([9u8; 32])],
+            released_dismissals: Vec::new(),
         });
         assert_eq!(NEW_ADDR_COUNT.load(Ordering::SeqCst), 3);
     }

@@ -539,6 +539,9 @@ impl<W: WalletInterface> MempoolManager<W> {
                 tx.input.iter().any(|input| wallet.is_dismissed(&input.previous_output.txid));
             (result, spends_dismissed)
         };
+        for released in &result.released_dismissals {
+            self.fetch_again(*released);
+        }
 
         if !result.is_relevant {
             if let Some(pending) = pending_lock {
@@ -799,7 +802,7 @@ impl<W: WalletInterface> MempoolManager<W> {
     /// transaction a wallet dropped as dead is fetched again once a lock
     /// settles it, whether or not it was seen recently. Only a verified
     /// lock for a txid a wallet dismissed gets here.
-    fn fetch_again(&mut self, txid: Txid) {
+    pub(super) fn fetch_again(&mut self, txid: Txid) {
         self.seen_txids.remove(&txid);
         for queue in self.peers.values_mut().flatten() {
             if !queue.contains(&txid) {

@@ -102,6 +102,7 @@ impl<H: BlockHeaderStorage, B: BlockStorage, W: WalletInterface> BlocksManager<H
                 wallets: interested,
                 new_scripts: result.new_scripts,
                 confirmed_txids,
+                released_dismissals: result.released_dismissals,
             });
 
             self.reapply_blocks(result.reapply_heights).await;

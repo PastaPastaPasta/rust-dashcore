@@ -55,7 +55,7 @@ impl DismissedTxids {
 pub(crate) struct InheritedDismissals {
     order: VecDeque<(Txid, u64)>,
     parents: HashMap<Txid, (u64, Vec<Txid>)>,
-    spends: HashMap<Txid, Vec<Txid>>,
+    spends: HashMap<Txid, HashSet<Txid>>,
     next: u64,
 }
 
@@ -67,7 +67,7 @@ impl InheritedDismissals {
             return;
         }
         for parent in &parents {
-            self.spends.entry(*parent).or_default().push(txid);
+            self.spends.entry(*parent).or_default().insert(txid);
         }
         let seq = self.next;
         self.next += 1;
@@ -104,7 +104,7 @@ impl InheritedDismissals {
         };
         for parent in parents {
             if let Some(spends) = self.spends.get_mut(&parent) {
-                spends.retain(|t| t != txid);
+                spends.remove(txid);
                 if spends.is_empty() {
                     self.spends.remove(&parent);
                 }
@@ -113,9 +113,10 @@ impl InheritedDismissals {
         true
     }
 
-    /// `txid` was mined: what is dismissed only for spending it, or for
-    /// spending one of those in turn, is not any more.
-    pub(crate) fn release_spends_of(&mut self, txid: &Txid) {
+    /// `txid` was mined or locked: what is dismissed only for spending it,
+    /// or for spending one of those in turn, is not any more. Returns those.
+    pub(crate) fn release_spends_of(&mut self, txid: &Txid) -> Vec<Txid> {
+        let mut freed = Vec::new();
         let mut released = vec![*txid];
         while let Some(parent) = released.pop() {
             for spend in self.spends.remove(&parent).unwrap_or_default() {
@@ -126,9 +127,11 @@ impl InheritedDismissals {
                 if parents.is_empty() {
                     self.remove(&spend);
                     released.push(spend);
+                    freed.push(spend);
                 }
             }
         }
+        freed
     }
 }
 

@@ -111,6 +111,9 @@ pub enum SyncEvent {
         new_scripts: BTreeMap<WalletId, Vec<ScriptBuf>>,
         /// Transaction IDs confirmed in this block that are relevant to the wallet
         confirmed_txids: Vec<Txid>,
+        /// Transactions a wallet no longer dismisses because this block mined
+        /// one they spend.
+        released_dismissals: Vec<Txid>,
     },
 
     /// Masternode state updated to a new height.

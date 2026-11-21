@@ -96,8 +96,12 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
             }
             SyncEvent::BlockProcessed {
                 confirmed_txids,
+                released_dismissals,
                 ..
             } => {
+                for txid in released_dismissals {
+                    self.fetch_again(*txid);
+                }
                 // Remove confirmed transactions from mempool.
                 // Bloom filter rebuild is handled by the tick's revision check.
                 if confirmed_txids.is_empty() {
@@ -662,6 +666,7 @@ mod tests {
             wallets: BTreeSet::new(),
             new_scripts: BTreeMap::new(),
             confirmed_txids: txids.clone(),
+            released_dismissals: Vec::new(),
         };
         let events = manager.handle_sync_event(&event, &requests).await.unwrap();
         assert!(events.is_empty());
@@ -1104,6 +1109,7 @@ mod tests {
             wallets: BTreeSet::new(),
             new_scripts: BTreeMap::new(),
             confirmed_txids: vec![dashcore::Txid::all_zeros()],
+            released_dismissals: Vec::new(),
         };
         manager.handle_sync_event(&event, &requests).await.unwrap();
 
@@ -1131,6 +1137,7 @@ mod tests {
             wallets: BTreeSet::new(),
             new_scripts: BTreeMap::new(),
             confirmed_txids: vec![],
+            released_dismissals: Vec::new(),
         };
         manager.handle_sync_event(&event, &requests).await.unwrap();
     }

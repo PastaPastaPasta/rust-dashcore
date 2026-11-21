@@ -242,9 +242,11 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
     }
 
     /// Forget that `txid` was dismissed: it was mined, so it is not dead, and
-    /// neither is what was dismissed only for spending it. The default does
-    /// nothing.
-    fn undismiss(&mut self, _txid: &Txid) {}
+    /// neither is what was dismissed only for spending it. Returns those. The
+    /// default does nothing.
+    fn undismiss(&mut self, _txid: &Txid) -> Vec<Txid> {
+        Vec::new()
+    }
 
     /// Return the highest chainlock that has been applied to this
     /// wallet, retaining the signing proof. Blocks at or below
@@ -408,10 +410,10 @@ impl WalletInfoInterface for ManagedWalletInfo {
         true
     }
 
-    fn undismiss(&mut self, txid: &Txid) {
+    fn undismiss(&mut self, txid: &Txid) -> Vec<Txid> {
         self.dismissed.remove(txid);
         self.inherited.remove(txid);
-        self.inherited.release_spends_of(txid);
+        self.inherited.release_spends_of(txid)
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {

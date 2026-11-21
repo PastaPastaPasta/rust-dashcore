@@ -22,6 +22,10 @@ pub struct BlockProcessingResult {
     /// gap-limit maintenance.
     pub new_scripts: BTreeMap<WalletId, Vec<ScriptBuf>>,
     pub reapply_heights: BTreeMap<WalletId, BTreeSet<CoreBlockHeight>>,
+    /// Transactions no longer dismissed now that this block mined one they
+    /// spend, to be fetched again: a peer does not announce one it already
+    /// sent.
+    pub released_dismissals: Vec<Txid>,
 }
 
 /// Result of processing a mempool transaction through the wallet
@@ -37,6 +41,9 @@ pub struct MempoolTransactionResult {
     pub addresses: Vec<Address>,
     /// New addresses generated during gap limit maintenance.
     pub new_addresses: Vec<Address>,
+    /// Transactions no longer dismissed now that this one is locked, to be
+    /// fetched again: a peer does not announce one it already sent.
+    pub released_dismissals: Vec<Txid>,
 }
 
 impl BlockProcessingResult {
