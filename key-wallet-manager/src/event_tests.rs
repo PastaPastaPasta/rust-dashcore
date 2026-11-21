@@ -2472,6 +2472,16 @@ async fn funding_that_exposes_an_unsigned_claim_sweeps_it_and_credits_the_coin()
         }),
         "the unsigned claim is swept: {events:?}"
     );
+    let swept_at =
+        events.iter().position(|event| matches!(event, WalletEvent::TransactionsSwept { .. }));
+    let detected_at = events.iter().position(|event| {
+        matches!(event, WalletEvent::TransactionDetected { record, .. }
+            if record.txid == funding.txid())
+    });
+    assert!(
+        matches!((swept_at, detected_at), (Some(swept), Some(detected)) if swept < detected),
+        "the sweep is announced before the funding: {events:?}"
+    );
     let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
     assert!(account.utxos.contains_key(&coin));
     assert!(!account.transactions().contains_key(&claim.txid()));

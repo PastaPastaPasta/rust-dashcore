@@ -209,6 +209,43 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         let mut per_wallet_derived = std::mem::take(&mut check_result.new_addresses);
         let mut locked_wallets = BTreeSet::new();
 
+        // Removals, before the additive events: a consumer applying these in
+        // order sees the dead rows deleted first, so a replacement paying the
+        // same address cannot be clobbered by the delete that follows it.
+        let mut per_wallet_released =
+            std::mem::take(&mut check_result.per_wallet_released_outpoints);
+        for (wallet_id, txids) in std::mem::take(&mut check_result.per_wallet_swept) {
+            if txids.is_empty() {
+                continue;
+            }
+            let Some(info) = self.wallet_infos.get(&wallet_id) else {
+                continue;
+            };
+            let released_outpoints = per_wallet_released.remove(&wallet_id).unwrap_or_default();
+            let event = WalletEvent::TransactionsSwept {
+                wallet_id,
+                txids,
+                superseded_by: tx.txid(),
+                // Off-chain arrival: an InstantSend-locked winner, or the
+                // funding that exposed an unsigned pending spend, neither of
+                // them mined yet.
+                winner_block: None,
+                released_outpoints,
+                balance: info.balance(),
+                account_balances: per_wallet_account_diff
+                    .get(&wallet_id)
+                    .cloned()
+                    .unwrap_or_default(),
+            };
+            self.emit_event(event);
+        }
+        debug_assert!(
+            per_wallet_released.is_empty(),
+            "released outpoints for a wallet that emitted no sweep would be dropped \
+             here, stranding those coins marked spent forever: {:?}",
+            per_wallet_released
+        );
+
         for (wallet_id, records) in per_wallet_new_records {
             let Some(info) = self.wallet_infos.get(&wallet_id) else {
                 continue;
@@ -264,43 +301,6 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                 );
             }
         }
-
-        // Removals, before the additive events: a consumer applying these in
-        // order sees the dead rows deleted first, so a replacement paying the
-        // same address cannot be clobbered by the delete that follows it.
-        let mut per_wallet_released =
-            std::mem::take(&mut check_result.per_wallet_released_outpoints);
-        for (wallet_id, txids) in std::mem::take(&mut check_result.per_wallet_swept) {
-            if txids.is_empty() {
-                continue;
-            }
-            let Some(info) = self.wallet_infos.get(&wallet_id) else {
-                continue;
-            };
-            let released_outpoints = per_wallet_released.remove(&wallet_id).unwrap_or_default();
-            let event = WalletEvent::TransactionsSwept {
-                wallet_id,
-                txids,
-                superseded_by: tx.txid(),
-                // Off-chain arrival: an InstantSend-locked winner, or the
-                // funding that exposed an unsigned pending spend, neither of
-                // them mined yet.
-                winner_block: None,
-                released_outpoints,
-                balance: info.balance(),
-                account_balances: per_wallet_account_diff
-                    .get(&wallet_id)
-                    .cloned()
-                    .unwrap_or_default(),
-            };
-            self.emit_event(event);
-        }
-        debug_assert!(
-            per_wallet_released.is_empty(),
-            "released outpoints for a wallet that emitted no sweep would be dropped \
-             here, stranding those coins marked spent forever: {:?}",
-            per_wallet_released
-        );
 
         for (wallet_id, records) in per_wallet_updated_records {
             let Some(info) = self.wallet_infos.get(&wallet_id) else {
