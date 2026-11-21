@@ -1,0 +1,4 @@
+{
+  "base": "a-wal",
+  "detail": "Live WAL 7 holds B at seq 100; higher-numbered WAL 8 holds older deletion at seq 1; original WAL remains live"
+}

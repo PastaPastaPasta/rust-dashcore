@@ -1,0 +1,56 @@
+[package]
+name = "dashd-quorums"
+description = "Runtime quorum contribution manager for the Rust Dash node."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-evo = { path = "../dash-evo" }
+# Core's quorum database on the node's storage contract (`store::KvQuorumStore`).
+dash-kv = { path = "../dash-kv" }
+dash-llmq = { path = "../dash-llmq" }
+# `NetCore`, `policy::read` and the processor's `Throw` for the `qgetdata`/`qdata` handler.
+dash-p2p = { path = "../dash-p2p" }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+# The registry `NetQuorum` joins (QM1b-6).
+dashd-p2p = { path = "../dashd-p2p" }
+serde_json = { workspace = true, optional = true }
+thiserror = "2"
+tracing = "0.1"
+
+[features]
+# The regtest-only `-testquorumshares` share-seam loader (`QuorumManager::load_test_quorum_shares`).
+# Off by default; a product build never enables it.
+testkit-seams = ["dep:serde_json"]
+
+[dev-dependencies]
+# The lane (c) differential (`tests/lane_c_differential.rs`): the recorded chain replayed into
+# `NodeSut`'s V, route B's quorums, the recorded RPC answers and the fixture's sha256 pins.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# ST3a's power-loss model, crashing the quorum store after each commit (`store::tests`).
+dash-kv = { path = "../dash-kv", features = ["faulty"] }
+dash-sha256 = { path = "../dash-sha256" }
+# `support::addresses`' entry strings (`CService::ToStringAddrPort`); its tests' hand-built Dmns
+# use dash-dml above.
+dash-netaddr = { path = "../dash-netaddr" }
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
+# The handler's wire tests in the processor's simulation (`net_quorum::tests`).
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+serde_json = "1.0"
+tempfile = "3"
+
+[[test]]
+name = "share_seam"
+path = "tests/share_seam.rs"
+required-features = ["testkit-seams"]
