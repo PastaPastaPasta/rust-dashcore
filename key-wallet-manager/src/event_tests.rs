@@ -2487,6 +2487,89 @@ async fn funding_that_exposes_an_unsigned_claim_sweeps_it_and_credits_the_coin()
     assert!(!account.transactions().contains_key(&claim.txid()));
 }
 
+fn bip44_external_address_at(
+    manager: &WalletManager,
+    wallet_id: &WalletId,
+    index: u32,
+) -> Option<Address> {
+    let account = manager.wallet_infos[wallet_id].first_bip44_managed_account()?;
+    match account.managed_account_type() {
+        ManagedAccountType::Standard {
+            external_addresses,
+            ..
+        } => external_addresses.address_at_index(index),
+        _ => None,
+    }
+}
+
+fn sweeps(events: &[WalletEvent], wallet: WalletId, txids: &[Txid], winner: Txid) -> bool {
+    events.iter().any(|event| {
+        matches!(event, WalletEvent::TransactionsSwept {
+            wallet_id, txids: swept, superseded_by, ..
+        } if *wallet_id == wallet && swept == txids && *superseded_by == winner)
+    })
+}
+
+#[tokio::test]
+async fn a_funding_settled_once_its_address_is_derived_sweeps_the_unsigned_claim() {
+    for by_lock in [false, true] {
+        let (mut manager, wallet_id, addr) = setup_manager_with_wallet();
+        let (highest, gap_limit, highest_addr) =
+            pool_state(&manager, &wallet_id, AddressPoolType::External);
+        let widen = create_tx_paying_to(&highest_addr, 0xc0);
+        let (mut ahead, ahead_id, _) = setup_manager_with_wallet();
+        ahead.process_mempool_transaction(&widen, None).await;
+        let later_index = highest + gap_limit;
+        let later = bip44_external_address_at(&ahead, &ahead_id, later_index).unwrap();
+
+        let mut funding = create_tx_paying_to(&addr, 0xc1);
+        funding.output.push(TxOut {
+            value: TX_AMOUNT,
+            script_pubkey: later.script_pubkey(),
+        });
+        let coin = OutPoint::new(funding.txid(), 1);
+        manager.process_mempool_transaction(&funding, None).await;
+        let mut claim = create_tx_paying_to(&addr, 0xc2);
+        claim.input[0].previous_output = coin;
+        claim.output[0].value = TX_AMOUNT - 1000;
+        manager.process_mempool_transaction(&claim, None).await;
+        assert_eq!(bip44_external_address_at(&manager, &wallet_id, later_index), None);
+        let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+        assert!(
+            account.transactions().contains_key(&claim.txid()),
+            "the claim is taken while its coin is not the wallet's"
+        );
+        manager.process_mempool_transaction(&widen, None).await;
+        assert_eq!(bip44_external_address_at(&manager, &wallet_id, later_index), Some(later));
+        let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+        assert!(account.transactions().contains_key(&claim.txid()));
+        assert!(!account.utxos.contains_key(&coin));
+
+        let mut rx = manager.subscribe_events();
+        if by_lock {
+            let lock = Some(dummy_instant_lock(funding.txid()));
+            manager.process_mempool_transaction(&funding, lock).await;
+            let events = drain_events(&mut rx);
+            assert!(
+                sweeps(&events, wallet_id, &[claim.txid()], funding.txid()),
+                "the funding's lock sweeps the unsigned claim: {events:?}"
+            );
+        }
+        let block = make_block(vec![funding.clone()], 0xc3, 100);
+        let wallets = BTreeSet::from([wallet_id]);
+        manager.process_block_for_wallets(&block, block.block_hash(), 1, &wallets).await;
+        let events = drain_events(&mut rx);
+        assert_eq!(
+            sweeps(&events, wallet_id, &[claim.txid()], funding.txid()),
+            !by_lock,
+            "the funding's block sweeps the unsigned claim: {events:?}"
+        );
+        let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+        assert!(!account.transactions().contains_key(&claim.txid()));
+        assert!(account.utxos.contains_key(&coin), "the coin is credited");
+    }
+}
+
 #[tokio::test]
 async fn an_undecided_claim_keeps_its_hold_when_its_funding_arrives() {
     let (mut manager, wallet_id, addr) = setup_manager_with_wallet();

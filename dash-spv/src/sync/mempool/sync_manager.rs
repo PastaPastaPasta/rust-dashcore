@@ -731,6 +731,7 @@ mod tests {
         use key_wallet::test_utils::TestWalletContext;
         use key_wallet::transaction_checking::TransactionContext;
         use key_wallet::wallet::managed_wallet_info::managed_account_operations::ManagedAccountOperations;
+        use key_wallet::wallet::managed_wallet_info::transaction_builder::TransactionSigner;
         use key_wallet::wallet::ManagedWalletInfo;
         use key_wallet::AccountType;
         use key_wallet_manager::{WalletEvent, WalletManager};
@@ -756,6 +757,15 @@ mod tests {
         let mut spender = Transaction::dummy(&address, 1..2, &[40_000]);
         let outpoint = OutPoint::new(funding.txid(), 1);
         spender.input[0].previous_output = outpoint;
+        let path = preview
+            .bip44_managed_account_at_index(1)
+            .unwrap()
+            .address_derivation_path(&address)
+            .unwrap();
+        let coin =
+            key_wallet::Utxo::new(outpoint, funding.output[1].clone(), address.clone(), 0, false);
+        let spender =
+            ctx.wallet.sign_tx(spender, vec![coin], move |_| Some(path.clone())).await.unwrap();
 
         let mut wallet = WalletManager::new(dashcore::Network::Testnet);
         let wallet_id = wallet.insert_wallet(ctx.wallet, ctx.managed_wallet).unwrap();

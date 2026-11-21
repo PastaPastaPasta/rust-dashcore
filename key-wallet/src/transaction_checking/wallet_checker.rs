@@ -368,9 +368,11 @@ impl WalletTransactionChecker for ManagedWalletInfo {
             }
         }
 
-        // The outputs of a new transaction were unknown until now, so any
-        // spend of them already recorded was taken on a peer's word.
-        if is_new {
+        // The outputs of a new transaction were unknown until now, and so is
+        // an output a block or a lock credits for an address derived since
+        // the transaction was recorded, so any spend of them already recorded
+        // was taken on a peer's word.
+        if is_new || context.confirmed() || context.is_instant_send() {
             let dropped = self.drop_unauthorized_spends_of(tx);
             if !dropped.is_empty() {
                 result.swept_transactions.extend(dropped.txids);
@@ -572,6 +574,7 @@ mod tests {
     use crate::transaction_checking::TransactionType;
     use crate::utxo::Utxo;
     use crate::wallet::initialization::WalletAccountCreationOptions;
+    use crate::wallet::managed_wallet_info::transaction_builder::TransactionSigner;
     use crate::wallet::managed_wallet_info::wallet_info_interface::WalletInfoInterface;
     use crate::wallet::{ManagedWalletInfo, Wallet};
     use crate::{AccountType, Network};
@@ -4224,6 +4227,14 @@ mod tests {
             value: 5_000,
             script_pubkey: addresses[30].script_pubkey(),
         });
+        let path = preview
+            .bip44_managed_account_at_index(1)
+            .unwrap()
+            .address_derivation_path(address)
+            .unwrap();
+        let coin = Utxo::new(outpoint, funding.output[1].clone(), address.clone(), 0, false);
+        let spender =
+            ctx.wallet.sign_tx(spender, vec![coin], move |_| Some(path.clone())).await.unwrap();
         assert!(!ctx
             .managed_wallet
             .bip44_managed_account_at_index(1)
