@@ -225,6 +225,12 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
         false
     }
 
+    /// Keep `txid` as dropped by the wallet itself, as an abandon or a swept
+    /// loser is, such as one persisted across a restart. It is then treated
+    /// as [`is_dismissed`](Self::is_dismissed) until it is locked or mined.
+    /// The default does nothing.
+    fn dismiss(&mut self, _txid: Txid) {}
+
     /// Drop `tx` as dead if it spends a transaction the wallet dismissed, and
     /// return whether it does. It is then treated as
     /// [`is_dismissed`](Self::is_dismissed) until it is locked or mined, or
@@ -387,6 +393,10 @@ impl WalletInfoInterface for ManagedWalletInfo {
 
     fn is_dismissed(&self, txid: &Txid) -> bool {
         self.dismissed.contains(txid) || self.inherited.contains(txid)
+    }
+
+    fn dismiss(&mut self, txid: Txid) {
+        self.dismissed.insert(txid);
     }
 
     fn dismiss_spend_of_dismissed(&mut self, tx: &Transaction, txid: Txid) -> bool {
