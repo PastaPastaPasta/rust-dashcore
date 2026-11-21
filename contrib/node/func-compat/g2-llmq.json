@@ -1,0 +1,54 @@
+{
+ "mask": "mn:2",
+ "pin": "v24.0",
+ "tests": {
+  "feature_llmq_chainlocks.py": {
+   "class": "unimplemented-option",
+   "detail": "-spentindex",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_dkgerrors.py": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_is_cl_conflicts.py": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_is_retroactive.py": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_signing.py": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_signing.py --spork21": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py --disable-spork23": {
+   "class": "unimplemented-option",
+   "detail": "-masternodeblsprivkey",
+   "stage": "start",
+   "status": "fail"
+  }
+ }
+}
