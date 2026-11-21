@@ -2476,3 +2476,26 @@ async fn funding_that_exposes_an_unsigned_claim_sweeps_it_and_credits_the_coin()
     assert!(account.utxos.contains_key(&coin));
     assert!(!account.transactions().contains_key(&claim.txid()));
 }
+
+#[tokio::test]
+async fn an_undecided_claim_keeps_its_hold_when_its_funding_arrives() {
+    let (mut manager, wallet_id, addr) = setup_manager_with_wallet();
+    let funding = create_tx_paying_to(&addr, 0xb3);
+    let coin = OutPoint::new(funding.txid(), 0);
+    let mut claim = create_tx_paying_to(&addr, 0xb4);
+    claim.input[0].previous_output = coin;
+    claim.input[0].script_sig = ScriptBuf::from_bytes(vec![0x01, 0x01, 0x01, 0x02, 0x7e]);
+    claim.output[0].value = TX_AMOUNT - 1000;
+    manager.process_mempool_transaction(&claim, None).await;
+
+    let mut rx = manager.subscribe_events();
+    manager.process_mempool_transaction(&funding, None).await;
+    let events = drain_events(&mut rx);
+    assert!(
+        !events.iter().any(|event| matches!(event, WalletEvent::TransactionsSwept { .. })),
+        "a claim the check cannot decide is not swept: {events:?}"
+    );
+    let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+    assert!(account.transactions().contains_key(&claim.txid()));
+    assert!(!account.utxos.contains_key(&coin), "its coin stays held");
+}

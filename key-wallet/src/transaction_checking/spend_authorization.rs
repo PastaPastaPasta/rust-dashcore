@@ -2,6 +2,7 @@
 
 use dashcore::blockdata::constants::MAX_SCRIPT_SIZE;
 use dashcore::hashes::{hash160, Hash};
+use dashcore::opcodes::all::{OP_CAT, OP_XOR};
 use dashcore::script::{Instruction, PushBytes};
 use dashcore::sighash::{EcdsaSighashType, SighashCache};
 use dashcore::{PublicKey, Transaction, TxOut};
@@ -47,7 +48,9 @@ impl std::error::Error for SpendAuthorizationError {}
 /// Whether input `input_index` carries the owner's P2PKH `SIGHASH_ALL` signature for `prevout`.
 /// The caller takes `prevout` from the funding transaction of that input's outpoint.
 /// An unsupported form or a missing input returns an error, so a pending hold is not released.
-/// A signature or key built at run time, for example by `OP_CAT`, returns `false`.
+/// So does an input script that uses a byte operation (`OP_CAT` to `OP_XOR`, re-enabled by
+/// DIP-0020) when no pushed signature by a pushed owner's key verifies: the operation can build
+/// the signature or key at run time. Other instructions only move or test pushed values.
 pub fn verify_input_authorization(
     transaction: &Transaction,
     input_index: usize,
@@ -80,6 +83,15 @@ pub fn verify_input_authorization(
         .map(PushBytes::as_bytes)
         .collect::<Vec<_>>();
     let push_only = pushes.len() == instructions.len();
+    let builds_bytes = instructions
+        .iter()
+        .filter_map(Instruction::opcode)
+        .any(|opcode| (OP_CAT.to_u8()..=OP_XOR.to_u8()).contains(&opcode.to_u8()));
+    let unsigned = if builds_bytes {
+        Err(SpendAuthorizationError::UnsupportedScriptSig)
+    } else {
+        Ok(false)
+    };
     let is_owner_key =
         |bytes: &&[u8]| hash160::Hash::hash(bytes).as_byte_array().as_slice() == public_key_hash;
     // A push-only input script leaves the owner's signature and key as its last two pushes.
@@ -93,7 +105,7 @@ pub fn verify_input_authorization(
         (pushes.as_slice(), pushes.iter().copied().find(is_owner_key))
     };
     let Some(Ok(public_key)) = public_key.map(PublicKey::from_slice) else {
-        return Ok(false);
+        return unsigned;
     };
     // Signatures with the same hash type share a digest, which bounds the hashing per script.
     let mut digests = BTreeMap::new();
@@ -111,7 +123,7 @@ pub fn verify_input_authorization(
         signature.verify(Message::from_digest((*digest)?), &public_key.inner).ok()?;
         Some(mode)
     }) else {
-        return Ok(false);
+        return unsigned;
     };
     // Other modes can authorize only part of a transaction; SINGLE can even
     // produce a constant digest. They cannot authorize this durable reservation.
@@ -433,5 +445,40 @@ mod tests {
             padded.output[0].value -= 1;
             assert_eq!(verify_input_authorization(&padded, 0, &prevout), Ok(false));
         }
+    }
+
+    #[test]
+    fn should_leave_an_input_script_that_builds_bytes_undecided() {
+        let (signed_tx, prevout) = signed(false);
+        let owner_script = signed_tx.input[0].script_sig.as_bytes();
+        let signature = &owner_script[1..=usize::from(owner_script[0])];
+        let public_key = &owner_script[signature.len() + 2..];
+        let push = |builder: Builder, item: &[u8]| {
+            builder.push_slice(PushBytesBuf::try_from(item.to_vec()).unwrap())
+        };
+        let (signature_head, signature_tail) = signature.split_at(signature.len() / 2);
+        let (key_head, key_tail) = public_key.split_at(1);
+        let built_signature = push(
+            push(push(Builder::new(), signature_head), signature_tail).push_opcode(OP_CAT),
+            public_key,
+        );
+        let built_key =
+            push(push(push(Builder::new(), signature), key_head), key_tail).push_opcode(OP_CAT);
+        let mask = vec![0x5a; public_key.len()];
+        let masked: Vec<u8> =
+            public_key.iter().zip(&mask).map(|(byte, mask)| byte ^ mask).collect();
+        let xored_key =
+            push(push(push(Builder::new(), signature), &masked), &mask).push_opcode(OP_XOR);
+        for script in [built_signature, built_key, xored_key] {
+            let mut tx = signed_tx.clone();
+            tx.input[0].script_sig = script.into_script();
+            assert_eq!(
+                verify_input_authorization(&tx, 0, &prevout),
+                Err(SpendAuthorizationError::UnsupportedScriptSig)
+            );
+        }
+        let mut junk = signed_tx.clone();
+        junk.input[0].script_sig = ScriptBuf::from_bytes(vec![0x61]);
+        assert_eq!(verify_input_authorization(&junk, 0, &prevout), Ok(false));
     }
 }
