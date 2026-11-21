@@ -12,6 +12,7 @@
 #            In default-branch runs it also saves ~/.rust-dashcore-test (the dashd releases and regtest
 #            data) under a key of their versions, which the shards and the nightly restore (DEC-1392).
 #   static   chainparams-upstream (builds and tests dash-chainparams on upstream base-sdk, v22), fmt,
+#            fmt-workspaces (the separate cargo workspaces, v24),
 #            pins, deny, layers, groups, self-devdep, sb12a-captures, release-refs, protocol-tables
 #            (no cache).
 #   shard    restores the cache, then one of: a test shard (`cargo test --no-fail-fast -p ...`; the
@@ -29,6 +30,8 @@
 #            A scheduled run skips it when a nightly of its UTC date already ran (v20).
 #   selftest beside nightly, gated the same way: contrib/node/selftest-checks.sh --shard I/K, one job
 #            per shard (v23, DEC-1695). Never part of a verdict; saves no cache.
+#   mobile   beside nightly, gated the same way: contrib/node/check-mobile.sh (L6/L7/O5) with
+#            agentbox's NDK and API, so the stripped-size baseline holds (DEC-1862). Never part of a verdict.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -145,9 +148,10 @@ jobs:
           mine=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at) || { echo "::warning::own run lookup failed; running the nightly"; exit 0; }
           day=${mine%%T*}
           # A cancelled, skipped or never-started earlier run did not run the nightly; a failed one did.
+          # Only master dispatches of nightly/integration count: an item nightly (ci/<12hex>) is not the integration nightly (BL-933).
           earlier=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/node-gate.yml/runs?created=>=$day&per_page=100" \
             --jq ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and (.created_at | startswith(\"$day\")) and .created_at < \"$mine\"
-                    and (.event == \"schedule\" or (.event == \"workflow_dispatch\" and (.display_title | startswith(\"node-gate nightly \"))))
+                    and (.event == \"schedule\" or (.event == \"workflow_dispatch\" and .head_branch == \"master\" and (.display_title | startswith(\"node-gate nightly nightly/integration \"))))
                     and ((.conclusion // \"\") | IN(\"cancelled\", \"skipped\", \"startup_failure\") | not))
                   | \"\(.id) \(.event) \(.created_at) \(.conclusion // .status)\"") || { echo "::warning::run lookup failed; running the nightly"; exit 0; }
           earlier=$(paste -sd ' ' <<< "$earlier")
@@ -650,6 +654,10 @@ jobs:
       - name: fmt
         if: ${{ !cancelled() }}
         run: cargo fmt --check
+      # v24 (BL-917): every other cargo workspace, with its own manifest; the root run never reaches them.
+      - name: fmt-workspaces
+        if: ${{ !cancelled() && hashFiles('contrib/node/check-fmt-workspaces.sh') != '' }}
+        run: contrib/node/check-fmt-workspaces.sh
       - name: pins
         if: ${{ !cancelled() }}
         run: contrib/node/check-base-sdk-pins.sh
@@ -701,6 +709,30 @@ jobs:
           git init -q "$RUNNER_TEMP/dash"
           git -C "$RUNNER_TEMP/dash" fetch -q --depth 1 https://github.com/dashpay/dash "refs/tags/$tag:refs/tags/$tag"
           python3 -I contrib/node/core-protocol-tables.py --core "$RUNNER_TEMP/dash" --check
+
+  # Loom models (check-loom.sh) on every run; rust.yml's loom job runs only on hosted plans (BL-931).
+  loom:
+    name: Loom
+    if: ${{ !inputs.deps_only && !(github.event_name == 'schedule' || inputs.nightly) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.snapshot || github.sha }}
+          persist-credentials: false
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+
+      - name: check-loom
+        run: contrib/node/check-loom.sh
 
   shard:
     name: ${{ matrix.shard }}
@@ -1231,7 +1263,7 @@ jobs:
 
   summary:
     name: Summary
-    needs: [deps, static, shard, macos]
+    needs: [deps, static, loom, shard, macos]
     # Not after a cancel: its failure on cancelled shards would make the cancelled run look red to
     # rdc-ci-verdict.sh, which counts a cancelled run with a failed job as red.
     if: ${{ !cancelled() && !inputs.deps_only && !(github.event_name == 'schedule' || inputs.nightly) }}
@@ -1296,7 +1328,7 @@ jobs:
           {
             echo "## node-gate $REF"
             echo
-            echo "deps: ${{ needs.deps.result }}, static: ${{ needs.static.result }}, shards: ${{ needs.shard.result }}, macOS: ${{ needs.macos.result }}"
+            echo "deps: ${{ needs.deps.result }}, static: ${{ needs.static.result }}, loom: ${{ needs.loom.result }}, shards: ${{ needs.shard.result }}, macOS: ${{ needs.macos.result }}"
             echo
             echo "| job | conclusion | wall (min) |"
             echo "|---|---|---|"
@@ -1307,7 +1339,8 @@ jobs:
             cat metrics/*.txt 2>/dev/null
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
-          [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.shard.result }}" = success ] \
+          [ "${{ needs.deps.result }}" = success ] && [ "${{ needs.static.result }}" = success ] && [ "${{ needs.loom.result }}" = success ] \
+            && [ "${{ needs.shard.result }}" = success ] \
             && [ "${{ needs.macos.result }}" = success ]
 
   # CH3b b4b's L1 nightly. The dbcrash binary builds with the rdashd shard's packages and features, so
@@ -1416,6 +1449,111 @@ jobs:
         with:
           name: b4b-nightly
           path: ${{ runner.temp }}/b4b/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # DEC-1862: check-mobile.sh with agentbox's NDK and API. L7 measures against the merge base with
+  # refs/heads/node/integration, so the runner layout is committed as in selftest.
+  mobile:
+    name: mobile
+    needs: deps
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' && needs.deps.outputs.nightly_ran != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      # agentbox's NDK and API: check-layers.py's size baseline records both.
+      NDK_PIN: "29.0.14206865"
+      ANDROID_API: "24"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ needs.deps.outputs.commit }}
+          persist-credentials: false
+
+      - name: Snapshot
+        run: |
+          [ -x contrib/node/check-mobile.sh ] || { echo "::error::this snapshot has no contrib/node/check-mobile.sh"; exit 1; }
+          echo "mobile snapshot $(git rev-parse HEAD): $(git log -1 --format=%s)"
+
+      - name: Toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component clippy
+          rustup target add aarch64-linux-android
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: false
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+
+      - name: NDK
+        run: |
+          sdkmanager=$(ls -d "$ANDROID_HOME"/cmdline-tools/latest/bin/sdkmanager)
+          yes | "$sdkmanager" --install "ndk;$NDK_PIN" > "$RUNNER_TEMP/sdkmanager.log" 2>&1 || { cat "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          ndk=$ANDROID_HOME/ndk/$NDK_PIN
+          rev=$(sed -n 's/^Pkg\.Revision *= *//p' "$ndk/source.properties")
+          [ "$rev" = "$NDK_PIN" ] || { cat "$RUNNER_TEMP/sdkmanager.log"; echo "::error::$ndk is NDK '$rev', not $NDK_PIN"; exit 1; }
+          for v in ANDROID_NDK_HOME ANDROID_NDK_ROOT ANDROID_NDK ANDROID_NDK_LATEST_HOME; do echo "$v=$ndk" >> "$GITHUB_ENV"; done
+          echo "NDK $rev, API $ANDROID_API"
+
+      # As in selftest: the spv lint's audit stamp reads the pin from agentbox's layout.
+      - name: Base SDK pin to a local clone
+        run: |
+          public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
+          local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
+          [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
+          if [[ "$public" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "$local" =~ ^file:///[A-Za-z0-9_./-]+$ ]]; then
+            dir=${local#file://}
+            sudo mkdir -p "$(dirname "$dir")"
+            sudo chown "$(id -u):$(id -g)" "$(dirname "$dir")"
+            git clone -q --bare "$public" "$dir/.git"
+            git -C "$dir" config core.bare false
+            git grep -lzF "$public" -- '*Cargo.toml' '*Cargo.lock' | xargs -0 -r sed -i \
+              -e "s|\"$public\"|\"$local\"|g" -e "s|source = \"git+$public?|source = \"git+$local?|g"
+            read -r _ rev _ < <(python3 contrib/node/base_sdk_pins.py show)
+            git -C "$dir" checkout -q --detach "$rev"
+            echo "base SDK pin: $public -> $local, checked out at $(git -C "$dir" rev-parse HEAD)"
+          else
+            echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
+          fi
+
+      - name: Commit the runner layout
+        run: |
+          git config --global user.name node-gate
+          git config --global user.email node-gate@users.noreply.github.com
+          git add -u
+          git update-ref refs/heads/node/integration HEAD
+          git commit -q --no-verify --allow-empty -m "node-gate: the mobile job's runner layout"
+          echo "merge base with node/integration: $(git merge-base HEAD refs/heads/node/integration)"
+
+      - name: check-mobile.sh
+        run: |
+          mkdir -p "$RUNNER_TEMP/mobile"
+          t0=$SECONDS
+          # The step's shell has no pipefail: the script's status is taken from PIPESTATUS, not tee's.
+          set +e
+          contrib/node/check-mobile.sh 2>&1 | tee "$RUNNER_TEMP/mobile/log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          line="mobile: exit $rc in $((SECONDS - t0)) s, NDK $NDK_PIN, API $ANDROID_API"
+          echo "$line"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+      - name: Upload the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile
+          path: ${{ runner.temp }}/mobile/
           retention-days: 14
           if-no-files-found: ignore
 
