@@ -100,10 +100,12 @@ impl<W: WalletInterface + 'static> SyncManager for MempoolManager<W> {
             } => {
                 // Remove confirmed transactions from mempool.
                 // Bloom filter rebuild is handled by the tick's revision check.
-                if !confirmed_txids.is_empty() {
-                    return Ok(self.remove_confirmed(confirmed_txids));
+                if confirmed_txids.is_empty() {
+                    return Ok(vec![]);
                 }
-                Ok(vec![])
+                let events = self.remove_confirmed(confirmed_txids);
+                self.recheck_kept_spends_of(confirmed_txids).await;
+                Ok(events)
             }
             // A lock the InstantSend manager could not verify is announced with
             // `validated: false` and again with `true` once it verifies. Only the
