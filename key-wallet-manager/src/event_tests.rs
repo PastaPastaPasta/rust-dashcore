@@ -2592,3 +2592,76 @@ async fn an_undecided_claim_keeps_its_hold_when_its_funding_arrives() {
     assert!(account.transactions().contains_key(&claim.txid()));
     assert!(!account.utxos.contains_key(&coin), "its coin stays held");
 }
+
+#[tokio::test]
+async fn a_dropped_claim_takes_what_spends_it_with_it() {
+    let (mut manager, wallet_id, addr) = setup_manager_with_wallet();
+    let funding = create_tx_paying_to(&addr, 0xb5);
+    let coin = OutPoint::new(funding.txid(), 0);
+    let mut claim = create_tx_paying_to(&addr, 0xb6);
+    claim.input[0].previous_output = coin;
+    claim.output[0].value = TX_AMOUNT - 1000;
+    manager.process_mempool_transaction(&claim, None).await;
+    let mut child = create_tx_paying_to(&addr, 0xb7);
+    child.input[0].previous_output = OutPoint::new(claim.txid(), 0);
+    child.output[0].value = TX_AMOUNT - 2000;
+    let child = signed_spend(&manager, &wallet_id, child).await;
+    manager.process_mempool_transaction(&child, None).await;
+    let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+    assert!(account.transactions().contains_key(&child.txid()));
+
+    let mut rx = manager.subscribe_events();
+    manager.process_mempool_transaction(&funding, None).await;
+    let events = drain_events(&mut rx);
+    let mut dropped = vec![claim.txid(), child.txid()];
+    dropped.sort_unstable();
+    assert!(
+        sweeps(&events, wallet_id, &dropped, funding.txid()),
+        "the claim is swept with its child: {events:?}"
+    );
+    let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+    assert!(!account.transactions().contains_key(&child.txid()));
+    assert_eq!(account.utxos.keys().copied().collect::<Vec<_>>(), vec![coin]);
+}
+
+#[tokio::test]
+async fn a_claim_another_account_recorded_is_dropped() {
+    let (mut manager, wallet_id, addr) = setup_manager_with_wallet();
+    let xpub = manager.wallets[&wallet_id].accounts.standard_bip32_accounts[&0].account_xpub;
+    let other = manager
+        .wallet_infos
+        .get_mut(&wallet_id)
+        .unwrap()
+        .first_bip32_managed_account_mut()
+        .unwrap()
+        .next_receive_address(Some(&xpub), true)
+        .unwrap();
+    let funding = create_tx_paying_to(&addr, 0xb8);
+    let coin = OutPoint::new(funding.txid(), 0);
+    let mut claim = create_tx_paying_to(&other, 0xb9);
+    claim.input[0].previous_output = coin;
+    claim.output[0].value = TX_AMOUNT - 1000;
+    manager.process_mempool_transaction(&claim, None).await;
+    let info = &manager.wallet_infos[&wallet_id];
+    assert!(info.first_bip32_managed_account().unwrap().transactions().contains_key(&claim.txid()));
+    assert!(!info
+        .first_bip44_managed_account()
+        .unwrap()
+        .transactions()
+        .contains_key(&claim.txid()));
+
+    let mut rx = manager.subscribe_events();
+    manager.process_mempool_transaction(&funding, None).await;
+    let events = drain_events(&mut rx);
+    assert!(
+        sweeps(&events, wallet_id, &[claim.txid()], funding.txid()),
+        "the other account's claim is swept: {events:?}"
+    );
+    let info = &manager.wallet_infos[&wallet_id];
+    assert!(!info
+        .first_bip32_managed_account()
+        .unwrap()
+        .transactions()
+        .contains_key(&claim.txid()));
+    assert!(info.first_bip44_managed_account().unwrap().utxos.contains_key(&coin));
+}
