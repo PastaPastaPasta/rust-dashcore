@@ -191,7 +191,24 @@ async fn signed_spend(
     funding: &Transaction,
     to: &Address,
 ) -> Transaction {
-    let outpoint = OutPoint::new(funding.txid(), 0);
+    let output = TxOut {
+        value: PAYMENT,
+        script_pubkey: to.script_pubkey(),
+    };
+    signed_spend_of(wallets, owner, from, OutPoint::new(funding.txid(), 0), funding, vec![output])
+        .await
+}
+
+/// A spend of `outpoint`, an output of `funding` paying `from`, to
+/// `outputs`, signed by `owner`.
+async fn signed_spend_of(
+    wallets: &Wallets,
+    owner: &WalletId,
+    from: &Address,
+    outpoint: OutPoint,
+    funding: &Transaction,
+    outputs: Vec<TxOut>,
+) -> Transaction {
     let spend = Transaction {
         version: 2,
         lock_time: 0,
@@ -199,18 +216,24 @@ async fn signed_spend(
             previous_output: outpoint,
             ..Default::default()
         }],
-        output: vec![TxOut {
-            value: PAYMENT,
-            script_pubkey: to.script_pubkey(),
-        }],
+        output: outputs,
         special_transaction_payload: None,
     };
     let wallets = wallets.read().await;
     let account = wallets.get_wallet_info(owner).unwrap().first_bip44_managed_account().unwrap();
     let path = account.address_derivation_path(from).unwrap();
-    let coin = Utxo::new(outpoint, funding.output[0].clone(), from.clone(), 0, false);
+    let prevout = funding.output[outpoint.vout as usize].clone();
+    let coin = Utxo::new(outpoint, prevout, from.clone(), 0, false);
     let wallet = wallets.get_wallet(owner).unwrap();
     wallet.sign_tx(spend, vec![coin], move |_| Some(path.clone())).await.unwrap()
+}
+
+/// Whether the manager sent a request for `txid`.
+fn asked_for(messages: &[NetworkMessage], txid: Txid) -> bool {
+    messages.iter().any(|message| {
+        matches!(message, NetworkMessage::GetData(items)
+            if items.contains(&Inventory::Transaction(txid)))
+    })
 }
 
 fn in_block(height: u32) -> TransactionContext {
@@ -484,4 +507,125 @@ async fn a_wallet_registered_after_an_abandon_gets_the_payment_only_once_settled
             .await;
     }
     assert_eq!(h.total(&b).await, COIN);
+}
+
+/// The user abandoned P, which is in fact live; another device spent P's
+/// change in C. P comes back with its lock; C, ignored unlocked, is credited
+/// once its own lock arrives or it is mined, and not before.
+#[test_case::test_case(true; "settled by a lock")]
+#[test_case::test_case(false; "settled by a block")]
+#[tokio::test]
+async fn a_spend_of_an_abandoned_payment_comes_back_once_settled(by_lock: bool) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let change_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let funding = Transaction::dummy(&to_a, 51..52, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let change = 690_000;
+    let payment = signed_spend_of(
+        &h.wallets,
+        &a,
+        &to_a,
+        OutPoint::new(funding.txid(), 0),
+        &funding,
+        vec![
+            TxOut {
+                value: 300_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            },
+            TxOut {
+                value: change,
+                script_pubkey: change_a.script_pubkey(),
+            },
+        ],
+    )
+    .await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: change - 10_000,
+            script_pubkey: elsewhere.script_pubkey(),
+        }],
+    )
+    .await;
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.process_mempool_transaction(&payment, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+        wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    }
+    assert!(h.announce(&payment).await);
+    assert!(h.announce(&child).await);
+    assert!(!h.manager.transactions.contains_key(&child.txid()), "ignored unlocked");
+
+    h.manager.process_instant_send(lock_for(&payment)).await;
+    h.manager.send_queued(&h.requests).await.unwrap();
+    assert!(asked_for(&h.sent_messages(), payment.txid()));
+    h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    assert_eq!(h.total(&a).await, change, "P is back with its change");
+
+    let again = h.wallets.write().await.process_mempool_transaction(&child, None).await;
+    assert!(!again.is_relevant, "C is still not credited unlocked");
+    assert_eq!(h.total(&a).await, change);
+
+    if by_lock {
+        h.manager.process_instant_send(lock_for(&child)).await;
+        h.manager.send_queued(&h.requests).await.unwrap();
+        assert!(asked_for(&h.sent_messages(), child.txid()), "C's lock has it fetched again");
+        h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
+        assert!(matches!(
+            h.context_of(&a, &child.txid()).await,
+            Some(TransactionContext::InstantSend(_))
+        ));
+    } else {
+        h.wallets
+            .write()
+            .await
+            .check_transaction_in_all_wallets(&child, in_block(970), true, true)
+            .await;
+    }
+    assert_eq!(h.total(&a).await, 0, "P's change is no longer offered");
+}
+
+/// A lock for a dismissed transaction whose seen entry is gone still has it
+/// fetched again.
+#[tokio::test]
+async fn a_lock_for_a_dismissed_transaction_no_longer_seen_fetches_it_again() {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let payment = Transaction::dummy(&to_a, 61..62, &[COIN]);
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.process_mempool_transaction(&payment, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+    }
+    assert!(h.announce(&payment).await);
+    assert!(!h.manager.transactions.contains_key(&payment.txid()), "ignored as abandoned");
+    h.manager.refresh_wallet_view(&h.requests).await.unwrap();
+    h.sent_messages();
+
+    h.manager.process_instant_send(lock_for(&payment)).await;
+    h.manager.send_queued(&h.requests).await.unwrap();
+    assert!(asked_for(&h.sent_messages(), payment.txid()), "the lock fetches it again");
+    h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    assert_eq!(h.total(&a).await, COIN);
 }

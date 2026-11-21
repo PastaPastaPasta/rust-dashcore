@@ -151,11 +151,21 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         tx: &Transaction,
         instant_lock: Option<InstantLock>,
     ) -> MempoolTransactionResult {
-        if instant_lock.is_none()
-            && (self.is_dismissed(&tx.txid())
-                || tx.input.iter().any(|input| self.is_dismissed(&input.previous_output.txid)))
-        {
-            return MempoolTransactionResult::default();
+        if instant_lock.is_none() {
+            let txid = tx.txid();
+            if self.is_dismissed(&txid) {
+                return MempoolTransactionResult::default();
+            }
+            let mut spends_dismissed = false;
+            for info in self.wallet_infos.values_mut() {
+                if tx.input.iter().any(|input| info.is_dismissed(&input.previous_output.txid)) {
+                    info.dismiss(txid);
+                    spends_dismissed = true;
+                }
+            }
+            if spends_dismissed {
+                return MempoolTransactionResult::default();
+            }
         }
         let context = match instant_lock.as_ref() {
             Some(lock) => {

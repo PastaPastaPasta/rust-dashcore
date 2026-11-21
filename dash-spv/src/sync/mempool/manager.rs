@@ -715,7 +715,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             Some(instant_lock)
         } else {
             self.remember_pending_lock(instant_lock);
-            if self.seen_txids.contains_key(&txid) && self.wallet.read().await.is_dismissed(&txid) {
+            if self.wallet.read().await.is_dismissed(&txid) {
                 self.fetch_again(txid);
             }
             None
@@ -731,7 +731,8 @@ impl<W: WalletInterface> MempoolManager<W> {
 
     /// Forget `txid` as seen and queue it on every activated peer, so a
     /// transaction a wallet dropped as dead is fetched again once a lock
-    /// settles it.
+    /// settles it, whether or not it was seen recently. Only a verified
+    /// lock for a txid a wallet dismissed gets here.
     fn fetch_again(&mut self, txid: Txid) {
         self.seen_txids.remove(&txid);
         for queue in self.peers.values_mut().flatten() {

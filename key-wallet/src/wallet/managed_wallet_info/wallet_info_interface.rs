@@ -225,6 +225,11 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
         false
     }
 
+    /// Drop `txid` as dead with a transaction it spends: it is then treated
+    /// as [`is_dismissed`](Self::is_dismissed) until it is locked or mined.
+    /// The default does nothing.
+    fn dismiss(&mut self, _txid: Txid) {}
+
     /// Return the highest chainlock that has been applied to this
     /// wallet, retaining the signing proof. Blocks at or below
     /// `chain_lock.block_height` are considered chainlock-finalized
@@ -372,6 +377,10 @@ impl WalletInfoInterface for ManagedWalletInfo {
 
     fn is_dismissed(&self, txid: &Txid) -> bool {
         self.dismissed.contains(txid)
+    }
+
+    fn dismiss(&mut self, txid: Txid) {
+        self.dismissed.insert(txid);
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {
