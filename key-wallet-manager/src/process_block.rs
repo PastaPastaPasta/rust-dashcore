@@ -62,6 +62,10 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             } else {
                 TransactionContext::InBlock(tx_info)
             };
+            let txid = tx.txid();
+            for info in self.wallet_infos.values_mut() {
+                info.undismiss(&txid);
+            }
             let check_result =
                 self.check_transaction_in_wallets(tx, block_context, wallets, true, false).await;
 

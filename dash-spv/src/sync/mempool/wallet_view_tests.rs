@@ -2,6 +2,7 @@
 //! irrelevant is looked at again when the wallets' view changes, and a
 //! verified lock reaches the wallet in either delivery order.
 
+use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -9,7 +10,7 @@ use dashcore::ephemerealdata::instant_lock::InstantLock;
 use dashcore::hashes::Hash;
 use dashcore::network::message::NetworkMessage;
 use dashcore::network::message_blockdata::Inventory;
-use dashcore::{Address, BlockHash, Network, OutPoint, Transaction, TxIn, TxOut, Txid};
+use dashcore::{Address, Block, BlockHash, Network, OutPoint, Transaction, TxIn, TxOut, Txid};
 use key_wallet::managed_account::managed_account_trait::ManagedAccountTrait;
 use key_wallet::transaction_checking::{BlockInfo, TransactionContext};
 use key_wallet::wallet::initialization::WalletAccountCreationOptions;
@@ -628,4 +629,55 @@ async fn a_lock_for_a_dismissed_transaction_no_longer_seen_fetches_it_again() {
     assert!(asked_for(&h.sent_messages(), payment.txid()), "the lock fetches it again");
     h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
     assert_eq!(h.total(&a).await, COIN);
+}
+
+/// Wallet A abandoned P, which is in fact live. C spends P's payment and pays
+/// wallet B, so A dismisses it on arrival; C is then mined in a block only B
+/// matched. An unlocked spend of C paying B is credited to B.
+#[tokio::test]
+async fn a_dismissal_ends_when_a_block_mines_the_transaction_for_any_wallet() {
+    let (h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
+    let (a, b) = (ids[0], ids[1]);
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let to_b = next_unused_receive_address(&h.wallets, &b).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let funding = Transaction::dummy(&to_a, 71..72, &[COIN]);
+    let mut wallets = h.wallets.write().await;
+    wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    drop(wallets);
+    let payment = signed_spend(&h.wallets, &a, &to_a, &funding, &elsewhere).await;
+    let spend_of = |parent: &Transaction, vout: u32, outputs: Vec<TxOut>| Transaction {
+        version: 2,
+        lock_time: 0,
+        input: vec![TxIn {
+            previous_output: OutPoint::new(parent.txid(), vout),
+            ..Default::default()
+        }],
+        output: outputs,
+        special_transaction_payload: None,
+    };
+    let pays = |value: u64, to: &Address| TxOut {
+        value,
+        script_pubkey: to.script_pubkey(),
+    };
+    let child = spend_of(&payment, 0, vec![pays(400_000, &to_b), pays(580_000, &elsewhere)]);
+    let grandchild = spend_of(&child, 1, vec![pays(570_000, &to_b)]);
+
+    let mut wallets = h.wallets.write().await;
+    wallets.process_mempool_transaction(&payment, None).await;
+    let info = wallets.get_wallet_info_mut(&a).unwrap();
+    info.abandon_transaction(payment.txid());
+    info.update_balance();
+    let ignored = wallets.process_mempool_transaction(&child, None).await;
+    assert!(!ignored.is_relevant, "C spends what A abandoned");
+
+    let block = Block::dummy(970, vec![child.clone()]);
+    wallets.process_block_for_wallets(&block, block.block_hash(), 970, &BTreeSet::from([b])).await;
+    drop(wallets);
+    assert_eq!(h.total(&b).await, 400_000);
+
+    let credited = h.wallets.write().await.process_mempool_transaction(&grandchild, None).await;
+    assert!(credited.is_relevant, "C is mined, so its spend is live");
+    assert_eq!(h.total(&b).await, 970_000);
+    assert!(!h.wallets.read().await.is_dismissed(&child.txid()));
 }

@@ -230,6 +230,10 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
     /// The default does nothing.
     fn dismiss(&mut self, _txid: Txid) {}
 
+    /// Forget that `txid` was dismissed: it was mined, so it is not dead.
+    /// The default does nothing.
+    fn undismiss(&mut self, _txid: &Txid) {}
+
     /// Return the highest chainlock that has been applied to this
     /// wallet, retaining the signing proof. Blocks at or below
     /// `chain_lock.block_height` are considered chainlock-finalized
@@ -381,6 +385,10 @@ impl WalletInfoInterface for ManagedWalletInfo {
 
     fn dismiss(&mut self, txid: Txid) {
         self.dismissed.insert(txid);
+    }
+
+    fn undismiss(&mut self, txid: &Txid) {
+        self.dismissed.remove(txid);
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {
