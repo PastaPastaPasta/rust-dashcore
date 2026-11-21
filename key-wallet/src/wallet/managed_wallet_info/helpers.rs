@@ -233,11 +233,12 @@ impl ManagedWalletInfo {
     }
 
     /// Whether `tx`, arriving unconfirmed and unlocked, is a transaction the
-    /// wallet dropped as dead or spends an output of one. Such a spend is
-    /// dropped with it.
+    /// wallet dropped as dead, spends an output of one, or spends what a
+    /// locked transaction spends. Such a transaction is dropped as dead.
     pub(crate) fn dismiss_if_dead(&mut self, tx: &Transaction, txid: Txid) -> bool {
         let dead = self.dismissed.contains(&txid)
-            || tx.input.iter().any(|input| self.dismissed.contains(&input.previous_output.txid));
+            || tx.input.iter().any(|input| self.dismissed.contains(&input.previous_output.txid))
+            || self.locked_spends.conflicts(tx, &txid);
         if dead {
             self.dismissed.insert(txid);
         }

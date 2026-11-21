@@ -153,6 +153,9 @@ pub struct ManagedWalletInfo {
     /// transactions); in memory only, like `instant_send_locks`.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub(crate) dismissed: dismissed::DismissedTxids,
+    /// What InstantSend-locked transactions spend; in memory only.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub(crate) locked_spends: dismissed::LockedSpends,
 }
 
 /// Serde adapter for [`ManagedWalletInfo::observed_spent_outpoints`] that
@@ -261,6 +264,7 @@ impl ManagedWalletInfo {
             account_generation: 0,
             noted_chain_lock_height: None,
             dismissed: Default::default(),
+            locked_spends: Default::default(),
         }
     }
 
@@ -280,6 +284,7 @@ impl ManagedWalletInfo {
             account_generation: 0,
             noted_chain_lock_height: None,
             dismissed: Default::default(),
+            locked_spends: Default::default(),
         }
     }
 
@@ -309,6 +314,7 @@ impl ManagedWalletInfo {
             account_generation: 0,
             noted_chain_lock_height: None,
             dismissed: Default::default(),
+            locked_spends: Default::default(),
         }
     }
 

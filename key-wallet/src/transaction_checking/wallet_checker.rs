@@ -323,6 +323,9 @@ impl WalletTransactionChecker for ManagedWalletInfo {
         // below with the loser still credited. Sweep first, wallet-wide, next
         // to `record_observed_spends` above for the same reason it is
         // unconditional.
+        if update_state && context.is_instant_send() {
+            self.locked_spends.insert(tx, txid);
+        }
         if update_state && (context.confirmed() || context.is_instant_send()) {
             let sweep = self.sweep_conflicts(tx, &context);
             if !sweep.is_empty() {
@@ -2775,6 +2778,49 @@ mod tests {
         .await;
         assert!(ctx.bip44_account().transactions().contains_key(&spend.txid()));
         assert_eq!(ctx.managed_wallet.balance.total(), abandoned + 399_000);
+    }
+
+    /// A transaction spending what a locked transaction spends can never
+    /// confirm. Arriving after the lock, it is dropped as dead with what spends
+    /// it, until it is mined itself.
+    #[tokio::test]
+    async fn a_spend_of_what_a_locked_transaction_spends_is_dismissed() {
+        let mut ctx = TestWalletContext::new_random();
+        let external = Address::p2pkh(
+            &dashcore::PublicKey::from_slice(&[0x02; 33]).expect("pubkey"),
+            Network::Testnet,
+        );
+        let contested = OutPoint::new(Txid::from_byte_array([0x51; 32]), 0);
+        let mut winner = Transaction::dummy(&external, 0..1, &[90_000]);
+        winner.input[0].previous_output = contested;
+        let lock = InstantLock {
+            txid: winner.txid(),
+            ..InstantLock::default()
+        };
+        ctx.check_transaction(&winner, TransactionContext::InstantSend(lock)).await;
+        let mut loser = Transaction::dummy(&ctx.receive_address, 0..1, &[80_000]);
+        loser.input[0].previous_output = contested;
+        let mut child = Transaction::dummy(&ctx.receive_address, 0..1, &[70_000]);
+        child.input[0].previous_output = OutPoint::new(loser.txid(), 0);
+
+        for tx in [&loser, &child] {
+            let result = ctx.check_transaction(tx, TransactionContext::Mempool).await;
+            assert!(!result.is_relevant, "a spend the lock made dead is not credited");
+        }
+        assert!(!ctx.bip44_account().transactions().contains_key(&loser.txid()));
+        assert_eq!(ctx.managed_wallet.balance.total(), 0);
+
+        ctx.check_transaction(
+            &loser,
+            TransactionContext::InBlock(BlockInfo::new(
+                100,
+                BlockHash::from_slice(&[5u8; 32]).expect("hash"),
+                1_700_000_000,
+            )),
+        )
+        .await;
+        assert!(ctx.bip44_account().transactions().contains_key(&loser.txid()));
+        assert_eq!(ctx.managed_wallet.balance.total(), 80_000);
     }
 
     /// Pooled funding puts a loser's change in an account the winner never
