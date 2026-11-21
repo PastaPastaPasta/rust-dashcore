@@ -218,20 +218,26 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
     }
 
     /// Whether the wallet dropped `txid` as dead: a conflict loser to a final
-    /// transaction, or abandoned. Until it is locked or mined, no wallet
-    /// sharing a manager with this one takes it from an unlocked delivery.
-    /// The default (`false`) opts an implementation out.
+    /// transaction, abandoned, or a spend of one. Until it is locked or mined,
+    /// no wallet sharing a manager with this one takes it from an unlocked
+    /// delivery. The default (`false`) opts an implementation out.
     fn is_dismissed(&self, _txid: &Txid) -> bool {
         false
     }
 
-    /// Drop `txid` as dead with a transaction it spends: it is then treated
-    /// as [`is_dismissed`](Self::is_dismissed) until it is locked or mined.
-    /// The default does nothing.
-    fn dismiss(&mut self, _txid: Txid) {}
+    /// Drop `tx` as dead if it spends a transaction the wallet dismissed, and
+    /// return whether it does. It is then treated as
+    /// [`is_dismissed`](Self::is_dismissed) until it is locked or mined, or
+    /// every dismissed transaction it spends is mined; however many there
+    /// are, none displaces a transaction the wallet itself dropped. The
+    /// default does nothing and returns `false`.
+    fn dismiss_spend_of_dismissed(&mut self, _tx: &Transaction, _txid: Txid) -> bool {
+        false
+    }
 
-    /// Forget that `txid` was dismissed: it was mined, so it is not dead.
-    /// The default does nothing.
+    /// Forget that `txid` was dismissed: it was mined, so it is not dead, and
+    /// neither is what was dismissed only for spending it. The default does
+    /// nothing.
     fn undismiss(&mut self, _txid: &Txid) {}
 
     /// Return the highest chainlock that has been applied to this
@@ -380,15 +386,22 @@ impl WalletInfoInterface for ManagedWalletInfo {
     }
 
     fn is_dismissed(&self, txid: &Txid) -> bool {
-        self.dismissed.contains(txid)
+        self.dismissed.contains(txid) || self.inherited.contains(txid)
     }
 
-    fn dismiss(&mut self, txid: Txid) {
-        self.dismissed.insert(txid);
+    fn dismiss_spend_of_dismissed(&mut self, tx: &Transaction, txid: Txid) -> bool {
+        let parents = self.dismissed_parents(tx);
+        if parents.is_empty() {
+            return false;
+        }
+        self.inherited.insert(txid, parents);
+        true
     }
 
     fn undismiss(&mut self, txid: &Txid) {
         self.dismissed.remove(txid);
+        self.inherited.remove(txid);
+        self.inherited.release_spends_of(txid);
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {

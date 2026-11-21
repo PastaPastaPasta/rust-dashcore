@@ -681,3 +681,129 @@ async fn a_dismissal_ends_when_a_block_mines_the_transaction_for_any_wallet() {
     assert_eq!(h.total(&b).await, 970_000);
     assert!(!h.wallets.read().await.is_dismissed(&child.txid()));
 }
+
+/// A spend of `parent`'s output `vout` paying `outputs`, with no signature.
+fn unsigned_spend(parent: &Transaction, vout: u32, outputs: Vec<TxOut>) -> Transaction {
+    Transaction {
+        version: 2,
+        lock_time: 0,
+        input: vec![TxIn {
+            previous_output: OutPoint::new(parent.txid(), vout),
+            ..Default::default()
+        }],
+        output: outputs,
+        special_transaction_payload: None,
+    }
+}
+
+fn pays(value: u64, to: &Address) -> TxOut {
+    TxOut {
+        value,
+        script_pubkey: to.script_pubkey(),
+    }
+}
+
+/// Wallet `a` funded with [`COIN`] in a block, then its signed payment of
+/// [`PAYMENT`] elsewhere, seen unlocked and abandoned by the user although it
+/// is live.
+async fn abandoned_payment(h: &Harness, a: &WalletId, seed: u8) -> Transaction {
+    let to_a = next_unused_receive_address(&h.wallets, a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let funding = Transaction::dummy(&to_a, seed..seed + 1, &[COIN]);
+    let mut wallets = h.wallets.write().await;
+    wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    drop(wallets);
+    let payment = signed_spend(&h.wallets, a, &to_a, &funding, &elsewhere).await;
+    let mut wallets = h.wallets.write().await;
+    wallets.process_mempool_transaction(&payment, None).await;
+    let info = wallets.get_wallet_info_mut(a).unwrap();
+    info.abandon_transaction(payment.txid());
+    info.update_balance();
+    wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    payment
+}
+
+/// More unlocked spends of an abandoned payment than the wallet keeps marks
+/// for leave the abandon itself in place: the payment delivered again
+/// unlocked still takes nothing.
+#[tokio::test]
+async fn a_flood_of_spends_of_an_abandoned_payment_leaves_the_abandon_in_place() {
+    let (h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let payment = abandoned_payment(&h, &a, 101).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    assert_eq!(h.total(&a).await, COIN);
+
+    let mut wallets = h.wallets.write().await;
+    for n in 0..5_000u64 {
+        let spend = unsigned_spend(&payment, 0, vec![pays(1_000 + n, &elsewhere)]);
+        assert!(!wallets.process_mempool_transaction(&spend, None).await.is_relevant);
+    }
+    let again = wallets.process_mempool_transaction(&payment, None).await;
+    drop(wallets);
+    assert!(!again.is_relevant, "the abandon outlasts the flood");
+    assert_eq!(h.total(&a).await, COIN);
+}
+
+/// A spend of an abandoned, live payment, ignored unlocked, is credited when
+/// delivered again unlocked once the payment is mined.
+#[tokio::test]
+async fn a_spend_of_an_abandoned_payment_delivered_again_after_its_block_is_credited() {
+    let (h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let payment = abandoned_payment(&h, &a, 102).await;
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let child = unsigned_spend(&payment, 0, vec![pays(500_000, &to_a)]);
+
+    let mut wallets = h.wallets.write().await;
+    assert!(!wallets.process_mempool_transaction(&child, None).await.is_relevant);
+    let block = Block::dummy(970, vec![payment.clone()]);
+    wallets.process_block_for_wallets(&block, block.block_hash(), 970, &BTreeSet::from([a])).await;
+    let credited = wallets.process_mempool_transaction(&child, None).await;
+    drop(wallets);
+    assert!(credited.is_relevant, "its parent is mined");
+    assert_eq!(h.total(&a).await, 500_000);
+}
+
+/// A spend of a spend of an abandoned, live payment, ignored unlocked before
+/// either is mined, is credited when delivered again unlocked once both are,
+/// to the wallet that abandoned the payment or to another.
+#[test_case::test_case(false; "to the same wallet")]
+#[test_case::test_case(true; "to another wallet")]
+#[tokio::test]
+async fn a_grandchild_seen_before_its_parent_is_mined_is_credited_once_it_is(other: bool) {
+    let (h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
+    let (a, b) = (ids[0], ids[1]);
+    let payment = abandoned_payment(
+        &h,
+        &a,
+        if other {
+            103
+        } else {
+            104
+        },
+    )
+    .await;
+    let payee = if other {
+        b
+    } else {
+        a
+    };
+    let to_payee = next_unused_receive_address(&h.wallets, &payee).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let child = unsigned_spend(&payment, 0, vec![pays(980_000, &elsewhere)]);
+    let grandchild = unsigned_spend(&child, 0, vec![pays(970_000, &to_payee)]);
+
+    let mut wallets = h.wallets.write().await;
+    assert!(!wallets.process_mempool_transaction(&child, None).await.is_relevant);
+    assert!(!wallets.process_mempool_transaction(&grandchild, None).await.is_relevant);
+    let block = Block::dummy(970, vec![payment.clone(), child.clone()]);
+    wallets.process_block_for_wallets(&block, block.block_hash(), 970, &BTreeSet::from([a])).await;
+    drop(wallets);
+    let before = h.total(&payee).await;
+    let mut wallets = h.wallets.write().await;
+    let credited = wallets.process_mempool_transaction(&grandchild, None).await;
+    drop(wallets);
+    assert!(credited.is_relevant, "its parent is mined");
+    assert_eq!(h.total(&payee).await, before + 970_000);
+}

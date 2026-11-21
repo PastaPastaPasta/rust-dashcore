@@ -162,10 +162,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             }
             let mut spends_dismissed = false;
             for info in self.wallet_infos.values_mut() {
-                if tx.input.iter().any(|input| info.is_dismissed(&input.previous_output.txid)) {
-                    info.dismiss(txid);
-                    spends_dismissed = true;
-                }
+                spends_dismissed |= info.dismiss_spend_of_dismissed(tx, txid);
             }
             if spends_dismissed {
                 return MempoolTransactionResult::default();

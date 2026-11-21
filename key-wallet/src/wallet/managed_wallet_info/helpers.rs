@@ -236,13 +236,28 @@ impl ManagedWalletInfo {
     /// wallet dropped as dead, spends an output of one, or spends what a
     /// locked transaction spends. Such a transaction is dropped as dead.
     pub(crate) fn dismiss_if_dead(&mut self, tx: &Transaction, txid: Txid) -> bool {
-        let dead = self.dismissed.contains(&txid)
-            || tx.input.iter().any(|input| self.dismissed.contains(&input.previous_output.txid))
-            || self.locked_spends.conflicts(tx, &txid);
+        if self.dismissed.contains(&txid) || self.inherited.contains(&txid) {
+            return true;
+        }
+        let parents = self.dismissed_parents(tx);
+        let dead = !parents.is_empty() || self.locked_spends.conflicts(tx, &txid);
         if dead {
-            self.dismissed.insert(txid);
+            self.inherited.insert(txid, parents);
         }
         dead
+    }
+
+    /// The transactions the wallet dismissed that `tx` spends an output of.
+    pub(crate) fn dismissed_parents(&self, tx: &Transaction) -> Vec<Txid> {
+        let mut parents: Vec<Txid> = tx
+            .input
+            .iter()
+            .map(|input| input.previous_output.txid)
+            .filter(|parent| self.dismissed.contains(parent) || self.inherited.contains(parent))
+            .collect();
+        parents.sort_unstable();
+        parents.dedup();
+        parents
     }
 
     /// The first input of `tx` spending a coin this wallet holds that
