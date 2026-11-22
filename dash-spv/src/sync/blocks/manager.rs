@@ -100,6 +100,8 @@ impl<H: BlockHeaderStorage, B: BlockStorage, W: WalletInterface> BlocksManager<H
 
             let mut released_dismissals = result.released_dismissals;
             released_dismissals.extend(self.reapply_blocks(result.reapply_heights).await);
+            released_dismissals.sort_unstable();
+            released_dismissals.dedup();
             events.push(SyncEvent::BlockProcessed {
                 block_hash: hash,
                 height,

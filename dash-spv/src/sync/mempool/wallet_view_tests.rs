@@ -238,12 +238,12 @@ async fn signed_spend_of(
     wallet.sign_tx(spend, vec![coin], move |_| Some(path.clone())).await.unwrap()
 }
 
-/// Whether the manager sent a request for `txid`.
 /// The address the node's own broadcasts arrive from.
 fn this_node() -> SocketAddr {
     SocketAddr::new(std::net::Ipv4Addr::UNSPECIFIED.into(), 0)
 }
 
+/// Whether the manager sent a request for `txid`.
 fn asked_for(messages: &[NetworkMessage], txid: Txid) -> bool {
     messages.iter().any(|message| {
         matches!(message, NetworkMessage::GetData(items)
@@ -726,7 +726,7 @@ async fn a_spend_of_an_abandoned_payment_is_fetched_again_once_its_parent_is_min
         Mined::WithoutALock => {
             assert!(h.answer_fetch(&child).await, "P's block has C fetched again")
         }
-        Mined::AfterItsLock => {}
+        Mined::AfterItsLock => assert!(!h.answer_fetch(&child).await, "C is fetched once"),
         Mined::WithItsSpend => {
             assert!(!h.answer_fetch(&child).await, "a mined C is not fetched");
             assert!(!h.manager.transactions.contains_key(&child.txid()), "nor held unconfirmed");

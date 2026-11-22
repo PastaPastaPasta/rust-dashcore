@@ -811,9 +811,9 @@ impl<W: WalletInterface> MempoolManager<W> {
     }
 
     /// Forget `txid` as seen and queue it on every activated peer, so a
-    /// transaction a wallet dropped as dead is fetched again once a lock
-    /// settles it, whether or not it was seen recently. Only a verified
-    /// lock for a txid a wallet dismissed gets here.
+    /// transaction a wallet dropped as dead is fetched again once a verified
+    /// lock, a block or a held transaction evaluated again releases it,
+    /// whether or not it was seen recently.
     pub(super) fn fetch_again(&mut self, txid: Txid) {
         self.seen_txids.remove(&txid);
         for queue in self.peers.values_mut().flatten() {
