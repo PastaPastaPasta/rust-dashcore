@@ -26,7 +26,7 @@ use crate::network::RequestSender;
 use crate::sync::mempool::MempoolProgress;
 use crate::sync::SyncEvent;
 use crate::types::UnconfirmedTransaction;
-use key_wallet_manager::WalletInterface;
+use key_wallet_manager::{MempoolTransactionResult, WalletInterface};
 
 /// Timeout for pruning expired mempool transactions (24 hours).
 pub(super) const MEMPOOL_TX_EXPIRY: Duration = Duration::from_secs(24 * 3600);
@@ -39,6 +39,10 @@ const MAX_IN_FLIGHT: usize = 100;
 
 /// Maximum number of pending IS locks awaiting their corresponding transaction.
 const MAX_PENDING_IS_LOCKS: usize = 1000;
+
+/// Maximum number of locked spends of dismissed transactions kept until a
+/// transaction they spend comes back.
+const MAX_LOCKED_SPENDS: usize = 1000;
 
 /// Held transactions replayed to the wallet under one write guard.
 pub(super) const REPLAY_BATCH: usize = 32;
@@ -76,6 +80,12 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     /// The verified lock of each held transaction that has one, passed to the
     /// wallet again with it when the held transactions are re-evaluated.
     held_locks: HashMap<Txid, InstantLock>,
+    /// Locked transactions that matched no wallet but spend a transaction a
+    /// wallet dismissed, or a remembered spend of one, with their lock and
+    /// arrival time. When a transaction
+    /// they spend comes back, by its lock or a block, they are passed to the
+    /// wallet again, since that may have restored the coin they spend.
+    locked_spends: HashMap<Txid, (Transaction, InstantLock, Instant)>,
     /// Txids already downloaded, with download timestamp.
     /// Prevents duplicate downloads when multiple peers announce the same transactions.
     /// Entries expire after `SEEN_TXID_EXPIRY`.
@@ -118,6 +128,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             peers: HashMap::new(),
             pending_is_locks: HashMap::new(),
             held_locks: HashMap::new(),
+            locked_spends: HashMap::new(),
             seen_txids: HashMap::new(),
             last_monitor_revision: initial_monitor_revision,
             activate_during_sync: false,
@@ -482,7 +493,6 @@ impl<W: WalletInterface> MempoolManager<W> {
 
         // Check for a pre-arrived IS lock before wallet processing consumes it
         let pending_lock = self.pending_is_locks.remove(&txid);
-        let is_locked = pending_lock.is_some();
 
         let result = {
             let mut wallet = self.wallet.write().await;
@@ -492,11 +502,28 @@ impl<W: WalletInterface> MempoolManager<W> {
 
         if !result.is_relevant {
             if let Some(pending) = pending_lock {
+                self.keep_if_spends_dismissed(&tx, &pending.0).await;
                 self.pending_is_locks.insert(txid, pending);
             }
             return Ok(events);
         }
-        if let Some((lock, _)) = pending_lock {
+        self.hold(tx, result, pending_lock.map(|(lock, _)| lock));
+        self.recheck_locked_spends_of(&[txid]).await;
+
+        Ok(events)
+    }
+
+    /// Store a transaction the wallet found relevant, with its verified lock
+    /// if it has one.
+    fn hold(
+        &mut self,
+        tx: Transaction,
+        result: MempoolTransactionResult,
+        lock: Option<InstantLock>,
+    ) {
+        let txid = tx.txid();
+        let is_locked = lock.is_some();
+        if let Some(lock) = lock {
             self.held_locks.insert(txid, lock);
         }
 
@@ -515,8 +542,74 @@ impl<W: WalletInterface> MempoolManager<W> {
         );
         self.transactions.insert(txid, unconfirmed_tx);
         self.progress.set_tracked(self.transactions.len() as u32);
+    }
 
-        Ok(events)
+    /// Keep a locked transaction no wallet matched if it spends a transaction
+    /// a wallet dismissed, or a spend one held back, released or not: the coin
+    /// it spends may be restored when that transaction comes back. When full,
+    /// the oldest goes.
+    async fn keep_if_spends_dismissed(&mut self, tx: &Transaction, lock: &InstantLock) {
+        let spends_dismissed = {
+            let wallet = self.wallet.read().await;
+            tx.input.iter().any(|input| wallet.refetch_on_lock(&input.previous_output.txid))
+        };
+        if !spends_dismissed {
+            return;
+        }
+        let txid = tx.txid();
+        if self.locked_spends.len() >= MAX_LOCKED_SPENDS && !self.locked_spends.contains_key(&txid)
+        {
+            if let Some(oldest) =
+                self.locked_spends.iter().min_by_key(|(_, (_, _, at))| *at).map(|(txid, _)| *txid)
+            {
+                self.locked_spends.remove(&oldest);
+            }
+        }
+        self.locked_spends.insert(txid, (tx.clone(), lock.clone(), Instant::now()));
+    }
+
+    /// Pass each kept locked spend of `parents` to the wallet again with its
+    /// lock, now that they are back, and hold those it finds relevant. One
+    /// that still spends a dismissed transaction, or a remembered spend of
+    /// one, is kept; the rest are dropped.
+    pub(super) async fn recheck_locked_spends_of(&mut self, parents: &[Txid]) {
+        let mut parents: Vec<Txid> = parents.to_vec();
+        while !parents.is_empty() {
+            let spends: Vec<Txid> = self
+                .locked_spends
+                .iter()
+                .filter(|(_, (tx, _, _))| {
+                    tx.input.iter().any(|input| parents.contains(&input.previous_output.txid))
+                })
+                .map(|(txid, _)| *txid)
+                .collect();
+            parents.clear();
+            for txid in spends {
+                let Some((tx, lock, at)) = self.locked_spends.remove(&txid) else {
+                    continue;
+                };
+                if self.transactions.contains_key(&txid) {
+                    continue;
+                }
+                let result = {
+                    let mut wallet = self.wallet.write().await;
+                    wallet.process_mempool_transaction(&tx, Some(lock.clone())).await
+                };
+                if result.is_relevant {
+                    self.pending_is_locks.remove(&txid);
+                    self.hold(tx, result, Some(lock));
+                    parents.push(txid);
+                    continue;
+                }
+                let still_spends_dismissed = {
+                    let wallet = self.wallet.read().await;
+                    tx.input.iter().any(|input| wallet.refetch_on_lock(&input.previous_output.txid))
+                };
+                if still_spends_dismissed {
+                    self.locked_spends.insert(txid, (tx, lock, at));
+                }
+            }
+        }
     }
 
     /// Acceptance evidence gathered before this node broadcast the transaction
@@ -675,6 +768,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
             self.held_locks.remove(txid);
             self.pending_is_locks.remove(txid);
+            self.locked_spends.remove(txid);
         }
         if !removed.is_empty() {
             self.progress.add_removed(removed.len() as u32);
@@ -715,16 +809,19 @@ impl<W: WalletInterface> MempoolManager<W> {
             Some(instant_lock)
         } else {
             self.remember_pending_lock(instant_lock);
-            if self.wallet.read().await.is_dismissed(&txid) {
+            if self.wallet.read().await.refetch_on_lock(&txid) {
                 self.fetch_again(txid);
             }
             None
         };
         if let Some(lock) = instant_lock_opt {
-            let mut wallet = self.wallet.write().await;
-            if let Some(tx) = self.transactions.get(&txid) {
-                wallet.process_mempool_instant_send_lock(&tx.transaction, lock).await;
+            {
+                let mut wallet = self.wallet.write().await;
+                if let Some(tx) = self.transactions.get(&txid) {
+                    wallet.process_mempool_instant_send_lock(&tx.transaction, lock).await;
+                }
             }
+            self.recheck_locked_spends_of(&[txid]).await;
         }
         events
     }
@@ -732,7 +829,8 @@ impl<W: WalletInterface> MempoolManager<W> {
     /// Forget `txid` as seen and queue it on every activated peer, so a
     /// transaction a wallet dropped as dead is fetched again once a lock
     /// settles it, whether or not it was seen recently. Only a verified
-    /// lock for a txid a wallet dismissed gets here.
+    /// lock for a txid a wallet dismissed, or held back as a spend of one,
+    /// gets here.
     fn fetch_again(&mut self, txid: Txid) {
         self.seen_txids.remove(&txid);
         for queue in self.peers.values_mut().flatten() {
@@ -792,6 +890,8 @@ impl<W: WalletInterface> MempoolManager<W> {
                 self.held_locks.remove(txid);
             }
         }
+
+        self.locked_spends.retain(|_, (_, _, at)| at.elapsed() < timeout);
 
         // Prune pending IS locks whose transaction never arrived
         let before = self.pending_is_locks.len();

@@ -162,10 +162,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             }
             let mut spends_dismissed = false;
             for info in self.wallet_infos.values_mut() {
-                if tx.input.iter().any(|input| info.is_dismissed(&input.previous_output.txid)) {
-                    info.dismiss(txid);
-                    spends_dismissed = true;
-                }
+                spends_dismissed |= info.dismiss_spend(tx);
             }
             if spends_dismissed {
                 return MempoolTransactionResult::default();
@@ -387,6 +384,10 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
 
     fn is_dismissed(&self, txid: &Txid) -> bool {
         self.wallet_infos.values().any(|info| info.is_dismissed(txid))
+    }
+
+    fn refetch_on_lock(&self, txid: &Txid) -> bool {
+        self.wallet_infos.values().any(|info| info.refetch_on_lock(txid))
     }
 
     async fn earliest_required_height(&self) -> CoreBlockHeight {

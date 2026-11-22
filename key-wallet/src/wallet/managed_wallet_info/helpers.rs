@@ -234,14 +234,17 @@ impl ManagedWalletInfo {
 
     /// Whether `tx`, arriving unconfirmed and unlocked, is a transaction the
     /// wallet dropped as dead or spends an output of one. Such a spend is
-    /// dropped with it.
+    /// held back with it.
     pub(crate) fn dismiss_if_dead(&mut self, tx: &Transaction, txid: Txid) -> bool {
-        let dead = self.dismissed.contains(&txid)
-            || tx.input.iter().any(|input| self.dismissed.contains(&input.previous_output.txid));
-        if dead {
-            self.dismissed.insert(txid);
-        }
-        dead
+        self.dismissed.contains(&txid) || self.hold_spend_of_dismissed(tx, txid)
+    }
+
+    /// Hold `tx` back if it spends an output of a transaction the wallet
+    /// dropped as dead, until that transaction is locked or mined. Returns
+    /// whether it does.
+    pub(crate) fn hold_spend_of_dismissed(&mut self, tx: &Transaction, txid: Txid) -> bool {
+        let parents = tx.input.iter().map(|input| input.previous_output.txid);
+        self.dismissed.hold_spend(txid, parents)
     }
 
     /// The first input of `tx` spending a coin this wallet holds that
