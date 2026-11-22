@@ -164,6 +164,12 @@ impl LockedSpends {
         }
     }
 
+    /// Forgets what `txids` spend: a ChainLock overruled their locks.
+    pub(crate) fn forget(&mut self, txids: &BTreeSet<Txid>) {
+        self.spenders.retain(|_, spender| !txids.contains(spender));
+        self.order.retain(|outpoint| self.spenders.contains_key(outpoint));
+    }
+
     /// Whether `tx` spends an outpoint a locked transaction other than itself spends.
     pub(crate) fn conflicts(&self, tx: &Transaction, txid: &Txid) -> bool {
         tx.input.iter().any(|input| {

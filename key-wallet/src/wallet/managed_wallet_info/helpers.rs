@@ -287,6 +287,7 @@ impl ManagedWalletInfo {
                 self.dismissed.insert(*txid);
             }
             let removed = result.txids.iter().copied().collect();
+            self.locked_spends.forget(&removed);
             result.released_outpoints.extend(self.release_spent_claims(&removed));
             result.released_outpoints.sort_unstable();
             result.released_outpoints.dedup();

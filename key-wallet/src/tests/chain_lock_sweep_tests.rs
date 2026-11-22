@@ -465,3 +465,20 @@ async fn a_chain_lock_on_another_block_at_the_spends_height_sweeps_nothing() {
     assert!(holds(&p.ctx, &p.change), "P stays");
     assert!(p.ctx.bip44_account().has_transaction(&p.payment.txid()));
 }
+
+/// A swept payment's lock no longer makes a spend of its coins dead: a
+/// later payment of A is recorded, not dismissed.
+#[tokio::test]
+async fn a_spend_of_a_coin_a_swept_locked_payment_spent_is_not_dismissed() {
+    let mut p = payment(Shape::Recorded, true).await;
+    let winner = spending(&[p.b], None);
+    p.ctx.check_transaction(&winner, in_block(100)).await;
+    chain_lock(&mut p.ctx, 100);
+    assert_gone(&p, Shape::Recorded);
+
+    let again = spending(&[p.a], Some(&p.ctx.receive_address));
+    p.ctx.check_transaction(&again, TransactionContext::Mempool).await;
+
+    assert!(!p.ctx.managed_wallet.dismissed.contains(&again.txid()), "not dead");
+    assert!(p.ctx.bip44_account().has_transaction(&again.txid()), "recorded");
+}
