@@ -108,11 +108,12 @@ env:
   RUST_BACKTRACE: "1"
   # Bumping this drops every cached dependency closure: do it when the deps job's build list changes
   # (the key covers the toolchain, Cargo.lock, the manifests and ci-groups.yml, not this file).
-  CACHE_GEN: v4
+  CACHE_GEN: v5
   # `<CACHE_GEN>-<hash of the deps job's build list>`, which the deps job checks (BL-520): a change
   # to that list fails every run until CACHE_GEN is bumped and this re-pinned to the hash it prints.
   # v3: v16's features shard (BL-608). v4: v17's gate-lib selections (BL-608 phase 2).
-  CACHE_GEN_BUILDS: v4-cfd5d74c7fcd7014
+  # v5: gate-lib lib-features runs (DEC-1881).
+  CACHE_GEN_BUILDS: v5-cb44fc094c2c1eb9
   # Third-party units the closure in use lacks, which Summary's save rule leaves out (BL-520): the
   # rdashd shard's cbindgen (its --bin/--test selection leaves clap build-only, so cbindgen links
   # debuginfo-0 clap units and gets its own hash), which v8's deps job, the one that saved the v2
@@ -467,8 +468,24 @@ jobs:
               if not any(t["kind"][0] == "lib" or "lib" in t["kind"] for t in p["targets"]):
                   raise SystemExit(f"{p['name']}: [package.metadata.gate] test-features on a crate with no lib")
               feats = sorted({f"{p['name']}/{f}" for f in resolved.get(p["name"], ()) | want})
-              lib.append({"crate": p["name"], "features": ",".join(feats), "filter": " ".join(names)})
+              lib.append({"crate": p["name"], "tag": "", "features": ",".join(feats), "filter": " ".join(names)})
               print(f"gate-lib: {p['name']} --lib --features {','.join(feats)}" + (f" -- {' '.join(names)}" if names else ""))
+          # A product feature off by default (DEC-1881: every G2 build turns on rdashd/dkg-runtime) gets
+          # its own whole-lib run, [package.metadata.gate] lib-features: its code is in no other run.
+          for p in sorted((p for p in meta["packages"] if p["name"] in members), key=lambda p: p["name"]):
+              listed = ((p.get("metadata") or {}).get("gate") or {}).get("lib-features", [])
+              if not isinstance(listed, list) or not all(isinstance(f, str) for f in listed) or len(set(listed)) != len(listed):
+                  raise SystemExit(f"{p['name']}: [package.metadata.gate] lib-features must be a list of distinct feature names")
+              for f in sorted(listed):
+                  if f not in p["features"]:
+                      raise SystemExit(f"{p['name']}: [package.metadata.gate] lib-features names {f}, which it lacks")
+                  if f in LOCAL:
+                      raise SystemExit(f"{p['name']}: lib-features {f} is local-only: {LOCAL[f]}")
+                  if f in resolved.get(p["name"], ()):
+                      raise SystemExit(f"{p['name']}: lib-features {f} is already on in the workspace resolve")
+                  feats = sorted({f"{p['name']}/{x}" for x in resolved.get(p["name"], set()) | {f}})
+                  lib.append({"crate": p["name"], "tag": f"_{f.replace('-', '_')}", "features": ",".join(feats), "filter": ""})
+                  print(f"gate-lib: {p['name']} --lib --features {','.join(feats)} (lib-features, whole lib)")
           if lib:
               include.append({"shard": "gate-lib", "kind": "lib", "packages": "", "features": "", "targets": "",
                               "runs": [], "rdashd": False, "lib": lib})
@@ -822,15 +839,15 @@ jobs:
           python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
 
       # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
-      - name: dashd 24.0.0
+      - name: dashd 24.0.2
         if: matrix.kind == 'test' || matrix.kind == 'lib'
         env:
-          DASHVERSION: 24.0.0
+          DASHVERSION: 24.0.2
           GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
           v=$(python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
-          [ -x "$v" ] || { echo "::error::no dashd 24.0.0 (gate_env's ST2_DASHD)"; exit 1; }
+          [ -x "$v" ] || { echo "::error::no dashd 24.0.2 (gate_env's ST2_DASHD)"; exit 1; }
           echo "ST2_DASHD=$v" >> "$GITHUB_ENV"
 
       # dash-testkit starts the rdashd at RDASHD_PATH: built without features (no test hooks), copied
@@ -912,8 +929,9 @@ jobs:
           want=$(jq -e 'if type == "array" and length > 0 then length else error("no gate-lib runs") end' <<< "$LIB")
           bad=0 rebuilt=0 units=() ran=0 t0=$SECONDS
           # fd 3: the tests must not read the list on stdin.
-          while read -r -u 3 crate feats filter; do
-            echo "::group::$crate"
+          while read -r -u 3 crate tag feats filter; do
+            tag=${tag#-}
+            echo "::group::$crate${tag:+ [${tag#_}]}"
             s=$SECONDS
             rc=0
             : > "$RUNNER_TEMP/lib.log"
@@ -936,16 +954,16 @@ jobs:
             done
             echo "::endgroup::"
             if [ "$rc" -ne 0 ]; then
-              echo "::error::gate-lib $crate failed (rc=$rc)"; bad=$((bad + 1))
+              echo "::error::gate-lib $crate${tag:+ [${tag#_}]} failed (rc=$rc)"; bad=$((bad + 1))
             elif [ "$passed" -eq 0 ]; then
-              echo "::error::gate-lib $crate ran no test${filter:+ (filter: $filter)}"; bad=$((bad + 1))
+              echo "::error::gate-lib $crate${tag:+ [${tag#_}]} ran no test${filter:+ (filter: $filter)}"; bad=$((bad + 1))
             elif [ "${#unmatched[@]}" -gt 0 ]; then
-              echo "::error::gate-lib $crate: test-filter ${unmatched[*]} matched no passing test"; bad=$((bad + 1))
+              echo "::error::gate-lib $crate${tag:+ [${tag#_}]}: test-filter ${unmatched[*]} matched no passing test"; bad=$((bad + 1))
             fi
-            echo "lib_${crate//-/_}_s=$((SECONDS - s)) lib_${crate//-/_}_passed=$passed" | tee -a "$METRICS"
+            echo "lib_${crate//-/_}${tag}_s=$((SECONDS - s)) lib_${crate//-/_}${tag}_passed=$passed" | tee -a "$METRICS"
             rm -f "$RUNNER_TEMP/lib.log"
             ran=$((ran + 1))
-          done 3< <(jq -r '.[] | "\(.crate) \(.features) \(.filter)"' <<< "$LIB")
+          done 3< <(jq -r '.[] | "\(.crate) -\(.tag) \(.features) \(.filter)"' <<< "$LIB")
           list=$(printf '%s\n' "${units[@]}" | sort -u | paste -sd, -)
           echo "rebuilt_third_party=$rebuilt rebuilt_units=${list:--} lib_s=$((SECONDS - t0))" | tee -a "$METRICS"
           [ "$ran" -eq "$want" ] || { echo "::error::gate-lib ran $ran of $want crates"; exit 1; }
