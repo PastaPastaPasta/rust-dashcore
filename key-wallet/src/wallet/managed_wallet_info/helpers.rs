@@ -247,6 +247,37 @@ impl ManagedWalletInfo {
         self.dismissed.hold_spend(txid, parents)
     }
 
+    /// Claim each output that `tx`, locked or mined, spends of a transaction
+    /// the wallet dismissed, or of a spend it remembers with one, so that
+    /// output is not credited when that transaction comes back. A claim the
+    /// wallet already holds is kept; past the cap the oldest claim made here
+    /// goes.
+    pub(crate) fn claim_spends_of_dismissed(&mut self, tx: &Transaction, txid: Txid) {
+        for input in &tx.input {
+            let outpoint = input.previous_output;
+            if !self.dismissed.refetch_on_lock(&outpoint.txid)
+                || self.spent_claims.contains_key(&outpoint)
+            {
+                continue;
+            }
+            self.spent_claims.insert(outpoint, Some(txid));
+            let Some((oldest, spender)) = self.dismissed.note_claim(outpoint, txid) else {
+                continue;
+            };
+            // The spender's own sweep makes the claim permanent.
+            if matches!(self.spent_claims.get(&oldest), Some(None))
+                || self.spent_claims.get(&oldest) == Some(&Some(spender))
+            {
+                self.spent_claims.remove(&oldest);
+                for account in self.accounts.all_accounts_mut() {
+                    if let ManagedAccountRefMut::Funds(funds) = account {
+                        funds.claim_guarded_outputs.remove(&oldest);
+                    }
+                }
+            }
+        }
+    }
+
     /// The first input of `tx` spending a coin this wallet holds that
     /// [`verify_input_authorization`] rejects for that coin's output. An input
     /// it cannot decide on (another script or signature hash type) passes.
@@ -947,5 +978,78 @@ mod retain_unclaimed_tests {
         assert!(sweep.released_outpoints.iter().all(|o| {
             u32::from_le_bytes(o.txid.as_byte_array()[..4].try_into().expect("4 bytes")) >= HISTORY
         }));
+    }
+}
+
+#[cfg(test)]
+mod claim_spends_of_dismissed_tests {
+    use super::super::dismissed::MAX_CLAIMS;
+    use crate::wallet::initialization::WalletAccountCreationOptions;
+    use crate::wallet::{ManagedWalletInfo, Wallet};
+    use crate::Network;
+    use dashcore::hashes::Hash;
+    use dashcore::{OutPoint, Transaction, TxIn, Txid};
+
+    fn txid(n: u32) -> Txid {
+        let mut bytes = [0u8; 32];
+        bytes[..4].copy_from_slice(&n.to_le_bytes());
+        Txid::from_byte_array(bytes)
+    }
+
+    fn spend_of(outpoint: OutPoint, nonce: u32) -> Transaction {
+        Transaction {
+            version: 2,
+            lock_time: nonce,
+            input: vec![TxIn {
+                previous_output: outpoint,
+                ..Default::default()
+            }],
+            output: vec![],
+            special_transaction_payload: None,
+        }
+    }
+
+    #[test]
+    fn claims_for_spends_of_dismissed_transactions_are_capped_oldest_first() {
+        let wallet = Wallet::new_random(Network::Testnet, WalletAccountCreationOptions::Default)
+            .expect("test wallet");
+        let mut info = ManagedWalletInfo::from_wallet(&wallet, 0);
+        let (dismissed, other) = (txid(u32::MAX), txid(u32::MAX - 1));
+        info.dismissed.insert(dismissed);
+
+        let unrelated = spend_of(OutPoint::new(other, 0), 0);
+        info.claim_spends_of_dismissed(&unrelated, unrelated.txid());
+        assert!(info.spent_claims.is_empty(), "it spends nothing dismissed");
+
+        let host = OutPoint::new(dismissed, 1);
+        info.spent_claims.insert(host, None);
+        let again = spend_of(host, 1);
+        info.claim_spends_of_dismissed(&again, again.txid());
+        assert_eq!(info.spent_claims[&host], None, "a claim already held is kept");
+
+        let (first, second, restored) =
+            (OutPoint::new(dismissed, 2), OutPoint::new(dismissed, 3), OutPoint::new(dismissed, 4));
+        for (vout, outpoint) in [(2, first), (3, second), (4, restored)] {
+            let spend = spend_of(outpoint, vout);
+            info.claim_spends_of_dismissed(&spend, spend.txid());
+            assert_eq!(info.spent_claims[&outpoint], Some(spend.txid()));
+        }
+        info.spent_claims.insert(first, None);
+        info.restore_spent_outpoints(&[(restored, Some(txid(7)))]);
+        for vout in 5..3 + MAX_CLAIMS as u32 {
+            let spend = spend_of(OutPoint::new(dismissed, vout), vout);
+            info.claim_spends_of_dismissed(&spend, spend.txid());
+        }
+        assert!(info.spent_claims.contains_key(&first));
+        let spend = spend_of(OutPoint::new(dismissed, 3 + MAX_CLAIMS as u32), 0);
+        info.claim_spends_of_dismissed(&spend, spend.txid());
+        assert!(!info.spent_claims.contains_key(&first), "made permanent by its spender, it goes");
+        let spend = spend_of(OutPoint::new(dismissed, 4 + MAX_CLAIMS as u32), 0);
+        info.claim_spends_of_dismissed(&spend, spend.txid());
+        assert!(!info.spent_claims.contains_key(&second), "the next oldest goes");
+        assert!(info.spent_claims.contains_key(&OutPoint::new(dismissed, 5)));
+        assert_eq!(info.spent_claims[&host], None, "a claim it did not make stays");
+        assert_eq!(info.spent_claims[&restored], None, "a claim the host restored stays");
+        assert_eq!(info.spent_claims.len(), MAX_CLAIMS + 2);
     }
 }

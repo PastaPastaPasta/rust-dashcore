@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use dashcore::Txid;
+use dashcore::{OutPoint, Txid};
 
 /// The most dismissed transactions kept; the oldest goes first.
 const MAX_DISMISSED: usize = 4_096;
@@ -10,6 +10,10 @@ const MAX_SPENDS: usize = 4_096;
 
 /// The most dismissed transactions one spend is released by.
 const MAX_PARENTS: usize = 16;
+
+/// The most spent-output claims made for locked or mined spends of dismissed
+/// transactions; the oldest goes first.
+pub(crate) const MAX_CLAIMS: usize = 4_096;
 
 /// Unconfirmed transactions the wallet dropped as dead: losers of a conflict
 /// a final transaction won, and transactions the user abandoned. A peer, or
@@ -34,9 +38,33 @@ pub(crate) struct DismissedTxids {
     pinned: HashSet<Txid>,
     /// For each dismissed transaction, the remembered spends it holds back.
     holds: HashMap<Txid, HashSet<Txid>>,
+    /// Spent-output claims made for locked or mined spends of dismissed
+    /// transactions, oldest first, with the spend each names.
+    claims: VecDeque<(OutPoint, Txid)>,
 }
 
 impl DismissedTxids {
+    /// Note a claim on `outpoint` for `spender`. Returns the oldest claim
+    /// once more than [`MAX_CLAIMS`] are noted, to be dropped.
+    pub(crate) fn note_claim(
+        &mut self,
+        outpoint: OutPoint,
+        spender: Txid,
+    ) -> Option<(OutPoint, Txid)> {
+        self.claims.push_back((outpoint, spender));
+        if self.claims.len() > MAX_CLAIMS {
+            return self.claims.pop_front();
+        }
+        None
+    }
+
+    /// Stop counting the claims on `outpoints` as made here: the host
+    /// restored its own.
+    pub(crate) fn forget_claims(&mut self, outpoints: impl IntoIterator<Item = OutPoint>) {
+        let restored: HashSet<OutPoint> = outpoints.into_iter().collect();
+        self.claims.retain(|(outpoint, _)| !restored.contains(outpoint));
+    }
+
     /// Dismiss `txid` as the wallet's own decision.
     pub(crate) fn insert(&mut self, txid: Txid) {
         self.own.insert(txid);

@@ -283,6 +283,9 @@ impl WalletTransactionChecker for ManagedWalletInfo {
             }
         } else {
             self.dismissed.settled(&txid);
+            if update_state {
+                self.claim_spends_of_dismissed(tx, txid);
+            }
         }
 
         // Classify the transaction

@@ -1049,3 +1049,115 @@ async fn a_locked_spend_of_a_released_spend_is_credited_when_that_spend_comes_ba
     );
     assert_eq!(h.total(&a).await, 0, "S's change is spent by C");
 }
+
+/// Wallet A abandoned P, which is in fact live; C spends P's change and pays
+/// wallet B, and arrives with its lock before P comes back. C matches only B,
+/// yet once P comes back, by its lock or a block, A does not offer the
+/// change C spends.
+#[test_case::test_case(true; "parent settled by a lock")]
+#[test_case::test_case(false; "parent settled by a block")]
+#[tokio::test]
+async fn a_locked_spend_paying_another_wallet_keeps_the_abandoned_change_spent(by_lock: bool) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
+    let (a, b) = (ids[0], ids[1]);
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let (payment, change_a) =
+        abandoned_payment_with_change(&mut h, &a, &elsewhere, 131..132, false).await;
+    let to_b = next_unused_receive_address(&h.wallets, &b).await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: CHANGE - 10_000,
+            script_pubkey: to_b.script_pubkey(),
+        }],
+    )
+    .await;
+    assert!(h.announce(&payment).await);
+    h.manager.process_instant_send(lock_for(&child)).await;
+    assert!(h.announce(&child).await);
+    assert!(h.manager.transactions.contains_key(&child.txid()), "C pays B");
+    assert_eq!(h.total(&b).await, CHANGE - 10_000);
+
+    if by_lock {
+        h.manager.process_instant_send(lock_for(&payment)).await;
+        h.manager.send_queued(&h.requests).await.unwrap();
+        assert!(asked_for(&h.sent_messages(), payment.txid()));
+        h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    } else {
+        let block = Block::dummy(970, vec![payment.clone()]);
+        let result = h
+            .wallets
+            .write()
+            .await
+            .process_block_for_wallets(&block, block.block_hash(), 970, &BTreeSet::from([a]))
+            .await;
+        let event = SyncEvent::BlockProcessed {
+            block_hash: block.block_hash(),
+            height: 970,
+            wallets: BTreeSet::from([a]),
+            new_scripts: Default::default(),
+            confirmed_txids: result.relevant_txids().cloned().collect(),
+        };
+        h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
+    }
+    assert!(h.context_of(&a, &payment.txid()).await.is_some(), "P is back in A");
+    let change = OutPoint::new(payment.txid(), 1);
+    let wallets = h.wallets.read().await;
+    let info = wallets.get_wallet_info(&a).unwrap();
+    assert!(!info.utxos().iter().any(|utxo| utxo.outpoint == change), "C spends P's change");
+    drop(wallets);
+    assert_eq!(h.total(&a).await, 0);
+    assert_eq!(h.total(&b).await, CHANGE - 10_000);
+}
+
+/// A locked spend of an abandoned payment's change, which matched no wallet,
+/// is already accounted for when the payment comes back: the same call that
+/// restores the payment leaves its change spent, so no read in between can
+/// see it.
+#[test_case::test_case(true; "parent settled by a lock")]
+#[test_case::test_case(false; "parent settled by a block")]
+#[tokio::test]
+async fn restoring_a_dismissed_transaction_never_exposes_change_a_locked_spend_holds(
+    by_lock: bool,
+) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let (payment, change_a) =
+        abandoned_payment_with_change(&mut h, &a, &elsewhere, 141..142, false).await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: CHANGE - 10_000,
+            script_pubkey: elsewhere.script_pubkey(),
+        }],
+    )
+    .await;
+    let mut wallets = h.wallets.write().await;
+    let unmatched = wallets.process_mempool_transaction(&child, Some(lock_for(&child))).await;
+    assert!(!unmatched.is_relevant, "P's change is unknown");
+
+    if by_lock {
+        wallets.process_mempool_transaction(&payment, Some(lock_for(&payment))).await;
+    } else {
+        let block = Block::dummy(970, vec![payment.clone()]);
+        let scope = BTreeSet::from([a]);
+        wallets.process_block_for_wallets(&block, block.block_hash(), 970, &scope).await;
+    }
+    let info = wallets.get_wallet_info(&a).unwrap();
+    let change = OutPoint::new(payment.txid(), 1);
+    assert!(!info.utxos().iter().any(|utxo| utxo.outpoint == change), "C spends P's change");
+    drop(wallets);
+    assert!(h.context_of(&a, &payment.txid()).await.is_some(), "P is back in A");
+    assert_eq!(h.total(&a).await, 0);
+}
