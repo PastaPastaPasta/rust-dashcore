@@ -6,6 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+use dashcore::Txid;
+
 use tokio::sync::RwLock;
 
 use super::pipeline::BlocksPipeline;
@@ -96,16 +98,16 @@ impl<H: BlockHeaderStorage, B: BlockStorage, W: WalletInterface> BlocksManager<H
             let confirmed_txids: Vec<_> = result.relevant_txids().cloned().collect();
             self.progress.update_last_processed(height);
 
+            let mut released_dismissals = result.released_dismissals;
+            released_dismissals.extend(self.reapply_blocks(result.reapply_heights).await);
             events.push(SyncEvent::BlockProcessed {
                 block_hash: hash,
                 height,
                 wallets: interested,
                 new_scripts: result.new_scripts,
                 confirmed_txids,
-                released_dismissals: result.released_dismissals,
+                released_dismissals,
             });
-
-            self.reapply_blocks(result.reapply_heights).await;
         }
 
         // Check if pipeline is empty
@@ -164,7 +166,9 @@ impl<H: BlockHeaderStorage, B: BlockStorage, W: WalletInterface> BlocksManager<H
         result
     }
 
-    async fn reapply_blocks(&mut self, reapply: BTreeMap<WalletId, BTreeSet<u32>>) {
+    /// Returns the transactions the blocks re-applied released from a dismissal.
+    async fn reapply_blocks(&mut self, reapply: BTreeMap<WalletId, BTreeSet<u32>>) -> Vec<Txid> {
+        let mut released = Vec::new();
         let mut queue: BTreeSet<(u32, WalletId)> = reapply
             .into_iter()
             .flat_map(|(wallet_id, heights)| heights.into_iter().map(move |h| (h, wallet_id)))
@@ -182,12 +186,14 @@ impl<H: BlockHeaderStorage, B: BlockStorage, W: WalletInterface> BlocksManager<H
                 }
             };
             let result = self.apply_block(&block, height, &BTreeSet::from([wallet_id])).await;
+            released.extend(result.released_dismissals);
             queue.extend(
                 result.reapply_heights.into_iter().flat_map(|(wallet_id, heights)| {
                     heights.into_iter().map(move |h| (h, wallet_id))
                 }),
             );
         }
+        released
     }
 }
 

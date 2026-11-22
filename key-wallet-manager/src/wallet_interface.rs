@@ -233,13 +233,16 @@ pub trait WalletInterface: Send + Sync + 'static {
     /// Process a lock for a transaction tracked by the mempool manager.
     /// Implementations can use the full transaction to backfill account history.
     /// The default delegates once to the existing lock-only hook, preserving
-    /// notification behavior for custom wallet implementations.
+    /// notification behavior for custom wallet implementations. Returns the
+    /// transactions no longer dismissed now that this one is locked, to be
+    /// fetched again.
     async fn process_mempool_instant_send_lock(
         &mut self,
         _tx: &Transaction,
         instant_lock: InstantLock,
-    ) {
+    ) -> Vec<Txid> {
         self.process_instant_send_lock(instant_lock);
+        Vec::new()
     }
 
     /// Apply a validated `chain_lock` to every wallet, promoting any

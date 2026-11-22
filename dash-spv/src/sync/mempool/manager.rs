@@ -260,6 +260,7 @@ impl<W: WalletInterface> MempoolManager<W> {
         let mut held: Vec<(Instant, Txid)> =
             self.transactions.iter().map(|(txid, tx)| (tx.first_seen, *txid)).collect();
         held.sort_unstable();
+        let mut released = Vec::new();
         for batch in held.chunks(REPLAY_BATCH) {
             let mut wallet = self.wallet.write().await;
             for (_, txid) in batch {
@@ -268,6 +269,7 @@ impl<W: WalletInterface> MempoolManager<W> {
                 };
                 let lock = self.held_locks.get(txid).cloned();
                 let result = wallet.process_mempool_transaction(&entry.transaction, lock).await;
+                released.extend(result.released_dismissals.iter().copied());
                 if result.is_relevant {
                     entry.is_outgoing = result.is_outgoing;
                     entry.addresses = result.addresses;
@@ -276,6 +278,9 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
             drop(wallet);
             tokio::task::yield_now().await;
+        }
+        for txid in released {
+            self.fetch_again(txid);
         }
     }
 
@@ -791,9 +796,16 @@ impl<W: WalletInterface> MempoolManager<W> {
         };
         if let Some(lock) = instant_lock_opt {
             let mut wallet = self.wallet.write().await;
-            if let Some(tx) = self.transactions.get(&txid) {
-                wallet.process_mempool_instant_send_lock(&tx.transaction, lock).await;
+            let released = match self.transactions.get(&txid) {
+                Some(tx) => wallet.process_mempool_instant_send_lock(&tx.transaction, lock).await,
+                None => Vec::new(),
+            };
+            drop(wallet);
+            for released in released {
+                self.fetch_again(released);
             }
+            let kept = self.take_kept_spends_of(&txid);
+            self.receive_all(kept).await;
         }
         events
     }

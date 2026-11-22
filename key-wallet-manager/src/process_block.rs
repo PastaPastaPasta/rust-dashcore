@@ -125,6 +125,8 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             );
         }
 
+        let mined: BTreeSet<Txid> = block.txdata.iter().map(|tx| tx.txid()).collect();
+        result.released_dismissals.retain(|txid| !mined.contains(txid));
         result.released_dismissals.sort_unstable();
         result.released_dismissals.dedup();
         for (wallet_id, positions) in relevant_positions {
@@ -536,10 +538,11 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         &mut self,
         tx: &Transaction,
         instant_lock: InstantLock,
-    ) {
-        self.process_mempool_transaction(tx, Some(instant_lock.clone())).await;
+    ) -> Vec<Txid> {
+        let result = self.process_mempool_transaction(tx, Some(instant_lock.clone())).await;
         // Preserve lock-only handling for spend-only or already-confirmed records.
         self.process_instant_send_lock(instant_lock);
+        result.released_dismissals
     }
 
     fn process_instant_send_lock(&mut self, instant_lock: InstantLock) {
