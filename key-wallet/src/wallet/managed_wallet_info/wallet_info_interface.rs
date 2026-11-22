@@ -225,13 +225,26 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
         false
     }
 
-    /// Drop `txid` as dead with a transaction it spends: it is then treated
-    /// as [`is_dismissed`](Self::is_dismissed) until it is locked or mined.
-    /// The default does nothing.
-    fn dismiss(&mut self, _txid: Txid) {}
+    /// Whether a lock for `txid` should have it fetched again: the wallet
+    /// dismissed it, or held it back as a spend of a dismissed transaction,
+    /// even if a block has since released it. The default is
+    /// [`is_dismissed`](Self::is_dismissed).
+    fn refetch_on_lock(&self, txid: &Txid) -> bool {
+        self.is_dismissed(txid)
+    }
 
-    /// Forget that `txid` was dismissed: it was mined, so it is not dead.
-    /// The default does nothing.
+    /// Hold `tx`, seen unlocked, back with a dismissed transaction it spends:
+    /// it is then [`is_dismissed`](Self::is_dismissed) until that transaction
+    /// is locked or mined, or it is itself. Kept apart from the
+    /// wallet's own dismissals, which it cannot push out. Returns whether
+    /// `tx` spends a dismissed transaction. The default does nothing.
+    fn dismiss_spend(&mut self, _tx: &Transaction) -> bool {
+        false
+    }
+
+    /// `txid` was mined, so it is not dead: forget its dismissal, and release
+    /// the spends held back only with it. A lock does the same as the wallet
+    /// checks the locked transaction. The default does nothing.
     fn undismiss(&mut self, _txid: &Txid) {}
 
     /// Return the highest chainlock that has been applied to this
@@ -383,12 +396,16 @@ impl WalletInfoInterface for ManagedWalletInfo {
         self.dismissed.contains(txid)
     }
 
-    fn dismiss(&mut self, txid: Txid) {
-        self.dismissed.insert(txid);
+    fn refetch_on_lock(&self, txid: &Txid) -> bool {
+        self.dismissed.refetch_on_lock(txid)
+    }
+
+    fn dismiss_spend(&mut self, tx: &Transaction) -> bool {
+        self.hold_spend_of_dismissed(tx, tx.txid())
     }
 
     fn undismiss(&mut self, txid: &Txid) {
-        self.dismissed.remove(txid);
+        self.dismissed.settled(txid);
     }
 
     fn last_applied_chain_lock(&self) -> Option<&ChainLock> {

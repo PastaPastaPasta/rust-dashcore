@@ -512,7 +512,7 @@ async fn a_wallet_registered_after_an_abandon_gets_the_payment_only_once_settled
 
 /// The user abandoned P, which is in fact live; another device spent P's
 /// change in C. P comes back with its lock; C, ignored unlocked, is credited
-/// once its own lock arrives or it is mined, and not before.
+/// once its own lock arrives or it is mined.
 #[test_case::test_case(true; "settled by a lock")]
 #[test_case::test_case(false; "settled by a block")]
 #[tokio::test]
@@ -578,10 +578,6 @@ async fn a_spend_of_an_abandoned_payment_comes_back_once_settled(by_lock: bool) 
     assert!(asked_for(&h.sent_messages(), payment.txid()));
     h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
     assert_eq!(h.total(&a).await, change, "P is back with its change");
-
-    let again = h.wallets.write().await.process_mempool_transaction(&child, None).await;
-    assert!(!again.is_relevant, "C is still not credited unlocked");
-    assert_eq!(h.total(&a).await, change);
 
     if by_lock {
         h.manager.process_instant_send(lock_for(&child)).await;
@@ -680,4 +676,299 @@ async fn a_dismissal_ends_when_a_block_mines_the_transaction_for_any_wallet() {
     assert!(credited.is_relevant, "C is mined, so its spend is live");
     assert_eq!(h.total(&b).await, 970_000);
     assert!(!h.wallets.read().await.is_dismissed(&child.txid()));
+}
+
+/// A payment of wallet `a`'s coin to `elsewhere` with change back to `a`, and
+/// the change address. The payment is seen unlocked, held by the mempool
+/// manager if `held`, and then abandoned.
+async fn abandoned_payment_with_change(
+    h: &mut Harness,
+    a: &WalletId,
+    elsewhere: &Address,
+    funding_inputs: std::ops::Range<u8>,
+    held: bool,
+) -> (Transaction, Address) {
+    let to_a = next_unused_receive_address(&h.wallets, a).await;
+    let change_a = next_unused_receive_address(&h.wallets, a).await;
+    let funding = Transaction::dummy(&to_a, funding_inputs, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let payment = signed_spend_of(
+        &h.wallets,
+        a,
+        &to_a,
+        OutPoint::new(funding.txid(), 0),
+        &funding,
+        vec![
+            TxOut {
+                value: 300_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            },
+            TxOut {
+                value: CHANGE,
+                script_pubkey: change_a.script_pubkey(),
+            },
+        ],
+    )
+    .await;
+    if held {
+        assert!(h.announce(&payment).await);
+        assert!(h.manager.transactions.contains_key(&payment.txid()));
+    }
+    let mut wallets = h.wallets.write().await;
+    wallets.process_mempool_transaction(&payment, None).await;
+    let info = wallets.get_wallet_info_mut(a).unwrap();
+    info.abandon_transaction(payment.txid());
+    info.update_balance();
+    wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+    (payment, change_a)
+}
+
+const CHANGE: u64 = 690_000;
+
+/// Unlocked transactions spending a transaction a wallet abandoned are
+/// recorded only as hints for their lock. However many arrive, they do not
+/// push the wallet's own abandons out.
+#[tokio::test]
+async fn spends_of_a_dismissed_transaction_do_not_push_out_an_abandon() {
+    let (h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let first = Transaction::dummy(&to_a, 81..82, &[COIN]);
+    let second = Transaction::dummy(&to_a, 82..83, &[COIN]);
+    let mut wallets = h.wallets.write().await;
+    for payment in [&first, &second] {
+        wallets.process_mempool_transaction(payment, None).await;
+        let info = wallets.get_wallet_info_mut(&a).unwrap();
+        info.abandon_transaction(payment.txid());
+        info.update_balance();
+    }
+
+    // More than a wallet keeps dismissals of its own.
+    for vout in 0..4_096 {
+        let spam = Transaction {
+            version: 2,
+            lock_time: 0,
+            input: vec![TxIn {
+                previous_output: OutPoint::new(second.txid(), vout),
+                ..Default::default()
+            }],
+            output: vec![TxOut {
+                value: 1_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            }],
+            special_transaction_payload: None,
+        };
+        wallets.process_mempool_transaction(&spam, None).await;
+    }
+
+    assert!(wallets.is_dismissed(&first.txid()), "the abandon is kept");
+    assert!(wallets.is_dismissed(&second.txid()));
+    let again = wallets.process_mempool_transaction(&first, None).await;
+    assert!(!again.is_relevant, "the abandoned payment stays out unlocked");
+    drop(wallets);
+    assert_eq!(h.total(&a).await, 0);
+}
+
+/// An unlocked spend of an abandoned payment, ignored on arrival, is credited
+/// when it is delivered again after the payment comes back, by its lock or a
+/// block.
+#[test_case::test_case(true; "parent settled by a lock")]
+#[test_case::test_case(false; "parent settled by a block")]
+#[tokio::test]
+async fn a_spend_delivered_again_after_its_abandoned_parent_settles_is_credited(by_lock: bool) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let (payment, change_a) =
+        abandoned_payment_with_change(&mut h, &a, &elsewhere, 91..92, false).await;
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: CHANGE - 10_000,
+            script_pubkey: to_a.script_pubkey(),
+        }],
+    )
+    .await;
+    let mut wallets = h.wallets.write().await;
+    let ignored = wallets.process_mempool_transaction(&child, None).await;
+    assert!(!ignored.is_relevant, "it spends what A abandoned");
+
+    if by_lock {
+        wallets.process_mempool_transaction(&payment, Some(lock_for(&payment))).await;
+    } else {
+        let block = Block::dummy(970, vec![payment.clone()]);
+        let scope = BTreeSet::from([a]);
+        wallets.process_block_for_wallets(&block, block.block_hash(), 970, &scope).await;
+    }
+    drop(wallets);
+    assert_eq!(h.total(&a).await, CHANGE, "the payment's change is back");
+
+    let credited = h.wallets.write().await.process_mempool_transaction(&child, None).await;
+    assert!(credited.is_relevant, "its parent settled, so it is live");
+    assert_eq!(h.total(&a).await, CHANGE - 10_000);
+    assert!(!h.wallets.read().await.is_dismissed(&child.txid()));
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ComesBack {
+    /// By its lock, fetched again.
+    Lock,
+    /// By its lock, while the mempool manager still holds it.
+    LockWhileHeld,
+    /// By a block.
+    Block,
+}
+
+/// The user abandoned P, which is in fact live; another device spent P's
+/// change in C, paying only elsewhere. C's lock arrives first, so C is
+/// fetched while P's change is unknown and matches no wallet. Once P comes
+/// back, C is credited and P's change is not offered.
+#[test_case::test_case(ComesBack::Lock; "parent settled by a lock")]
+#[test_case::test_case(ComesBack::LockWhileHeld; "parent held and settled by a lock")]
+#[test_case::test_case(ComesBack::Block; "parent settled by a block")]
+#[tokio::test]
+async fn a_locked_spend_fetched_before_its_abandoned_parent_comes_back_is_credited(
+    comes_back: ComesBack,
+) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let held = comes_back == ComesBack::LockWhileHeld;
+    let (payment, change_a) =
+        abandoned_payment_with_change(&mut h, &a, &elsewhere, 101..102, held).await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: CHANGE - 10_000,
+            script_pubkey: elsewhere.script_pubkey(),
+        }],
+    )
+    .await;
+    assert_eq!(h.announce(&payment).await, !held);
+    assert!(h.announce(&child).await);
+    assert!(!h.manager.transactions.contains_key(&child.txid()), "ignored unlocked");
+
+    h.manager.process_instant_send(lock_for(&child)).await;
+    h.manager.send_queued(&h.requests).await.unwrap();
+    assert!(asked_for(&h.sent_messages(), child.txid()), "C's lock has it fetched again");
+    h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
+    assert_eq!(h.total(&a).await, COIN, "P is abandoned, so A holds its input");
+
+    if comes_back == ComesBack::LockWhileHeld {
+        h.manager.process_instant_send(lock_for(&payment)).await;
+    } else if comes_back == ComesBack::Lock {
+        h.manager.process_instant_send(lock_for(&payment)).await;
+        h.manager.send_queued(&h.requests).await.unwrap();
+        assert!(asked_for(&h.sent_messages(), payment.txid()));
+        h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    } else {
+        let block = Block::dummy(970, vec![payment.clone()]);
+        let result = h
+            .wallets
+            .write()
+            .await
+            .process_block_for_wallets(&block, block.block_hash(), 970, &BTreeSet::from([a]))
+            .await;
+        let event = SyncEvent::BlockProcessed {
+            block_hash: block.block_hash(),
+            height: 970,
+            wallets: BTreeSet::from([a]),
+            new_scripts: Default::default(),
+            confirmed_txids: result.relevant_txids().cloned().collect(),
+        };
+        h.manager.handle_sync_event(&event, &h.requests).await.unwrap();
+    }
+    assert!(
+        matches!(h.context_of(&a, &child.txid()).await, Some(TransactionContext::InstantSend(_))),
+        "C is credited with its lock"
+    );
+    assert_eq!(h.total(&a).await, 0, "P's change is spent by C");
+}
+
+/// A spend of a payment that the wallet abandoned with the payment keeps its
+/// own mark when the payment comes back, by its lock or a block: only spends
+/// held back with a dismissed transaction are released.
+#[test_case::test_case(true; "parent settled by a lock")]
+#[test_case::test_case(false; "parent settled by a block")]
+#[tokio::test]
+async fn an_abandoned_spend_stays_out_when_its_parent_settles(by_lock: bool) {
+    let (h, ids) = Harness::new(&[MNEMONIC_A]).await;
+    let a = ids[0];
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let change_a = next_unused_receive_address(&h.wallets, &a).await;
+    let elsewhere = address_of_unregistered(MNEMONIC_B).await;
+    let funding = Transaction::dummy(&to_a, 111..112, &[COIN]);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding, in_block(960), true, true)
+        .await;
+    let payment = signed_spend_of(
+        &h.wallets,
+        &a,
+        &to_a,
+        OutPoint::new(funding.txid(), 0),
+        &funding,
+        vec![
+            TxOut {
+                value: 300_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            },
+            TxOut {
+                value: CHANGE,
+                script_pubkey: change_a.script_pubkey(),
+            },
+        ],
+    )
+    .await;
+    let child = signed_spend_of(
+        &h.wallets,
+        &a,
+        &change_a,
+        OutPoint::new(payment.txid(), 1),
+        &payment,
+        vec![TxOut {
+            value: CHANGE - 10_000,
+            script_pubkey: elsewhere.script_pubkey(),
+        }],
+    )
+    .await;
+    let mut wallets = h.wallets.write().await;
+    wallets.process_mempool_transaction(&payment, None).await;
+    assert!(wallets.process_mempool_transaction(&child, None).await.is_relevant);
+    let info = wallets.get_wallet_info_mut(&a).unwrap();
+    let outcome = info.abandon_transaction(payment.txid());
+    assert!(outcome.abandoned.contains(&child.txid()), "abandoned with the payment");
+    info.update_balance();
+    wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+
+    if by_lock {
+        wallets.process_mempool_transaction(&payment, Some(lock_for(&payment))).await;
+    } else {
+        let block = Block::dummy(970, vec![payment.clone()]);
+        let scope = BTreeSet::from([a]);
+        wallets.process_block_for_wallets(&block, block.block_hash(), 970, &scope).await;
+    }
+    assert!(!wallets.is_dismissed(&payment.txid()));
+    assert!(wallets.is_dismissed(&child.txid()), "the abandon of the spend stays");
+    let again = wallets.process_mempool_transaction(&child, None).await;
+    assert!(!again.is_relevant, "the abandoned spend stays out unlocked");
+    drop(wallets);
+    assert_eq!(h.total(&a).await, CHANGE, "the payment's change is offered");
 }

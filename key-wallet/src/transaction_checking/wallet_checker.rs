@@ -282,7 +282,7 @@ impl WalletTransactionChecker for ManagedWalletInfo {
                 return TransactionCheckResult::default();
             }
         } else {
-            self.dismissed.remove(&txid);
+            self.dismissed.settled(&txid);
         }
 
         // Classify the transaction
