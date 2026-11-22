@@ -117,6 +117,9 @@ pub(crate) struct ConflictSweep {
     /// learn which coins actually came free without redoing the
     /// freed-versus-still-spent comparison itself.
     pub released_outpoints: Vec<OutPoint>,
+    /// The coins the removed losers had taken out of `utxos`, as they were
+    /// then. Those released are unspent again.
+    pub taken: Vec<Utxo>,
 }
 
 impl ManagedCoreFundsAccount {
@@ -865,6 +868,7 @@ impl ManagedCoreFundsAccount {
         }
 
         let mut freed: HashSet<OutPoint> = HashSet::new();
+        let mut taken = Vec::new();
         let mut changed = false;
         for loser in &losers {
             let removed: Vec<OutPoint> =
@@ -875,7 +879,7 @@ impl ManagedCoreFundsAccount {
             }
             self.spent_before_funded.retain(|outpoint, _| outpoint.txid != *loser);
             self.claim_guarded_outputs.retain(|outpoint, _| outpoint.txid != *loser);
-            self.unsettled_spends.remove(loser);
+            taken.extend(self.unsettled_spends.remove(loser).unwrap_or_default());
             if let Some(record) = self.keys.transactions_mut().remove(loser) {
                 freed.extend(record.transaction.input.iter().map(|input| input.previous_output));
             }
@@ -916,6 +920,7 @@ impl ManagedCoreFundsAccount {
         ConflictSweep {
             txids: losers.into_iter().collect(),
             released_outpoints,
+            taken,
         }
     }
 

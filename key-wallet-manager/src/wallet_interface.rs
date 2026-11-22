@@ -213,6 +213,15 @@ pub trait WalletInterface: Send + Sync + 'static {
         self.is_dismissed(txid)
     }
 
+    /// Whether `tx` spends an output of a transaction a managed wallet
+    /// dismissed, or of a spend it remembers with one, while that wallet has
+    /// not recorded `tx`. Such a wallet only learns of the spend if `tx` is
+    /// passed to it again once that transaction comes back. The default
+    /// (`false`) opts out.
+    fn spends_dismissed_elsewhere(&self, _tx: &Transaction) -> bool {
+        false
+    }
+
     /// Reclaim expired receive-address reservations across every managed
     /// wallet, returning the total number reclaimed.
     ///

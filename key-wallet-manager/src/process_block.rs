@@ -390,6 +390,18 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         self.wallet_infos.values().any(|info| info.refetch_on_lock(txid))
     }
 
+    fn spends_dismissed_elsewhere(&self, tx: &Transaction) -> bool {
+        let txid = tx.txid();
+        self.wallet_infos.values().any(|info| {
+            tx.input.iter().any(|input| info.refetch_on_lock(&input.previous_output.txid))
+                && !info
+                    .accounts()
+                    .all_accounts()
+                    .into_iter()
+                    .any(|account| account.has_transaction(&txid))
+        })
+    }
+
     async fn earliest_required_height(&self) -> CoreBlockHeight {
         self.wallet_infos.values().map(|info| info.birth_height()).min().unwrap_or(0)
     }

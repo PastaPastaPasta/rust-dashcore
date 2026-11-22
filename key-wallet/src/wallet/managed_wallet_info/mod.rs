@@ -402,7 +402,6 @@ impl ManagedWalletInfo {
         &mut self,
         outpoints: &[(OutPoint, Option<Txid>)],
     ) -> Vec<OutPoint> {
-        self.dismissed.forget_claims(outpoints.iter().map(|(outpoint, _)| *outpoint));
         for (outpoint, claimant) in outpoints {
             let held = self.spent_claims.entry(*outpoint).or_insert(*claimant);
             if held != claimant {
