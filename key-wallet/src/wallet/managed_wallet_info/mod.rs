@@ -5,7 +5,7 @@
 
 pub mod asset_lock_builder;
 pub mod coin_selection;
-mod dismissed;
+pub(crate) mod dismissed;
 pub mod fee;
 pub mod helpers;
 pub use helpers::AbandonOutcome;
@@ -160,6 +160,10 @@ pub struct ManagedWalletInfo {
     /// What InstantSend-locked transactions spend; in memory only.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub(crate) locked_spends: dismissed::LockedSpends,
+    /// What spent each outpoint seen spent in a block not yet ChainLocked;
+    /// in memory only.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub(crate) observed_spenders: dismissed::ObservedSpenders,
 }
 
 /// Serde adapter for [`ManagedWalletInfo::observed_spent_outpoints`] that
@@ -270,6 +274,7 @@ impl ManagedWalletInfo {
             dismissed: Default::default(),
             inherited: Default::default(),
             locked_spends: Default::default(),
+            observed_spenders: Default::default(),
         }
     }
 
@@ -291,6 +296,7 @@ impl ManagedWalletInfo {
             dismissed: Default::default(),
             inherited: Default::default(),
             locked_spends: Default::default(),
+            observed_spenders: Default::default(),
         }
     }
 
@@ -322,6 +328,7 @@ impl ManagedWalletInfo {
             dismissed: Default::default(),
             inherited: Default::default(),
             locked_spends: Default::default(),
+            observed_spenders: Default::default(),
         }
     }
 
@@ -385,9 +392,13 @@ impl ManagedWalletInfo {
     /// [`abandon_transaction`](Self::abandon_transaction) removing the
     /// claimant releases the outpoint. A confirmed or InstantSend-locked
     /// transaction spending the outpoint turns its claim into `None`,
-    /// whoever the claimant was, and `None` is never released. Restoring an
-    /// outpoint again with a different claimant — `None` against a txid, or
-    /// two txids — leaves `None`.
+    /// whoever the claimant was, and `None` is never released. A
+    /// ChainLocked spend, or a mined one of a claimant not InstantSend-locked,
+    /// beats the claimant: it is swept with its restored change, and its
+    /// other claims are released. A mined spend of a locked claimant beats it
+    /// once a ChainLock covers that spend's block. Restoring an outpoint
+    /// again with a different claimant — `None` against a txid, or two
+    /// txids — leaves `None`.
     ///
     /// **Limits:**
     ///

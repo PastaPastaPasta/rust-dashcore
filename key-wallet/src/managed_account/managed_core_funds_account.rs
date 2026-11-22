@@ -117,6 +117,9 @@ pub(crate) struct ConflictSweep {
     /// learn which coins actually came free without redoing the
     /// freed-versus-still-spent comparison itself.
     pub released_outpoints: Vec<OutPoint>,
+    /// Outpoints the winner spends that an InstantSend-locked loser spends
+    /// too, spared because the winner is not ChainLocked.
+    pub spared: BTreeSet<OutPoint>,
 }
 
 impl ManagedCoreFundsAccount {
@@ -785,46 +788,44 @@ impl ManagedCoreFundsAccount {
     /// already gone by the time this returns.
     pub(crate) fn drop_conflicted_transactions(
         &mut self,
-        tx: &Transaction,
+        winner: Txid,
+        spent: &BTreeSet<OutPoint>,
         context: &TransactionContext,
     ) -> ConflictSweep {
         if !(context.confirmed() || matches!(context, TransactionContext::InstantSend(_))) {
             return ConflictSweep::default();
         }
 
-        let winner = tx.txid();
-        let spent: BTreeSet<OutPoint> =
-            tx.input.iter().map(|input| input.previous_output).collect();
-
         // A finalized transaction keeps only its txid, so a chainlocked record
         // can never be a loser here — and must not be, since it is settled.
-        let mut losers: BTreeSet<Txid> = self
-            .keys
-            .transactions()
-            .iter()
-            .filter(|(txid, record)| {
-                // Precedence, per DIP-10: a chainlock is final over
-                // everything, an InstantSend lock is final against a double
-                // spend, and a plain block is provisional until its own
-                // chainlock lands. So an IS-locked record may only be evicted
-                // by a chainlocked arrival — a plain `InBlock` winner cannot
-                // overrule a lock the network already signed, and the block
-                // it arrived in can still reorg away.
-                let loser_is_locked = record.context.is_instant_send();
-                **txid != winner
-                    && !record.is_confirmed()
-                    && (!loser_is_locked || context.is_chain_locked())
-                    && record
-                        .transaction
-                        .input
-                        .iter()
-                        .any(|input| spent.contains(&input.previous_output))
-            })
-            .map(|(txid, _)| *txid)
-            .collect();
+        let mut losers: BTreeSet<Txid> = BTreeSet::new();
+        let mut spared = BTreeSet::new();
+        for (txid, record) in self.keys.transactions() {
+            if *txid == winner || record.is_confirmed() {
+                continue;
+            }
+            let contested = (record.transaction.input.iter())
+                .map(|input| input.previous_output)
+                .filter(|outpoint| spent.contains(outpoint));
+            // Precedence, per DIP-10: a chainlock is final over everything,
+            // an InstantSend lock is final against a double spend, and a
+            // plain block is provisional until its own chainlock lands. So an
+            // IS-locked record may only be evicted by a chainlocked arrival —
+            // a plain `InBlock` winner cannot overrule a lock the network
+            // already signed, and the block it arrived in can still reorg
+            // away; the spend it lost is kept for that chainlock.
+            if record.context.is_instant_send() && !context.is_chain_locked() {
+                spared.extend(contested);
+            } else if contested.count() > 0 {
+                losers.insert(*txid);
+            }
+        }
 
         if losers.is_empty() {
-            return ConflictSweep::default();
+            return ConflictSweep {
+                spared,
+                ..ConflictSweep::default()
+            };
         }
 
         // A loser's change may already have funded further unconfirmed
@@ -834,7 +835,8 @@ impl ManagedCoreFundsAccount {
         // unconfirmed descendant closure; confirmed records are never
         // followed, since a transaction in a block spent something real,
         // and neither are InstantSend-locked ones, whose lock the network
-        // already signed.
+        // already signed, unless a chainlocked winner overruled the lock of
+        // their ancestor.
         //
         // The walk builds a parent→children index in one pass and then
         // follows a queue, so each record is looked at once. Rescanning the
@@ -847,7 +849,8 @@ impl ManagedCoreFundsAccount {
         let mut children: HashMap<Txid, Vec<Txid>> = HashMap::new();
         for (txid, record) in self.keys.transactions() {
             note_descendant_walk_visit();
-            if record.is_confirmed() || record.context.is_instant_send() || *txid == winner {
+            let locked = record.context.is_instant_send() && !context.is_chain_locked();
+            if record.is_confirmed() || locked || *txid == winner {
                 continue;
             }
             for input in &record.transaction.input {
@@ -916,6 +919,7 @@ impl ManagedCoreFundsAccount {
         ConflictSweep {
             txids: losers.into_iter().collect(),
             released_outpoints,
+            spared,
         }
     }
 
@@ -1854,6 +1858,10 @@ mod conflict_sweep_walk_tests {
         account.keys.transactions_mut().insert(record.txid, record);
     }
 
+    fn inputs_of(tx: &Transaction) -> BTreeSet<OutPoint> {
+        tx.input.iter().map(|input| input.previous_output).collect()
+    }
+
     fn in_block(height: u32) -> TransactionContext {
         TransactionContext::InBlock(BlockInfo::new(
             height,
@@ -1933,7 +1941,11 @@ mod conflict_sweep_walk_tests {
 
         // The winner takes the contested coin in a block.
         let winner = spend(vec![contested, outpoint(1, 0)]);
-        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100));
+        let sweep = account.drop_conflicted_transactions(
+            winner.txid(),
+            &inputs_of(&winner),
+            &in_block(100),
+        );
 
         let mut expected: Vec<Txid> = chain.iter().map(Transaction::txid).collect();
         expected.push(diamond.txid());
@@ -1995,7 +2007,11 @@ mod conflict_sweep_walk_tests {
 
         let winner = spend(vec![contested, outpoint(1, 0)]);
         descendant_walk_instrumentation::reset();
-        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100));
+        let sweep = account.drop_conflicted_transactions(
+            winner.txid(),
+            &inputs_of(&winner),
+            &in_block(100),
+        );
 
         assert_eq!(sweep.txids.len(), DEPTH, "every link of the chain is swept");
         let visits = descendant_walk_instrumentation::count();

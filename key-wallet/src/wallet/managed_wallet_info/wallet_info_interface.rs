@@ -10,8 +10,9 @@ use crate::managed_account::managed_account_collection::ManagedAccountCollection
 use crate::managed_account::managed_account_ref::ManagedAccountRefMut;
 use crate::managed_account::managed_account_type::ManagedAccountType;
 use crate::managed_account::ManagedCoreFundsAccount;
-use crate::transaction_checking::TransactionContext;
 use crate::transaction_checking::WalletTransactionChecker;
+use crate::transaction_checking::{BlockInfo, TransactionContext};
+use crate::wallet::managed_wallet_info::helpers::WalletConflictSweep;
 use crate::wallet::managed_wallet_info::transaction_building::AccountTypePreference;
 use crate::wallet::managed_wallet_info::TransactionRecord;
 use crate::wallet::ManagedWalletInfo;
@@ -43,6 +44,22 @@ pub struct ApplyChainLockOutcome {
     /// call. `false` when the incoming chainlock's height did not
     /// exceed the already-stored chainlock's height.
     pub metadata_advanced: bool,
+    /// What each spend this chainlock made final beat, by spender: a
+    /// spend in a block it covers removes the transactions spending or
+    /// claiming the same coins that its arrival in a plain block left.
+    pub sweeps: Vec<ChainLockSweep>,
+}
+
+/// A sweep a chainlock settled: `winner`, mined in `winner_block`, beat
+/// what `sweep` removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChainLockSweep {
+    /// The transaction whose spend the chainlock made final.
+    pub winner: Txid,
+    /// The block it was mined in.
+    pub winner_block: BlockInfo,
+    /// What its spend beat.
+    pub sweep: WalletConflictSweep,
 }
 
 /// What [`WalletInfoInterface::truncate_above`] changed.
@@ -456,6 +473,19 @@ impl WalletInfoInterface for ManagedWalletInfo {
             self.metadata.last_applied_chain_lock = Some(chain_lock);
         }
 
+        let mut sweeps = Vec::new();
+        for (winner, (block, spent, spared)) in self.observed_spenders.take_up_to(cl_height) {
+            let context = TransactionContext::InChainLockedBlock(block);
+            let sweep = self.sweep_conflicts_of(winner, &spent, &context, spared);
+            if !sweep.is_empty() {
+                sweeps.push(ChainLockSweep {
+                    winner,
+                    winner_block: block,
+                    sweep,
+                });
+            }
+        }
+
         // Evict observed-spent entries the promotion above just made final.
         // Must run after both the per-account promotion and the metadata
         // advance, so the finality boundary reflects this chainlock.
@@ -464,6 +494,7 @@ impl WalletInfoInterface for ManagedWalletInfo {
         ApplyChainLockOutcome {
             locked_transactions,
             metadata_advanced: advance,
+            sweeps,
         }
     }
 
@@ -639,6 +670,7 @@ impl WalletInfoInterface for ManagedWalletInfo {
             .map(|(outpoint, _)| *outpoint)
             .collect();
         self.observed_spent_outpoints.retain(|outpoint, _| !dropped_spends.contains(outpoint));
+        self.observed_spenders.truncate_above(height);
 
         let mut txids = BTreeSet::new();
         let mut unconfirmed_txids = BTreeSet::new();

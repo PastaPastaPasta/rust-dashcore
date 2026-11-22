@@ -241,9 +241,10 @@ pub enum WalletEvent {
         /// The transaction whose arrival settled the inputs, for provenance.
         superseded_by: Txid,
         /// The block `superseded_by` was mined in (its height, hash and
-        /// position) when this sweep was triggered by its arrival in a block;
-        /// `None` when it was triggered by a transaction still waiting to be
-        /// mined: an InstantSend-locked one, or a funding transaction that
+        /// position) when this sweep was triggered by its arrival in a block,
+        /// or by a chainlock covering that block, then emitted before that
+        /// chainlock's `ChainLockProcessed`; `None` when it was triggered by
+        /// a transaction still waiting to be mined: an InstantSend-locked one, or a funding transaction that
         /// exposed an unsigned pending spend of its output (see
         /// `WalletTransactionChecker::check_core_transaction`).
         ///

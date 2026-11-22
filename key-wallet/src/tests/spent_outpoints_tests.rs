@@ -265,16 +265,18 @@ async fn claim_on_winner_input_stays_guarded_after_claimant_is_swept() {
 
 /// A final spend settles a recordless claim, so abandoning its claimant then
 /// releases nothing; an unconfirmed spend does not, and neither creates a claim.
-#[test_case::test_case(in_block(100), true; "spend in a block")]
+/// A mined one also sweeps the claimant, which is not locked.
+#[test_case::test_case(in_block(100), true, true; "spend in a block")]
 #[test_case::test_case(
-    TransactionContext::InstantSend(InstantLock::default()), true;
+    TransactionContext::InstantSend(InstantLock::default()), true, false;
     "InstantSend-locked spend"
 )]
-#[test_case::test_case(TransactionContext::Mempool, false; "unconfirmed spend")]
+#[test_case::test_case(TransactionContext::Mempool, false, false; "unconfirmed spend")]
 #[tokio::test]
 async fn final_spend_makes_a_recordless_claim_permanent(
     context: TransactionContext,
     is_final: bool,
+    sweeps_claimant: bool,
 ) {
     let (mut ctx, address) = restore_context();
     let funding = Transaction::dummy(&address, 20..21, &[150_000]);
@@ -284,7 +286,9 @@ async fn final_spend_makes_a_recordless_claim_permanent(
     let unclaimed = OutPoint::new(Txid::from([0x56; 32]), 0);
     let spend = spending_tx(&[spent, unclaimed]);
 
-    assert!(ctx.managed_wallet.sweep_conflicts(&spend, &context).is_empty());
+    let sweep = ctx.managed_wallet.sweep_conflicts(&spend, &context);
+    assert_eq!(sweep.txids, Vec::from_iter(sweeps_claimant.then_some(claimant)));
+    assert!(sweep.released_outpoints.is_empty());
     assert_eq!(claim_on(&ctx, &unclaimed), None);
     ctx.managed_wallet.abandon_transaction(claimant);
 

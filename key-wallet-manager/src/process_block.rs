@@ -510,6 +510,20 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
         for (wallet_id, info) in self.wallet_infos.iter_mut() {
             let outcome = info.apply_chain_lock(chain_lock.clone());
 
+            // What the chainlock settled goes first, as on the block path:
+            // a consumer deletes the beaten rows before it finalizes.
+            for swept in outcome.sweeps {
+                events.push(WalletEvent::TransactionsSwept {
+                    wallet_id: *wallet_id,
+                    txids: swept.sweep.txids,
+                    superseded_by: swept.winner,
+                    winner_block: Some(swept.winner_block),
+                    released_outpoints: swept.sweep.released_outpoints,
+                    balance: info.balance(),
+                    account_balances: BTreeMap::new(),
+                });
+            }
+
             // Emit a single atomic `ChainLockProcessed` whenever the
             // wallet's `last_applied_chain_lock` advanced — carrying any
             // net-new promotions (possibly empty when the advance

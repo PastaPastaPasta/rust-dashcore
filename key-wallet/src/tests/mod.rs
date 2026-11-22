@@ -6,6 +6,8 @@ mod account_tests;
 
 mod balance_tests;
 
+mod chain_lock_sweep_tests;
+
 mod address_pool_tests;
 
 mod address_reservation_tests;

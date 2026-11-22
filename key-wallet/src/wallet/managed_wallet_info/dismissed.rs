@@ -1,6 +1,9 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use dashcore::{OutPoint, Transaction, Txid};
+
+use crate::transaction_checking::BlockInfo;
 
 /// The most dismissed transactions kept; the oldest goes first.
 const MAX_DISMISSED: usize = 4_096;
@@ -10,6 +13,9 @@ const MAX_INHERITED: usize = 4_096;
 
 /// The most outpoints spent by locked transactions kept; the oldest goes first.
 const MAX_LOCKED_SPENDS: usize = 16_384;
+
+/// The most outpoints spent in blocks kept with their spender; the oldest goes first.
+pub(crate) const MAX_OBSERVED_SPENDERS: usize = 16_384;
 
 /// Unconfirmed transactions the wallet dropped as dead: losers of a conflict
 /// a final transaction won, and transactions the user abandoned. A peer, or
@@ -166,6 +172,75 @@ impl LockedSpends {
     }
 }
 
+/// The outpoints spent in processed blocks that an InstantSend-locked
+/// transaction of the wallet spends too, each with its spender, its block and
+/// the claimant it beat, if any, until a ChainLock covers that block: the
+/// spend is then final, and what it beat is swept. One that goes first at
+/// capacity is only forgotten.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ObservedSpenders {
+    order: VecDeque<OutPoint>,
+    spenders: HashMap<OutPoint, (Txid, BlockInfo, Option<Txid>)>,
+}
+
+/// The spends of one spender taken out of [`ObservedSpenders`]: its block,
+/// the outpoints, and the claimants they beat.
+pub(crate) type TakenSpends = (BlockInfo, BTreeSet<OutPoint>, BTreeSet<Txid>);
+
+impl ObservedSpenders {
+    pub(crate) fn insert(
+        &mut self,
+        outpoint: OutPoint,
+        spender: Txid,
+        block: BlockInfo,
+        claimant: Option<Txid>,
+    ) {
+        match self.spenders.entry(outpoint) {
+            Entry::Occupied(mut kept) => {
+                let beaten = kept.get().2.filter(|_| kept.get().0 == spender);
+                kept.insert((spender, block, claimant.or(beaten)));
+            }
+            Entry::Vacant(slot) => {
+                slot.insert((spender, block, claimant));
+                self.order.push_back(outpoint);
+            }
+        }
+        while self.order.len() > MAX_OBSERVED_SPENDERS {
+            if let Some(oldest) = self.order.pop_front() {
+                self.spenders.remove(&oldest);
+            }
+        }
+    }
+
+    /// Takes out the spends in blocks at or below `height`, by spender.
+    pub(crate) fn take_up_to(&mut self, height: u32) -> BTreeMap<Txid, TakenSpends> {
+        self.take(|block| block.height() <= height)
+    }
+
+    /// Forgets the spends in blocks above `height`.
+    pub(crate) fn truncate_above(&mut self, height: u32) {
+        self.take(|block| block.height() > height);
+    }
+
+    fn take(&mut self, taken: impl Fn(&BlockInfo) -> bool) -> BTreeMap<Txid, TakenSpends> {
+        let mut out: BTreeMap<Txid, TakenSpends> = BTreeMap::new();
+        self.spenders.retain(|outpoint, (txid, block, spared)| {
+            if !taken(block) {
+                return true;
+            }
+            let entry =
+                out.entry(*txid).or_insert_with(|| (*block, BTreeSet::new(), BTreeSet::new()));
+            entry.1.insert(*outpoint);
+            entry.2.extend(*spared);
+            false
+        });
+        if !out.is_empty() {
+            self.order.retain(|outpoint| self.spenders.contains_key(outpoint));
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,6 +263,33 @@ mod tests {
         dismissed.remove(&txid(1));
         assert!(!dismissed.contains(&txid(1)));
         assert_eq!(dismissed.order.len(), MAX_DISMISSED - 1);
+    }
+
+    #[test]
+    fn observed_spenders_are_bounded_and_taken_by_height() {
+        let outpoint = |n: u32| {
+            let mut bytes = [0u8; 32];
+            bytes[..4].copy_from_slice(&n.to_le_bytes());
+            OutPoint::new(Txid::from_byte_array(bytes), 0)
+        };
+        let block =
+            |height: u32| BlockInfo::new(height, dashcore::BlockHash::from_byte_array([0; 32]), 0);
+        let mut spenders = ObservedSpenders::default();
+        for n in 0..=MAX_OBSERVED_SPENDERS as u32 {
+            spenders.insert(outpoint(n), outpoint(n + 1).txid, block(100 + n % 2), None);
+        }
+        assert_eq!(spenders.spenders.len(), MAX_OBSERVED_SPENDERS);
+        assert!(!spenders.spenders.contains_key(&outpoint(0)), "the oldest goes first");
+
+        spenders.truncate_above(100);
+        assert_eq!(spenders.spenders.len(), MAX_OBSERVED_SPENDERS / 2);
+        assert!(spenders.take_up_to(99).is_empty());
+        let taken = spenders.take_up_to(100);
+        assert_eq!(taken.len(), MAX_OBSERVED_SPENDERS / 2);
+        assert!(taken.values().all(|(block, spent, spared)| {
+            block.height() == 100 && spent.len() == 1 && spared.is_empty()
+        }));
+        assert!(spenders.spenders.is_empty() && spenders.order.is_empty());
     }
 
     #[test]

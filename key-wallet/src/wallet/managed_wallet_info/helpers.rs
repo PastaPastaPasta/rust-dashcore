@@ -43,14 +43,17 @@ impl AbandonOutcome {
 ///
 /// Settled records are never followed — what they spent was real. An
 /// InstantSend lock settles a transaction against a double spend just as a
-/// block does, and `is_confirmed()` does not cover it.
+/// block does, and `is_confirmed()` does not cover it, unless `locked_too`:
+/// a ChainLock overruled the lock of an ancestor.
 fn collect_spenders_of_records(
     records: &std::collections::BTreeMap<Txid, TransactionRecord>,
     abandoned: &BTreeSet<Txid>,
+    locked_too: bool,
     into: &mut BTreeSet<Txid>,
 ) {
     for (txid, record) in records {
-        if record.is_confirmed() || record.context.is_instant_send() || abandoned.contains(txid) {
+        let locked = record.context.is_instant_send() && !locked_too;
+        if record.is_confirmed() || locked || abandoned.contains(txid) {
             continue;
         }
         if record
@@ -172,28 +175,92 @@ impl ManagedWalletInfo {
     ///
     /// Spent-output claims (see [`Self::restore_spent_outpoints`]) are
     /// settled as well. One on an input of `tx` becomes a permanent guard
-    /// whoever its claimant is, record or not, since `tx` is final. One
-    /// naming a removed loser is released; what is then reported released is
-    /// on [`WalletConflictSweep::released_outpoints`].
+    /// whoever its claimant is, record or not, since `tx` is final. Its
+    /// claimant, when another transaction, is a loser too when `tx` is
+    /// ChainLocked, or mined and the claimant not InstantSend-locked: it is
+    /// removed with its outputs and what spends them, as a recorded loser
+    /// is. One naming a removed loser is released; what is then reported
+    /// released is on [`WalletConflictSweep::released_outpoints`].
     pub fn sweep_conflicts(
         &mut self,
         tx: &Transaction,
         context: &TransactionContext,
     ) -> WalletConflictSweep {
+        let spent = tx.input.iter().map(|input| input.previous_output).collect();
+        self.sweep_conflicts_of(tx.txid(), &spent, context, BTreeSet::new())
+    }
+
+    /// [`Self::sweep_conflicts`] for `winner`, which spends `spent`, and beat
+    /// `claimants` on outpoints whose claims are permanent already. What a
+    /// lock spares from a spend in a plain block is kept with that spend, for
+    /// its ChainLock.
+    pub(crate) fn sweep_conflicts_of(
+        &mut self,
+        winner: Txid,
+        spent: &BTreeSet<OutPoint>,
+        context: &TransactionContext,
+        mut claimants: BTreeSet<Txid>,
+    ) -> WalletConflictSweep {
         let mut result = WalletConflictSweep::default();
+        let pending_block = context.block_info().copied().filter(|_| !context.is_chain_locked());
         if context.confirmed() || context.is_instant_send() {
-            for input in &tx.input {
-                if let Some(claimant) = self.spent_claims.get_mut(&input.previous_output) {
+            for outpoint in spent {
+                if let Some(claimant) = self.spent_claims.get_mut(outpoint) {
+                    if let Some(loser) = claimant.filter(|txid| *txid != winner) {
+                        if context.is_chain_locked()
+                            || (context.confirmed() && !self.instant_send_locks.contains(&loser))
+                        {
+                            claimants.insert(loser);
+                        } else if let Some(block) = pending_block {
+                            self.observed_spenders.insert(*outpoint, winner, block, Some(loser));
+                        }
+                    }
                     *claimant = None;
                 }
             }
         }
         for account in self.accounts.all_accounts_mut() {
             if let ManagedAccountRefMut::Funds(funds) = account {
-                let swept = funds.drop_conflicted_transactions(tx, context);
+                let swept = funds.drop_conflicted_transactions(winner, spent, context);
                 result.txids.extend(swept.txids);
                 result.released_outpoints.extend(swept.released_outpoints);
+                if let Some(block) = pending_block {
+                    for outpoint in swept.spared {
+                        self.observed_spenders.insert(outpoint, winner, block, None);
+                    }
+                }
             }
+        }
+        let mut claimed = BTreeSet::new();
+        for loser in claimants {
+            if !result.txids.contains(&loser)
+                && !self.dismissed.contains(&loser)
+                && !self.transaction_is_settled(&loser)
+            {
+                claimed.extend(self.spends_closure(loser, &BTreeMap::new(), true));
+            }
+        }
+        if !claimed.is_empty() {
+            let inputs = self
+                .accounts
+                .all_accounts()
+                .into_iter()
+                .flat_map(|account| account.transactions().values())
+                .filter(|record| claimed.contains(&record.txid))
+                .flat_map(|record| record.transaction.input.iter())
+                .map(|input| input.previous_output)
+                .filter(|outpoint| !claimed.contains(&outpoint.txid) && !spent.contains(outpoint))
+                .collect::<Vec<_>>();
+            result.released_outpoints.extend(inputs);
+            self.remove_transactions(&claimed);
+            for txid in &claimed {
+                tracing::info!(
+                    conflicted_txid = %txid,
+                    winning_txid = %winner,
+                    "Dropped a claimant of a coin a final transaction spent"
+                );
+            }
+            result.txids.extend(claimed);
         }
         if !result.txids.is_empty() {
             // Keys-only accounts hold no UTXOs, but they do hold records — an
@@ -221,11 +288,13 @@ impl ManagedWalletInfo {
             result.released_outpoints.dedup();
             result.retain_unclaimed(&self.accounts);
             // An account answers for its own marks only, so an outpoint one
-            // account let go can still be guarded by another, or by a claim.
+            // account let go can still be guarded by another, by a claim, or
+            // by a spend seen in a block that no record holds.
             let funds: Vec<_> =
                 self.accounts.all_accounts().into_iter().filter_map(|a| a.as_funds()).collect();
             result.released_outpoints.retain(|outpoint| {
                 !self.spent_claims.contains_key(outpoint)
+                    && !self.observed_spent_outpoints.contains_key(outpoint)
                     && !funds.iter().any(|account| account.is_outpoint_spent(outpoint))
             });
         }
@@ -494,55 +563,8 @@ impl ManagedWalletInfo {
                 records_removed: 0,
             };
         }
-        let mut abandoned = BTreeSet::from([root]);
-
-        // Transitive closure over recorded spenders. Each pass can only add
-        // txids, and the set is bounded by the recorded transactions, so this
-        // terminates; a spend cycle is impossible anyway.
-        loop {
-            let mut found = BTreeSet::new();
-            for account in self.accounts.all_accounts() {
-                collect_spenders_of_records(account.transactions(), &abandoned, &mut found);
-            }
-            // Same step over the external view: anything spending an output of
-            // an abandoned transaction is itself abandoned.
-            for (outpoint, spender) in external_spends {
-                if abandoned.contains(&outpoint.txid) && !self.transaction_is_settled(spender) {
-                    found.insert(*spender);
-                }
-            }
-            let before = abandoned.len();
-            abandoned.extend(found);
-            if abandoned.len() == before {
-                break;
-            }
-        }
-
-        let mut utxos_removed = 0;
-        let mut records_removed = 0;
-        for account in self.accounts.all_accounts_mut() {
-            match account {
-                ManagedAccountRefMut::Funds(funds) => {
-                    let removed = funds.apply_abandon(&abandoned);
-                    utxos_removed += removed.utxos;
-                    records_removed += removed.records;
-                }
-                // Keys-only accounts hold no UTXOs, but they do hold records
-                // — an asset-lock funding transaction is recorded in both its
-                // funding account and the identity account it pays. Leaving
-                // the record here makes `is_new` false on a later re-sighting,
-                // so the funds account never re-records the transaction and
-                // never re-marks its input spent.
-                ManagedAccountRefMut::Keys(keys) => {
-                    for txid in &abandoned {
-                        if keys.transactions_mut().remove(txid).is_some() {
-                            records_removed += 1;
-                        }
-                    }
-                }
-            }
-        }
-
+        let abandoned = self.spends_closure(root, external_spends, false);
+        let (utxos_removed, records_removed) = self.remove_transactions(&abandoned);
         self.release_spent_claims(&abandoned);
         for txid in &abandoned {
             self.dismissed.insert(*txid);
@@ -553,6 +575,76 @@ impl ManagedWalletInfo {
             utxos_removed,
             records_removed,
         }
+    }
+
+    /// `root` and every transaction descending from it, through recorded
+    /// spenders, InstantSend-locked ones only when `locked_too`, and
+    /// `external_spends`.
+    fn spends_closure(
+        &self,
+        root: Txid,
+        external_spends: &BTreeMap<OutPoint, Txid>,
+        locked_too: bool,
+    ) -> BTreeSet<Txid> {
+        let mut closure = BTreeSet::from([root]);
+
+        // Transitive closure over recorded spenders. Each pass can only add
+        // txids, and the set is bounded by the recorded transactions, so this
+        // terminates; a spend cycle is impossible anyway.
+        loop {
+            let mut found = BTreeSet::new();
+            for account in self.accounts.all_accounts() {
+                collect_spenders_of_records(
+                    account.transactions(),
+                    &closure,
+                    locked_too,
+                    &mut found,
+                );
+            }
+            // Same step over the external view: anything spending an output of
+            // an abandoned transaction is itself abandoned.
+            for (outpoint, spender) in external_spends {
+                if closure.contains(&outpoint.txid) && !self.transaction_is_settled(spender) {
+                    found.insert(*spender);
+                }
+            }
+            let before = closure.len();
+            closure.extend(found);
+            if closure.len() == before {
+                break;
+            }
+        }
+        closure
+    }
+
+    /// Remove `txids`' records and outputs from every account, and release
+    /// what their records spent; returns the UTXOs and records removed.
+    fn remove_transactions(&mut self, txids: &BTreeSet<Txid>) -> (usize, usize) {
+        let mut utxos_removed = 0;
+        let mut records_removed = 0;
+        for account in self.accounts.all_accounts_mut() {
+            match account {
+                ManagedAccountRefMut::Funds(funds) => {
+                    let removed = funds.apply_abandon(txids);
+                    utxos_removed += removed.utxos;
+                    records_removed += removed.records;
+                }
+                // Keys-only accounts hold no UTXOs, but they do hold records
+                // — an asset-lock funding transaction is recorded in both its
+                // funding account and the identity account it pays. Leaving
+                // the record here makes `is_new` false on a later re-sighting,
+                // so the funds account never re-records the transaction and
+                // never re-marks its input spent.
+                ManagedAccountRefMut::Keys(keys) => {
+                    for txid in txids {
+                        if keys.transactions_mut().remove(txid).is_some() {
+                            records_removed += 1;
+                        }
+                    }
+                }
+            }
+        }
+        (utxos_removed, records_removed)
     }
     // BIP44 Account Helpers
 

@@ -2665,3 +2665,153 @@ async fn a_claim_another_account_recorded_is_dropped() {
         .contains_key(&claim.txid()));
     assert!(info.first_bip44_managed_account().unwrap().utxos.contains_key(&coin));
 }
+
+/// A transaction spending `inputs` and paying `value` to `script`.
+fn spending(inputs: &[OutPoint], value: u64, script: ScriptBuf) -> Transaction {
+    Transaction {
+        version: 2,
+        lock_time: 0,
+        input: inputs
+            .iter()
+            .map(|previous_output| TxIn {
+                previous_output: *previous_output,
+                script_sig: ScriptBuf::new(),
+                sequence: u32::MAX,
+                witness: Witness::default(),
+            })
+            .collect(),
+        output: vec![TxOut {
+            value,
+            script_pubkey: script,
+        }],
+        special_transaction_payload: None,
+    }
+}
+
+/// A payment `P` of coins A and B funded in block 100, InstantSend-locked,
+/// and `W`, spending B and paying `winner_pays`, mined in a plain block 101
+/// for `wallets`. Returns P, W, W's block and A.
+async fn locked_payment_beaten_in_a_plain_block(
+    manager: &mut WalletManager,
+    wallet_id: WalletId,
+    addr: &Address,
+    winner_pays: ScriptBuf,
+    wallets: &BTreeSet<WalletId>,
+) -> (Transaction, Transaction, Block, OutPoint) {
+    let mut funding = create_tx_paying_to(addr, 0x6a);
+    funding.output.push(funding.output[0].clone());
+    let funding_block = make_block(vec![funding.clone()], 0x6a, 1000);
+    manager
+        .process_block_for_wallets(
+            &funding_block,
+            funding_block.block_hash(),
+            100,
+            &BTreeSet::from([wallet_id]),
+        )
+        .await;
+    let (a, b) = (OutPoint::new(funding.txid(), 0), OutPoint::new(funding.txid(), 1));
+    let payment = spending(&[a, b], 150_000, addr.script_pubkey());
+    manager.process_mempool_transaction(&payment, Some(dummy_instant_lock(payment.txid()))).await;
+    let winner = spending(&[b], TX_AMOUNT - 1_000, winner_pays);
+    let winner_block = make_block(vec![winner.clone()], 0x6b, 1100);
+    manager.process_block_for_wallets(&winner_block, winner_block.block_hash(), 101, wallets).await;
+    let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+    assert!(account.transactions().contains_key(&payment.txid()), "the lock spares P");
+    (payment, winner, winner_block, a)
+}
+
+fn swept_by_chain_lock(
+    events: &[WalletEvent],
+    wallet: WalletId,
+    payment: &Transaction,
+    winner: &Transaction,
+    winner_block: &Block,
+    released: OutPoint,
+) -> Option<usize> {
+    events.iter().position(|event| {
+        matches!(event, WalletEvent::TransactionsSwept {
+            wallet_id, txids, superseded_by, winner_block: Some(at), released_outpoints, ..
+        } if *wallet_id == wallet
+            && *txids == vec![payment.txid()]
+            && *superseded_by == winner.txid()
+            && at.height() == 101
+            && at.block_hash() == winner_block.block_hash()
+            && *released_outpoints == vec![released])
+    })
+}
+
+#[tokio::test]
+async fn a_chain_lock_announces_what_it_swept_before_it_is_processed() {
+    let (mut manager, wallet_id, addr) = setup_manager_with_wallet();
+    let wallets = BTreeSet::from([wallet_id]);
+    let (payment, winner, winner_block, a) = locked_payment_beaten_in_a_plain_block(
+        &mut manager,
+        wallet_id,
+        &addr,
+        ScriptBuf::new(),
+        &wallets,
+    )
+    .await;
+
+    let mut rx = manager.subscribe_events();
+    manager.apply_chain_lock(ChainLock::dummy(101));
+    let events = drain_events(&mut rx);
+
+    let swept = swept_by_chain_lock(&events, wallet_id, &payment, &winner, &winner_block, a);
+    let processed = events
+        .iter()
+        .position(|event| matches!(event, WalletEvent::ChainLockProcessed { wallet_id: id, .. } if *id == wallet_id));
+    assert!(
+        matches!((swept, processed), (Some(swept), Some(processed)) if swept < processed),
+        "the sweep is announced before the ChainLock: {events:?}"
+    );
+    let account = manager.wallet_infos[&wallet_id].first_bip44_managed_account().unwrap();
+    assert!(!account.transactions().contains_key(&payment.txid()));
+    assert!(!account.utxos.contains_key(&OutPoint::new(payment.txid(), 0)));
+
+    manager.apply_chain_lock(ChainLock::dummy(102));
+    assert!(
+        !drain_events(&mut rx)
+            .iter()
+            .any(|event| matches!(event, WalletEvent::TransactionsSwept { .. })),
+        "swept once"
+    );
+}
+
+/// W pays another wallet than the one whose payment it beat.
+#[tokio::test]
+async fn a_chain_lock_sweeps_a_payment_of_another_wallet_than_its_winners() {
+    let (mut manager, payer, addr) = setup_manager_with_wallet();
+    let payee = manager
+        .create_wallet_from_mnemonic(
+            "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            0,
+            key_wallet::wallet::initialization::WalletAccountCreationOptions::Default,
+        )
+        .unwrap();
+    let to_payee = bip44_external_address_at(&manager, &payee, 0).unwrap();
+    let wallets = BTreeSet::from([payer, payee]);
+    let (payment, winner, winner_block, a) = locked_payment_beaten_in_a_plain_block(
+        &mut manager,
+        payer,
+        &addr,
+        to_payee.script_pubkey(),
+        &wallets,
+    )
+    .await;
+    let payee_account = manager.wallet_infos[&payee].first_bip44_managed_account().unwrap();
+    assert!(payee_account.transactions().contains_key(&winner.txid()), "W pays the payee");
+
+    let mut rx = manager.subscribe_events();
+    manager.apply_chain_lock(ChainLock::dummy(101));
+    let events = drain_events(&mut rx);
+
+    assert!(swept_by_chain_lock(&events, payer, &payment, &winner, &winner_block, a).is_some());
+    assert!(!events.iter().any(|event| matches!(event,
+        WalletEvent::TransactionsSwept { wallet_id, .. } if *wallet_id == payee)));
+    let payer_account = manager.wallet_infos[&payer].first_bip44_managed_account().unwrap();
+    assert!(!payer_account.transactions().contains_key(&payment.txid()));
+    assert!(!payer_account.utxos.contains_key(&OutPoint::new(payment.txid(), 0)));
+    let payee_account = manager.wallet_infos[&payee].first_bip44_managed_account().unwrap();
+    assert!(payee_account.utxos.contains_key(&OutPoint::new(winner.txid(), 0)), "W's coin stays");
+}
