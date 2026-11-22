@@ -237,7 +237,11 @@ impl ManagedWalletInfo {
                 && !self.dismissed.contains(&loser)
                 && !self.transaction_is_settled(&loser)
             {
-                claimed.extend(self.spends_closure(loser, &BTreeMap::new(), true));
+                claimed.extend(self.spends_closure(
+                    loser,
+                    &BTreeMap::new(),
+                    context.is_chain_locked(),
+                ));
             }
         }
         if !claimed.is_empty() {

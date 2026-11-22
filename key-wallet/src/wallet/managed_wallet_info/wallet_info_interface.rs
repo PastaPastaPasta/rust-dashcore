@@ -438,7 +438,7 @@ impl WalletInfoInterface for ManagedWalletInfo {
     }
 
     fn apply_chain_lock(&mut self, chain_lock: ChainLock) -> ApplyChainLockOutcome {
-        let cl_height = chain_lock.block_height;
+        let (cl_height, cl_hash) = (chain_lock.block_height, chain_lock.block_hash);
         let mut locked_transactions: BTreeMap<AccountType, Vec<Txid>> = BTreeMap::new();
 
         // Promote across every account: funds-bearing (Standard,
@@ -473,10 +473,25 @@ impl WalletInfoInterface for ManagedWalletInfo {
             self.metadata.last_applied_chain_lock = Some(chain_lock);
         }
 
+        // Sync can prune the observed spends below this ChainLock before it is
+        // applied, so a coin a sweep frees is checked against every spend taken
+        // here; with one of them forgotten, none can be told free.
+        let (taken, forgot) = self.observed_spenders.take_up_to(cl_height);
+        let taken: Vec<_> = taken
+            .into_iter()
+            .filter(|(_, (block, _, _))| {
+                block.height() < cl_height || block.block_hash() == cl_hash
+            })
+            .collect();
+        let spent_in_blocks: BTreeSet<OutPoint> =
+            taken.iter().flat_map(|(_, (_, spent, _))| spent.iter().copied()).collect();
         let mut sweeps = Vec::new();
-        for (winner, (block, spent, spared)) in self.observed_spenders.take_up_to(cl_height) {
+        for (winner, (block, spent, spared)) in taken {
             let context = TransactionContext::InChainLockedBlock(block);
-            let sweep = self.sweep_conflicts_of(winner, &spent, &context, spared);
+            let mut sweep = self.sweep_conflicts_of(winner, &spent, &context, spared);
+            sweep
+                .released_outpoints
+                .retain(|outpoint| !forgot && !spent_in_blocks.contains(outpoint));
             if !sweep.is_empty() {
                 sweeps.push(ChainLockSweep {
                     winner,

@@ -2720,6 +2720,14 @@ async fn locked_payment_beaten_in_a_plain_block(
     (payment, winner, winner_block, a)
 }
 
+fn chain_lock_on(block: &Block, height: u32) -> ChainLock {
+    ChainLock {
+        block_height: height,
+        block_hash: block.block_hash(),
+        signature: BLSSignature::from([0; 96]),
+    }
+}
+
 fn swept_by_chain_lock(
     events: &[WalletEvent],
     wallet: WalletId,
@@ -2754,7 +2762,7 @@ async fn a_chain_lock_announces_what_it_swept_before_it_is_processed() {
     .await;
 
     let mut rx = manager.subscribe_events();
-    manager.apply_chain_lock(ChainLock::dummy(101));
+    manager.apply_chain_lock(chain_lock_on(&winner_block, 101));
     let events = drain_events(&mut rx);
 
     let swept = swept_by_chain_lock(&events, wallet_id, &payment, &winner, &winner_block, a);
@@ -2803,7 +2811,7 @@ async fn a_chain_lock_sweeps_a_payment_of_another_wallet_than_its_winners() {
     assert!(payee_account.transactions().contains_key(&winner.txid()), "W pays the payee");
 
     let mut rx = manager.subscribe_events();
-    manager.apply_chain_lock(ChainLock::dummy(101));
+    manager.apply_chain_lock(chain_lock_on(&winner_block, 101));
     let events = drain_events(&mut rx);
 
     assert!(swept_by_chain_lock(&events, payer, &payment, &winner, &winner_block, a).is_some());

@@ -176,11 +176,13 @@ impl LockedSpends {
 /// transaction of the wallet spends too, each with its spender, its block and
 /// the claimant it beat, if any, until a ChainLock covers that block: the
 /// spend is then final, and what it beat is swept. One that goes first at
-/// capacity is only forgotten.
+/// capacity is forgotten, and the range of blocks such spends were in is
+/// kept: a ChainLock over that range cannot tell which coins they took.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ObservedSpenders {
     order: VecDeque<OutPoint>,
     spenders: HashMap<OutPoint, (Txid, BlockInfo, Option<Txid>)>,
+    forgotten: Option<(u32, u32)>,
 }
 
 /// The spends of one spender taken out of [`ObservedSpenders`]: its block,
@@ -207,18 +209,33 @@ impl ObservedSpenders {
         }
         while self.order.len() > MAX_OBSERVED_SPENDERS {
             if let Some(oldest) = self.order.pop_front() {
-                self.spenders.remove(&oldest);
+                if let Some((_, block, _)) = self.spenders.remove(&oldest) {
+                    let h = block.height();
+                    self.forgotten = Some(
+                        self.forgotten.map_or((h, h), |(low, high)| (low.min(h), high.max(h))),
+                    );
+                }
             }
         }
     }
 
-    /// Takes out the spends in blocks at or below `height`, by spender.
-    pub(crate) fn take_up_to(&mut self, height: u32) -> BTreeMap<Txid, TakenSpends> {
-        self.take(|block| block.height() <= height)
+    /// Takes out the spends in blocks at or below `height`, by spender, and
+    /// whether one in those blocks was forgotten.
+    pub(crate) fn take_up_to(&mut self, height: u32) -> (BTreeMap<Txid, TakenSpends>, bool) {
+        let forgot = self.forgotten.is_some_and(|(low, _)| low <= height);
+        self.forgotten = self
+            .forgotten
+            .filter(|(_, high)| *high > height)
+            .map(|(low, high)| (low.max(height + 1), high));
+        (self.take(|block| block.height() <= height), forgot)
     }
 
     /// Forgets the spends in blocks above `height`.
     pub(crate) fn truncate_above(&mut self, height: u32) {
+        self.forgotten = self
+            .forgotten
+            .filter(|(low, _)| *low <= height)
+            .map(|(low, high)| (low, high.min(height)));
         self.take(|block| block.height() > height);
     }
 
@@ -280,16 +297,25 @@ mod tests {
         }
         assert_eq!(spenders.spenders.len(), MAX_OBSERVED_SPENDERS);
         assert!(!spenders.spenders.contains_key(&outpoint(0)), "the oldest goes first");
+        assert_eq!(spenders.forgotten, Some((100, 100)), "its block is kept");
 
         spenders.truncate_above(100);
         assert_eq!(spenders.spenders.len(), MAX_OBSERVED_SPENDERS / 2);
-        assert!(spenders.take_up_to(99).is_empty());
-        let taken = spenders.take_up_to(100);
+        assert_eq!(spenders.take_up_to(99), (BTreeMap::new(), false));
+        let (taken, forgot) = spenders.take_up_to(100);
+        assert!(forgot, "one in block 100 went first");
         assert_eq!(taken.len(), MAX_OBSERVED_SPENDERS / 2);
         assert!(taken.values().all(|(block, spent, spared)| {
             block.height() == 100 && spent.len() == 1 && spared.is_empty()
         }));
         assert!(spenders.spenders.is_empty() && spenders.order.is_empty());
+        assert_eq!(spenders.forgotten, None, "a ChainLock covers it");
+
+        for n in 0..=MAX_OBSERVED_SPENDERS as u32 {
+            spenders.insert(outpoint(n), outpoint(n + 1).txid, block(101), None);
+        }
+        spenders.truncate_above(100);
+        assert_eq!(spenders.forgotten, None, "a fork drops it");
     }
 
     #[test]

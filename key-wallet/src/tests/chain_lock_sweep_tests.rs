@@ -2,6 +2,7 @@
 //! ChainLock makes that spend final; and a spent-output claimant beaten by a
 //! final spend.
 
+use dashcore::bls_sig_utils::BLSSignature;
 use dashcore::ephemerealdata::chain_lock::ChainLock;
 use dashcore::ephemerealdata::instant_lock::InstantLock;
 use dashcore::hashes::Hash;
@@ -46,9 +47,18 @@ fn spending(inputs: &[OutPoint], to: Option<&Address>) -> Transaction {
     }
 }
 
+/// The ChainLock of [`block`] at `height`.
+fn chain_lock_on(height: u32) -> ChainLock {
+    ChainLock {
+        block_height: height,
+        block_hash: block(height).block_hash(),
+        signature: BLSSignature::from([0; 96]),
+    }
+}
+
 fn chain_lock(ctx: &mut TestWalletContext, height: u32) -> ApplyChainLockOutcome {
     ctx.managed_wallet.update_synced_height(height);
-    ctx.managed_wallet.apply_chain_lock(ChainLock::dummy(height))
+    ctx.managed_wallet.apply_chain_lock(chain_lock_on(height))
 }
 
 fn claim_on(ctx: &TestWalletContext, outpoint: &OutPoint) -> Option<Option<Txid>> {
@@ -366,4 +376,92 @@ async fn a_coin_another_block_spent_is_not_released_with_the_payment() {
         assert_eq!(sweeps[0], (vec![p.payment.txid()], Vec::new()), "nothing is released");
         assert_gone(&p, Shape::Recorded);
     }
+}
+
+/// Sync notes a ChainLock and commits its height before the ChainLock is
+/// applied. Each spend the payment lost a coin to stays known until then, so
+/// the sweep releases neither coin.
+#[tokio::test]
+async fn a_chain_lock_noted_before_it_is_applied_releases_no_coin_a_block_spent() {
+    let mut p = payment(Shape::Recorded, true).await;
+    let on_a = spending(&[p.a], None);
+    let on_b = spending(&[p.b], None);
+    p.ctx.check_transaction(&on_a, in_block(100)).await;
+    p.ctx.check_transaction(&on_b, in_block(101)).await;
+
+    p.ctx.managed_wallet.note_chain_lock_height(101);
+    p.ctx.managed_wallet.update_synced_height(101);
+    let outcome = p.ctx.managed_wallet.apply_chain_lock(chain_lock_on(101));
+
+    let txids: Vec<Txid> = outcome.sweeps.iter().flat_map(|s| s.sweep.txids.clone()).collect();
+    let released: Vec<OutPoint> =
+        outcome.sweeps.iter().flat_map(|s| s.sweep.released_outpoints.clone()).collect();
+    assert_eq!(txids, vec![p.payment.txid()]);
+    assert!(released.is_empty(), "both coins were spent in a block: {released:?}");
+    assert_gone(&p, Shape::Recorded);
+}
+
+/// A spend that won both coins, one of which went first at capacity, still
+/// releases neither when the ChainLock is noted and committed before it is
+/// applied.
+#[tokio::test]
+async fn a_spend_partly_forgotten_at_capacity_releases_neither_coin() {
+    let mut p = payment(Shape::Recorded, true).await;
+    let winner = spending(&[p.a, p.b], None);
+    p.ctx.check_transaction(&winner, in_block(100)).await;
+    for n in 0..MAX_OBSERVED_SPENDERS as u32 - 1 {
+        let mut bytes = [0xee; 32];
+        bytes[..4].copy_from_slice(&n.to_le_bytes());
+        let spent = OutPoint::new(Txid::from_byte_array(bytes), 0);
+        p.ctx.managed_wallet.observed_spenders.insert(
+            spent,
+            Txid::from([0x77; 32]),
+            block(100),
+            None,
+        );
+    }
+
+    p.ctx.managed_wallet.note_chain_lock_height(100);
+    p.ctx.managed_wallet.update_synced_height(100);
+    let outcome = p.ctx.managed_wallet.apply_chain_lock(chain_lock_on(100));
+
+    assert_eq!(outcome.sweeps, vec![swept(&winner, 100, vec![p.payment.txid()], vec![])]);
+    assert_gone(&p, Shape::Recorded);
+}
+
+/// A plain block overrules no lock: a locked child of a claimant a mined
+/// spend beat stays.
+#[tokio::test]
+async fn a_locked_child_of_a_claimant_a_plain_block_beat_stays() {
+    let mut p = payment(Shape::Claimed, false).await;
+    let child = spending(&[p.change], Some(&p.ctx.receive_address));
+    let child = p.ctx.signed(child, &[&p.payment]).await;
+    p.ctx.check_transaction(&child, locked()).await;
+    assert!(p.ctx.bip44_account().has_transaction(&child.txid()));
+
+    let winner = spending(&[p.b], None);
+    let result = p.ctx.check_transaction(&winner, in_block(100)).await;
+
+    assert_eq!(result.swept_transactions, vec![p.payment.txid()]);
+    assert!(p.ctx.bip44_account().has_transaction(&child.txid()), "its lock keeps it");
+}
+
+/// A ChainLock on another block at the height of the spend's block sweeps
+/// nothing: the spend's block is not the one it locks.
+#[tokio::test]
+async fn a_chain_lock_on_another_block_at_the_spends_height_sweeps_nothing() {
+    let mut p = payment(Shape::Recorded, true).await;
+    let winner = spending(&[p.b], None);
+    p.ctx.check_transaction(&winner, in_block(100)).await;
+
+    p.ctx.managed_wallet.update_synced_height(100);
+    let other = ChainLock {
+        block_hash: BlockHash::from_byte_array([0xab; 32]),
+        ..chain_lock_on(100)
+    };
+    let outcome = p.ctx.managed_wallet.apply_chain_lock(other);
+
+    assert!(outcome.sweeps.is_empty());
+    assert!(holds(&p.ctx, &p.change), "P stays");
+    assert!(p.ctx.bip44_account().has_transaction(&p.payment.txid()));
 }
