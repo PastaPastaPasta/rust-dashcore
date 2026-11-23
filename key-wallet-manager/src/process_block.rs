@@ -138,7 +138,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                     continue;
                 }
                 if !chain_locked {
-                    self.awaiting_chain_lock.entry(txid).or_insert_with(|| (tx.clone(), tx_info));
+                    self.await_chain_lock(tx, tx_info);
                 }
                 if wallets.contains(wallet_id) {
                     continue;

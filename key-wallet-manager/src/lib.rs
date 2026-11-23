@@ -126,6 +126,10 @@ impl CheckTransactionsResult {
     }
 }
 
+/// The most block transactions [`WalletManager`] keeps waiting for a
+/// ChainLock, should ChainLocks stall.
+pub const MAX_AWAITING_CHAIN_LOCK: usize = 1_000;
+
 /// High-level wallet manager that manages multiple wallets
 ///
 /// Each wallet can contain multiple accounts following BIP44 standard.
@@ -146,7 +150,8 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
     /// an unconfirmed record spends, with their blocks. A plain block cannot
     /// overturn an InstantSend-locked record; once a ChainLock covers one of
     /// these, every wallet sweeps with it. Dropped once covered, or with
-    /// their block in a reorg.
+    /// their block in a reorg; past [`MAX_AWAITING_CHAIN_LOCK`], the one in
+    /// the lowest block goes, and the records it would have overturned stay.
     awaiting_chain_lock: BTreeMap<Txid, (Transaction, BlockInfo)>,
     /// Event sender for wallet events.
     ///
@@ -210,6 +215,23 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
 }
 
 impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
+    /// Keep `tx`, in the block `block` no ChainLock covers yet, until one
+    /// does. Past [`MAX_AWAITING_CHAIN_LOCK`], the one in the lowest block
+    /// goes.
+    pub(crate) fn await_chain_lock(&mut self, tx: &Transaction, block: BlockInfo) {
+        self.awaiting_chain_lock.entry(tx.txid()).or_insert_with(|| (tx.clone(), block));
+        if self.awaiting_chain_lock.len() > MAX_AWAITING_CHAIN_LOCK {
+            let lowest = self
+                .awaiting_chain_lock
+                .iter()
+                .min_by_key(|(_, (_, block))| block.height())
+                .map(|(txid, _)| *txid);
+            if let Some(lowest) = lowest {
+                self.awaiting_chain_lock.remove(&lowest);
+            }
+        }
+    }
+
     /// Create a new wallet manager
     pub fn new(network: Network) -> Self {
         Self {
