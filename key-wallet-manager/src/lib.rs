@@ -29,7 +29,7 @@ use dashcore::prelude::CoreBlockHeight;
 use dashcore::Txid;
 use key_wallet::account::AccountCollection;
 use key_wallet::managed_account::transaction_record::TransactionRecord;
-use key_wallet::transaction_checking::{DerivedAddressInfo, TransactionContext};
+use key_wallet::transaction_checking::{BlockInfo, DerivedAddressInfo, TransactionContext};
 use key_wallet::wallet::managed_wallet_info::coin_selection::SelectionStrategy;
 use key_wallet::wallet::managed_wallet_info::transaction_building::AccountTypePreference;
 use key_wallet::wallet::managed_wallet_info::wallet_info_interface::WalletInfoInterface;
@@ -142,6 +142,12 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
     /// added/removed. Combined with per-wallet account-level revisions to
     /// produce the total monitor revision.
     structural_revision: u64,
+    /// Transactions of blocks no ChainLock covers yet that spend an input
+    /// an unconfirmed record spends, with their blocks. A plain block cannot
+    /// overturn an InstantSend-locked record; once a ChainLock covers one of
+    /// these, every wallet sweeps with it. Dropped once covered, or with
+    /// their block in a reorg.
+    awaiting_chain_lock: BTreeMap<Txid, (Transaction, BlockInfo)>,
     /// Event sender for wallet events.
     ///
     /// This is a *bounded, lossy* fan-out (capacity
@@ -211,6 +217,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
             wallets: BTreeMap::new(),
             wallet_infos: BTreeMap::new(),
             structural_revision: 0,
+            awaiting_chain_lock: BTreeMap::new(),
             event_sender: broadcast::Sender::new(DEFAULT_WALLET_EVENT_CAPACITY),
             // Persistence delivery is opt-in; the channel is created lazily when
             // a consumer calls `take_persistence_receiver`. See that field's docs.
