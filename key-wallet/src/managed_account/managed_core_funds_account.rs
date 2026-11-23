@@ -841,9 +841,10 @@ impl ManagedCoreFundsAccount {
         // so leaving their outputs credited would preserve the very
         // phantom-balance class this sweep exists to remove. Walk the
         // unconfirmed descendant closure; confirmed records are never
-        // followed, since a transaction in a block spent something real,
-        // and neither are InstantSend-locked ones, whose lock the network
-        // already signed.
+        // followed, since a transaction in a block spent something real.
+        // InstantSend-locked ones are followed only behind a ChainLocked
+        // winner: a lock is final against anything else, but nothing built
+        // on a loser a ChainLock beat can exist.
         //
         // The walk builds a parent→children index in one pass and then
         // follows a queue, so each record is looked at once. Rescanning the
@@ -856,11 +857,8 @@ impl ManagedCoreFundsAccount {
         let mut children: HashMap<Txid, Vec<Txid>> = HashMap::new();
         for (txid, record) in self.keys.transactions() {
             note_descendant_walk_visit();
-            if record.is_confirmed()
-                || record.context.is_instant_send()
-                || instant_locked.contains(txid)
-                || *txid == winner
-            {
+            let locked = record.context.is_instant_send() || instant_locked.contains(txid);
+            if record.is_confirmed() || (locked && !context.is_chain_locked()) || *txid == winner {
                 continue;
             }
             for input in &record.transaction.input {

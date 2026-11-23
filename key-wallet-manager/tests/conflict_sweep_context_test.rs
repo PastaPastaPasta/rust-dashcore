@@ -1,7 +1,8 @@
 //! Which context a block conflict sweeps a wallet's unconfirmed records
 //! with, and what is kept for a later ChainLock: an InstantSend-locked
 //! record goes only once a ChainLock covers its conflict's block, whatever
-//! the other fetched wallets' ChainLocks and after a fork unmines it.
+//! the other fetched wallets' ChainLocks and after a fork unmines it. Once a
+//! ChainLock beats it, everything built on it goes too, locked or not.
 
 mod common;
 
@@ -10,7 +11,7 @@ use dashcore::blockdata::block::Block;
 use dashcore::blockdata::transaction::OutPoint;
 use dashcore::ephemerealdata::chain_lock::ChainLock;
 use dashcore::ephemerealdata::instant_lock::InstantLock;
-use dashcore::{Network, Transaction};
+use dashcore::{Network, Transaction, TxOut};
 use key_wallet::wallet::initialization::WalletAccountCreationOptions;
 use key_wallet::wallet::managed_wallet_info::wallet_info_interface::WalletInfoInterface;
 use key_wallet::wallet::managed_wallet_info::ManagedWalletInfo;
@@ -104,4 +105,118 @@ async fn a_locked_spend_a_fork_unmines_stays_against_a_plain_block_until_a_chain
 
     manager.apply_chain_lock(ChainLock::dummy(height));
     assert!(!records(&manager, &a, &locked), "the ChainLock covers D's block");
+}
+
+fn holds(manager: &WalletManager<ManagedWalletInfo>, id: &WalletId, coin: OutPoint) -> bool {
+    manager.get_wallet_info(id).unwrap().utxos().iter().any(|utxo| utxo.outpoint == coin)
+}
+
+/// A locked L of wallet A with change to A, and A's locked C2 that spends
+/// L's change and pays A again.
+async fn locked_spend_and_its_locked_child(
+    manager: &mut WalletManager<ManagedWalletInfo>,
+) -> (WalletId, OutPoint, Transaction, Transaction) {
+    let (a, address) = wallet(manager);
+    let funding = funding_tx(&address, 1_000_000, 0xC0);
+    let coin = OutPoint::new(funding.txid(), 0);
+    process_block_for(manager, &Block::dummy(FUNDED_AT, vec![funding]), FUNDED_AT, &set(&[a]))
+        .await;
+    let own = manager.get_wallet_info(&a).unwrap().monitored_addresses();
+    let mut locked = spend_tx(coin, 500_000, 1);
+    locked.output.push(TxOut {
+        value: 490_000,
+        script_pubkey: own[1].script_pubkey(),
+    });
+    let mut child = spend_tx(OutPoint::new(locked.txid(), 1), 300_000, 2);
+    child.output.push(TxOut {
+        value: 180_000,
+        script_pubkey: own[2].script_pubkey(),
+    });
+    manager.process_mempool_transaction(&locked, Some(lock_for(&locked))).await;
+    manager.process_mempool_transaction(&child, Some(lock_for(&child))).await;
+    assert!(records(manager, &a, &locked) && records(manager, &a, &child));
+    assert!(holds(manager, &a, OutPoint::new(child.txid(), 1)), "C2's change is A's");
+    (a, coin, locked, child)
+}
+
+/// L and its locked child C2 are mined and a fork unmines both; D spends L's
+/// coin on the new branch and its ChainLock lands. L goes, and C2, which
+/// spends L's change, goes with it.
+#[tokio::test]
+async fn a_locked_child_a_fork_unmines_goes_with_its_parent_at_the_chain_lock() {
+    let mut manager = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+    let (a, coin, locked, child) = locked_spend_and_its_locked_child(&mut manager).await;
+    let height = FUNDED_AT + 5;
+    let only = set(&[a]);
+    let mined = Block::dummy(height, vec![locked.clone(), child.clone()]);
+    process_block_for(&mut manager, &mined, height, &only).await;
+    manager.truncate_above(height - 1).unwrap();
+    assert!(records(&manager, &a, &locked) && records(&manager, &a, &child));
+
+    let conflict = spend_tx(coin, 980_000, 3);
+    process_block_for(&mut manager, &Block::dummy(height, vec![conflict]), height, &only).await;
+    manager.apply_chain_lock(ChainLock::dummy(height));
+    assert!(!records(&manager, &a, &locked), "the ChainLock covers D's block");
+    assert!(!records(&manager, &a, &child), "C2 spends L's change");
+    assert!(manager.get_wallet_info(&a).unwrap().utxos().is_empty(), "C2's change never existed");
+}
+
+/// The same without a fork, as on main: L and its locked child C2 are in
+/// the mempool, and D, in a ChainLocked block, spends L's coin. C2 goes with
+/// L.
+#[tokio::test]
+async fn a_locked_child_goes_with_its_parent_a_chain_locked_conflict_beats() {
+    let mut manager = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+    let (a, coin, locked, child) = locked_spend_and_its_locked_child(&mut manager).await;
+    let height = FUNDED_AT + 5;
+    manager.apply_chain_lock(ChainLock::dummy(height));
+    let conflict = spend_tx(coin, 980_000, 3);
+    process_block_for(&mut manager, &Block::dummy(height, vec![conflict]), height, &set(&[a]))
+        .await;
+    assert!(!records(&manager, &a, &locked), "D is ChainLocked");
+    assert!(!records(&manager, &a, &child), "C2 spends L's change");
+    assert!(manager.get_wallet_info(&a).unwrap().utxos().is_empty(), "C2's change never existed");
+}
+
+/// Only a block transaction that conflicts with a locked record of another
+/// transaction is kept for a ChainLock: not a wallet's own payment mined,
+/// locked or not, and not a conflict that overturned an unlocked record at
+/// once.
+#[tokio::test]
+async fn only_a_conflict_with_another_locked_record_is_kept_for_a_chain_lock() {
+    let mut manager = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
+    let (a, address) = wallet(&mut manager);
+    let only = set(&[a]);
+    let fundings: Vec<Transaction> =
+        (0..4).map(|n| funding_tx(&address, 1_000_000, 0xD0 + n)).collect();
+    let coin = |n: usize| OutPoint::new(fundings[n].txid(), 0);
+    process_block_for(&mut manager, &Block::dummy(FUNDED_AT, fundings.clone()), FUNDED_AT, &only)
+        .await;
+
+    let plain = spend_tx(coin(0), 990_000, 1);
+    let locked = spend_tx(coin(1), 990_000, 2);
+    let beaten_plain = spend_tx(coin(2), 990_000, 3);
+    let beaten_locked = spend_tx(coin(3), 990_000, 4);
+    manager.process_mempool_transaction(&plain, None).await;
+    manager.process_mempool_transaction(&locked, Some(lock_for(&locked))).await;
+    manager.process_mempool_transaction(&beaten_plain, None).await;
+    manager.process_mempool_transaction(&beaten_locked, Some(lock_for(&beaten_locked))).await;
+    assert_eq!(manager.awaiting_chain_lock_len(), 0);
+
+    let height = FUNDED_AT + 1;
+    let mined = Block::dummy(height, vec![plain, locked]);
+    process_block_for(&mut manager, &mined, height, &only).await;
+    assert_eq!(manager.awaiting_chain_lock_len(), 0, "the wallet's own payments are mined");
+
+    let conflict = spend_tx(coin(2), 980_000, 5);
+    process_block_for(&mut manager, &Block::dummy(height + 1, vec![conflict]), height + 1, &only)
+        .await;
+    assert!(!records(&manager, &a, &beaten_plain), "an unlocked record goes at once");
+    assert_eq!(manager.awaiting_chain_lock_len(), 0);
+
+    let conflict = spend_tx(coin(3), 980_000, 6);
+    process_block_for(&mut manager, &Block::dummy(height + 2, vec![conflict]), height + 2, &only)
+        .await;
+    assert!(records(&manager, &a, &beaten_locked), "a plain block overturns no lock");
+    assert_eq!(manager.awaiting_chain_lock_len(), 1, "kept for its ChainLock");
 }

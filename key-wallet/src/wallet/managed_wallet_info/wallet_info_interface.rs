@@ -250,9 +250,10 @@ pub trait WalletInfoInterface: Sized + WalletTransactionChecker + ManagedAccount
 
     /// The outpoints the wallet's unconfirmed records spend, pending and
     /// InstantSend-locked: all that a transaction in a block this wallet did
-    /// not fetch can beat. The default is none.
-    fn unconfirmed_spent_outpoints(&self) -> BTreeSet<OutPoint> {
-        BTreeSet::new()
+    /// not fetch can beat. Each names the InstantSend-locked records that
+    /// spend it, which only a ChainLock can overturn. The default is none.
+    fn unconfirmed_spent_outpoints(&self) -> BTreeMap<OutPoint, BTreeSet<Txid>> {
+        BTreeMap::new()
     }
 
     /// Drop the records `tx`, in a block this wallet did not fetch, provably
@@ -428,15 +429,26 @@ impl WalletInfoInterface for ManagedWalletInfo {
         self.dismissed.settled(txid);
     }
 
-    fn unconfirmed_spent_outpoints(&self) -> BTreeSet<OutPoint> {
-        self.accounts
+    fn unconfirmed_spent_outpoints(&self) -> BTreeMap<OutPoint, BTreeSet<Txid>> {
+        let mut spent: BTreeMap<OutPoint, BTreeSet<Txid>> = BTreeMap::new();
+        let records = self
+            .accounts
             .all_accounts()
             .into_iter()
             .filter_map(|account| account.as_funds())
             .flat_map(|funds| funds.transactions().values())
-            .filter(|record| !record.is_confirmed())
-            .flat_map(|record| record.transaction.input.iter().map(|input| input.previous_output))
-            .collect()
+            .filter(|record| !record.is_confirmed());
+        for record in records {
+            let locked =
+                record.context.is_instant_send() || self.instant_send_locks.contains(&record.txid);
+            for input in &record.transaction.input {
+                let spenders = spent.entry(input.previous_output).or_default();
+                if locked {
+                    spenders.insert(record.txid);
+                }
+            }
+        }
+        spent
     }
 
     fn sweep_conflicts_only(

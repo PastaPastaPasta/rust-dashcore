@@ -1504,3 +1504,106 @@ async fn a_wallet_restored_in_the_same_session_is_passed_a_beaten_held_spend_aga
         "known gap: the held C is passed to the restored wallet again"
     );
 }
+
+/// How a locked spend that a ChainLocked conflict overturned arrives again.
+#[derive(Clone, Copy, PartialEq)]
+enum Again {
+    Replayed,
+    Relayed,
+}
+
+/// Wallet A abandoned P, which is in fact live. C, locked, spends P's change
+/// and wallet B's X and pays B; it is kept for A. D spends X in a block only
+/// B fetches, and its ChainLock overturns C in B. C then arrives again with
+/// its lock: replayed to A once P comes back, or relayed by a peer. Neither
+/// wallet takes it: A offers P's change and B holds nothing of C. Only C's
+/// own txid is refused: a different spend of its coins, and an unrelated
+/// payment to A, are taken in.
+#[test_case::test_case(Again::Replayed; "replayed when its parent comes back")]
+#[test_case::test_case(Again::Relayed; "relayed by a peer")]
+#[tokio::test]
+async fn a_locked_spend_a_chain_lock_overturned_is_refused_when_it_arrives_again(again: Again) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
+    let (a, b) = (ids[0], ids[1]);
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let (payment, _) = abandoned_payment_with_change(&mut h, &a, &elsewhere, 181..182, false).await;
+    let to_b = next_unused_receive_address(&h.wallets, &b).await;
+    let holder_of_x = next_unused_receive_address(&h.wallets, &b).await;
+    let funding_x = Transaction::dummy(&holder_of_x, 182..183, &[COIN]);
+    let x = OutPoint::new(funding_x.txid(), 0);
+    h.wallets
+        .write()
+        .await
+        .check_transaction_in_all_wallets(&funding_x, in_block(960), true, true)
+        .await;
+    let change = OutPoint::new(payment.txid(), 1);
+    let spending = |inputs: &[OutPoint], to: &Address, value: u64| Transaction {
+        version: 2,
+        lock_time: 0,
+        input: inputs
+            .iter()
+            .map(|previous_output| TxIn {
+                previous_output: *previous_output,
+                ..Default::default()
+            })
+            .collect(),
+        output: vec![TxOut {
+            value,
+            script_pubkey: to.script_pubkey(),
+        }],
+        special_transaction_payload: None,
+    };
+    let child = spending(&[change, x], &to_b, CHANGE);
+    h.manager.process_instant_send(lock_for(&child)).await;
+    assert!(h.announce(&child).await);
+    assert!(h.manager.locked_spends.contains_key(&child.txid()), "kept for A");
+    assert_eq!(h.total(&b).await, CHANGE, "C pays B");
+
+    let winner = spending(&[x], &elsewhere, 500_000);
+    let block = Block::dummy(971, vec![winner]);
+    {
+        let mut wallets = h.wallets.write().await;
+        let only_b = BTreeSet::from([b]);
+        wallets.process_block_for_wallets(&block, block.block_hash(), 971, &only_b).await;
+        wallets.apply_chain_lock(dashcore::ChainLock::dummy(971));
+    }
+    assert!(h.context_of(&b, &child.txid()).await.is_none(), "D's ChainLock overturns C in B");
+    assert_eq!(h.total(&b).await, 0);
+
+    match again {
+        Again::Replayed => {
+            h.manager.process_instant_send(lock_for(&payment)).await;
+            h.manager.send_queued(&h.requests).await.unwrap();
+            assert!(asked_for(&h.sent_messages(), payment.txid()));
+            h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+            assert!(h.context_of(&a, &payment.txid()).await.is_some(), "P is back in A");
+        }
+        Again::Relayed => {
+            h.manager.process_instant_send(lock_for(&child)).await;
+            h.manager.handle_tx(child.clone(), h.peer, &h.requests).await.unwrap();
+        }
+    }
+    assert!(h.context_of(&a, &child.txid()).await.is_none(), "A refuses C");
+    assert!(h.context_of(&b, &child.txid()).await.is_none(), "B refuses C");
+    assert_eq!(h.total(&b).await, 0, "C's output to B never existed");
+    if again == Again::Replayed {
+        assert_eq!(h.total(&a).await, CHANGE, "P's change is offered");
+    }
+
+    if again == Again::Replayed {
+        // Only C's own txid is refused: a different spend of its coins is
+        // judged as any other. Its lock here is not verified; no quorum
+        // locks a spend of X once a ChainLocked block spent it.
+        let other_spend = spending(&[change, x], &elsewhere, CHANGE);
+        let lock = Some(lock_for(&other_spend));
+        let result = h.wallets.write().await.process_mempool_transaction(&other_spend, lock).await;
+        assert!(result.is_relevant, "a different spend of C's coins is not refused by C's txid");
+    }
+
+    let to_a = next_unused_receive_address(&h.wallets, &a).await;
+    let unrelated = Transaction::dummy(&to_a, 183..184, &[50_000]);
+    let taken = h.wallets.write().await.process_mempool_transaction(&unrelated, None).await;
+    assert!(taken.is_relevant, "an unrelated payment to A is taken in");
+}

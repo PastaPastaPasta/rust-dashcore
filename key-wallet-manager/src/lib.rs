@@ -130,6 +130,10 @@ impl CheckTransactionsResult {
 /// ChainLock, should ChainLocks stall.
 pub const MAX_AWAITING_CHAIN_LOCK: usize = 1_000;
 
+/// How many transactions a ChainLocked conflict overturned are remembered,
+/// so that they are refused if they arrive again.
+pub const MAX_BEATEN_BY_CHAIN_LOCK: usize = 1_000;
+
 /// High-level wallet manager that manages multiple wallets
 ///
 /// Each wallet can contain multiple accounts following BIP44 standard.
@@ -153,6 +157,11 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
     /// their block in a reorg; past [`MAX_AWAITING_CHAIN_LOCK`], the one in
     /// the lowest block goes, and the records it would have overturned stay.
     awaiting_chain_lock: BTreeMap<Txid, (Transaction, BlockInfo)>,
+    /// Transactions a ChainLocked conflict overturned in some wallet, with
+    /// that conflict's height. They can never confirm, so one that arrives
+    /// again, locked or not, is refused in every wallet. Past
+    /// [`MAX_BEATEN_BY_CHAIN_LOCK`], the one beaten lowest goes.
+    beaten_by_chain_lock: BTreeMap<Txid, CoreBlockHeight>,
     /// Event sender for wallet events.
     ///
     /// This is a *bounded, lossy* fan-out (capacity
@@ -232,6 +241,42 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
         }
     }
 
+    /// How many block transactions are kept until a ChainLock covers their
+    /// block.
+    pub fn awaiting_chain_lock_len(&self) -> usize {
+        self.awaiting_chain_lock.len()
+    }
+
+    /// Forget every block transaction kept for a ChainLock, as when the chain
+    /// data is deleted and the blocks are fetched again.
+    pub fn clear_awaiting_chain_lock(&mut self) {
+        self.awaiting_chain_lock.clear();
+    }
+
+    /// Remember `txids`, which a conflict in a ChainLocked block at `height`
+    /// overturned. Past [`MAX_BEATEN_BY_CHAIN_LOCK`], the one beaten lowest
+    /// goes.
+    pub(crate) fn remember_beaten_by_chain_lock(
+        &mut self,
+        txids: &[Txid],
+        height: CoreBlockHeight,
+    ) {
+        for txid in txids {
+            self.beaten_by_chain_lock.insert(*txid, height);
+        }
+        while self.beaten_by_chain_lock.len() > MAX_BEATEN_BY_CHAIN_LOCK {
+            let lowest = self
+                .beaten_by_chain_lock
+                .iter()
+                .min_by_key(|(_, height)| **height)
+                .map(|(t, _)| *t);
+            match lowest {
+                Some(lowest) => self.beaten_by_chain_lock.remove(&lowest),
+                None => break,
+            };
+        }
+    }
+
     /// Create a new wallet manager
     pub fn new(network: Network) -> Self {
         Self {
@@ -240,6 +285,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
             wallet_infos: BTreeMap::new(),
             structural_revision: 0,
             awaiting_chain_lock: BTreeMap::new(),
+            beaten_by_chain_lock: BTreeMap::new(),
             event_sender: broadcast::Sender::new(DEFAULT_WALLET_EVENT_CAPACITY),
             // Persistence delivery is opt-in; the channel is created lazily when
             // a consumer calls `take_persistence_receiver`. See that field's docs.
