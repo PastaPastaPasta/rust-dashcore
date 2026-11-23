@@ -137,10 +137,17 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                 if !tx.input.iter().any(|input| spent.contains(&input.previous_output)) {
                     continue;
                 }
-                if !chain_locked {
+                let fetched = wallets.contains(wallet_id);
+                // A fetched wallet was swept with the whole call's context,
+                // which is a plain block when any fetched wallet lags.
+                if !(if fetched {
+                    all_chainlocked
+                } else {
+                    *chain_locked
+                }) {
                     self.await_chain_lock(tx, tx_info);
                 }
-                if wallets.contains(wallet_id) {
+                if fetched {
                     continue;
                 }
                 let Some(wallet_info) = self.wallet_infos.get_mut(wallet_id) else {
@@ -510,7 +517,6 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
             }
         }
 
-        self.awaiting_chain_lock.retain(|_, (_, block)| block.height() <= height);
         let mut events = Vec::new();
         for (wallet_id, info) in self.wallet_infos.iter_mut() {
             // A wallet that processed no block above `height` has nothing to drop.
@@ -529,6 +535,7 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                 account_balances: diff_account_balances(&prior, &info.account_balances()),
             });
         }
+        self.awaiting_chain_lock.retain(|_, (_, block)| block.height() <= height);
         for event in events {
             self.emit_event(event);
         }

@@ -786,10 +786,15 @@ impl ManagedCoreFundsAccount {
     /// not have to be wallet-relevant, so it may hold none of the loser's
     /// inputs anywhere the caller can see, and the loser's own record is
     /// already gone by the time this returns.
+    ///
+    /// A record whose txid is in `instant_locked` counts as locked whatever
+    /// its context: a fork puts an InstantSend-locked transaction it unmines
+    /// back with a plain mempool context.
     pub(crate) fn drop_conflicted_transactions(
         &mut self,
         tx: &Transaction,
         context: &TransactionContext,
+        instant_locked: &HashSet<Txid>,
     ) -> ConflictSweep {
         if !(context.confirmed() || matches!(context, TransactionContext::InstantSend(_))) {
             return ConflictSweep::default();
@@ -813,7 +818,8 @@ impl ManagedCoreFundsAccount {
                 // by a chainlocked arrival — a plain `InBlock` winner cannot
                 // overrule a lock the network already signed, and the block
                 // it arrived in can still reorg away.
-                let loser_is_locked = record.context.is_instant_send();
+                let loser_is_locked =
+                    record.context.is_instant_send() || instant_locked.contains(*txid);
                 **txid != winner
                     && !record.is_confirmed()
                     && (!loser_is_locked || context.is_chain_locked())
@@ -850,7 +856,11 @@ impl ManagedCoreFundsAccount {
         let mut children: HashMap<Txid, Vec<Txid>> = HashMap::new();
         for (txid, record) in self.keys.transactions() {
             note_descendant_walk_visit();
-            if record.is_confirmed() || record.context.is_instant_send() || *txid == winner {
+            if record.is_confirmed()
+                || record.context.is_instant_send()
+                || instant_locked.contains(txid)
+                || *txid == winner
+            {
                 continue;
             }
             for input in &record.transaction.input {
@@ -1938,7 +1948,7 @@ mod conflict_sweep_walk_tests {
 
         // The winner takes the contested coin in a block.
         let winner = spend(vec![contested, outpoint(1, 0)]);
-        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100));
+        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100), &HashSet::new());
 
         let mut expected: Vec<Txid> = chain.iter().map(Transaction::txid).collect();
         expected.push(diamond.txid());
@@ -2000,7 +2010,7 @@ mod conflict_sweep_walk_tests {
 
         let winner = spend(vec![contested, outpoint(1, 0)]);
         descendant_walk_instrumentation::reset();
-        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100));
+        let sweep = account.drop_conflicted_transactions(&winner, &in_block(100), &HashSet::new());
 
         assert_eq!(sweep.txids.len(), DEPTH, "every link of the chain is swept");
         let visits = descendant_walk_instrumentation::count();
