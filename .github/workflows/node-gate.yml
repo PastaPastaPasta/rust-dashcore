@@ -470,8 +470,8 @@ jobs:
               feats = sorted({f"{p['name']}/{f}" for f in resolved.get(p["name"], ()) | want})
               lib.append({"crate": p["name"], "tag": "", "features": ",".join(feats), "filter": " ".join(names)})
               print(f"gate-lib: {p['name']} --lib --features {','.join(feats)}" + (f" -- {' '.join(names)}" if names else ""))
-          # A product feature off by default (DEC-1881: every G2 build turns on rdashd/dkg-runtime) gets
-          # its own whole-lib run, [package.metadata.gate] lib-features: its code is in no other run.
+          # A product feature off by default gets its own whole-lib run, [package.metadata.gate]
+          # lib-features: its code is in no other run. No crate lists one since DK1-L4 made dkg-runtime default.
           for p in sorted((p for p in meta["packages"] if p["name"] in members), key=lambda p: p["name"]):
               listed = ((p.get("metadata") or {}).get("gate") or {}).get("lib-features", [])
               if not isinstance(listed, list) or not all(isinstance(f, str) for f in listed) or len(set(listed)) != len(listed):
@@ -978,6 +978,13 @@ jobs:
           # Third-party units the restored closure should have held (0 on a good hit), by name.
           jq -rs '[.[] | select(.reason == "compiler-artifact" and .fresh == false and (.package_id | startswith("path+") | not)) | ((.package_id | split("#") | last) as $t | if ($t | contains("@")) then ($t | split("@")[0]) else .target.name end)] | "rebuilt_third_party=\(length) rebuilt_units=\(unique | join(",") | if . == "" then "-" else . end)"' "$RUNNER_TEMP/clippy.json" | tee -a "$METRICS"
           exit "$rc"
+
+      # LQ4b m2-r: dkg-runtime is a default feature, so no other step builds the no-DKG paths.
+      - name: clippy no-dkg
+        if: ${{ matrix.kind == 'clippy' && !cancelled() }}
+        run: |
+          /usr/bin/time -f 'clippy_nodkg_s=%e' -a -o "$METRICS" \
+            cargo clippy --locked --no-default-features -p rdashd -p dashd-node -p dashd-quorums -- -D warnings
 
       # BL-731 (DEC-1327): the workspace's docs build with no rustdoc warning. After clippy, whose
       # check units of the third-party crates it documents against. Its rebuilt units are its own
