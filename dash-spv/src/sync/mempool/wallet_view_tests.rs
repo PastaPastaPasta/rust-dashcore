@@ -33,6 +33,7 @@ const MNEMONIC_B: &str =
     "legal winner thank year wave sausage worth useful legal winner thank yellow";
 const MNEMONIC_C: &str =
     "letter advice cage absurd amount doctor acoustic avoid letter advice cage above";
+const MNEMONIC_D: &str = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong";
 
 const COIN: u64 = 1_000_000;
 const PAYMENT: u64 = 990_000;
@@ -1512,23 +1513,43 @@ enum Again {
     Relayed,
 }
 
+/// Where D's ChainLock overturns C.
+#[derive(Clone, Copy, PartialEq)]
+enum Overturned {
+    /// D's block, which only B fetches, comes first, then its ChainLock.
+    AtTheChainLock,
+    /// D's ChainLock comes first, then its block, which both wallets fetch.
+    InAFetchedBlock,
+    /// D's ChainLock comes first, then its block, which only a third
+    /// wallet fetches.
+    InABlockNeitherWalletFetched,
+}
+
 /// Wallet A abandoned P, which is in fact live. C, locked, spends P's change
-/// and wallet B's X and pays B; it is kept for A. D spends X in a block only
-/// B fetches, and its ChainLock overturns C in B. C then arrives again with
+/// and wallet B's X and pays B; it is kept for A. D spends X, and D's
+/// ChainLock overturns C as `overturned` says. C then arrives again with
 /// its lock: replayed to A once P comes back, or relayed by a peer. Neither
 /// wallet takes it: A offers P's change and B holds nothing of C. Only C's
-/// own txid is refused: a different spend of its coins, and an unrelated
+/// own txid is refused: a later payment from P's change, and an unrelated
 /// payment to A, are taken in.
-#[test_case::test_case(Again::Replayed; "replayed when its parent comes back")]
-#[test_case::test_case(Again::Relayed; "relayed by a peer")]
+#[test_case::test_case(Overturned::AtTheChainLock, Again::Replayed; "at the chain lock, replayed")]
+#[test_case::test_case(Overturned::AtTheChainLock, Again::Relayed; "at the chain lock, relayed")]
+#[test_case::test_case(Overturned::InAFetchedBlock, Again::Replayed; "in a fetched block, replayed")]
+#[test_case::test_case(Overturned::InAFetchedBlock, Again::Relayed; "in a fetched block, relayed")]
+#[test_case::test_case(Overturned::InABlockNeitherWalletFetched, Again::Replayed; "in a block neither wallet fetched, replayed")]
+#[test_case::test_case(Overturned::InABlockNeitherWalletFetched, Again::Relayed; "in a block neither wallet fetched, relayed")]
 #[tokio::test]
-async fn a_locked_spend_a_chain_lock_overturned_is_refused_when_it_arrives_again(again: Again) {
-    let (mut h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
-    let (a, b) = (ids[0], ids[1]);
+async fn a_locked_spend_a_chain_lock_overturned_is_refused_when_it_arrives_again(
+    overturned: Overturned,
+    again: Again,
+) {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B, MNEMONIC_D]).await;
+    let (a, b, third) = (ids[0], ids[1], ids[2]);
     h.filters_synced().await;
     h.manager.tick(&h.requests).await.unwrap();
     let elsewhere = address_of_unregistered(MNEMONIC_C).await;
-    let (payment, _) = abandoned_payment_with_change(&mut h, &a, &elsewhere, 181..182, false).await;
+    let (payment, change_a) =
+        abandoned_payment_with_change(&mut h, &a, &elsewhere, 181..182, false).await;
     let to_b = next_unused_receive_address(&h.wallets, &b).await;
     let holder_of_x = next_unused_receive_address(&h.wallets, &b).await;
     let funding_x = Transaction::dummy(&holder_of_x, 182..183, &[COIN]);
@@ -1565,9 +1586,18 @@ async fn a_locked_spend_a_chain_lock_overturned_is_refused_when_it_arrives_again
     let block = Block::dummy(971, vec![winner]);
     {
         let mut wallets = h.wallets.write().await;
-        let only_b = BTreeSet::from([b]);
-        wallets.process_block_for_wallets(&block, block.block_hash(), 971, &only_b).await;
-        wallets.apply_chain_lock(dashcore::ChainLock::dummy(971));
+        let fetched_for = match overturned {
+            Overturned::AtTheChainLock => BTreeSet::from([b]),
+            Overturned::InAFetchedBlock => BTreeSet::from([a, b]),
+            Overturned::InABlockNeitherWalletFetched => BTreeSet::from([third]),
+        };
+        if overturned != Overturned::AtTheChainLock {
+            wallets.apply_chain_lock(dashcore::ChainLock::dummy(971));
+        }
+        wallets.process_block_for_wallets(&block, block.block_hash(), 971, &fetched_for).await;
+        if overturned == Overturned::AtTheChainLock {
+            wallets.apply_chain_lock(dashcore::ChainLock::dummy(971));
+        }
     }
     assert!(h.context_of(&b, &child.txid()).await.is_none(), "D's ChainLock overturns C in B");
     assert_eq!(h.total(&b).await, 0);
@@ -1593,13 +1623,22 @@ async fn a_locked_spend_a_chain_lock_overturned_is_refused_when_it_arrives_again
     }
 
     if again == Again::Replayed {
-        // Only C's own txid is refused: a different spend of its coins is
-        // judged as any other. Its lock here is not verified; no quorum
-        // locks a spend of X once a ChainLocked block spent it.
-        let other_spend = spending(&[change, x], &elsewhere, CHANGE);
-        let lock = Some(lock_for(&other_spend));
-        let result = h.wallets.write().await.process_mempool_transaction(&other_spend, lock).await;
-        assert!(result.is_relevant, "a different spend of C's coins is not refused by C's txid");
+        let later = signed_spend_of(
+            &h.wallets,
+            &a,
+            &change_a,
+            change,
+            &payment,
+            vec![TxOut {
+                value: CHANGE - 1_000,
+                script_pubkey: elsewhere.script_pubkey(),
+            }],
+        )
+        .await;
+        let taken = h.wallets.write().await.process_mempool_transaction(&later, None).await;
+        assert!(taken.is_relevant, "a later payment from P's change is taken in");
+        assert!(h.context_of(&a, &later.txid()).await.is_some());
+        assert_eq!(h.total(&a).await, 0, "it spends P's change");
     }
 
     let to_a = next_unused_receive_address(&h.wallets, &a).await;

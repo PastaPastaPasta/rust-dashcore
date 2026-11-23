@@ -142,18 +142,21 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletInterface for WalletM
                 if overlap.is_empty() {
                     continue;
                 }
-                let beats_a_lock =
-                    overlap.iter().any(|locked| locked.iter().any(|spender| *spender != txid));
+                // The wallet's own payment, mined, beats nothing.
+                let beats_another =
+                    overlap.iter().any(|spenders| spenders.iter().any(|spender| *spender != txid));
                 let fetched = wallets.contains(wallet_id);
                 // A fetched wallet was swept with the whole call's context,
-                // which is a plain block when any fetched wallet lags. Only
-                // a locked record outlives a plain block.
+                // which is a plain block when any fetched wallet lags. A
+                // locked record outlives a plain block, and an unlocked one
+                // it overturns can come back with a late lock: both are left
+                // to the ChainLock.
                 let swept_chain_locked = if fetched {
                     all_chainlocked
                 } else {
                     *chain_locked
                 };
-                if !swept_chain_locked && beats_a_lock {
+                if !swept_chain_locked && beats_another {
                     self.await_chain_lock(tx, tx_info);
                 }
                 if fetched {

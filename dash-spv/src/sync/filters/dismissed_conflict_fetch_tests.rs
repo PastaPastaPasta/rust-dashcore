@@ -406,3 +406,98 @@ async fn an_unlocked_spend_a_conflict_beats_where_it_was_not_fetched_stays_dropp
     assert!(!offered(&wm));
     assert_eq!(wm.get_wallet_info(&a).unwrap().balance().total(), 0, "counted once");
 }
+
+/// A's unlocked R spends A's coin and X, with change to A. D, which beats
+/// R, is mined in a plain block: it spends A's coin when A fetches the
+/// block, and X when only wallet B fetches it. R goes. R's InstantSend lock
+/// then arrives late and A takes R back. D's ChainLock overturns R: R and
+/// its change go, and A's coin is back unless D spent it.
+#[test_case::test_case(true; "a fetches the block")]
+#[test_case::test_case(false; "only another wallet fetches the block")]
+#[tokio::test]
+async fn an_unlocked_spend_a_plain_block_beat_goes_at_the_chain_lock_after_its_lock_arrives_late(
+    fetched: bool,
+) {
+    let wallets: Wallets = Arc::new(RwLock::new(WalletManager::new(Network::Testnet)));
+    let a = register(&wallets, MNEMONIC_A).await;
+    let b = register(&wallets, MNEMONIC_B).await;
+    let elsewhere = {
+        let unregistered: Wallets = Arc::new(RwLock::new(WalletManager::new(Network::Testnet)));
+        let id = register(&unregistered, MNEMONIC_C).await;
+        next_unused_receive_address(&unregistered, &id).await
+    };
+    let to_a = next_unused_receive_address(&wallets, &a).await;
+    let change_a = next_unused_receive_address(&wallets, &a).await;
+    let funding = Transaction::dummy(&to_a, 191..192, &[COIN]);
+    let coin = OutPoint::new(funding.txid(), 0);
+    let x = OutPoint::new(Txid::from_byte_array([0x57; 32]), 0);
+    let mut wm = wallets.write().await;
+    let funded = Block::dummy(TIP - 2, vec![funding.clone()]);
+    wm.process_block_for_wallets(&funded, funded.block_hash(), TIP - 2, &BTreeSet::from([a])).await;
+
+    let spend_r = {
+        let unsigned =
+            spend(&[coin, x], vec![pay(&change_a, CHANGE), pay(&elsewhere, COIN - CHANGE)]);
+        let account = wm.get_wallet_info(&a).unwrap().first_bip44_managed_account().unwrap();
+        let path = account.address_derivation_path(&to_a).unwrap();
+        let utxo = Utxo::new(coin, funding.output[0].clone(), to_a.clone(), 0, false);
+        wm.get_wallet(&a)
+            .unwrap()
+            .sign_tx(unsigned, vec![utxo], move |_| Some(path.clone()))
+            .await
+            .unwrap()
+    };
+    let r_change = OutPoint::new(spend_r.txid(), 0);
+    let offered = |wm: &WalletManager<ManagedWalletInfo>, outpoint: OutPoint| {
+        wm.get_wallet_info(&a).unwrap().utxos().iter().any(|utxo| utxo.outpoint == outpoint)
+    };
+    let records = |wm: &WalletManager<ManagedWalletInfo>| {
+        wm.get_wallet_info(&a)
+            .unwrap()
+            .accounts()
+            .all_accounts()
+            .into_iter()
+            .any(|account| account.has_transaction(&spend_r.txid()))
+    };
+    wm.process_mempool_transaction(&spend_r, None).await;
+    assert!(records(&wm) && offered(&wm, r_change), "R pays its change to A");
+
+    let winner = spend(
+        &[if fetched {
+            coin
+        } else {
+            x
+        }],
+        vec![pay(&elsewhere, 500_000)],
+    );
+    let block = Block::dummy(TIP, vec![winner]);
+    let fetcher = if fetched {
+        a
+    } else {
+        b
+    };
+    let fetched_for = BTreeSet::from([fetcher]);
+    wm.process_block_for_wallets(&block, block.block_hash(), TIP, &fetched_for).await;
+    assert!(!records(&wm), "D beats R");
+
+    wm.process_mempool_transaction(&spend_r, Some(lock_for(&spend_r))).await;
+    assert!(records(&wm) && offered(&wm, r_change), "R's late lock brings it back");
+
+    wm.apply_chain_lock(ChainLock {
+        block_height: TIP,
+        block_hash: block.block_hash(),
+        signature: dashcore::bls_sig_utils::BLSSignature::from([0; 96]),
+    });
+    assert!(!records(&wm), "D's ChainLock overturns R");
+    assert!(!offered(&wm, r_change), "R's change never existed");
+    assert_eq!(offered(&wm, coin), !fetched, "A's coin is back unless D spent it");
+    let total = wm.get_wallet_info(&a).unwrap().balance().total();
+    assert_eq!(
+        total,
+        if fetched {
+            0
+        } else {
+            COIN
+        }
+    );
+}

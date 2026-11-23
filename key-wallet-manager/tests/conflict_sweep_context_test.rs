@@ -50,6 +50,31 @@ fn lock_for(tx: &Transaction) -> InstantLock {
     }
 }
 
+/// `tx`, whose one input is `funding`'s output to the wallet's `address`,
+/// signed by the wallet, so an unlocked `tx` is taken in.
+async fn signed(
+    manager: &WalletManager<ManagedWalletInfo>,
+    id: &WalletId,
+    address: &dashcore::Address,
+    funding: &Transaction,
+    tx: Transaction,
+) -> Transaction {
+    use key_wallet::managed_account::managed_account_trait::ManagedAccountTrait;
+    use key_wallet::wallet::managed_wallet_info::transaction_builder::TransactionSigner;
+    let account = manager.get_wallet_info(id).unwrap().first_bip44_managed_account().unwrap();
+    let path = account.address_derivation_path(address).unwrap();
+    let previous_output = tx.input[0].previous_output;
+    let coin = key_wallet::Utxo::new(
+        previous_output,
+        funding.output[previous_output.vout as usize].clone(),
+        address.clone(),
+        0,
+        false,
+    );
+    let wallet = manager.get_wallet(id).unwrap();
+    wallet.sign_tx(tx, vec![coin], move |_| Some(path.clone())).await.unwrap()
+}
+
 /// A locked L of wallet A, a coin it spends, and A funded at [`FUNDED_AT`].
 async fn locked_spend(
     manager: &mut WalletManager<ManagedWalletInfo>,
@@ -178,12 +203,12 @@ async fn a_locked_child_goes_with_its_parent_a_chain_locked_conflict_beats() {
     assert!(manager.get_wallet_info(&a).unwrap().utxos().is_empty(), "C2's change never existed");
 }
 
-/// Only a block transaction that conflicts with a locked record of another
-/// transaction is kept for a ChainLock: not a wallet's own payment mined,
-/// locked or not, and not a conflict that overturned an unlocked record at
-/// once.
+/// Only a block transaction that conflicts with an unconfirmed record of
+/// another transaction is kept for a ChainLock, not a wallet's own payment
+/// mined, locked or not. A conflict that overturned an unlocked record at
+/// once is kept too, in case that record's lock arrives late.
 #[tokio::test]
-async fn only_a_conflict_with_another_locked_record_is_kept_for_a_chain_lock() {
+async fn only_a_conflict_with_another_unconfirmed_record_is_kept_for_a_chain_lock() {
     let mut manager = WalletManager::<ManagedWalletInfo>::new(Network::Testnet);
     let (a, address) = wallet(&mut manager);
     let only = set(&[a]);
@@ -193,14 +218,18 @@ async fn only_a_conflict_with_another_locked_record_is_kept_for_a_chain_lock() {
     process_block_for(&mut manager, &Block::dummy(FUNDED_AT, fundings.clone()), FUNDED_AT, &only)
         .await;
 
-    let plain = spend_tx(coin(0), 990_000, 1);
+    let plain = signed(&manager, &a, &address, &fundings[0], spend_tx(coin(0), 990_000, 1)).await;
     let locked = spend_tx(coin(1), 990_000, 2);
-    let beaten_plain = spend_tx(coin(2), 990_000, 3);
+    let beaten_plain =
+        signed(&manager, &a, &address, &fundings[2], spend_tx(coin(2), 990_000, 3)).await;
     let beaten_locked = spend_tx(coin(3), 990_000, 4);
     manager.process_mempool_transaction(&plain, None).await;
     manager.process_mempool_transaction(&locked, Some(lock_for(&locked))).await;
     manager.process_mempool_transaction(&beaten_plain, None).await;
     manager.process_mempool_transaction(&beaten_locked, Some(lock_for(&beaten_locked))).await;
+    for tx in [&plain, &locked, &beaten_plain, &beaten_locked] {
+        assert!(records(&manager, &a, tx), "each is A's");
+    }
     assert_eq!(manager.awaiting_chain_lock_len(), 0);
 
     let height = FUNDED_AT + 1;
@@ -212,11 +241,11 @@ async fn only_a_conflict_with_another_locked_record_is_kept_for_a_chain_lock() {
     process_block_for(&mut manager, &Block::dummy(height + 1, vec![conflict]), height + 1, &only)
         .await;
     assert!(!records(&manager, &a, &beaten_plain), "an unlocked record goes at once");
-    assert_eq!(manager.awaiting_chain_lock_len(), 0);
+    assert_eq!(manager.awaiting_chain_lock_len(), 1, "kept in case its lock arrives late");
 
     let conflict = spend_tx(coin(3), 980_000, 6);
     process_block_for(&mut manager, &Block::dummy(height + 2, vec![conflict]), height + 2, &only)
         .await;
     assert!(records(&manager, &a, &beaten_locked), "a plain block overturns no lock");
-    assert_eq!(manager.awaiting_chain_lock_len(), 1, "kept for its ChainLock");
+    assert_eq!(manager.awaiting_chain_lock_len(), 2, "kept for its ChainLock");
 }

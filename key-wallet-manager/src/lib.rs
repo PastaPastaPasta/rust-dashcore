@@ -134,6 +134,21 @@ pub const MAX_AWAITING_CHAIN_LOCK: usize = 1_000;
 /// so that they are refused if they arrive again.
 pub const MAX_BEATEN_BY_CHAIN_LOCK: usize = 1_000;
 
+/// The txids, lowest height first, that take `entries` past `max`.
+fn lowest_past(
+    entries: impl ExactSizeIterator<Item = (Txid, CoreBlockHeight)>,
+    max: usize,
+) -> Vec<Txid> {
+    let excess = entries.len().saturating_sub(max);
+    if excess == 0 {
+        return Vec::new();
+    }
+    let mut by_height: Vec<(CoreBlockHeight, Txid)> =
+        entries.map(|(txid, height)| (height, txid)).collect();
+    by_height.sort_unstable();
+    by_height.into_iter().take(excess).map(|(_, txid)| txid).collect()
+}
+
 /// High-level wallet manager that manages multiple wallets
 ///
 /// Each wallet can contain multiple accounts following BIP44 standard.
@@ -151,16 +166,20 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
     /// produce the total monitor revision.
     structural_revision: u64,
     /// Transactions of blocks no ChainLock covers yet that spend an input
-    /// an unconfirmed record spends, with their blocks. A plain block cannot
-    /// overturn an InstantSend-locked record; once a ChainLock covers one of
-    /// these, every wallet sweeps with it. Dropped once covered, or with
+    /// an unconfirmed record of another transaction spends, with their
+    /// blocks. A plain block cannot overturn an InstantSend-locked record,
+    /// and an unlocked record it overturns can come back with a late lock;
+    /// once a ChainLock covers one of these, every wallet sweeps with it. Dropped once covered, or with
     /// their block in a reorg; past [`MAX_AWAITING_CHAIN_LOCK`], the one in
     /// the lowest block goes, and the records it would have overturned stay.
     awaiting_chain_lock: BTreeMap<Txid, (Transaction, BlockInfo)>,
-    /// Transactions a ChainLocked conflict overturned in some wallet, with
-    /// that conflict's height. They can never confirm, so one that arrives
-    /// again, locked or not, is refused in every wallet. Past
-    /// [`MAX_BEATEN_BY_CHAIN_LOCK`], the one beaten lowest goes.
+    /// Transactions a wallet dropped for a transaction in a ChainLocked
+    /// block, with that block's height: records a conflict there overturned,
+    /// and, in a wallet the block was fetched for, spends of its outputs the
+    /// coin's owner did not authorize. They can never confirm, so one that
+    /// arrives again, locked or not, is refused in every wallet. Kept in
+    /// memory, for this session only; past [`MAX_BEATEN_BY_CHAIN_LOCK`], the
+    /// one beaten lowest goes.
     beaten_by_chain_lock: BTreeMap<Txid, CoreBlockHeight>,
     /// Event sender for wallet events.
     ///
@@ -229,15 +248,12 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
     /// goes.
     pub(crate) fn await_chain_lock(&mut self, tx: &Transaction, block: BlockInfo) {
         self.awaiting_chain_lock.entry(tx.txid()).or_insert_with(|| (tx.clone(), block));
-        if self.awaiting_chain_lock.len() > MAX_AWAITING_CHAIN_LOCK {
-            let lowest = self
-                .awaiting_chain_lock
-                .iter()
-                .min_by_key(|(_, (_, block))| block.height())
-                .map(|(txid, _)| *txid);
-            if let Some(lowest) = lowest {
-                self.awaiting_chain_lock.remove(&lowest);
-            }
+        let lowest = lowest_past(
+            self.awaiting_chain_lock.iter().map(|(txid, (_, block))| (*txid, block.height())),
+            MAX_AWAITING_CHAIN_LOCK,
+        );
+        for txid in lowest {
+            self.awaiting_chain_lock.remove(&txid);
         }
     }
 
@@ -264,16 +280,12 @@ impl<T: WalletInfoInterface + Send + Sync + 'static> WalletManager<T> {
         for txid in txids {
             self.beaten_by_chain_lock.insert(*txid, height);
         }
-        while self.beaten_by_chain_lock.len() > MAX_BEATEN_BY_CHAIN_LOCK {
-            let lowest = self
-                .beaten_by_chain_lock
-                .iter()
-                .min_by_key(|(_, height)| **height)
-                .map(|(t, _)| *t);
-            match lowest {
-                Some(lowest) => self.beaten_by_chain_lock.remove(&lowest),
-                None => break,
-            };
+        let lowest = lowest_past(
+            self.beaten_by_chain_lock.iter().map(|(txid, height)| (*txid, *height)),
+            MAX_BEATEN_BY_CHAIN_LOCK,
+        );
+        for txid in lowest {
+            self.beaten_by_chain_lock.remove(&txid);
         }
     }
 
@@ -879,3 +891,18 @@ mod test_helpers;
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
+
+#[cfg(test)]
+mod cap_tests {
+    use super::*;
+    use dashcore::hashes::Hash as _;
+
+    #[test]
+    fn past_the_cap_the_lowest_go_first_ties_by_txid() {
+        let txid = |n: u8| Txid::from_byte_array([n; 32]);
+        let entries = [(txid(4), 9), (txid(3), 7), (txid(2), 9), (txid(1), 8)];
+        assert!(lowest_past(entries.into_iter(), 4).is_empty());
+        assert_eq!(lowest_past(entries.into_iter(), 3), vec![txid(3)]);
+        assert_eq!(lowest_past(entries.into_iter(), 1), vec![txid(3), txid(1), txid(2)]);
+    }
+}
