@@ -337,3 +337,72 @@ async fn a_conflict_whose_block_a_reorg_drops_overturns_nothing_at_the_next_chai
         }
     );
 }
+
+/// Pins existing behaviour. A's unlocked L spends A's coin and B's X; D
+/// spends X in a block fetched for B only, as the fetch tests above show, so
+/// L goes from A too and A's coin is given back. A reorg then drops D: L
+/// stays dropped and A's coin is offered although L can still be mined, as
+/// in a wallet that fetched D. Once L is mined it spends the coin, counted
+/// once.
+#[tokio::test]
+async fn an_unlocked_spend_a_conflict_beats_where_it_was_not_fetched_stays_dropped_after_a_reorg() {
+    let wallets: Wallets = Arc::new(RwLock::new(WalletManager::new(Network::Testnet)));
+    let a = register(&wallets, MNEMONIC_A).await;
+    let b = register(&wallets, MNEMONIC_B).await;
+    let elsewhere = {
+        let unregistered: Wallets = Arc::new(RwLock::new(WalletManager::new(Network::Testnet)));
+        let id = register(&unregistered, MNEMONIC_C).await;
+        next_unused_receive_address(&unregistered, &id).await
+    };
+    let to_a = next_unused_receive_address(&wallets, &a).await;
+    let to_b = next_unused_receive_address(&wallets, &b).await;
+    let funding = Transaction::dummy(&to_a, 191..192, &[COIN]);
+    let funding_x = Transaction::dummy(&to_b, 192..193, &[COIN]);
+    let coin = OutPoint::new(funding.txid(), 0);
+    let x = OutPoint::new(funding_x.txid(), 0);
+    let mut wm = wallets.write().await;
+    let funded = Block::dummy(TIP - 2, vec![funding.clone(), funding_x]);
+    let both = BTreeSet::from([a, b]);
+    wm.process_block_for_wallets(&funded, funded.block_hash(), TIP - 2, &both).await;
+
+    let spend_l = {
+        let unsigned = spend(&[coin, x], vec![pay(&elsewhere, 2 * COIN - 10_000)]);
+        let account = wm.get_wallet_info(&a).unwrap().first_bip44_managed_account().unwrap();
+        let path = account.address_derivation_path(&to_a).unwrap();
+        let utxo = Utxo::new(coin, funding.output[0].clone(), to_a.clone(), 0, false);
+        wm.get_wallet(&a)
+            .unwrap()
+            .sign_tx(unsigned, vec![utxo], move |_| Some(path.clone()))
+            .await
+            .unwrap()
+    };
+    let offered = |wm: &WalletManager<ManagedWalletInfo>| {
+        wm.get_wallet_info(&a).unwrap().utxos().iter().any(|utxo| utxo.outpoint == coin)
+    };
+    let records = |wm: &WalletManager<ManagedWalletInfo>| {
+        wm.get_wallet_info(&a)
+            .unwrap()
+            .accounts()
+            .all_accounts()
+            .into_iter()
+            .any(|account| account.has_transaction(&spend_l.txid()))
+    };
+    wm.process_mempool_transaction(&spend_l, None).await;
+    assert!(records(&wm) && !offered(&wm), "L spends A's coin");
+
+    let winner = spend(&[x], vec![pay(&elsewhere, 500_000)]);
+    let block = Block::dummy(TIP, vec![winner]);
+    wm.process_block_for_wallets(&block, block.block_hash(), TIP, &BTreeSet::from([b])).await;
+    assert!(!records(&wm), "D beats L in A too");
+    assert!(offered(&wm), "only L spent A's coin");
+
+    wm.truncate_above(TIP - 1).unwrap();
+    assert!(!records(&wm), "L stays dropped");
+    assert!(offered(&wm), "A's coin is offered until L is mined");
+
+    let mined = Block::dummy(TIP, vec![spend_l.clone()]);
+    wm.process_block_for_wallets(&mined, mined.block_hash(), TIP, &both).await;
+    assert!(records(&wm), "L is mined");
+    assert!(!offered(&wm));
+    assert_eq!(wm.get_wallet_info(&a).unwrap().balance().total(), 0, "counted once");
+}
