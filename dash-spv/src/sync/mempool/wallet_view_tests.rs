@@ -1435,3 +1435,72 @@ async fn a_locked_spend_kept_for_another_wallet_is_let_go_once_replayed() {
     assert!(h.context_of(&a, &child.txid()).await.is_some(), "C is recorded in A");
     assert!(!h.manager.locked_spends.contains_key(&child.txid()), "P is mined");
 }
+
+/// Known gap: C, held by the mempool manager because it pays B, spends A's
+/// abandoned change and a coin no loaded wallet holds; D beats it in a block
+/// no wallet fetches. A wallet removed and restored from its recovery phrase
+/// in the same session is passed C again once its scan completes, so the
+/// change stays spent until C leaves the mempool (24 hours after it was
+/// first seen) or Dash Wallet restarts.
+#[tokio::test]
+async fn a_wallet_restored_in_the_same_session_is_passed_a_beaten_held_spend_again() {
+    let (mut h, ids) = Harness::new(&[MNEMONIC_A, MNEMONIC_B]).await;
+    let (a, b) = (ids[0], ids[1]);
+    h.filters_synced().await;
+    h.manager.tick(&h.requests).await.unwrap();
+    let elsewhere = address_of_unregistered(MNEMONIC_C).await;
+    let (payment, _) = abandoned_payment_with_change(&mut h, &a, &elsewhere, 201..202, false).await;
+    let to_b = next_unused_receive_address(&h.wallets, &b).await;
+    let other = OutPoint::new(Txid::from_byte_array([0x5a; 32]), 0);
+    let child = Transaction {
+        version: 2,
+        lock_time: 0,
+        input: vec![
+            TxIn {
+                previous_output: OutPoint::new(payment.txid(), 1),
+                ..Default::default()
+            },
+            TxIn {
+                previous_output: other,
+                ..Default::default()
+            },
+        ],
+        output: vec![TxOut {
+            value: CHANGE,
+            script_pubkey: to_b.script_pubkey(),
+        }],
+        special_transaction_payload: None,
+    };
+    h.manager.process_instant_send(lock_for(&child)).await;
+    assert!(h.announce(&child).await);
+    h.manager.process_instant_send(lock_for(&payment)).await;
+    h.manager.send_queued(&h.requests).await.unwrap();
+    assert!(asked_for(&h.sent_messages(), payment.txid()));
+    h.manager.handle_tx(payment.clone(), h.peer, &h.requests).await.unwrap();
+    let change = OutPoint::new(payment.txid(), 1);
+    let shows = |wallets: &WalletManager<ManagedWalletInfo>, id: &WalletId| {
+        wallets.get_wallet_info(id).unwrap().utxos().iter().any(|utxo| utxo.outpoint == change)
+    };
+    assert!(!shows(&*h.wallets.read().await, &a), "C spends P's change");
+
+    let funding = {
+        let wallets = h.wallets.read().await;
+        let account = wallets.get_wallet_info(&a).unwrap().first_bip44_managed_account().unwrap();
+        let funding_txid = payment.input[0].previous_output.txid;
+        account.transactions().get(&funding_txid).unwrap().transaction.clone()
+    };
+    h.wallets.write().await.remove_wallet(&a).unwrap();
+    let a = register(&h.wallets, MNEMONIC_A).await;
+    h.manager.tick(&h.requests).await.unwrap();
+    {
+        let mut wallets = h.wallets.write().await;
+        wallets.check_transaction_in_all_wallets(&funding, in_block(960), true, true).await;
+        wallets.check_transaction_in_all_wallets(&payment, in_block(972), true, true).await;
+        assert!(shows(&wallets, &a), "the restored wallet's scan finds P and not C");
+    }
+    h.filters_synced().await;
+    assert!(
+        !shows(&*h.wallets.read().await, &a),
+        "known gap: the held C is passed to the restored wallet again"
+    );
+}

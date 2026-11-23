@@ -1387,6 +1387,60 @@ mod tests {
         assert_eq!(manager.progress.removed(), 1);
     }
 
+    fn kept_spend(n: u32) -> (Transaction, InstantLock) {
+        let tx = Transaction {
+            version: 2,
+            lock_time: n,
+            input: vec![],
+            output: vec![],
+            special_transaction_payload: None,
+        };
+        let lock = InstantLock {
+            txid: tx.txid(),
+            ..InstantLock::default()
+        };
+        (tx, lock)
+    }
+
+    /// Past [`MAX_LOCKED_SPENDS`] kept locked spends, the oldest goes; one
+    /// kept again is refreshed in place and pushes none out.
+    #[test]
+    fn kept_locked_spends_are_capped_oldest_first() {
+        let (mut manager, _requests, _rx) = create_test_manager();
+        let spends: Vec<_> = (0..=MAX_LOCKED_SPENDS as u32).map(kept_spend).collect();
+        for (tx, lock) in &spends[..MAX_LOCKED_SPENDS] {
+            manager.keep_locked_spend(tx, lock);
+        }
+        let oldest = spends[0].0.txid();
+        manager.locked_spends.get_mut(&oldest).unwrap().2 =
+            Instant::now() - Duration::from_secs(60);
+        manager.keep_locked_spend(&spends[1].0, &spends[1].1);
+        assert_eq!(manager.locked_spends.len(), MAX_LOCKED_SPENDS);
+
+        let (tx, lock) = &spends[MAX_LOCKED_SPENDS];
+        manager.keep_locked_spend(tx, lock);
+        assert_eq!(manager.locked_spends.len(), MAX_LOCKED_SPENDS);
+        assert!(!manager.locked_spends.contains_key(&oldest), "the oldest goes");
+        assert!(manager.locked_spends.contains_key(&tx.txid()));
+    }
+
+    /// A kept locked spend goes once it has been kept for the timeout.
+    #[test]
+    fn kept_locked_spends_expire_with_the_mempool_timeout() {
+        let (mut manager, _requests, _rx) = create_test_manager();
+        let (fresh, fresh_lock) = kept_spend(1);
+        let (stale, stale_lock) = kept_spend(2);
+        manager.keep_locked_spend(&fresh, &fresh_lock);
+        manager.keep_locked_spend(&stale, &stale_lock);
+        manager.locked_spends.get_mut(&stale.txid()).unwrap().2 =
+            Instant::now() - MEMPOOL_TX_EXPIRY - Duration::from_secs(1);
+
+        manager.prune_expired(MEMPOOL_TX_EXPIRY);
+
+        assert!(manager.locked_spends.contains_key(&fresh.txid()));
+        assert!(!manager.locked_spends.contains_key(&stale.txid()));
+    }
+
     /// Create a manager with BloomFilter strategy where the wallet reports
     /// mempool transactions as relevant. BloomFilter strategy skips local
     /// address pre-filtering, relying on the wallet for definitive checks.
