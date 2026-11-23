@@ -169,9 +169,10 @@ pub struct WalletManager<T: WalletInfoInterface + Send + Sync + 'static = Manage
     /// an unconfirmed record of another transaction spends, with their
     /// blocks. A plain block cannot overturn an InstantSend-locked record,
     /// and an unlocked record it overturns can come back with a late lock;
-    /// once a ChainLock covers one of these, every wallet sweeps with it. Dropped once covered, or with
-    /// their block in a reorg; past [`MAX_AWAITING_CHAIN_LOCK`], the one in
-    /// the lowest block goes, and the records it would have overturned stay.
+    /// once a ChainLock covers one of these, every wallet sweeps with it.
+    /// Dropped once covered, or with their block in a reorg; past
+    /// [`MAX_AWAITING_CHAIN_LOCK`], the one in the lowest block goes, and the
+    /// records it would have overturned stay.
     awaiting_chain_lock: BTreeMap<Txid, (Transaction, BlockInfo)>,
     /// Transactions a wallet dropped for a transaction in a ChainLocked
     /// block, with that block's height: records a conflict there overturned,
