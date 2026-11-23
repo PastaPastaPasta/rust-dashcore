@@ -230,6 +230,7 @@ impl ManagedWalletInfo {
             result.released_outpoints.retain(|outpoint| {
                 !self.spent_claims.contains_key(outpoint)
                     && !funds.iter().any(|account| account.is_outpoint_spent(outpoint))
+                    && result.txids.binary_search(&outpoint.txid).is_err()
             });
             self.give_back(taken, &result.released_outpoints);
         }
@@ -238,8 +239,19 @@ impl ManagedWalletInfo {
 
     /// Credit again each coin in `taken`, one list per funds account in
     /// order, that `released` names: a removed loser alone spent it, so it is
-    /// unspent, with the context it had.
+    /// unspent, with the context it had. Only while the wallet still holds
+    /// the transaction that made it and has not dropped it as dead: a fork or
+    /// this same sweep may have removed it.
     fn give_back(&mut self, taken: Vec<Vec<Utxo>>, released: &[OutPoint]) {
+        let funded: BTreeSet<Txid> = taken
+            .iter()
+            .flatten()
+            .map(|utxo| utxo.outpoint.txid)
+            .filter(|txid| {
+                !self.dismissed.contains(txid)
+                    && self.accounts.all_accounts().into_iter().any(|a| a.has_transaction(txid))
+            })
+            .collect();
         let mut credited = false;
         let funds =
             self.accounts.all_accounts_mut().into_iter().filter_map(|account| match account {
@@ -247,14 +259,21 @@ impl ManagedWalletInfo {
                 ManagedAccountRefMut::Keys(_) => None,
             });
         for (funds, taken) in funds.zip(taken) {
-            for utxo in taken.into_iter().filter(|utxo| released.contains(&utxo.outpoint)) {
-                credited |= funds.take_in_output(
+            let mut account_credited = false;
+            for utxo in taken.into_iter().filter(|utxo| {
+                released.contains(&utxo.outpoint) && funded.contains(&utxo.outpoint.txid)
+            }) {
+                account_credited |= funds.take_in_output(
                     utxo,
                     Vec::new(),
                     &self.observed_spent_outpoints,
                     Some(&self.spent_claims),
                     |_| {},
                 );
+            }
+            if account_credited {
+                funds.bump_monitor_revision();
+                credited = true;
             }
         }
         if credited {
