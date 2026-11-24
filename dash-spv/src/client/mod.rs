@@ -43,6 +43,7 @@ mod tests {
     use crate::storage::DiskStorageManager;
     use crate::test_utils::MockNetworkManager;
     use crate::Network;
+    use dashcore::hashes::Hash;
     use key_wallet::wallet::initialization::WalletAccountCreationOptions;
     use key_wallet::wallet::managed_wallet_info::ManagedWalletInfo;
     use key_wallet_manager::WalletManager;
@@ -136,5 +137,46 @@ mod tests {
         // Verify the wallet is accessible
         let wallet_ref = client.wallet();
         let _wallet_guard = wallet_ref.read().await;
+    }
+
+    #[tokio::test]
+    async fn stop_rebroadcast_reaches_the_mempool_manager() {
+        let config = ClientConfig::mainnet()
+            .without_filters()
+            .without_masternodes()
+            .with_mempool_tracking(MempoolStrategy::FetchAll)
+            .with_storage_path(TempDir::new().unwrap().path());
+        let storage =
+            DiskStorageManager::with_temp_dir().await.expect("Failed to create tmp storage");
+        let wallet = Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
+        let client = DashSpvClient::new(
+            config,
+            MockNetworkManager::new(),
+            storage,
+            wallet,
+            vec![Arc::new(())],
+        )
+        .await
+        .expect("client construction must succeed");
+
+        let stopped = dashcore::Txid::from_byte_array([7; 32]);
+        let other = dashcore::Txid::from_byte_array([8; 32]);
+        let handle = client.rebroadcast_stops();
+        client.stop_rebroadcast(&stopped).await;
+
+        let managers = client.build_sync_managers().await.expect("managers must build");
+        let mempool = managers.mempool.as_ref().expect("mempool tracking is on");
+        assert!(
+            mempool.is_rebroadcast_stopped(&stopped).await,
+            "the manager misses the client's stop"
+        );
+        assert!(!mempool.is_rebroadcast_stopped(&other).await);
+        assert!(handle.is_stopped(&stopped).await, "the handle misses the client's stop");
+
+        handle.stop(&other).await;
+        assert!(
+            mempool.is_rebroadcast_stopped(&other).await,
+            "the manager misses the handle's stop"
+        );
     }
 }

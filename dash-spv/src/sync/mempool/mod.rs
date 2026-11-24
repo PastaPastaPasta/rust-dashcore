@@ -6,7 +6,6 @@ mod sync_manager;
 #[cfg(test)]
 mod wallet_view_tests;
 
-pub(crate) use broadcast::StoppedRebroadcasts;
 pub use broadcast::{BroadcastConfig, BroadcastHoldout, BroadcastResult, RebroadcastStops};
 pub(crate) use manager::MempoolManager;
 pub use progress::MempoolProgress;

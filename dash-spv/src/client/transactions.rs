@@ -41,9 +41,9 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
             network_guard.broadcast(NetworkMessage::Tx(Box::new(tx.clone()))).await?;
         }
 
-        // An explicit broadcast sends it again from now on, including after
-        // a stop; one queued before a stop is not sent (`stop_rebroadcast`).
-        self.stopped_rebroadcasts.lift(&tx.txid());
+        // An explicit broadcast lifts a stop; one queued before a stop is
+        // tracked but not sent (`stop_rebroadcast`).
+        self.stopped_rebroadcasts.lift(&tx.txid()).await;
 
         // Inject locally so the mempool manager picks it up through handle_tx.
         // With tracking enabled the manager performs the actual (targeted)
@@ -53,20 +53,22 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
         Ok(())
     }
 
-    /// Stop sending `txid` to the network: once this returns, the mempool
-    /// manager's rebroadcast timer never sends it again, and a broadcast of
-    /// it already queued but not yet applied is neither sent nor tracked.
+    /// Stop sending `txid` to the network: once this returns, no mempool
+    /// manager queues it to a peer again, and a broadcast of it already
+    /// queued but not yet applied is tracked but not sent. A tracked entry
+    /// stays tracked, so its acceptance is still judged.
     ///
     /// For a transaction the wallet abandoned. The stop lasts until a later
     /// [`broadcast_transaction`](Self::broadcast_transaction) of the same
-    /// transaction, which sends and tracks it again. It does not survive the
-    /// client, and neither do the rebroadcasts it stops.
-    pub fn stop_rebroadcast(&self, txid: &dashcore::Txid) {
-        self.stopped_rebroadcasts.stop(txid);
+    /// transaction lifts it. That sends it at once if it was not tracked;
+    /// otherwise the rebroadcast timer sends it when next due. The stop does
+    /// not survive the client, and neither do the rebroadcasts it stops.
+    pub async fn stop_rebroadcast(&self, txid: &dashcore::Txid) {
+        self.stopped_rebroadcasts.stop(txid).await;
     }
 
-    /// A handle to [`Self::stop_rebroadcast`] that never waits on the client,
-    /// for a caller that can't take the client's lock where it stops one.
+    /// A handle to [`Self::stop_rebroadcast`] that never takes the client's
+    /// lock, for a caller that can't take it where it stops one.
     pub fn rebroadcast_stops(&self) -> crate::sync::RebroadcastStops {
         self.stopped_rebroadcasts.clone()
     }

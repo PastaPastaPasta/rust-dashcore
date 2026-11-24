@@ -121,13 +121,14 @@ impl<W: WalletInterface> MempoolManager<W> {
         max_transactions: usize,
         initial_monitor_revision: u64,
         broadcast_config: BroadcastConfig,
+        stopped: StoppedRebroadcasts,
     ) -> Self {
         Self {
             progress: MempoolProgress::default(),
             wallet,
             transactions: HashMap::new(),
             broadcasts: HashMap::new(),
-            stopped: StoppedRebroadcasts::default(),
+            stopped,
             broadcast_config,
             strategy,
             max_transactions,
@@ -143,12 +144,6 @@ impl<W: WalletInterface> MempoolManager<W> {
             last_wallet_set_revision: None,
             refresh_after_scan: false,
         }
-    }
-
-    /// Shares the client's set of stopped rebroadcasts.
-    pub(crate) fn with_stopped_rebroadcasts(mut self, stopped: StoppedRebroadcasts) -> Self {
-        self.stopped = stopped;
-        self
     }
 
     /// Activate peers as they connect, before filter sync completes
@@ -492,7 +487,7 @@ impl<W: WalletInterface> MempoolManager<W> {
         // wallet relevance — the caller explicitly asked to broadcast.
         let mut events = Vec::new();
         if is_local {
-            events.extend(self.start_broadcast(&tx, requests));
+            events.extend(self.start_broadcast(&tx, requests).await);
         }
 
         // Skip if already tracked (e.g., locally broadcast then received from a peer)
@@ -690,7 +685,12 @@ impl<W: WalletInterface> MempoolManager<W> {
     /// Returns the acceptance event when the network's verdict is already
     /// known (see [`Self::preexisting_acceptance`]); the transaction is still
     /// sent, since knowing one peer has it says nothing about the rest.
-    pub(super) fn start_broadcast(
+    #[cfg(test)]
+    pub(crate) async fn is_rebroadcast_stopped(&self, txid: &Txid) -> bool {
+        self.stopped.lock().await.contains(txid)
+    }
+
+    pub(super) async fn start_broadcast(
         &mut self,
         tx: &Transaction,
         requests: &RequestSender,
@@ -699,10 +699,13 @@ impl<W: WalletInterface> MempoolManager<W> {
         if self.broadcasts.contains_key(&txid) {
             return Vec::new();
         }
-        if self.stopped.lock().unwrap_or_else(|p| p.into_inner()).contains(&txid) {
-            tracing::info!("Broadcast {} not sent: its rebroadcast was stopped", txid);
-            return Vec::new();
-        }
+        // A broadcast queued before its stop is tracked, so its acceptance
+        // is still judged, but not sent; a lift lets the timer send it. Held
+        // through the sends, so none is queued after a stop returns; nothing
+        // under it awaits.
+        let stopped_set = Arc::clone(&self.stopped);
+        let stopped_set = stopped_set.lock().await;
+        let stopped = stopped_set.contains(&txid);
 
         let known_acceptance = self.preexisting_acceptance(&txid);
 
@@ -717,7 +720,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             .collect();
 
         for peer in &peers {
-            if state.holdout.contains(peer) {
+            if stopped || state.holdout.contains(peer) {
                 continue;
             }
             if requests.send_transaction(tx.clone(), *peer).is_ok() {
@@ -725,7 +728,9 @@ impl<W: WalletInterface> MempoolManager<W> {
             }
         }
 
-        if peers.is_empty() {
+        if stopped {
+            tracing::info!("Broadcast {} not sent: its rebroadcast was stopped", txid);
+        } else if peers.is_empty() {
             // No peers right now; the rebroadcast timer sends once one connects.
             tracing::warn!("Broadcast {} deferred: no connected peers", txid);
         } else {
@@ -961,11 +966,16 @@ impl<W: WalletInterface> MempoolManager<W> {
     async fn rebroadcast_if_due_at(&mut self, requests: &RequestSender, now: Instant) {
         let current_peers: Vec<SocketAddr> = self.peers.keys().copied().collect();
         let mut count: usize = 0;
-        // Held through the sends, so none starts after a stop returns.
+        // Held through the sends, so none is queued after a stop returns.
+        // A stopped entry stays tracked: its acceptance is still judged, and
+        // a lift lets this timer send it again.
+        // Nothing under it awaits.
         let stopped = Arc::clone(&self.stopped);
-        let stopped = stopped.lock().unwrap_or_else(|p| p.into_inner());
-        self.broadcasts.retain(|txid, _| !stopped.contains(txid));
+        let stopped = stopped.lock().await;
         for (txid, state) in &mut self.broadcasts {
+            if stopped.contains(txid) {
+                continue;
+            }
             if current_peers.is_empty() {
                 continue;
             }
@@ -1111,6 +1121,7 @@ impl<W: WalletInterface> fmt::Debug for MempoolManager<W> {
 mod tests {
     use super::*;
     use crate::network::NetworkRequest;
+    use crate::sync::RebroadcastStops;
     use dashcore::hashes::Hash;
     use dashcore::network::message::NetworkMessage;
     use dashcore::{Address, BlockHash, Network, ScriptBuf, Transaction};
@@ -1148,6 +1159,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
         manager.progress.set_state(SyncState::Synced);
 
@@ -1166,6 +1178,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         (manager, requests, rx)
@@ -1236,6 +1249,7 @@ mod tests {
             2, // Very small capacity
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
@@ -1276,6 +1290,7 @@ mod tests {
             2,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
         manager.progress.set_state(SyncState::Synced);
         let peer = test_socket_address(1);
@@ -1306,6 +1321,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let fresh_txid = Txid::from_byte_array([1; 32]);
@@ -1479,6 +1495,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         (manager, requests, wallet)
@@ -1609,6 +1626,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         (manager, requests, rx)
@@ -2053,6 +2071,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         // Drop receiver so send_filter_load fails
@@ -2328,7 +2347,7 @@ mod tests {
         manager.process_instant_send(dummy_instant_lock(txid)).await;
         assert!(manager.pending_is_locks.contains_key(&txid));
 
-        let events = manager.start_broadcast(&tx, &requests);
+        let events = manager.start_broadcast(&tx, &requests).await;
 
         assert!(
             matches!(
@@ -2360,7 +2379,7 @@ mod tests {
             UnconfirmedTransaction::new(tx.clone(), Amount::ZERO, false, false, vec![], 0),
         );
 
-        let events = manager.start_broadcast(&tx, &requests);
+        let events = manager.start_broadcast(&tx, &requests).await;
 
         assert!(
             matches!(
@@ -2389,7 +2408,7 @@ mod tests {
         assert!(!manager.transactions.contains_key(&txid));
         assert!(manager.seen_txids.contains_key(&txid));
 
-        let events = manager.start_broadcast(&tx, &requests);
+        let events = manager.start_broadcast(&tx, &requests).await;
 
         assert!(
             matches!(
@@ -2412,7 +2431,7 @@ mod tests {
         let tx = test_transaction(42);
         let txid = tx.txid();
 
-        let events = manager.start_broadcast(&tx, &requests);
+        let events = manager.start_broadcast(&tx, &requests).await;
 
         assert!(events.is_empty(), "nothing is known yet, got {:?}", events);
         assert_eq!(
@@ -2492,8 +2511,7 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stopped = StoppedRebroadcasts::default();
-        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
 
         let tx = test_transaction(11);
         let txid = tx.txid();
@@ -2502,14 +2520,19 @@ mod tests {
         state.sent_to.insert(peer);
         manager.broadcasts.insert(txid, state);
 
-        stopped.lock().unwrap().insert(txid);
+        stops.stop(&txid).await;
         for n in 1..=3u32 {
             let later = t0 + (REBROADCAST_INTERVAL + Duration::from_secs(1)) * n;
             manager.rebroadcast_if_due_at(&requests, later).await;
             assert!(rx.try_recv().is_err(), "sent again after the stop, pass {n}");
         }
-        assert!(!manager.broadcasts.contains_key(&txid), "still tracked");
-        assert!(stopped.lock().unwrap().contains(&txid), "the stop was cleared");
+        assert!(manager.broadcasts.contains_key(&txid), "no longer tracked");
+        assert!(stops.is_stopped(&txid).await, "the stop was cleared");
+
+        stops.lift(&txid).await;
+        let later = t0 + (REBROADCAST_INTERVAL + Duration::from_secs(1)) * 4;
+        manager.rebroadcast_if_due_at(&requests, later).await;
+        assert!(rx.try_recv().is_ok(), "not sent again after the lift");
     }
 
     #[tokio::test]
@@ -2517,22 +2540,26 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stopped = StoppedRebroadcasts::default();
-        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
 
         // The client dispatched the broadcast, then the stop ran before the
         // manager applied it.
         let tx = test_transaction(12);
         let txid = tx.txid();
-        stopped.lock().unwrap().insert(txid);
+        stops.stop(&txid).await;
         let local_addr = SocketAddr::from(([0, 0, 0, 0], 0));
         manager.handle_tx(tx, local_addr, &requests).await.unwrap();
 
         assert!(rx.try_recv().is_err(), "the queued broadcast was sent");
-        assert!(!manager.broadcasts.contains_key(&txid), "the queued broadcast is tracked");
+        let state = manager.broadcasts.get(&txid).expect("the queued broadcast is not tracked");
+        assert!(state.sent_to.is_empty(), "recorded as sent");
         let later = Instant::now() + REBROADCAST_INTERVAL + Duration::from_secs(1);
         manager.rebroadcast_if_due_at(&requests, later).await;
         assert!(rx.try_recv().is_err(), "sent at the rebroadcast");
+
+        stops.lift(&txid).await;
+        manager.rebroadcast_if_due_at(&requests, later).await;
+        assert!(rx.try_recv().is_ok(), "not sent after the lift");
     }
 
     #[tokio::test]
@@ -2540,15 +2567,14 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stopped = StoppedRebroadcasts::default();
-        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
 
         // `broadcast_transaction` lifts the stop before it dispatches.
         let tx = test_transaction(13);
         let txid = tx.txid();
-        stopped.lock().unwrap().insert(txid);
-        stopped.lock().unwrap().remove(&txid);
-        manager.start_broadcast(&tx, &requests);
+        stops.stop(&txid).await;
+        stops.lift(&txid).await;
+        manager.start_broadcast(&tx, &requests).await;
 
         assert!(rx.try_recv().is_ok(), "the broadcast was not sent");
         assert!(manager.broadcasts.contains_key(&txid), "the broadcast is not tracked");
@@ -2733,6 +2759,7 @@ mod tests {
             1, // capacity of one
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         // Fill the mempool to capacity with an unrelated transaction
@@ -2877,6 +2904,7 @@ mod tests {
                 acceptance_threshold: 2,
                 ..BroadcastConfig::default()
             },
+            Default::default(),
         );
 
         let holdout1 = test_socket_address(2);

@@ -254,6 +254,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         (manager, requests, rx)
@@ -512,6 +513,7 @@ mod tests {
             1000,
             revision,
             BroadcastConfig::default(),
+            Default::default(),
         )
         .with_activation_during_sync(true);
         let peer = test_socket_address(1);
@@ -768,6 +770,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
         manager
             .handle_message(
@@ -1072,6 +1075,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let peer = test_socket_address(1);
@@ -1148,6 +1152,7 @@ mod tests {
             1000,
             initial_revision,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let peer = test_socket_address(1);
@@ -1209,6 +1214,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let peer = test_socket_address(1);
@@ -1264,6 +1270,7 @@ mod tests {
             1000,
             initial_revision,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let peer = test_socket_address(1);
@@ -1314,6 +1321,7 @@ mod tests {
             1000,
             initial_revision,
             BroadcastConfig::default(),
+            Default::default(),
         );
 
         let peer = test_socket_address(1);

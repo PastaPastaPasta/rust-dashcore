@@ -65,7 +65,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
         };
 
         // Report the progress of the data already in storage before the first run.
-        let stopped_rebroadcasts = crate::sync::RebroadcastStops::default();
+        let stopped_rebroadcasts = crate::sync::RebroadcastStops::new();
         let initial_progress = Self::build_managers(
             &config,
             &storage,
@@ -193,9 +193,9 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
                     config.max_mempool_transactions,
                     initial_revision,
                     config.broadcast_config(),
+                    Arc::clone(&stopped_rebroadcasts.0),
                 )
-                .with_activation_during_sync(config.mempool_during_sync)
-                .with_stopped_rebroadcasts(Arc::clone(&stopped_rebroadcasts.0)),
+                .with_activation_during_sync(config.mempool_during_sync),
             );
         }
 
@@ -203,7 +203,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
     }
 
     /// Build the sync managers, resuming from wherever storage left off.
-    async fn build_sync_managers(&self) -> Result<SyncManagers<W>> {
+    pub(super) async fn build_sync_managers(&self) -> Result<SyncManagers<W>> {
         let config = self.config.read().await.clone();
         let mut storage = self.storage.lock().await;
         let start_from_height = Self::resolve_start_height(&config, &self.wallet).await;
