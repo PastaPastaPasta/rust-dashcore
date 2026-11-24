@@ -193,7 +193,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
                     config.max_mempool_transactions,
                     initial_revision,
                     config.broadcast_config(),
-                    Arc::clone(&stopped_rebroadcasts.0),
+                    stopped_rebroadcasts.clone(),
                 )
                 .with_activation_during_sync(config.mempool_during_sync),
             );

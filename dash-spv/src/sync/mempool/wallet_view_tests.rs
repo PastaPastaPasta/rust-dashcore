@@ -65,7 +65,7 @@ impl Harness {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         )
         .with_activation_during_sync(true);
         let peer = test_socket_address(1);

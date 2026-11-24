@@ -18,7 +18,7 @@ use rand::seq::IteratorRandom;
 use tokio::sync::RwLock;
 
 use super::broadcast::{
-    BroadcastConfig, BroadcastResult, BroadcastStatus, StoppedRebroadcasts, TxBroadcastState,
+    BroadcastConfig, BroadcastResult, BroadcastStatus, RebroadcastStops, TxBroadcastState,
 };
 use super::filter::build_wallet_bloom_filter;
 use super::BLOOM_FALSE_POSITIVE_RATE;
@@ -67,10 +67,7 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     pub(super) transactions: HashMap<Txid, UnconfirmedTransaction>,
     /// Self-broadcast transactions and their network-acceptance state.
     pub(super) broadcasts: HashMap<Txid, TxBroadcastState>,
-    /// Transactions not to send until an explicit broadcast lifts their stop.
-    /// They stay in `broadcasts`, and a queued local broadcast of one is
-    /// tracked but not sent.
-    stopped: StoppedRebroadcasts,
+    pub(crate) stopped: RebroadcastStops,
     broadcast_config: BroadcastConfig,
     strategy: MempoolStrategy,
     max_transactions: usize,
@@ -121,7 +118,7 @@ impl<W: WalletInterface> MempoolManager<W> {
         max_transactions: usize,
         initial_monitor_revision: u64,
         broadcast_config: BroadcastConfig,
-        stopped: StoppedRebroadcasts,
+        stopped: RebroadcastStops,
     ) -> Self {
         Self {
             progress: MempoolProgress::default(),
@@ -676,11 +673,6 @@ impl<W: WalletInterface> MempoolManager<W> {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) async fn is_rebroadcast_stopped(&self, txid: &Txid) -> bool {
-        self.stopped.lock().await.contains(txid)
-    }
-
     /// Begin tracking a self-originated transaction and send it to the
     /// network, withholding it from a holdout subset of peers.
     ///
@@ -699,12 +691,9 @@ impl<W: WalletInterface> MempoolManager<W> {
         if self.broadcasts.contains_key(&txid) {
             return Vec::new();
         }
-        // A broadcast queued before its stop is tracked, so its acceptance
-        // is still judged, but not sent; a lift lets the timer send it. Held
-        // through the sends, so none is queued after a stop returns; nothing
-        // under it awaits.
-        let stopped_set = Arc::clone(&self.stopped);
-        let stopped_set = stopped_set.lock().await;
+        // Held through the sends, so none is queued after a stop returns;
+        // nothing under it awaits.
+        let stopped_set = self.stopped.lock().await;
         let stopped = stopped_set.contains(&txid);
 
         let known_acceptance = self.preexisting_acceptance(&txid);
@@ -719,12 +708,14 @@ impl<W: WalletInterface> MempoolManager<W> {
             .into_iter()
             .collect();
 
-        for peer in &peers {
-            if stopped || state.holdout.contains(peer) {
-                continue;
-            }
-            if requests.send_transaction(tx.clone(), *peer).is_ok() {
-                state.sent_to.insert(*peer);
+        if !stopped {
+            for peer in &peers {
+                if state.holdout.contains(peer) {
+                    continue;
+                }
+                if requests.send_transaction(tx.clone(), *peer).is_ok() {
+                    state.sent_to.insert(*peer);
+                }
             }
         }
 
@@ -966,12 +957,9 @@ impl<W: WalletInterface> MempoolManager<W> {
     async fn rebroadcast_if_due_at(&mut self, requests: &RequestSender, now: Instant) {
         let current_peers: Vec<SocketAddr> = self.peers.keys().copied().collect();
         let mut count: usize = 0;
-        // Held through the sends, so none is queued after a stop returns.
-        // A stopped entry stays tracked: its acceptance is still judged, and
-        // a lift lets this timer send it again.
-        // Nothing under it awaits.
-        let stopped = Arc::clone(&self.stopped);
-        let stopped = stopped.lock().await;
+        // Held through the sends, so none is queued after a stop returns;
+        // nothing under it awaits.
+        let stopped = self.stopped.lock().await;
         for (txid, state) in &mut self.broadcasts {
             if stopped.contains(txid) {
                 continue;
@@ -1121,7 +1109,6 @@ impl<W: WalletInterface> fmt::Debug for MempoolManager<W> {
 mod tests {
     use super::*;
     use crate::network::NetworkRequest;
-    use crate::sync::RebroadcastStops;
     use dashcore::hashes::Hash;
     use dashcore::network::message::NetworkMessage;
     use dashcore::{Address, BlockHash, Network, ScriptBuf, Transaction};
@@ -1159,7 +1146,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
         manager.progress.set_state(SyncState::Synced);
 
@@ -1178,7 +1165,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         (manager, requests, rx)
@@ -1249,7 +1236,7 @@ mod tests {
             2, // Very small capacity
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
@@ -1290,7 +1277,7 @@ mod tests {
             2,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
         manager.progress.set_state(SyncState::Synced);
         let peer = test_socket_address(1);
@@ -1321,7 +1308,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         let fresh_txid = Txid::from_byte_array([1; 32]);
@@ -1495,7 +1482,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         (manager, requests, wallet)
@@ -1626,7 +1613,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         (manager, requests, rx)
@@ -2071,7 +2058,7 @@ mod tests {
             1000,
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         // Drop receiver so send_filter_load fails
@@ -2511,7 +2498,7 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
+        let stops = manager.stopped.clone();
 
         let tx = test_transaction(11);
         let txid = tx.txid();
@@ -2548,7 +2535,7 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
+        let stops = manager.stopped.clone();
 
         // The client dispatched the broadcast, then the stop ran before the
         // manager applied it.
@@ -2575,7 +2562,7 @@ mod tests {
         let (mut manager, requests, mut rx) = create_test_manager();
         let peer = test_socket_address(1);
         manager.peers.insert(peer, Some(VecDeque::new()));
-        let stops = RebroadcastStops(Arc::clone(&manager.stopped));
+        let stops = manager.stopped.clone();
 
         // `broadcast_transaction` lifts the stop before it dispatches.
         let tx = test_transaction(13);
@@ -2767,7 +2754,7 @@ mod tests {
             1, // capacity of one
             0,
             BroadcastConfig::default(),
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         // Fill the mempool to capacity with an unrelated transaction
@@ -2912,7 +2899,7 @@ mod tests {
                 acceptance_threshold: 2,
                 ..BroadcastConfig::default()
             },
-            Default::default(),
+            crate::sync::RebroadcastStops::new(),
         );
 
         let holdout1 = test_socket_address(2);

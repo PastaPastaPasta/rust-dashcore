@@ -41,8 +41,6 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
             network_guard.broadcast(NetworkMessage::Tx(Box::new(tx.clone()))).await?;
         }
 
-        // An explicit broadcast lifts a stop; one queued before a stop is
-        // tracked but not sent (`stop_rebroadcast`).
         self.stopped_rebroadcasts.lift(&tx.txid()).await;
 
         // Inject locally so the mempool manager picks it up through handle_tx.

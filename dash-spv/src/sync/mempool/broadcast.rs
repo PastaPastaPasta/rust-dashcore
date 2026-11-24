@@ -12,21 +12,17 @@ use std::time::{Duration, Instant};
 
 use dashcore::Transaction;
 
-/// Transactions whose rebroadcast was stopped
+/// The transactions whose rebroadcast was stopped
 /// ([`DashSpvClient::stop_rebroadcast`](crate::client::DashSpvClient::stop_rebroadcast)),
-/// shared by the client and every mempool manager it builds. A txid stays
-/// until an explicit broadcast of it, so a broadcast already queued when it
-/// was stopped is tracked but not sent.
-pub(crate) type StoppedRebroadcasts = std::sync::Arc<tokio::sync::Mutex<HashSet<dashcore::Txid>>>;
-
-/// A handle that stops transactions' rebroadcast without taking the
-/// client's lock ([`DashSpvClient::rebroadcast_stops`](crate::client::DashSpvClient::rebroadcast_stops)).
+/// shared by the client and every mempool manager it builds, reachable
+/// without the client's lock
+/// ([`DashSpvClient::rebroadcast_stops`](crate::client::DashSpvClient::rebroadcast_stops)).
 #[derive(Clone, Debug)]
-pub struct RebroadcastStops(pub(crate) StoppedRebroadcasts);
+pub struct RebroadcastStops(std::sync::Arc<tokio::sync::Mutex<HashSet<dashcore::Txid>>>);
 
 impl RebroadcastStops {
     pub(crate) fn new() -> Self {
-        Self(StoppedRebroadcasts::default())
+        Self(Default::default())
     }
 
     /// Whether `txid`'s rebroadcast is stopped.
@@ -39,9 +35,12 @@ impl RebroadcastStops {
         self.0.lock().await.insert(*txid);
     }
 
-    /// Lifts a stop before an explicit broadcast of `txid`.
     pub(crate) async fn lift(&self, txid: &dashcore::Txid) {
         self.0.lock().await.remove(txid);
+    }
+
+    pub(crate) async fn lock(&self) -> tokio::sync::MutexGuard<'_, HashSet<dashcore::Txid>> {
+        self.0.lock().await
     }
 }
 
