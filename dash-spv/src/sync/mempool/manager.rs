@@ -2529,8 +2529,16 @@ mod tests {
         assert!(manager.broadcasts.contains_key(&txid), "no longer tracked");
         assert!(stops.is_stopped(&txid).await, "the stop was cleared");
 
-        stops.lift(&txid).await;
+        // A reconnect: the peer it reached leaves and a new one connects.
+        manager.peers.remove(&peer);
+        let fresh = test_socket_address(2);
+        manager.peers.insert(fresh, Some(VecDeque::new()));
         let later = t0 + (REBROADCAST_INTERVAL + Duration::from_secs(1)) * 4;
+        manager.rebroadcast_if_due_at(&requests, later).await;
+        assert!(rx.try_recv().is_err(), "sent again after a reconnect");
+
+        stops.lift(&txid).await;
+        let later = t0 + (REBROADCAST_INTERVAL + Duration::from_secs(1)) * 5;
         manager.rebroadcast_if_due_at(&requests, later).await;
         assert!(rx.try_recv().is_ok(), "not sent again after the lift");
     }
