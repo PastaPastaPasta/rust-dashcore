@@ -1,0 +1,266 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+name: Continuous integration
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Skips the Cargo jobs while base-sdk comes from the local fork (ci-plan.yml).
+  plan:
+    name: CI plan
+    uses: ./.github/workflows/ci-plan.yml
+
+  # Skipped jobs count as passing, so this keeps a change that still takes
+  # base-sdk from the local fork from looking mergeable into an upstream branch.
+  local-base-sdk:
+    name: Base SDK pin is local
+    needs: plan
+    if: >-
+      needs.plan.outputs.hosted == 'false' && (
+        contains(fromJSON('["dev", "main", "master"]'), github.base_ref) ||
+        (github.event_name == 'push' &&
+          contains(fromJSON('["refs/heads/dev", "refs/heads/main"]'), github.ref)))
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error title=Not mergeable upstream::This change takes base-sdk from a local file:// fork. Move the pin first (docs/node-program/BASE-SDK-FORK.md, CI and leaving the build host)."
+          exit 1
+
+  security:
+    name: Security Audit
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: EmbarkStudios/cargo-deny-action@v2.1.1
+
+  msrv:
+    name: MSRV Check
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: Swatinem/rust-cache@v2.9.3
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+      - name: Check workspace compiles on MSRV
+        run: just msrv
+
+  docs:
+    name: Documentation
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: Swatinem/rust-cache@v2.9.3
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+      - name: Build documentation
+        run: just doc
+
+  verify-groups:
+    name: Verify Test Groups
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+      - run: pip install pyyaml
+      - name: Verify group config and hardcoded matrix
+        run: just gha::verify-groups
+
+  verify-actions-lock:
+    name: Verify Action Lockfile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+      - name: Verify the action lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: just gha::setup gha::verify
+
+  # dashd-node/tests/asserted_log_lines.txt against the pinned Dash Core tree
+  # (REF and REF_COMMIT in contrib/node/asserted-logs.py); the local node gate
+  # runs it too.
+  asserted-logs:
+    name: Asserted Log Lines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Fetch the pinned Dash Core tree
+        run: |
+          eval "$(python3 contrib/node/asserted-logs.py pin)"
+          git init -q "$RUNNER_TEMP/dash"
+          git -C "$RUNNER_TEMP/dash" fetch -q --depth 1 --no-tags \
+            https://github.com/dashpay/dash "refs/tags/$CORE_TAG:refs/tags/$CORE_TAG"
+          test "$(git -C "$RUNNER_TEMP/dash" rev-parse "$CORE_TAG^{commit}")" = "$CORE_COMMIT"
+      - run: python3 contrib/node/asserted-logs.py selftest
+      - run: python3 contrib/node/asserted-logs.py check --core "$RUNNER_TEMP/dash"
+
+  # Node program checks (docs/node-program/BASE-SDK-FORK.md); the local
+  # integration gate runs them.
+  base-sdk-pin:
+    name: Base SDK Pin
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: contrib/node/check-base-sdk-pins.sh
+
+  pure-crates:
+    name: Pure Crate Bans
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-deny
+      # check-pure.sh also lints for Android, with the runner's NDK
+      # (ANDROID_NDK_HOME; contrib/mobile/android-env.sh).
+      - run: rustup target add aarch64-linux-android
+      - run: pip install pyyaml
+      - run: contrib/node/check-pure.sh
+      - run: contrib/node/pin-delta/check-release-refs.sh --selftest
+      - run: contrib/node/pin-delta/check-release-refs.sh
+
+  layers:
+    name: Layer Gates
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-deny
+      # check-shared.sh also lints for Android, with the runner's NDK.
+      - run: rustup target add aarch64-linux-android
+      # SB0 §2.3: L1–L3 and L8, then L5 and L6. L7 (the Android size) needs
+      # the NDK build and a base to compare with, and the allocator canary
+      # (DEC-181) builds every product (release on the host, mobile on Android), so both run in the local
+      # integration gate; the product registry is checked here.
+      - run: python3 contrib/node/check-layers.py
+      - run: python3 contrib/node/check-products.py --registry
+      - run: contrib/node/check-shared.sh
+      - run: contrib/node/check-mobile.sh --no-size
+
+  kgw-fp:
+    name: KGW Floating Point
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: contrib/node/check-no-libm.sh
+      - run: contrib/node/check-kgw-fp.sh
+
+  loom:
+    name: dash-chain Loom Model
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: contrib/node/check-loom.sh
+
+  public-api:
+    name: dash-chain Public API
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-07-15
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-public-api --locked --version 0.52.0
+      - run: contrib/node/check-public-api.sh
+
+  test-ubuntu:
+    name: Ubuntu
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    uses: $/.github/workflows/build-and-test.yml
+    with:
+      os: ubuntu-latest
+      coverage: true
+      skip-groups: ${{ needs.plan.outputs.skip-groups }}
+    secrets: inherit
+
+  test-ubuntu-arm:
+    name: Ubuntu ARM
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    uses: $/.github/workflows/build-and-test.yml
+    with:
+      os: ubuntu-22.04-arm
+      skip-groups: ${{ needs.plan.outputs.skip-groups }}
+
+  test-macos:
+    name: macOS
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    uses: $/.github/workflows/build-and-test.yml
+    with:
+      os: macos-latest
+      skip-groups: ${{ needs.plan.outputs.skip-groups }}
+
+  test-windows:
+    name: Windows
+    needs: plan
+    if: needs.plan.outputs.hosted == 'true'
+    uses: $/.github/workflows/build-and-test.yml
+    with:
+      os: windows-latest
+      skip-groups: ${{ needs.plan.outputs.skip-groups }}
+
+  integrations_tests:
+    name: Integration Tests
+    if: ${{ false }} # Temporarily disabled
+    runs-on: ubuntu-22.04-arm
+    strategy:
+      matrix:
+        dashversion: ["22.1.3"]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Running test script
+        env:
+          DASHVERSION: ${{ matrix.dashversion }}
+        run: ./contrib/test-rpc.sh

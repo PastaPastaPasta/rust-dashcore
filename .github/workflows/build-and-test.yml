@@ -1,0 +1,135 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      coverage:
+        required: false
+        type: boolean
+        default: false
+      skip-groups:
+        description: "JSON list of matrix `exclude` entries, from ci-plan.yml"
+        required: false
+        type: string
+        default: "[]"
+
+permissions:
+  contents: read
+
+# Keep these defaults in sync with contrib/setup-dashd.py
+env:
+  DASHVERSION: "23.1.0"
+  TEST_DATA_REPO: "dashpay/regtest-blockchain"
+  TEST_DATA_VERSION: "v0.0.4"
+
+jobs:
+  test:
+    name: ${{ matrix.group }}
+    runs-on: ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ["core", "spv", "wallet", "ffi", "rpc", "node-pure", "node-shared", "node-runtime", "node-app", "node-conformance"]
+        exclude: ${{ fromJSON(inputs.skip-groups) }}
+    env:
+      RUST_BACKTRACE: 1
+      CACHE_DIR: ${{ github.workspace }}/.rust-dashcore-test
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          shared-key: "test-${{ inputs.os }}-${{ matrix.group }}"
+          prefix-key: "v1-rust"
+          cache-bin: false
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+
+      - name: Install cargo-llvm-cov
+        if: inputs.coverage
+        uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: cargo-llvm-cov
+
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+
+      # Set up dashd and test data for groups that need it (node-runtime: dash-testkit's
+      # MixedNetwork starts dashd from DASHD_PATH)
+      - name: Cache dashd and test data
+        if: matrix.group == 'spv' || matrix.group == 'ffi' || matrix.group == 'node-runtime'
+        uses: actions/cache@v6.1.0
+        with:
+          path: .rust-dashcore-test
+          # node-runtime's copy also holds dashd v24 (next step): its own key keeps it out of spv/ffi's.
+          key: rust-dashcore-test-${{ inputs.os }}-${{ env.DASHVERSION }}-${{ env.TEST_DATA_REPO }}-${{ env.TEST_DATA_VERSION }}${{ matrix.group == 'node-runtime' && '-node-runtime' || '' }}
+
+      # dash-rpc-spec compares its help text with dashd v24 (dash-rpc-spec/tests/dashd_help.rs);
+      # dash-p2p-transport's interop tests talk to a v24 regtest dashd (tests/dashd_interop.rs);
+      # rdashd compares its init errors, lock and refusal with dashd v24 (rdashd/tests/dashd_v24.rs)
+      - name: Cache dashd v24
+        if: matrix.group == 'node-app' || matrix.group == 'node-shared' || matrix.group == 'node-runtime'
+        uses: actions/cache@v6.1.0
+        with:
+          path: .rust-dashcore-test
+          key: rust-dashcore-test-${{ inputs.os }}-24.0.2-${{ env.TEST_DATA_REPO }}-${{ env.TEST_DATA_VERSION }}
+
+      - name: Setup dashd v24 for dash-rpc-spec, dash-p2p-transport and rdashd
+        if: matrix.group == 'node-app' || matrix.group == 'node-shared' || matrix.group == 'node-runtime'
+        env:
+          DASHVERSION: "24.0.2"
+        shell: bash
+        run: python contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=/DASHD_V24_PATH=/p' >> "$GITHUB_ENV"
+
+      # dash-testkit starts the rdashd at RDASHD_PATH and never falls back to a binary it finds
+      # (a stale build would pass): build it from this checkout, without features (no test
+      # hooks), and copy it out of target/, where rdashd's own test run rebuilds it.
+      - name: Build rdashd for dash-testkit
+        if: matrix.group == 'node-runtime'
+        shell: bash
+        run: |
+          cargo build -p rdashd
+          exe="rdashd${{ runner.os == 'Windows' && '.exe' || '' }}"
+          mkdir -p "$RUNNER_TEMP/rdashd-under-test"
+          cp "target/debug/$exe" "$RUNNER_TEMP/rdashd-under-test/$exe"
+          echo "RDASHD_PATH=$RUNNER_TEMP/rdashd-under-test/$exe" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        id: tests
+        env:
+          CI_OS: ${{ inputs.os }}
+          DASHD_TEST_RETAIN_DIR: ${{ (matrix.group == 'spv' || matrix.group == 'ffi' || matrix.group == 'node-runtime') && format('{0}/dashd-test-logs', runner.temp) || '' }}
+        run: just ${{ inputs.coverage && 'coverage' || 'test' }} ${{ matrix.group }}
+
+      - name: Generate coverage report
+        if: inputs.coverage && steps.tests.outputs.crate_flags
+        run: cargo llvm-cov report --lcov --output-path lcov.info
+
+      - name: Upload coverage to Codecov
+        if: inputs.coverage && steps.tests.outputs.crate_flags
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          files: lcov.info
+          flags: ${{ steps.tests.outputs.crate_flags }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+      - name: Upload failed dashd test logs
+        if: failure() && (matrix.group == 'spv' || matrix.group == 'ffi' || matrix.group == 'node-runtime')
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ${{ matrix.group }}-test-logs-${{ inputs.os }}
+          path: ${{ runner.temp }}/dashd-test-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Validate headers
+        if: matrix.group == 'ffi' && inputs.os == 'ubuntu-latest'
+        run: |
+          sudo apt update && sudo apt install -y build-essential
+          bash ffi-c-tests/validate-headers.sh ./target/llvm-cov-target/debug/include
+          bash ffi-c-tests/check-abi.sh

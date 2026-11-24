@@ -1,0 +1,45 @@
+name: CI plan
+
+# What the calling workflow can run on hosted runners.
+#
+# While the node program pins base-sdk to its local fork through a file://
+# [patch] (docs/node-program/BASE-SDK-FORK.md), Cargo cannot resolve the
+# workspace anywhere but the build host, so every job that resolves it is skipped,
+# with one notice. Node branches stay local (DEC-09) and the integration gate
+# runs those jobs there. Once the [patch] no longer names a local path, the
+# jobs run again.
+
+on:
+  workflow_call:
+    outputs:
+      hosted:
+        description: "'true' when hosted runners can resolve the Cargo workspace"
+        value: ${{ jobs.plan.outputs.hosted }}
+      skip-groups:
+        description: "Matrix `exclude` entries for the test groups that have no crates yet"
+        value: ${{ jobs.plan.outputs.skip-groups }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      hosted: ${{ steps.plan.outputs.hosted }}
+      skip-groups: ${{ steps.plan.outputs.skip-groups }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: pip install pyyaml
+      - id: plan
+        run: |
+          fork="$(python3 contrib/node/base_sdk_pins.py fork)"
+          if [[ "$fork" == file://* ]]; then
+            echo "::notice title=Cargo jobs skipped::The workspace takes base-sdk from the local fork $fork, which hosted runners do not have. The node integration gate runs these jobs locally (docs/node-program/BASE-SDK-FORK.md)."
+            echo "hosted=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "hosted=true" >> "$GITHUB_OUTPUT"
+          fi
+          groups="$(python3 .github/scripts/ci_config.py empty-groups)"
+          echo "skip-groups=$groups" >> "$GITHUB_OUTPUT"

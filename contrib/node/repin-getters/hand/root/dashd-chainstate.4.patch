@@ -1,0 +1,31 @@
+diff --git a/dashd-chainstate/src/chain/tests/node_evo.rs b/dashd-chainstate/src/chain/tests/node_evo.rs
+index 63e311d8ad635455fec503d04153f4f2471c0b30..0aa515c8946abb80cbb5265afe454206d859fa1b 100644
+--- a/dashd-chainstate/src/chain/tests/node_evo.rs
++++ b/dashd-chainstate/src/chain/tests/node_evo.rs
+@@ -1372,7 +1372,7 @@ fn step_ten_with_no_best_chainlock() {
+                     );
+                 }
+                 c = dash_primitives::CoinbaseCommitment::new(
+-                    version,
++                    dash_primitives::CbCommitmentVersion::new(version),
+                     c.height(),
+                     c.merkle_root_mn_list(),
+                     c.merkle_root_quorums(),
+@@ -1557,7 +1557,7 @@ fn run_step_ten(cases: Vec<TenCase>) -> Vec<TenRun> {
+ 
+ /// The fixture's best-ChainLock signature, valid under the basic scheme.
+ fn fixture_sig() -> [u8; 96] {
+-    cbtx_of(&coinbase()).best_cl_signature().expect("signed").to_bytes()
++    cbtx_of(&coinbase()).best_cl_signature().as_ref().expect("signed").to_bytes()
+ }
+ 
+ /// Another signature valid under the basic scheme.
+@@ -1705,7 +1705,7 @@ fn cl_best_is_asked_only_past_the_version_gate() {
+     let s = fixture_sig();
+     let mut v2 = cbtx_with(9, None);
+     v2 = dash_primitives::CoinbaseCommitment::new(
+-        2,
++        dash_primitives::CbCommitmentVersion::new(2),
+         v2.height(),
+         v2.merkle_root_mn_list(),
+         v2.merkle_root_quorums(),

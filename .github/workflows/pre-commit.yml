@@ -1,0 +1,49 @@
+name: Pre-commit Checks
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Skips the Cargo jobs while base-sdk comes from the local fork (ci-plan.yml).
+  plan:
+    name: CI plan
+    uses: ./.github/workflows/ci-plan.yml
+
+  pre-commit:
+    name: Pre-commit (${{ matrix.os }})
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Cache cargo dependencies
+        if: needs.plan.outputs.hosted == 'true'
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          shared-key: "pre-commit-rust-${{ matrix.os }}"
+
+      # Without the base SDK fork, skip clippy, the one hook that resolves the workspace.
+      - name: Run pre-commit
+        env:
+          SKIP: ${{ needs.plan.outputs.hosted == 'false' && 'clippy' || '' }}
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --hook-stage push --verbose

@@ -1,0 +1,151 @@
+name: Ready for Review Label
+
+# Runs only on workflow_run so it holds a write-capable token even for pull
+# requests opened from forks. Events tied to the fork head (pull_request,
+# pull_request_review) get a read-only token and no secrets, so they cannot
+# mutate labels themselves. The companion "Ready for Review Trigger" workflow
+# relays those events here by completing and firing this workflow_run.
+on:
+  workflow_run:
+    workflows:
+      - "Continuous integration"
+      - "Pre-commit Checks"
+      - "Sanitizer"
+      - "Ready for Review Trigger"
+      - "Changelog Guard"
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+  issues: write
+
+jobs:
+  # Ensure all pull_request-triggered workflows are monitored by workflow_run
+  validate-triggers:
+    runs-on: ${{ vars.DASH_LIGHT_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .github/workflows
+          sparse-checkout-cone-mode: true
+      - name: Validate workflow trigger coverage
+        run: |
+          SELF=".github/workflows/ready-for-review.yml"
+
+          # Extract workflow names from the workflow_run trigger list in this file
+          MONITORED=$(grep -E '^\s+- "' "$SELF" | sed 's/.*"\([^"]*\)".*/\1/')
+
+          MISSING=""
+          for f in .github/workflows/*.yml; do
+            # Skip self
+            [ "$f" = "$SELF" ] && continue
+
+            # Check if this workflow triggers on pull_request (not
+            # pull_request_target which has different semantics, and not
+            # workflow_call which is for reusable workflows).
+            if ! grep -qE '^[[:space:]]+pull_request:' "$f"; then
+              continue
+            fi
+
+            # Extract the workflow name
+            WF_NAME=$(grep -m1 '^name:' "$f" | sed "s/^name:\s*//; s/[\"']//g")
+
+            # Check if it's in the monitored list
+            if ! echo "$MONITORED" | grep -qF "$WF_NAME"; then
+              MISSING="$MISSING\n  - $WF_NAME ($f)"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo ""
+            echo "ERROR: The following workflows trigger on pull_request but are"
+            echo "not listed in ready-for-review.yml's workflow_run trigger."
+            echo "Please add them to keep the ready-for-review label gate working correctly."
+            echo -e "$MISSING"
+            exit 1
+          fi
+
+          echo "All pull_request workflows are covered by workflow_run triggers."
+
+  evaluate:
+    runs-on: ${{ vars.DASH_LIGHT_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+      - name: Evaluate label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Resolve the PR(s) for the head commit. github.event.workflow_run's
+          # pull_requests array is empty for fork PRs, and the commit-to-PR
+          # endpoint does not index fork heads, so match the head sha against
+          # the list of open PRs, which works regardless of where the branch
+          # lives. Matching the exact sha also ignores stale runs whose commit
+          # the PR has already moved past.
+          PR_NUMBERS=$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" \
+            --jq ".[] | select(.head.sha == \"$HEAD_SHA\") | .number")
+
+          if [ -z "$PR_NUMBERS" ]; then
+            echo "No open pull request found for $HEAD_SHA, skipping."
+            exit 0
+          fi
+
+          for PR_NUMBER in $PR_NUMBERS; do
+            echo "=== Checking PR #$PR_NUMBER ==="
+
+            PR_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft,labels)
+
+            if [ "$(echo "$PR_JSON" | jq -r '.isDraft')" = "true" ]; then
+              echo "PR is a draft. Removing ready-for-review label if present."
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "ready-for-review" || true
+              continue
+            fi
+
+            # A merge conflict disqualifies the PR regardless of the other gates.
+            if [ "$(echo "$PR_JSON" | jq -r '[.labels[].name] | index("merge-conflict") != null')" = "true" ]; then
+              echo "Merge conflict present. Removing ready-for-review label if present."
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "ready-for-review" || true
+              continue
+            fi
+
+            # Check if CodeRabbit has approved. A dismissed or changes-requested
+            # review leaves the latest state != APPROVED and removes the label.
+            CODERABBIT_STATE=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" | jq -rs '
+              add
+              | map(select(.user.login == "coderabbitai[bot]"))
+              | sort_by(.submitted_at)
+              | last
+              | .state // "NONE"
+            ')
+            echo "CodeRabbit review state: $CODERABBIT_STATE"
+
+            if [ "$CODERABBIT_STATE" != "APPROVED" ]; then
+              echo "CodeRabbit has not approved. Removing label if present."
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "ready-for-review" || true
+              continue
+            fi
+
+            # Check if all CI checks have passed
+            CI_STATUS=$(.github/scripts/check_ci_status.sh "$PR_NUMBER" "$REPO")
+
+            echo "CI status: $CI_STATUS"
+            if [ "$CI_STATUS" = "all_passed" ]; then
+              echo "All conditions met. Adding ready-for-review label."
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "ready-for-review"
+            else
+              echo "CI checks not all passing ($CI_STATUS). Removing label if present."
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "ready-for-review" || true
+            fi
+          done

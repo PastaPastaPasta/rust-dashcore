@@ -1,0 +1,46 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # Skips the Cargo jobs while base-sdk comes from the local fork (ci-plan.yml).
+  plan:
+    name: CI plan
+    uses: ./.github/workflows/ci-plan.yml
+
+  fuzz:
+    needs: plan
+    if: ${{ !github.event.act && needs.plan.outputs.hosted == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install test dependencies
+        run: sudo apt-get update -y && sudo apt-get install -y binutils-dev libunwind8-dev libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc libiberty-dev
+      - uses: actions/checkout@v7.0.1
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: "fuzz -> target"
+      - uses: taiki-e/install-action@v2.90.3
+        with:
+          tool: just
+      - name: Run all fuzz targets
+        env:
+          HFUZZ_FAIL_ON_CRASH: 1
+        run: just dash-fuzz::run
+      - name: Create issue on failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Nightly fuzz failure $(date -u +%Y-%m-%d)" \
+            --body "The nightly fuzz run failed. See: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --label "bug"
