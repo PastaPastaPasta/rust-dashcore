@@ -67,9 +67,9 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     pub(super) transactions: HashMap<Txid, UnconfirmedTransaction>,
     /// Self-broadcast transactions and their network-acceptance state.
     pub(super) broadcasts: HashMap<Txid, TxBroadcastState>,
-    /// Transactions never to send again: dropped from `broadcasts` at the
-    /// next rebroadcast pass, and not sent or tracked when a queued local
-    /// broadcast of one arrives.
+    /// Transactions not to send until an explicit broadcast lifts their stop.
+    /// They stay in `broadcasts`, and a queued local broadcast of one is
+    /// tracked but not sent.
     stopped: StoppedRebroadcasts,
     broadcast_config: BroadcastConfig,
     strategy: MempoolStrategy,
@@ -676,6 +676,11 @@ impl<W: WalletInterface> MempoolManager<W> {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) async fn is_rebroadcast_stopped(&self, txid: &Txid) -> bool {
+        self.stopped.lock().await.contains(txid)
+    }
+
     /// Begin tracking a self-originated transaction and send it to the
     /// network, withholding it from a holdout subset of peers.
     ///
@@ -685,11 +690,6 @@ impl<W: WalletInterface> MempoolManager<W> {
     /// Returns the acceptance event when the network's verdict is already
     /// known (see [`Self::preexisting_acceptance`]); the transaction is still
     /// sent, since knowing one peer has it says nothing about the rest.
-    #[cfg(test)]
-    pub(crate) async fn is_rebroadcast_stopped(&self, txid: &Txid) -> bool {
-        self.stopped.lock().await.contains(txid)
-    }
-
     pub(super) async fn start_broadcast(
         &mut self,
         tx: &Transaction,

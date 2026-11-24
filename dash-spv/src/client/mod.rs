@@ -179,4 +179,36 @@ mod tests {
             "the manager misses the handle's stop"
         );
     }
+
+    #[tokio::test]
+    async fn broadcast_transaction_lifts_its_stop() {
+        let config = ClientConfig::mainnet()
+            .without_filters()
+            .without_masternodes()
+            .with_mempool_tracking(MempoolStrategy::FetchAll)
+            .with_storage_path(TempDir::new().unwrap().path());
+        let storage =
+            DiskStorageManager::with_temp_dir().await.expect("Failed to create tmp storage");
+        let wallet = Arc::new(RwLock::new(WalletManager::<ManagedWalletInfo>::new(config.network)));
+        let client = DashSpvClient::new(
+            config,
+            MockNetworkManager::new(),
+            storage,
+            wallet,
+            vec![Arc::new(())],
+        )
+        .await
+        .expect("client construction must succeed");
+
+        let tx = dashcore::Transaction {
+            version: 1,
+            lock_time: 0,
+            input: vec![],
+            output: vec![],
+            special_transaction_payload: None,
+        };
+        client.stop_rebroadcast(&tx.txid()).await;
+        client.broadcast_transaction(&tx).await.expect("the broadcast must be accepted");
+        assert!(!client.rebroadcast_stops().is_stopped(&tx.txid()).await, "the stop stays");
+    }
 }
