@@ -1,0 +1,67 @@
+{
+ "name": "hx1-pnb-force",
+ "description": "ProcessNewBlock's force_processing (AcceptBlock's unrequested-block rule): B9 below the tip A10 is not stored unforced and is when forced; unforced B10 (same work as A10) is stored, B11 (more work) is stored and taken; C12 with a wrong BIP34 height fails ContextualCheckBlock at acceptance (BlockChecked)",
+ "rows": [
+  "HX1-X2"
+ ],
+ "network": "regtest",
+ "args": [
+  "-dip3params=2000:2000",
+  "-testactivationheight=v20@2000",
+  "-testactivationheight=mn_rr@2000"
+ ],
+ "ops": [
+  {
+   "op": "build",
+   "branch": "A",
+   "parent": "G",
+   "count": 10,
+   "submit": "connect"
+  },
+  {
+   "op": "build",
+   "branch": "B",
+   "parent": "A8",
+   "count": 3,
+   "submit": "none"
+  },
+  {
+   "op": "build",
+   "branch": "C",
+   "parent": "B11",
+   "count": 1,
+   "submit": "none",
+   "invalid": "cb-height"
+  },
+  {
+   "op": "pnb",
+   "block": "B9",
+   "force": false
+  },
+  {
+   "op": "pnb",
+   "block": "B9",
+   "force": true
+  },
+  {
+   "op": "pnb",
+   "block": "B11",
+   "force": false
+  },
+  {
+   "op": "pnb",
+   "block": "B10",
+   "force": false
+  },
+  {
+   "op": "pnb",
+   "block": "B11",
+   "force": false
+  },
+  {
+   "op": "pnb",
+   "block": "C12",
+   "force": true
+  }
+ ]
+}

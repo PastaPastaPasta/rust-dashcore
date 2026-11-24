@@ -1,0 +1,10 @@
+# CRASH planted bug T20, core mode (CH3a a3), minimised in 300 replays.
+harness st3a/1
+sut chainsut
+config sub=250 invalid=122 effects=- presumed=- crash=- replay=- connect=core planted=T20
+workload c120;f;a3;c1;f
+crash 459 process-kill
+adversary realistic
+granularity sector
+expect R6
+minimality best-effort
