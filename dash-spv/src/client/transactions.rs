@@ -41,12 +41,34 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
             network_guard.broadcast(NetworkMessage::Tx(Box::new(tx.clone()))).await?;
         }
 
+        // An explicit broadcast sends it again from now on, including after
+        // a stop; one queued before a stop is not sent (`stop_rebroadcast`).
+        self.stopped_rebroadcasts.lift(&tx.txid());
+
         // Inject locally so the mempool manager picks it up through handle_tx.
         // With tracking enabled the manager performs the actual (targeted)
         // network send when it processes this message.
         network_guard.dispatch_local(NetworkMessage::Tx(Box::new(tx.clone()))).await;
 
         Ok(())
+    }
+
+    /// Stop sending `txid` to the network: once this returns, the mempool
+    /// manager's rebroadcast timer never sends it again, and a broadcast of
+    /// it already queued but not yet applied is neither sent nor tracked.
+    ///
+    /// For a transaction the wallet abandoned. The stop lasts until a later
+    /// [`broadcast_transaction`](Self::broadcast_transaction) of the same
+    /// transaction, which sends and tracks it again. It does not survive the
+    /// client, and neither do the rebroadcasts it stops.
+    pub fn stop_rebroadcast(&self, txid: &dashcore::Txid) {
+        self.stopped_rebroadcasts.stop(txid);
+    }
+
+    /// A handle to [`Self::stop_rebroadcast`] that never waits on the client,
+    /// for a caller that can't take the client's lock where it stops one.
+    pub fn rebroadcast_stops(&self) -> crate::sync::RebroadcastStops {
+        self.stopped_rebroadcasts.clone()
     }
 
     /// Broadcast a transaction and wait for its network-level outcome.

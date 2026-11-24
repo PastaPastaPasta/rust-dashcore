@@ -23,7 +23,9 @@ pub use filters::{FiltersManager, FiltersProgress};
 pub use instantsend::{InstantSendManager, InstantSendProgress};
 pub use masternodes::{MasternodesManager, MasternodesProgress};
 pub(crate) use mempool::MempoolManager;
-pub use mempool::{BroadcastConfig, BroadcastHoldout, BroadcastResult, MempoolProgress};
+pub use mempool::{
+    BroadcastConfig, BroadcastHoldout, BroadcastResult, MempoolProgress, RebroadcastStops,
+};
 
 pub use crate::sml_engine::QRInfoFeedResult;
 pub use events::SyncEvent;

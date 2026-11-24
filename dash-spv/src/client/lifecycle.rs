@@ -65,10 +65,16 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
         };
 
         // Report the progress of the data already in storage before the first run.
-        let initial_progress =
-            Self::build_managers(&config, &storage, &wallet, masternode_engine.as_ref())
-                .await?
-                .progress();
+        let stopped_rebroadcasts = crate::sync::RebroadcastStops::default();
+        let initial_progress = Self::build_managers(
+            &config,
+            &storage,
+            &wallet,
+            masternode_engine.as_ref(),
+            &stopped_rebroadcasts,
+        )
+        .await?
+        .progress();
 
         // Wrap storage in Arc<Mutex>
         let storage = Arc::new(Mutex::new(storage));
@@ -82,6 +88,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
             sync_coordinator: Arc::new(Mutex::new(SyncCoordinator::new(initial_progress.clone()))),
             sync_loop: Arc::new(Mutex::new(None)),
             event_handlers: Arc::new(event_handlers),
+            stopped_rebroadcasts,
         };
 
         // Load wallet data from storage
@@ -119,6 +126,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
         storage: &S,
         wallet: &Arc<RwLock<W>>,
         masternode_engine: Option<&Arc<RwLock<MasternodeListEngine<PersistentBlockHeaderStorage>>>>,
+        stopped_rebroadcasts: &crate::sync::RebroadcastStops,
     ) -> Result<SyncManagers<W>> {
         let mut managers: SyncManagers<W> = Managers::default();
 
@@ -186,7 +194,8 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
                     initial_revision,
                     config.broadcast_config(),
                 )
-                .with_activation_during_sync(config.mempool_during_sync),
+                .with_activation_during_sync(config.mempool_during_sync)
+                .with_stopped_rebroadcasts(Arc::clone(&stopped_rebroadcasts.0)),
             );
         }
 
@@ -200,7 +209,14 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> DashSpvClient<W, 
         let start_from_height = Self::resolve_start_height(&config, &self.wallet).await;
         Self::initialize_genesis_block(&config, start_from_height, &mut storage).await?;
 
-        Self::build_managers(&config, &storage, &self.wallet, self.masternode_engine.as_ref()).await
+        Self::build_managers(
+            &config,
+            &storage,
+            &self.wallet,
+            self.masternode_engine.as_ref(),
+            &self.stopped_rebroadcasts,
+        )
+        .await
     }
 
     /// Start the sync managers, the network and the storage worker.

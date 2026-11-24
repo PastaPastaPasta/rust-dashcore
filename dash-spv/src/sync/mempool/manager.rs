@@ -17,7 +17,9 @@ use dashcore::{Amount, Transaction, Txid};
 use rand::seq::IteratorRandom;
 use tokio::sync::RwLock;
 
-use super::broadcast::{BroadcastConfig, BroadcastResult, BroadcastStatus, TxBroadcastState};
+use super::broadcast::{
+    BroadcastConfig, BroadcastResult, BroadcastStatus, StoppedRebroadcasts, TxBroadcastState,
+};
 use super::filter::build_wallet_bloom_filter;
 use super::BLOOM_FALSE_POSITIVE_RATE;
 use crate::client::config::MempoolStrategy;
@@ -65,6 +67,10 @@ pub(crate) struct MempoolManager<W: WalletInterface> {
     pub(super) transactions: HashMap<Txid, UnconfirmedTransaction>,
     /// Self-broadcast transactions and their network-acceptance state.
     pub(super) broadcasts: HashMap<Txid, TxBroadcastState>,
+    /// Transactions never to send again: dropped from `broadcasts` at the
+    /// next rebroadcast pass, and not sent or tracked when a queued local
+    /// broadcast of one arrives.
+    stopped: StoppedRebroadcasts,
     broadcast_config: BroadcastConfig,
     strategy: MempoolStrategy,
     max_transactions: usize,
@@ -121,6 +127,7 @@ impl<W: WalletInterface> MempoolManager<W> {
             wallet,
             transactions: HashMap::new(),
             broadcasts: HashMap::new(),
+            stopped: StoppedRebroadcasts::default(),
             broadcast_config,
             strategy,
             max_transactions,
@@ -136,6 +143,12 @@ impl<W: WalletInterface> MempoolManager<W> {
             last_wallet_set_revision: None,
             refresh_after_scan: false,
         }
+    }
+
+    /// Shares the client's set of stopped rebroadcasts.
+    pub(crate) fn with_stopped_rebroadcasts(mut self, stopped: StoppedRebroadcasts) -> Self {
+        self.stopped = stopped;
+        self
     }
 
     /// Activate peers as they connect, before filter sync completes
@@ -686,6 +699,10 @@ impl<W: WalletInterface> MempoolManager<W> {
         if self.broadcasts.contains_key(&txid) {
             return Vec::new();
         }
+        if self.stopped.lock().unwrap_or_else(|p| p.into_inner()).contains(&txid) {
+            tracing::info!("Broadcast {} not sent: its rebroadcast was stopped", txid);
+            return Vec::new();
+        }
 
         let known_acceptance = self.preexisting_acceptance(&txid);
 
@@ -944,6 +961,10 @@ impl<W: WalletInterface> MempoolManager<W> {
     async fn rebroadcast_if_due_at(&mut self, requests: &RequestSender, now: Instant) {
         let current_peers: Vec<SocketAddr> = self.peers.keys().copied().collect();
         let mut count: usize = 0;
+        // Held through the sends, so none starts after a stop returns.
+        let stopped = Arc::clone(&self.stopped);
+        let stopped = stopped.lock().unwrap_or_else(|p| p.into_inner());
+        self.broadcasts.retain(|txid, _| !stopped.contains(txid));
         for (txid, state) in &mut self.broadcasts {
             if current_peers.is_empty() {
                 continue;
@@ -2464,6 +2485,73 @@ mod tests {
         // must not rebroadcast.
         manager.rebroadcast_if_due_at(&requests, later).await;
         assert!(rx.try_recv().is_err(), "should not rebroadcast immediately after reset");
+    }
+
+    #[tokio::test]
+    async fn test_stopped_broadcast_is_never_sent_again() {
+        let (mut manager, requests, mut rx) = create_test_manager();
+        let peer = test_socket_address(1);
+        manager.peers.insert(peer, Some(VecDeque::new()));
+        let stopped = StoppedRebroadcasts::default();
+        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+
+        let tx = test_transaction(11);
+        let txid = tx.txid();
+        let t0 = Instant::now();
+        let mut state = TxBroadcastState::new(tx, t0);
+        state.sent_to.insert(peer);
+        manager.broadcasts.insert(txid, state);
+
+        stopped.lock().unwrap().insert(txid);
+        for n in 1..=3u32 {
+            let later = t0 + (REBROADCAST_INTERVAL + Duration::from_secs(1)) * n;
+            manager.rebroadcast_if_due_at(&requests, later).await;
+            assert!(rx.try_recv().is_err(), "sent again after the stop, pass {n}");
+        }
+        assert!(!manager.broadcasts.contains_key(&txid), "still tracked");
+        assert!(stopped.lock().unwrap().contains(&txid), "the stop was cleared");
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_queued_before_a_stop_is_not_sent() {
+        let (mut manager, requests, mut rx) = create_test_manager();
+        let peer = test_socket_address(1);
+        manager.peers.insert(peer, Some(VecDeque::new()));
+        let stopped = StoppedRebroadcasts::default();
+        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+
+        // The client dispatched the broadcast, then the stop ran before the
+        // manager applied it.
+        let tx = test_transaction(12);
+        let txid = tx.txid();
+        stopped.lock().unwrap().insert(txid);
+        let local_addr = SocketAddr::from(([0, 0, 0, 0], 0));
+        manager.handle_tx(tx, local_addr, &requests).await.unwrap();
+
+        assert!(rx.try_recv().is_err(), "the queued broadcast was sent");
+        assert!(!manager.broadcasts.contains_key(&txid), "the queued broadcast is tracked");
+        let later = Instant::now() + REBROADCAST_INTERVAL + Duration::from_secs(1);
+        manager.rebroadcast_if_due_at(&requests, later).await;
+        assert!(rx.try_recv().is_err(), "sent at the rebroadcast");
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_after_its_stop_is_lifted_is_sent() {
+        let (mut manager, requests, mut rx) = create_test_manager();
+        let peer = test_socket_address(1);
+        manager.peers.insert(peer, Some(VecDeque::new()));
+        let stopped = StoppedRebroadcasts::default();
+        manager = manager.with_stopped_rebroadcasts(Arc::clone(&stopped));
+
+        // `broadcast_transaction` lifts the stop before it dispatches.
+        let tx = test_transaction(13);
+        let txid = tx.txid();
+        stopped.lock().unwrap().insert(txid);
+        stopped.lock().unwrap().remove(&txid);
+        manager.start_broadcast(&tx, &requests);
+
+        assert!(rx.try_recv().is_ok(), "the broadcast was not sent");
+        assert!(manager.broadcasts.contains_key(&txid), "the broadcast is not tracked");
     }
 
     #[tokio::test]

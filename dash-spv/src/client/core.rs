@@ -119,6 +119,8 @@ pub struct DashSpvClient<W: WalletInterface, N: NetworkManager, S: StorageManage
     /// the lock throughout, so they never overlap.
     pub(super) sync_loop: Arc<Mutex<Option<SyncLoop>>>,
     pub(super) event_handlers: Arc<Vec<Arc<dyn super::EventHandler>>>,
+    /// Shared with every mempool manager the client builds.
+    pub(super) stopped_rebroadcasts: crate::sync::RebroadcastStops,
 }
 
 /// The background task of a running client.
@@ -139,6 +141,7 @@ impl<W: WalletInterface, N: NetworkManager, S: StorageManager> Clone for DashSpv
             sync_coordinator: Arc::clone(&self.sync_coordinator),
             sync_loop: Arc::clone(&self.sync_loop),
             event_handlers: Arc::clone(&self.event_handlers),
+            stopped_rebroadcasts: self.stopped_rebroadcasts.clone(),
         }
     }
 }

@@ -12,6 +12,30 @@ use std::time::{Duration, Instant};
 
 use dashcore::Transaction;
 
+/// Transactions whose rebroadcast was stopped
+/// ([`DashSpvClient::stop_rebroadcast`](crate::client::DashSpvClient::stop_rebroadcast)),
+/// shared by the client and every mempool manager it builds. A txid stays
+/// until an explicit broadcast of it, so a broadcast already queued when it
+/// was stopped is neither sent nor tracked.
+pub(crate) type StoppedRebroadcasts = std::sync::Arc<std::sync::Mutex<HashSet<dashcore::Txid>>>;
+
+/// A handle that stops transactions' rebroadcast without waiting on the
+/// client ([`DashSpvClient::rebroadcast_stops`](crate::client::DashSpvClient::rebroadcast_stops)).
+#[derive(Clone, Debug, Default)]
+pub struct RebroadcastStops(pub(crate) StoppedRebroadcasts);
+
+impl RebroadcastStops {
+    /// As [`DashSpvClient::stop_rebroadcast`](crate::client::DashSpvClient::stop_rebroadcast).
+    pub fn stop(&self, txid: &dashcore::Txid) {
+        self.0.lock().unwrap_or_else(|p| p.into_inner()).insert(*txid);
+    }
+
+    /// Lifts a stop before an explicit broadcast of `txid`.
+    pub(crate) fn lift(&self, txid: &dashcore::Txid) {
+        self.0.lock().unwrap_or_else(|p| p.into_inner()).remove(txid);
+    }
+}
+
 /// How many peers to withhold a broadcast transaction from.
 ///
 /// At least one peer must be withheld for acceptance detection via `inv` echo
