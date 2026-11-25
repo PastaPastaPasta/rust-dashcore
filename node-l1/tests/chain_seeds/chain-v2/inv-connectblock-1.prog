@@ -1,0 +1,6 @@
+# A two-block branch known by its headers, a sibling locked at its first height, then the
+# branch's data child first: its first block connects into the lock (ConnectBlock#1).
+extend main 2 headers hold
+extend main 1
+cl main@-0
+deliver b1 rev

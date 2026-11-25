@@ -1,0 +1,26 @@
+[Unit]
+Description=G2 LLMQ matrix at node/integration, nightly (CH5 g2-nightly.sh; box-local)
+
+[Service]
+# Not oneshot: RuntimeMaxSec does not apply to Type=oneshot. RuntimeMaxSec covers the build, the
+# g2 port-lock wait (g2 takes that lock itself; nothing here wraps it in flock) and the g2 run.
+# KillMode=mixed sends the SIGTERM to the script (the bootstrap execs g2-nightly.sh), which
+# forwards it to g2-at so that it writes its report.
+Type=exec
+Environment=TMPDIR=/work/tmp
+# The bootstrap (installed from the repository, see g2-nightly.sh) moves the nightly's own harness
+# worktree to G2_NIGHTLY_HARNESS (default G2_NIGHTLY_REF, node/integration) and runs its
+# g2-nightly.sh; no live checkout is read. A harness ref without g2-at is one "no result" line.
+Environment=G2_NIGHTLY_BOOTSTRAP=%h/.local/libexec/g2-nightly-bootstrap.sh
+ExecStart=/usr/bin/nice -n 19 /bin/bash ${G2_NIGHTLY_BOOTSTRAP}
+# The summary line can outlive its process's unit attribution: journalctl --user -t g2-llmq-nightly
+SyslogIdentifier=g2-llmq-nightly
+# 3600 s: a cold build (up to ~20 min) + the lock wait (G2_NIGHTLY_LOCK_WAIT, 900 s) + a night that
+# runs the main pass, the rerun and the confirm (~20 min; measured 1176-1184 s) is ~3300 s. The
+# nightly builds the release profile (g2-at --release): cold, rdashd + rdash-cli with dkg-runtime
+# measured 172 s through sccache and 569 s without a rustc wrapper (g2-at's sccache fallback),
+# so 569 + 900 + 1184 = 2653 s.
+# test_g2_at.py keeps this at least LOCK_WAIT + 2400 s.
+RuntimeMaxSec=3600
+KillMode=mixed
+TimeoutStopSec=300

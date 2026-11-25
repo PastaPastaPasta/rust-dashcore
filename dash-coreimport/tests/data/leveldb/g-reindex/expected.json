@@ -1,0 +1,111 @@
+{
+  "audit": {
+    "blocks/index": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "g-reindex/blocks/index/MANIFEST-000002",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "g-reindex/blocks/index/MANIFEST-000002",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "g-reindex/blocks/index/MANIFEST-000002",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "g-reindex/blocks/index/MANIFEST-000002",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "g-reindex/blocks/index/MANIFEST-000002",
+          "manifest_tag": 4,
+          "offset": 48
+        }
+      ],
+      "levels": [],
+      "versions": [
+        {
+          "file": "g-reindex/blocks/index/000003.log",
+          "key": "52",
+          "kind": 1,
+          "level": "wal",
+          "offset": 19,
+          "sequence": 1,
+          "value": "31"
+        }
+      ]
+    },
+    "chainstate": {
+      "features": [
+        {
+          "comparator": "leveldb.BytewiseComparator",
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 1,
+          "offset": 7
+        },
+        {
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 2,
+          "offset": 42
+        },
+        {
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 9,
+          "offset": 44
+        },
+        {
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 3,
+          "offset": 46
+        },
+        {
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 4,
+          "offset": 48
+        },
+        {
+          "file": "g-reindex/chainstate/MANIFEST-000004",
+          "manifest_tag": 7,
+          "offset": 50
+        },
+        {
+          "file": "g-reindex/chainstate/000005.ldb",
+          "metadata": "filter.leveldb.BuiltinBloomFilter2",
+          "offset": 71
+        }
+      ],
+      "levels": [
+        0
+      ],
+      "versions": [
+        {
+          "file": "g-reindex/chainstate/000005.ldb",
+          "key": "0e006f62667573636174655f6b6579",
+          "kind": 1,
+          "level": 0,
+          "offset": 0,
+          "sequence": 1,
+          "value": "0810c7045808b22a30"
+        }
+      ]
+    }
+  },
+  "best_block": null,
+  "decoded": {
+    "B": null,
+    "R": true,
+    "last_file": null,
+    "obfuscation_key": "10c7045808b22a30",
+    "prunedblockfiles": false
+  },
+  "genesis": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e",
+  "pruned": false,
+  "reindexing": true
+}

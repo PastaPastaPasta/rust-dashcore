@@ -1,0 +1,8 @@
+# S0p, hold: hold_pf_left_ibd_kill.prog's mirrors, then a CLEAN restart after them.
+start hold
+start old
+extend main 1
+warp 30
+extend main 1
+restart clean
+extend main 1
