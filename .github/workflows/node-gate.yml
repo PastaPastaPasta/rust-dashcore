@@ -31,7 +31,7 @@
 #   selftest beside nightly, gated the same way: contrib/node/selftest-checks.sh --shard I/K, one job
 #            per shard (v23, DEC-1695). Never part of a verdict; saves no cache.
 #   mobile   beside nightly, gated the same way: contrib/node/check-mobile.sh (L6/L7/O5) with
-#            agentbox's NDK and API, so the stripped-size baseline holds (DEC-1862). Never part of a verdict.
+#            the build host's NDK and API, so the stripped-size baseline holds (DEC-1862). Never part of a verdict.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -137,7 +137,7 @@ jobs:
       commit: ${{ steps.checkout.outputs.commit }}
       nightly_ran: ${{ steps.once.outputs.ran }}
     steps:
-      # The fork's schedule fires hours late, often after the 06:47 UTC fallback dispatch from agentbox
+      # The fork's schedule fires hours late, often after the 06:47 UTC fallback dispatch from the build host
       # has run the day's nightly (CI-FORK.md). A scheduled run then skips the nightly job. A failed
       # lookup runs it: a second nightly costs less than none.
       - name: Once a day
@@ -208,7 +208,7 @@ jobs:
           git log -1 --format='%H %s'
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
           rustc -Vv
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
@@ -627,7 +627,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
@@ -639,18 +639,18 @@ jobs:
 
       # v22 (POL-3c-4b): dash-chainparams on upstream base-sdk at the script's CERTIFIED rev, not only on
       # the fork the [patch] names. It builds in its own target and fetches upstream (~95 s cold on
-      # agentbox), on the tree as exported; the local-clone step and fmt below run whatever its result.
+      # the build host), on the tree as exported; the local-clone step and fmt below run whatever its result.
       - name: chainparams-upstream
         if: ${{ !cancelled() }}
         run: contrib/node/check-chainparams-upstream.sh "$RUNNER_TEMP/chainparams-upstream"
 
       # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
-      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
+      # this is its inverse, onto a clone of that fork, so the checks see the build host's layout.
       - name: Base SDK pin to a local clone
         if: ${{ !cancelled() }}
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # Workspaces the export left alone keep the build host's local URL; the clone goes there, so
           # every manifest names one fork (else to the runner's temp dir).
           local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
           [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
@@ -746,7 +746,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
 
       - name: check-loom
         run: contrib/node/check-loom.sh
@@ -785,7 +785,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
           echo "restore_t0=$(date +%s.%N)" >> "$GITHUB_ENV"
 
       - name: Restore the dependency closure
@@ -1039,12 +1039,12 @@ jobs:
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
 
       # The export points the root's base SDK [patch] at the public fork (fork-push-sources.txt);
-      # this is its inverse, onto a clone of that fork, so the checks see agentbox's layout.
+      # this is its inverse, onto a clone of that fork, so the checks see the build host's layout.
       - name: Base SDK pin to a local clone
         if: matrix.kind == 'extras'
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # Workspaces the export left alone keep the build host's local URL; the clone goes there, so
           # every manifest names one fork (else to the runner's temp dir).
           local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
           [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
@@ -1176,7 +1176,7 @@ jobs:
           echo "job_t0=$(date +%s)" >> "$GITHUB_ENV"
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
           rustc -Vv
           df -h /
 
@@ -1407,7 +1407,7 @@ jobs:
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
 
       - name: Restore the dependency closure
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
@@ -1477,7 +1477,7 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # DEC-1862: check-mobile.sh with agentbox's NDK and API. L7 measures against the merge base with
+  # DEC-1862: check-mobile.sh with the build host's NDK and API. L7 measures against the merge base with
   # refs/heads/node/integration, so the runner layout is committed as in selftest.
   mobile:
     name: mobile
@@ -1488,7 +1488,7 @@ jobs:
     permissions:
       contents: read
     env:
-      # agentbox's NDK and API: check-layers.py's size baseline records both.
+      # the build host's NDK and API: check-layers.py's size baseline records both.
       NDK_PIN: "29.0.14206865"
       ANDROID_API: "24"
     steps:
@@ -1529,7 +1529,7 @@ jobs:
           for v in ANDROID_NDK_HOME ANDROID_NDK_ROOT ANDROID_NDK ANDROID_NDK_LATEST_HOME; do echo "$v=$ndk" >> "$GITHUB_ENV"; done
           echo "NDK $rev, API $ANDROID_API"
 
-      # As in selftest: the spv lint's audit stamp reads the pin from agentbox's layout.
+      # As in selftest: the spv lint's audit stamp reads the pin from the build host's layout.
       - name: Base SDK pin to a local clone
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
@@ -1586,7 +1586,7 @@ jobs:
   # its check fails, as a matrix of K shards (K is the list's length; case n is shard (n-1)%K+1's, and
   # every shard also runs the clean-tree cases). Each shard builds in its own cold target/ under
   # TMPDIR (~11 GiB per shard), so no closure is restored; the cargo home only needs every locked crate.
-  # The script wants agentbox's layout committed in HEAD: the base SDK fork as the file:// clone the
+  # The script wants the build host's layout committed in HEAD: the base SDK fork as the file:// clone the
   # [patch] names, and build-and-test.yml, which the export drops (static's two steps, then a commit).
   selftest:
     name: selftest ${{ matrix.shard }}/${{ strategy.job-total }}
@@ -1625,13 +1625,13 @@ jobs:
           docker-images: true
           large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
 
-      # The cases' checks lint for aarch64-linux-android and link through clang and mold, as on agentbox.
+      # The cases' checks lint for aarch64-linux-android and link through clang and mold, as on the build host.
       - name: Toolchain
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$channel" --profile minimal --component rustfmt,clippy
           rustup target add aarch64-linux-android
-          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to agentbox paths
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
           sudo apt-get update -qq
           sudo apt-get install -y mold
           python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
@@ -1648,12 +1648,12 @@ jobs:
         with:
           tool: cargo-deny@0.20.2
 
-      # Unlike static's, this clone has a working tree checked out at the pin, as agentbox's fork
+      # Unlike static's, this clone has a working tree checked out at the pin, as the build host's fork
       # does: the cases plant path dependencies into it ("a member pins base SDK through a path").
       - name: Base SDK pin to a local clone
         run: |
           public=$(python3 -c 'import tomllib; t = tomllib.load(open("Cargo.toml", "rb")); print(" ".join(sorted({v["git"] for v in t["patch"]["https://github.com/dashpay/base-sdk"].values()})))')
-          # Workspaces the export left alone keep agentbox's local URL; the clone goes there, so
+          # Workspaces the export left alone keep the build host's local URL; the clone goes there, so
           # every manifest names one fork (else to the runner's temp dir).
           local=$(git grep -h -oE '"file:///[^"]+"' -- '*Cargo.toml' | tr -d '"' | sort -u | paste -sd ' ')
           [ -n "$local" ] || local=file://$RUNNER_TEMP/base-sdk
@@ -1674,13 +1674,17 @@ jobs:
             echo "::notice::base SDK sources: [patch] '$public', other manifests '$local'; left as is"
           fi
 
-      # check-quirks.py's owner rule reads the program's PLAN.md §4, which only agentbox has, and
+      # check-quirks.py's owner rule reads the program's PLAN.md §4, which only the build host has, and
       # skips without one, so the cases planting a task that is no row ("quirk 13") would pass.
       # The stub's §4 lists exactly the tasks this tree's register names: the rule runs, the
       # clean register passes it, and the planted tasks fail it. L7's decision log needs no stub:
       # selftest-checks.sh plants its own fixture log.
       - name: Program-doc stub
         run: |
+          if [ ! -f docs/node-program/quirks.toml ]; then
+            echo "quirk register absent (fork snapshot); runs in the local post-cut tests"
+            exit 0
+          fi
           plan=$RUNNER_TEMP/program-docs/PLAN.md
           mkdir -p "${plan%/*}"
           python3 - "$plan" <<'EOF'
@@ -1697,7 +1701,7 @@ jobs:
       # manifests differ from HEAD (BL-133), so the layout above is committed, here only.
       # L7 measures against the merge base with refs/heads/node/integration, which a checkout of one
       # commit lacks: the branch is set to the snapshot, and the layout commit (made even when empty)
-      # puts HEAD one commit on, as a change on node/integration is on agentbox.
+      # puts HEAD one commit on, as a change on node/integration is on the build host.
       - name: Commit the runner layout
         run: |
           f=.github/workflows/build-and-test.yml
