@@ -1,0 +1,123 @@
+// P2P payloads Dash Core reads, for the decode domain of base-sdk's
+// P2P messages. Each was sent to a regtest dashd of each pinned release,
+// v23.1.8 and v24.0.0-rc.3 (release binaries, -debug=net), over a raw V1
+// connection from 127.0.0.1, and "core" is the outcome both reported.
+// "throw" is the "ProcessMessages(...): Exception ... caught" log line,
+// which Core handles without a penalty.
+{
+  // A version payload one v23.1.8 node sent another (-capturemessages),
+  // then cut at the offsets or edited at the fields in "name". For accepted
+  // payloads, "subver", "startingheight" and "relaytxes" are getpeerinfo's
+  // values. "groups" is not a Core observation: it counts the optional field
+  // groups the cut leaves (addrFrom+nonce, subver, start height, relay,
+  // mnauth challenge, fMasternode), following Core's read order.
+  "version": [
+    {"name": "full", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "cut_46_mandatory_only", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000", "core": "accept", "subver": "", "startingheight": -1, "relaytxes": true, "groups": 0},
+    {"name": "cut_80_through_nonce", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1", "core": "accept", "subver": "", "startingheight": -1, "relaytxes": true, "groups": 1},
+    {"name": "cut_99_through_subver", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": -1, "relaytxes": true, "groups": 2},
+    {"name": "cut_103_through_height", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f00000000", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 3},
+    {"name": "cut_104_through_relay", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 4},
+    {"name": "cut_136_through_challenge", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b1", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 5},
+    {"name": "cut_60_inside_addr_from", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c000000000000000000000000", "core": "throw"},
+    {"name": "cut_85_inside_subver", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f446173", "core": "throw"},
+    {"name": "cut_101_inside_height", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000", "core": "throw"},
+    {"name": "cut_72_inside_nonce", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c000000000000000000000000000000000000000000000000", "core": "throw"},
+    {"name": "obsolete_short_tail", "raw": "70110100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000eeeeeeeeeeeeeeeeeeee", "core": "disconnect: obsolete version"},
+    {"name": "relay_00", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000000403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": false, "groups": 6},
+    {"name": "relay_02", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000002403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "relay_ff", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f00000000ff403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "mn_02", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b102", "core": "disconnect: inbound masternode"},
+    {"name": "trailing_5", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b1000102030405", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "subver_256", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1fd00012f7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878780000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "subver_257", "raw": "60120100051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1fd01012f787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878780000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "throw"},
+    {"name": "time_negative", "raw": "60120100051c000000000000fbffffffffffffff0000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "accept", "subver": "/Dash Core:23.1.8/", "startingheight": 0, "relaytxes": true, "groups": 6},
+    {"name": "protocol_version_minus_1", "raw": "ffffffff051c000000000000a1b9c76a000000000000000000000000000000000000000000000000000000000000051c0000000000000000000000000000000000000000000000008fe264e3fec040a1122f4461736820436f72653a32332e312e382f0000000001403c7c0d845d58e93143edbbec2716c40b9485266db2828ac22bb6822e03d8b100", "core": "disconnect: obsolete version"},
+  ],
+  // After a full handshake at common version 70240. The headers are the
+  // regtest genesis header (getblockheader false); "count" payloads stop
+  // after the count. "misbehaving 20" is "headers message size = N".
+  "headers": [
+    {"name": "headers_txcount_5", "command": "headers", "version": 70240, "raw": "01010000000000000000000000000000000000000000000000000000000000000000000000c762a6567f3cc092f0684bb62b7e00a84890b990f07cc71a6bb58d64b98e02e0b9968054ffff7f20ffba100005", "core": "accept"},
+    {"name": "headers_txcount_fd", "command": "headers", "version": 70240, "raw": "01010000000000000000000000000000000000000000000000000000000000000000000000c762a6567f3cc092f0684bb62b7e00a84890b990f07cc71a6bb58d64b98e02e0b9968054ffff7f20ffba1000fdfd00", "core": "accept"},
+    {"name": "headers_txcount_noncanonical", "command": "headers", "version": 70240, "raw": "01010000000000000000000000000000000000000000000000000000000000000000000000c762a6567f3cc092f0684bb62b7e00a84890b990f07cc71a6bb58d64b98e02e0b9968054ffff7f20ffba1000fd0500", "core": "throw"},
+    {"name": "headers_count_2001", "command": "headers", "version": 70240, "raw": "fdd107", "core": "misbehaving 20"},
+    {"name": "headers_count_2000_short", "command": "headers", "version": 70240, "raw": "fdd007", "core": "throw"},
+    {"name": "headers2_count_2001_short", "command": "headers2", "version": 70240, "raw": "fdd107", "core": "throw"},
+    {"name": "headers2_count_8001", "command": "headers2", "version": 70240, "raw": "fd411f", "core": "misbehaving 20"},
+    {"name": "headers_trailing", "command": "headers", "version": 70240, "raw": "01010000000000000000000000000000000000000000000000000000000000000000000000c762a6567f3cc092f0684bb62b7e00a84890b990f07cc71a6bb58d64b98e02e0b9968054ffff7f20ffba1000009999", "core": "accept"},
+    {"name": "headers2_count_2001_at_70230", "command": "headers2", "version": 70230, "raw": "fdd107", "core": "misbehaving 20"},
+    {"name": "headers2_count_2001_at_70234", "command": "headers2", "version": 70234, "raw": "fdd107", "core": "misbehaving 20"},
+    {"name": "headers2_count_2001_at_70235", "command": "headers2", "version": 70235, "raw": "fdd107", "core": "throw"},
+  ],
+  // After a full handshake. Core logs an unknown command and keeps the peer;
+  // a verack with a payload still completes the handshake (the node sends
+  // its post-verack messages); sendheaders2 never reads its payload (no
+  // exception logged).
+  "ignored_payload": [
+    {"name": "unknown_command", "command": "bs4aprobe", "raw": "000102", "core": "accept: Unknown command"},
+    {"name": "verack_with_payload", "command": "verack", "raw": "deadbeef", "core": "accept"},
+    {"name": "sendheaders2_with_payload", "command": "sendheaders2", "raw": "0707", "core": "accept"},
+  ],
+  // Messages carrying one bool. "captured" is senddsq as each release sent
+  // it to the other (-capturemessages); the rest were sent after a full
+  // handshake.
+  "control": [
+    {"name": "captured", "command": "senddsq", "raw": "01", "core": "accept"},
+    {"name": "senddsq_empty", "command": "senddsq", "raw": "", "core": "throw"},
+    {"name": "senddsq_02", "command": "senddsq", "raw": "02", "core": "accept"},
+    {"name": "qsendrecsigs_empty", "command": "qsendrecsigs", "raw": "", "core": "throw"},
+    {"name": "qsendrecsigs_02", "command": "qsendrecsigs", "raw": "02", "core": "accept"},
+  ],
+  // pong sent while Core's own ping was outstanding (probe_gates.py), then
+  // getpeerinfo: "ping cancelled" means pingwait went away without a
+  // pingtime, "ping pending" that pingwait stayed, "ping measured" that
+  // pingtime appeared. The two entries built from Core's random nonce show
+  // 0102030405060708 in its place (its first byte flipped for the mismatch).
+  "pong": [
+    {"name": "empty", "raw": "", "core": "ping cancelled"},
+    {"name": "len_1", "raw": "2a", "core": "ping cancelled"},
+    {"name": "len_7", "raw": "2a000000000000", "core": "ping cancelled"},
+    {"name": "zero_nonce", "raw": "0000000000000000", "core": "ping cancelled"},
+    {"name": "mismatched_nonce", "raw": "fe02030405060708", "core": "ping pending"},
+    {"name": "matching_nonce_trailing", "raw": "010203040506070899", "core": "ping measured"},
+  ],
+  // V2 (BIP324) packets over an encrypted connection (probe_v2.py, Core's
+  // test framework): the contents are a ping type, short ID 18 or the
+  // 13-byte long form, then the nonce 0x01245678 and zeros up to
+  // "payload_len". "unassigned" uses short ID 0xfe, "unassigned_33" 33 and
+  // "reserved_5" 5, a slot Core keeps without a message; "long_<name>" uses
+  // the "v1_commands" command <name> as a long-form type. "accept" means
+  // Core read the ping and kept the peer; "Unknown command" is Core's log
+  // line; "dropped" means the transport dropped it and kept the peer.
+  "v2_contents": [
+    {"form": "short", "payload_len": 3145728, "contents_len": 3145729, "core": "accept"},
+    {"form": "short", "payload_len": 3145729, "contents_len": 3145730, "core": "accept"},
+    {"form": "short", "payload_len": 3145740, "contents_len": 3145741, "core": "accept"},
+    {"form": "short", "payload_len": 3145741, "contents_len": 3145742, "core": "disconnect: packet too large"},
+    {"form": "long", "payload_len": 3145728, "contents_len": 3145741, "core": "accept"},
+    {"form": "long", "payload_len": 3145729, "contents_len": 3145742, "core": "disconnect: packet too large"},
+    {"form": "unassigned", "payload_len": 8, "contents_len": 9, "core": "dropped: invalid message type"},
+    {"form": "unassigned", "payload_len": 3145741, "contents_len": 3145742, "core": "disconnect: packet too large"},
+    {"form": "unassigned_33", "payload_len": 8, "contents_len": 9, "core": "dropped: invalid message type"},
+    {"form": "reserved_5", "payload_len": 8, "contents_len": 9, "core": "accept: Unknown command"},
+    {"form": "long_after_nul", "payload_len": 8, "contents_len": 21, "core": "dropped: invalid message type"},
+    {"form": "long_byte_7f", "payload_len": 8, "contents_len": 21, "core": "accept: Unknown command"},
+    {"form": "long_byte_1f", "payload_len": 8, "contents_len": 21, "core": "dropped: invalid message type"},
+    {"form": "long_byte_80", "payload_len": 8, "contents_len": 21, "core": "dropped: invalid message type"},
+    {"form": "long_space", "payload_len": 8, "contents_len": 21, "core": "accept: Unknown command"},
+    {"form": "long_empty", "payload_len": 8, "contents_len": 21, "core": "accept: Unknown command"},
+  ],
+  // V1 messages after a full handshake whose 12-byte command (hex, NUL-padded)
+  // breaks or meets Core's IsCommandValid (probe_gates.py), payload 010203. "dropped"
+  // is the "Header error: Invalid message type" line with the peer kept and
+  // no handler reached; "accept: Unknown command" reached the handlers.
+  "v1_commands": [
+    {"name": "after_nul", "command": "70696e670001000000000000", "raw": "010203", "core": "dropped"},
+    {"name": "byte_7f", "command": "70697f6e6700000000000000", "raw": "010203", "core": "dropped"},
+    {"name": "byte_1f", "command": "70691f6e6700000000000000", "raw": "010203", "core": "dropped"},
+    {"name": "byte_80", "command": "7069806e6700000000000000", "raw": "010203", "core": "dropped"},
+    {"name": "space", "command": "7069206e6700000000000000", "raw": "010203", "core": "accept: Unknown command"},
+    {"name": "empty", "command": "000000000000000000000000", "raw": "010203", "core": "accept: Unknown command"},
+  ],
+}

@@ -1,0 +1,16 @@
+diff --git a/dashd-chainstate/src/chain/tests/mineable.rs b/dashd-chainstate/src/chain/tests/mineable.rs
+index 450714e5f54f8e3d9335da9ecdfa9a82939552cc..77ea682bb519512994e0eda908284c7cec19f2a8 100644
+--- a/dashd-chainstate/src/chain/tests/mineable.rs
++++ b/dashd-chainstate/src/chain/tests/mineable.rs
+@@ -38,10 +38,7 @@ pub(super) fn bits(size: usize, n: usize) -> DynBitset {
+     for i in 0..n {
+         data[i / 8] |= 1 << (i % 8);
+     }
+-    DynBitset {
+-        num_bits: u64::try_from(size).expect("small"),
+-        data,
+-    }
++    DynBitset::new(u64::try_from(size).expect("small"), data).expect("sized, no padding bits set")
+ }
+ 
+ /// How the block at [`MINED`] is connected.

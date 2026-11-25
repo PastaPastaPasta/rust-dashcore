@@ -1,0 +1,10 @@
+[Unit]
+Description=G2 LLMQ matrix at node/integration, nightly at 03:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=20min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+diff --git a/rdashd/tests/common/peer.rs b/rdashd/tests/common/peer.rs
+index b65ba8a6b2c0fbc115c725358b53fc7b28db2de6..b16956008aee3d5a09aa58818595d17b682218f8 100644
+--- a/rdashd/tests/common/peer.rs
++++ b/rdashd/tests/common/peer.rs
+@@ -282,7 +282,7 @@ impl Peer {
+                 let inv = Inv::decode(&mut &m.payload[..]).expect("an inv");
+                 let want: Vec<_> = inv
+                     .inventory()
+-                    .into_iter()
++                    .iter()
+                     .filter(|i| i.inv_type() != InvType::Error)
+                     .cloned()
+                     .collect();
