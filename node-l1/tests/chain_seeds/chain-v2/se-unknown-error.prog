@@ -1,0 +1,4 @@
+# script error "unknown error" (bank slot 39, se_unknown_error): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_unknown_error
+extend main 1
