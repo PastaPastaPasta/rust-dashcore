@@ -1,0 +1,7 @@
+# A proposal again of an invalidated block (duplicate-invalid) and of a header-only one
+# (duplicate-inconclusive).
+extend main 1
+invalidate main@-0
+propose built#0 again
+extend main 1 headers hold
+propose built#1 again

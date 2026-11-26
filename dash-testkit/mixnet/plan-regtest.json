@@ -1,0 +1,50 @@
+{
+  "v": 1,
+  "preset": "modeb5",
+  "context": "regtest",
+  "caps": [
+    "mn"
+  ],
+  "run_kinds": [
+    "rehearsal",
+    "stage-a"
+  ],
+  "slots": [
+    {
+      "slot": "node0",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg0",
+      "label": "rust",
+      "runs": "rust",
+      "twin": true
+    },
+    {
+      "slot": "reg1",
+      "label": "rust",
+      "runs": "rust",
+      "twin": true
+    },
+    {
+      "slot": "reg2",
+      "label": "rust",
+      "runs": "rust",
+      "twin": true
+    },
+    {
+      "slot": "reg3",
+      "label": "rust",
+      "runs": "rust",
+      "twin": true
+    },
+    {
+      "slot": "reg4",
+      "label": "rust",
+      "runs": "rust",
+      "twin": true
+    }
+  ]
+}

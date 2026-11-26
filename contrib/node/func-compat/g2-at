@@ -1,0 +1,589 @@
+#!/usr/bin/env python3
+"""Run G2 (func-compat.py g2) against rdashd built at one rust-dashcore head or a composition of several.
+
+usage: g2-at [--keep | --reuse DIR] [--build-only] [--release] [--features LIST] [--lock-wait S] [--out DIR] REF [REF...]
+             [-- G2_ARGS...]
+
+Each REF (a branch, tag or commit of --repo) resolves to its full SHA. One REF is built as is;
+several are merged in order onto the first, in a detached scratch worktree, without creating a
+commit or ref. A conflict stops the run and lists the paths and the refs that conflict.
+--reuse DIR keeps that worktree and its target/ at DIR across runs (it implies --keep): each run
+moves it to the new tree and builds incrementally. DIR must not exist or be a worktree an
+earlier --reuse made in --repo; anything else is refused. --build-only stops after the build.
+rdashd and rdash-cli are built in that worktree with its own target/ (dev profile, no debug
+info, not incremental, under nice, into target/debug; with --release the release profile, as
+the deployed binaries are built, into target/release), once /work has 200G free and the
+5-minute load is under 300.
+Every G2 build passes --features rdashd/dkg-runtime and says so (DEC-1881): a default rdashd
+has no DKG runtime, so its G2 result would show the old blocker. g2-at reads the composed
+tree's rdashd/Cargo.toml and builds with that feature when it is there, without it (and says
+why) when it is not; --features LIST overrides the choice (passed to cargo as given,
+--features '' for none). The report's line after HEAD/REF and the build log's first line say
+how it was built, the profile included (`built with --release --features ...`).
+Then this checkout's func-compat.py runs `g2 --pin v24.0` with them and compares the result with
+this checkout's committed g2-llmq.json. g2 itself takes the g2 port lock (G2_PORT_LOCK, default
+/work/scratch/g2-at/g2-ports.lock): every G2 run uses the same ports, so one runs at a time and
+the others wait up to --lock-wait seconds, then exit 75 with nothing run.
+
+From another lane's worktree:
+
+  /work/home/agent/workspace/rdc-wt/ch5-g2-at/contrib/node/func-compat/g2-at "$(git rev-parse HEAD)"
+  .../g2-at <your head> <other lane's head> -- --mn 3 feature_llmq_signing
+
+g2-at takes no heavy.lock and needs none (the build is load-gated and niced); do not wrap it in
+a flock on the port lock either, as g2 takes that itself. A unit's RuntimeMaxSec has to cover
+the build (some 20 minutes cold under load, seconds with --reuse and nothing new), the port-lock
+wait (up to --lock-wait) and the g2 run itself. cargo and g2 run in sessions of their own. On a
+SIGTERM it stops the running one's whole process group (SIGTERM, then SIGKILL after 120 s; g2
+itself stops its test_runner's group within 60 s and only then releases the port lock), then
+writes the report and removes its worktree. Under systemd-run make it the unit's main process
+(exec it from a wrapper script) and allow a TimeoutStopSec of a few minutes.
+
+G2_ARGS go to g2 as given, except that a bare test stem (feature_llmq_signing) becomes each of
+its variants in g2-llmq.json (a stem with none there is an error; name x.py to run it), and
+--update, --rdashd, --rdash-cli, --out, --pin and --lock-wait (g2-at's own options) are refused:
+an on-demand run never rewrites the committed matrix. With --probe-drop, --probe-skip, a
+non-default --mn or a non-default --branch, the rows are "not compared".
+
+The report, <utc-ts>-<12hex per ref>-<pid>.md in --out, starts with `HEAD <sha>` (and `REF <name>
+<sha>` per further ref), then the `built ...` line, and has a row per test: stage, class, first
+blocker, and its delta against g2-llmq.json. g2's own output (g2.log, runner logs, the run's json) is in <report>.d/.
+
+Exit status: g2's (0 same as the matrix, 1 differs or an adaptation is stale); 2 for no result
+(g2 left no result file: a harness or tripwire error), a usage error, an unknown ref, a conflict
+or a failed build; 3 when the disk or load gate refuses; 75 when the g2 port lock was not free
+within --lock-wait (7200 s); 143 on a SIGTERM.
+"""
+
+import argparse
+import fcntl
+import importlib.util
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import tomllib
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO = Path.home() / "workspace/rust-dashcore"
+REPORTS = Path("/work/scratch/g2-at/reports")
+PIN = "v24.0"
+MIN_FREE_GB = 200
+MAX_LOAD5 = 300
+BUILD_ENV = {"CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_INCREMENTAL": "0", "CARGO_BUILD_JOBS": "12"}
+REFUSED = ("update", "rdashd", "rdash_cli", "out", "pin", "lock_wait")
+SCCACHE_RESET = "os error 104"
+BLOCKER_WIDTH = 160
+REUSE_MARKER = "g2-at-reuse"
+STALE = "adaptations: STALE"
+# func-compat.py tripwire()'s error: g2 stopped before any test, so there is no result.
+TRIPWIRE = "tripwire: "
+DKG_FEATURE = "rdashd/dkg-runtime"
+
+
+def load_func_compat():
+    spec = importlib.util.spec_from_file_location("func_compat", HERE / "func-compat.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+fc = load_func_compat()
+LOCK_WAIT = fc.G2_LOCK_WAIT
+LOCK_TIMEOUT_EXIT = fc.G2_LOCK_TIMEOUT
+TERMINATED = fc.TERMINATED
+# Seconds g2's process group gets between SIGTERM and SIGKILL: more than g2 gives its runner's.
+G2AT_TERM_GRACE = 2 * fc.RUNNER_TERM_GRACE
+
+
+class Stop(Exception):
+    """A run that cannot go on: the message for stderr and the report, and g2-at's exit status."""
+
+    def __init__(self, message, status=2):
+        super().__init__(message)
+        self.status = status
+
+
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+
+
+def git_out(repo, *args):
+    r = git(repo, *args)
+    if r.returncode:
+        raise Stop(f"git {' '.join(args)}: {r.stderr.strip()}")
+    return r.stdout.strip()
+
+
+def resolve(repo, refs):
+    """[(ref, full sha)]; an unknown ref stops the run."""
+    out = []
+    for ref in refs:
+        r = git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+        if r.returncode:
+            raise Stop(f"g2-at: unknown ref {ref!r} in {repo}")
+        out.append((ref, r.stdout.strip()))
+    return out
+
+
+def compose(repo, heads):
+    """The tree of heads[0] with each further head merged in, in order; a conflict stops."""
+    tree = git_out(repo, "rev-parse", f"{heads[0][1]}^{{tree}}")
+    for i, (name, sha) in enumerate(heads[1:], 1):
+        so_far = " + ".join(f"{n} ({s[:12]})" for n, s in heads[:i])
+        bases = git(repo, "merge-base", "--all", sha, *(s for _, s in heads[:i])).stdout.split()
+        if len(bases) != 1:
+            raise Stop(f"g2-at: {len(bases)} merge bases between {so_far} and {name}; compose them by hand")
+        r = git(repo, "merge-tree", "--write-tree", "--name-only", f"--merge-base={bases[0]}", tree, sha)
+        if r.returncode == 1:
+            paths = r.stdout.split("\n\n", 1)[0].splitlines()[1:]
+            raise Stop(f"g2-at: conflict between {so_far} and {name} ({sha[:12]}):\n"
+                       + "\n".join(f"  {p}" for p in sorted(set(paths))))
+        if r.returncode:
+            raise Stop(f"g2-at: git merge-tree {so_far} {name}: {r.stderr.strip()}")
+        tree = r.stdout.splitlines()[0]
+    return tree
+
+
+def materialise(repo, sha, tree, dest):
+    """A detached worktree at `dest` on `sha` whose index and files are `tree`."""
+    git_out(repo, "worktree", "add", "--detach", "--no-checkout", str(dest), sha)
+    try:
+        git_out(dest, "read-tree", "-u", "--reset", tree)
+    except Stop:
+        remove_worktree(repo, dest)
+        raise
+
+
+def common_dir(path):
+    out = git(path, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+    return Path(out).resolve() if out else None
+
+
+def reuse_refusal(repo, dest):
+    """Why --reuse may not use `dest` (None: it may, or it does not exist yet)."""
+    if not dest.exists():
+        return None
+    top = git(dest, "rev-parse", "--show-toplevel").stdout.strip()
+    gitdir = git(dest, "rev-parse", "--absolute-git-dir").stdout.strip()
+    if (top and Path(top).resolve() == dest.resolve() and common_dir(repo) == common_dir(dest)
+            and (Path(gitdir) / REUSE_MARKER).exists()):
+        return None
+    return f"g2-at: refusing --reuse {dest}: not a worktree g2-at --reuse made in {repo}"
+
+
+def reuse(repo, dest, sha, tree):
+    """Move the --reuse worktree `dest` (made if missing) to `tree` on `sha`; returns its lock,
+    held for the run."""
+    created = not dest.exists()
+    if created:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        materialise(repo, sha, tree, dest)
+        (Path(git_out(dest, "rev-parse", "--absolute-git-dir")) / REUSE_MARKER).write_text("")
+    lock = open(Path(git_out(dest, "rev-parse", "--absolute-git-dir")) / REUSE_MARKER, "a")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        raise Stop(f"g2-at: {dest} is in use by another g2-at run")
+    if not created:
+        git_out(dest, "update-ref", "--no-deref", "HEAD", sha)
+        git_out(dest, "read-tree", "-u", "--reset", tree)
+    return lock
+
+
+def remove_worktree(repo, dest):
+    r = git(repo, "worktree", "remove", "--force", str(dest))
+    if r.returncode:
+        print(f"g2-at: could not remove {dest}: {r.stderr.strip()}", file=sys.stderr)
+
+
+def free_gb(path="/work"):
+    return shutil.disk_usage(path).free // 2**30
+
+
+def load5():
+    return float(Path("/proc/loadavg").read_text().split()[1])
+
+
+def gate(free, load):
+    """Why a build may not start now (None: it may)."""
+    if free < MIN_FREE_GB:
+        return f"g2-at: /work has {free}G free; a build needs {MIN_FREE_GB}G (DEC-1798)"
+    if load >= MAX_LOAD5:
+        return f"g2-at: the 5-minute load is {load:.0f}; a build starts below {MAX_LOAD5} (DEC-1803)"
+    return None
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise Stop(f"g2-at: g2 arguments: {message}")
+
+
+def g2_parser():
+    """g2's own options (func-compat.py's common, node and g2 parsers), so that abbreviations
+    resolve as g2 would resolve them."""
+    p = Parser(prog="g2-at REF -- ", add_help=False)
+    for opt in ("--core", "--work", "--pin", "--rdashd", "--rdash-cli", "--tmpdirprefix", "--branch",
+                "--probe-drop", "--probe-skip", "--out"):
+        p.add_argument(opt)
+    for opt in (("--mn",), ("--jobs", "-j"), ("--test-timeout",), ("--lock-wait",)):
+        p.add_argument(*opt, type=int)
+    p.add_argument("--update", action="store_true")
+    p.add_argument("-h", "--help", action="store_true")
+    p.add_argument("tests", nargs="*")
+    return p
+
+
+def expand(names, committed):
+    """Runner names: a bare stem becomes each of its variants in `committed` (none stops the run);
+    a runner name (`x.py`, `x.py --flag`) is g2's to judge."""
+    out = []
+    for name in names:
+        if " " in name or name.endswith(".py"):
+            out.append(name)
+            continue
+        variants = sorted(k for k in committed if fc.stem(k) == name)
+        if not variants:
+            raise Stop(f"g2-at: no test {name!r} in {fc.G2}.json; name a runner script (x.py) to run it")
+        out += variants
+    return out
+
+
+def g2_args(extra, committed):
+    """(the arguments g2-at passes on, the parsed namespace); refuses what g2-at owns."""
+    ns = g2_parser().parse_args(extra)
+    given = [o for o in REFUSED if getattr(ns, o)]
+    if given:
+        raise Stop(f"g2-at: g2-at sets or refuses {', '.join('--' + o.replace('_', '-') for o in given)}"
+                   " (an on-demand run never rewrites the committed matrix)")
+    if ns.help:
+        raise Stop("g2-at: see `func-compat.py g2 --help` for g2's options")
+    args = []
+    for opt in ("core", "work", "tmpdirprefix", "branch", "probe_drop", "probe_skip", "mn", "jobs", "test_timeout"):
+        value = getattr(ns, opt)
+        if value is not None:
+            args += [f"--{opt.replace('_', '-')}", str(value)]
+    ns.tests = expand(ns.tests, committed)
+    return args + ns.tests, ns
+
+
+def sccache_reset_only(log):
+    """Whether a failed build's only errors are sccache's connection resets (DEC-1808)."""
+    errors = [l for l in log.splitlines()
+              if re.match(r"\s*(sccache: )?error\b", l) and not re.match(r"\s*error: could not compile", l)]
+    return bool(errors) and all(SCCACHE_RESET in l for l in errors)
+
+
+def has_dkg_runtime(repo, tree):
+    """Whether rdashd/Cargo.toml in `tree` has a `dkg-runtime` feature."""
+    r = git(repo, "cat-file", "-p", f"{tree}:rdashd/Cargo.toml")
+    if r.returncode:
+        return False
+    try:
+        return "dkg-runtime" in tomllib.loads(r.stdout).get("features", {})
+    except tomllib.TOMLDecodeError as e:
+        raise Stop(f"g2-at: rdashd/Cargo.toml in {tree[:12]}: {e}")
+
+
+def build_features(repo, tree, given, release=False):
+    """(cargo's --features value, "" for none; the report's line saying so, and the profile)."""
+    flag, profile = (" --release", "with --release, ") if release else ("", "")
+    if given is not None:
+        return given, (f"built with{flag} --features {given} (--features given)" if given
+                       else f"built {profile}without features (--features '' given)")
+    if has_dkg_runtime(repo, tree):
+        return DKG_FEATURE, f"built with{flag} --features {DKG_FEATURE}"
+    return "", f"built {profile}without dkg-runtime: rdashd has no such feature at this head"
+
+
+def cargo_command(features, release=False):
+    return ["nice", "-n", "19", "cargo", "build", "-p", "rdashd", "-p", "rdash-cli",
+            *(["--release"] if release else []), *(["--features", features] if features else [])]
+
+
+def bins_dir(src, release=False):
+    return Path(src) / "target" / ("release" if release else "debug")
+
+
+def build(src, log, features="", release=False):
+    """Build rdashd and rdash-cli in `src` into its own target/; returns a note for the report."""
+    env = {k: v for k, v in os.environ.items() if k not in ("CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR")}
+    env.update(BUILD_ENV)
+    cmd = cargo_command(features, release)
+    note = ""
+    with open(log, "w") as f:
+        f.write(f"g2-at: {shlex.join(cmd)} (in {src})\n")
+        f.flush()
+        status = fc.run_group(cmd, f, G2AT_TERM_GRACE, cwd=src, env=env)
+    if status and sccache_reset_only(Path(log).read_text(errors="replace")):
+        note = "rebuilt once without the rustc wrapper after sccache connection resets (DEC-1808)"
+        env.update(RUSTC_WRAPPER="", CARGO_BUILD_RUSTC_WRAPPER="")
+        with open(log, "a") as f:
+            f.write(f"\ng2-at: {note}\n")
+            f.flush()
+            status = fc.run_group(cmd, f, G2AT_TERM_GRACE, cwd=src, env=env)
+    if status:
+        raise Stop(f"g2-at: the build failed; see {log}")
+    bins = bins_dir(src, release)
+    if not (bins / "rdashd").exists() or not (bins / "rdash-cli").exists():
+        raise Stop(f"g2-at: no rdashd and rdash-cli in {bins} after the build")
+    return note
+
+
+def g2_command(bins, out, args, lock_wait=LOCK_WAIT):
+    return [sys.executable, "-u", str(HERE / "func-compat.py"), "g2", "--pin", PIN, "--lock-wait", str(lock_wait),
+            "--rdashd", str(bins / "rdashd"), "--rdash-cli", str(bins / "rdash-cli"), "--out", str(out), *args]
+
+
+def run_g2(cmd, out):
+    with open(out / "g2.log", "w") as f:
+        return fc.run_group(cmd, f, G2AT_TERM_GRACE)
+
+
+def bare(tests):
+    """The entries without their known later blocker, which g2 keeps in its json but never compares."""
+    return {n: {k: v for k, v in e.items() if k != fc.LATER} for n, e in tests.items()}
+
+
+def matrix(path=HERE / f"{fc.G2}.json"):
+    return bare(json.loads(path.read_text())["tests"])
+
+
+def outcome(out, probe):
+    """(g2's entries or None if it did not finish, its run metadata or {})."""
+    kind = f"{fc.G2}-probe" if probe else fc.G2
+    result, meta = out / f"{kind}-{PIN}.json", out / f"{kind}-{PIN}.run.json"
+    entries = bare(json.loads(result.read_text())["tests"]) if result.exists() else None
+    return entries, json.loads(meta.read_text()) if meta.exists() else {}
+
+
+def delta(name, entry, committed, compared):
+    if not compared:
+        return "not compared"
+    if name not in committed:
+        return "not in matrix"
+    regressions, progress, changes = fc.g2_compare({name: committed[name]}, {name: entry})
+    return "regression" if regressions else "progress" if progress else "change" if changes else "same"
+
+
+def rows(entries, meta, committed, compared, complete):
+    """(test, stage, class, first blocker, delta) per test; a complete compared run also lists
+    the committed tests it lacks."""
+    names = sorted(set(entries) | (set(committed) if compared and complete else set()))
+    out = []
+    for name in names:
+        entry = entries.get(name)
+        if entry is None:
+            out.append((name, "(absent)", "-", "-", delta(name, None, committed, compared)))
+            continue
+        exc = meta.get("tests", {}).get(name, {}).get("first_failure", {}).get("exception", "")
+        blocker = "; ".join(x for x in (entry.get("detail"), exc[:BLOCKER_WIDTH]) if x) if entry["status"] == "fail" else ""
+        out.append((name, entry["stage"], entry.get("class", "-"), blocker or "-",
+                    delta(name, entry, committed, compared)))
+    return out
+
+
+EXIT_MEANING = {0: "same as the committed matrix", 1: "differs from the matrix, or an adaptation is stale",
+                2: "harness error", LOCK_TIMEOUT_EXIT: "skipped: the g2 port lock was not free within --lock-wait",
+                TERMINATED: "terminated (SIGTERM)"}
+
+
+def no_result(r):
+    """Whether g2 ran but left no result file, other than for the port lock or a SIGTERM."""
+    return r["rows"] is None and r["status"] not in (LOCK_TIMEOUT_EXIT, TERMINATED)
+
+
+def cell(text):
+    return str(text).replace("|", "\\|").replace("\n", " ")
+
+
+def render(r):
+    """The report: `r` holds heads, tree, core, harness, args, timings, and either `stopped` or
+    g2's status, rows and files."""
+    (first, sha), *more = r["heads"]
+    lines = [f"HEAD {sha}"] + [f"REF {n} {s}" for n, s in more]
+    lines += [r["build"]] if r.get("build") else []
+    lines += ["", f"# G2 at {' + '.join(n for n, _ in r['heads'])}", ""]
+    if r.get("tree"):
+        lines.append(f"- composed tree: `{r['tree']}`" if more else f"- tree: `{r['tree']}`")
+    if r.get("core"):
+        lines.append(f"- Core: `{r['core']['branch']}` at `{r['core']['head']}`; g2 exported"
+                     f" `{r['core'].get('exported') or 'n/a'}`")
+    lines.append(f"- harness: `{HERE}` at `{r['harness']}`{' with uncommitted changes' if r.get('dirty') else ''}"
+                 f" (func-compat.py and {fc.G2}.json)")
+    lines.append(f"- g2 args: `{' '.join(r['args']) or '(none)'}`")
+    lines += [f"- {k}: {v}" for k, v in r.get("timings", {}).items()]
+    lines += [f"- note: {n}" for n in r.get("notes", [])]
+    lines.append("")
+    if "stopped" in r:
+        lines += ["Stopped without a g2 result:", "", "```", r["stopped"], "```"]
+        return "\n".join(lines) + "\n"
+    if r["rows"] is None:
+        if r["status"] == LOCK_TIMEOUT_EXIT:
+            lines.append("Skipped: g2 ports busy (the g2 port lock was not free within --lock-wait); nothing ran.")
+        else:
+            lines += ["g2 did not finish (no result file). Last lines of g2.log:", "", "```", *r["tail"], "```"]
+    else:
+        lines += ["| test | stage | class | first blocker | delta |", "|---|---|---|---|---|"]
+        lines += ["| " + " | ".join(cell(c) for c in (f"`{row[0]}`", *row[1:])) + " |" for row in r["rows"]]
+    status = r["status"]
+    meaning = "no result; g2-at exits 2" if no_result(r) else EXIT_MEANING.get(status, "unexpected")
+    lines += ["", f"g2 exit status: {status} ({meaning})", ""]
+    lines += [f"- {k}: `{v}`" for k, v in r["files"].items()]
+    return "\n".join(lines) + "\n"
+
+
+def make_dirs(path, mode):
+    """mkdir -p, giving every directory it creates `mode` whatever the umask."""
+    missing = []
+    while not path.exists():
+        missing.append(path)
+        path = path.parent
+    for d in reversed(missing):
+        d.mkdir()
+        d.chmod(mode)
+
+
+def write_report(out, name, r):
+    make_dirs(out, 0o755)
+    path = out / f"{name}.md"
+    path.write_text(render(r))
+    path.chmod(0o644)
+    return path
+
+
+def report_name(heads, now=None, pid=None):
+    ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(now))
+    return "-".join([ts, *(s[:12] for _, s in heads), str(pid or os.getpid())])
+
+
+def tail(path, n=20):
+    return path.read_text(errors="replace").splitlines()[-n:] if path.exists() else []
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    extra = []
+    if "--" in argv:
+        i = argv.index("--")
+        argv, extra = argv[:i], argv[i + 1:]
+    summary, usage, rest = __doc__.split("\n\n", 2)
+    p = argparse.ArgumentParser(prog="g2-at", usage=usage.removeprefix("usage: "), description=f"{summary}\n\n{rest}",
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("refs", nargs="+", metavar="REF", help="rust-dashcore heads; several are composed in order")
+    p.add_argument("--out", type=Path, default=REPORTS, help="report directory (default: %(default)s)")
+    p.add_argument("--keep", action="store_true", help="keep the scratch worktree and its target/")
+    p.add_argument("--reuse", type=Path, metavar="DIR", help="keep the worktree at DIR across runs (implies --keep)")
+    p.add_argument("--build-only", action="store_true", help="stop after the build; no g2 run, no report")
+    p.add_argument("--release", action="store_true",
+                   help="build the release profile into target/release (default: dev, target/debug)")
+    p.add_argument("--features", metavar="LIST",
+                   help=f"cargo --features for the build, '' for none (default: {DKG_FEATURE} when rdashd has"
+                        " it at the composed tree, else none; DEC-1881)")
+    p.add_argument("--lock-wait", type=int, default=LOCK_WAIT, metavar="S",
+                   help="seconds g2 waits for the g2 port lock (default: %(default)s)")
+    p.add_argument("--repo", type=Path, default=REPO, help="repository the refs resolve in (default: %(default)s)")
+    p.add_argument("--scratch", type=Path, default=Path(os.environ.get("TMPDIR", "/work/tmp")) / "g2-at",
+                   help="where the scratch worktree goes (default: %(default)s)")
+    args = p.parse_args(argv)
+    committed = matrix()
+    try:
+        passed, ns = g2_args(extra, committed)
+        heads = resolve(args.repo, args.refs)
+        refusal = args.reuse and reuse_refusal(args.repo, args.reuse)
+        if refusal:
+            raise Stop(refusal)
+    except Stop as e:
+        print(e, file=sys.stderr)
+        return e.status
+    refusal = gate(free_gb(), load5())
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 3
+    args.keep = args.keep or bool(args.reuse)
+    return run(args, heads, passed, ns, committed)
+
+
+def run(args, heads, passed, ns, committed):
+    name = report_name(heads)
+    out = args.out.resolve()
+    g2_out = out / f"{name}.d"
+    branch = ns.branch or fc.G2_CORE_BRANCH
+    core = Path(ns.core or Path.home() / "workspace/dash")
+    head = git(core, "rev-parse", "--verify", "--quiet", f"{branch}^{{commit}}").stdout.strip() or "unknown"
+    r = {"heads": heads, "harness": git(HERE, "rev-parse", "HEAD").stdout.strip() or "unknown",
+         "dirty": bool(git(HERE, "status", "--porcelain", "--", "..").stdout.strip()), "args": passed,
+         "core": {"branch": branch, "head": head}, "timings": {}, "notes": []}
+    src = args.reuse.resolve() if args.reuse else args.scratch.resolve() / name
+    build_log = src / "target/g2-at-build.log" if args.build_only else g2_out / "build.log"
+    made, step, held = False, "compose", None
+
+    def terminated(*_):
+        raise Stop(f"g2-at: terminated (SIGTERM) during {step}", 143)
+    previous = signal.signal(signal.SIGTERM, terminated)
+    try:
+        r["tree"] = compose(args.repo, heads)
+        features, r["build"] = build_features(args.repo, r["tree"], args.features, args.release)
+        if not args.build_only:
+            make_dirs(out, 0o755)
+            g2_out.mkdir(mode=0o700)
+        if args.reuse:
+            held = reuse(args.repo, src, heads[0][1], r["tree"])
+            r["notes"].append(f"worktree kept across runs at {src} (--reuse)")
+        else:
+            args.scratch.mkdir(parents=True, exist_ok=True)
+            materialise(args.repo, heads[0][1], r["tree"], src)
+        made, step = True, "build"
+        build_log.parent.mkdir(parents=True, exist_ok=True)
+        start = time.monotonic()
+        note = build(src, build_log, features, release=args.release)
+        r["timings"]["build"] = f"{time.monotonic() - start:.0f} s"
+        r["notes"] += [note] if note else []
+        if args.build_only:
+            print(f"g2-at: {r['build']}: {bins_dir(src, args.release)} in {r['timings']['build']}; log {build_log}")
+            return 0
+        start, step = time.monotonic(), "g2 (the port-lock wait or the run)"
+        print(f"g2-at: g2 at {' + '.join(n for n, _ in heads)}", flush=True)
+        status = run_g2(g2_command(bins_dir(src, args.release), g2_out, passed, args.lock_wait), g2_out)
+        r["timings"]["g2"] = f"{time.monotonic() - start:.0f} s (with the lock wait)"
+    except Stop as e:
+        print(e, file=sys.stderr)
+        if args.build_only:
+            return e.status
+        r["stopped"] = str(e)
+        print(write_report(out, name, r))
+        return e.status
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+        if held:
+            held.close()
+        if made and not args.keep:
+            remove_worktree(args.repo, src)
+        elif made:
+            print(f"g2-at: kept {src}", file=sys.stderr)
+    probe = bool(ns.probe_drop or ns.probe_skip)
+    entries, meta = outcome(g2_out, probe)
+    r["core"]["exported"] = meta.get("core_commit")
+    compared = not probe and ns.mn in (None, fc.G2_DEFAULT_MN) and branch == fc.G2_CORE_BRANCH
+    r["rows"] = None if entries is None else rows(entries, meta, committed, compared, not ns.tests)
+    r["tail"] = tail(g2_out / "g2.log")
+    log = (g2_out / "g2.log").read_text(errors="replace") if (g2_out / "g2.log").exists() else ""
+    if STALE in log:
+        r["notes"].append(f"{STALE}: rdashd now does what an adaptation works around (see the g2 log)")
+    r["notes"] += [line for line in log.splitlines() if line.startswith(TRIPWIRE)][:1]
+    r["status"] = status
+    r["files"] = {"g2 log": g2_out / "g2.log", "build log": g2_out / "build.log", "g2 output": g2_out}
+    path = write_report(out, name, r)
+    print(path)
+    return 2 if no_result(r) else status
+
+
+if __name__ == "__main__":
+    sys.exit(main())
