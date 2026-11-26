@@ -1,0 +1,72 @@
+[package]
+name = "dashd-governance"
+description = "The Rust Dash node's governance runtime: the governance lock, the published trigger view, collateral lookups through the transaction index, randomness and the chain-command seam"
+publish = false
+# Ports Dash Core code (MIT).
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+# The serial executor and the non-`Sync` chain fakes, for this crate's dependents' tests.
+testing = []
+
+[dependencies]
+arc-swap = "1.7"
+dash-consensus = { path = "../dash-consensus" }
+# The decoder of Core's `governance.dat`, shared by the importer and the own store.
+dash-coreimport = { path = "../dash-coreimport" }
+dash-dml = { path = "../dash-dml" }
+dash-governance = { path = "../dash-governance" }
+# `Hash256`, the inventory hash.
+dash-num = { workspace = true, features = ["std"] }
+# `FastRandom` (Core's `FastRandomContext`) and the process `RandSource`.
+dash-p2p = { path = "../dash-p2p" }
+# `FilterLoad`, the vote-sync bloom's message.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+# V's command lane, its query and published view, the validation listener, and the
+# `SuperblockSource` seam `ConnectBlock` reads.
+dashd-chainstate = { path = "../dashd-chainstate" }
+# IX1's `TxIndexReader` and `LocatedTx`.
+dashd-indexes = { path = "../dashd-indexes" }
+# `flatdb`, the store file's envelope and load outcomes; SP1's `GovernanceSync` seam and
+# `MasternodeSync`.
+dashd-masternode = { path = "../dashd-masternode", default-features = false }
+# Core's `CBloomFilter`.
+dashd-p2p = { path = "../dashd-p2p" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# `src/v_tests.rs` runs a real V over block files on disk and coins in memory.
+dash-chain = { path = "../dash-chain" }
+dash-clock = { path = "../dash-clock" }
+# `testkit::numbered` masternodes, whose operator keys sign the tests' votes.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# `src/transcripts/superblocks.rs` checks LLMQ commitments serially, as dashd-chainstate's tests do.
+dash-evo = { path = "../dash-evo" }
+dash-kv = { path = "../dash-kv" }
+dash-network = { path = "../dash-network" }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls"] }
+# `ValidationSignals::dmn_tip_now`: V's own DMN tip, which `src/v_tests.rs` compares with the
+# published one at each hook.
+dashd-chainstate = { path = "../dashd-chainstate", features = ["test-support"] }
+# SP1's sync tick with the `ssc` handler, replayed in the processor's sim.
+dashd-masternode = { path = "../dashd-masternode" }
+# `src/transcripts/superblocks.rs` admits R10's `tx` deliveries to the node's pool on V.
+dashd-mempool = { path = "../dashd-mempool" }
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+dashd-store = { path = "../dashd-store" }
+# `tests/store.rs` compares imports with the RPC answers Core recorded (JSON, some gzipped).
+flate2 = "1"
+proptest = "1.11"
+serde_json = "1.0"
+tempfile = "3"
+
+[lints]
+workspace = true

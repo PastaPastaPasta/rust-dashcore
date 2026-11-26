@@ -1,0 +1,9 @@
+# CRASH soak failure FA4 (chainstate_crash_smoke, CHAINSTATE_CASES=5000 CHAINSTATE_SEED=81703), found by Opus-h r1 on 13cd6c373; now replays clean (D51/D52).
+harness st3a/1
+sut chainsut
+config sub=1000 invalid=- effects=- presumed=- crash=- replay=- index=syncing:2:96
+workload c6;f;f;r4:3;a2;s7;f;r3:6;r5:5;r6:5;D2;s6;f
+adversary realistic
+granularity sector
+expect FA4
+minimality best-effort

@@ -1,0 +1,57 @@
+//
+// Governance sync vectors. Generated with the reference
+// implementation (dashpay/dash v24.0.0-rc.3, 0364ed626e).
+//
+// Each section comes with the program used to generate the vectors.
+//
+// To run a program, paste it at the end of the `net_tests` suite in
+// `src/test/net_tests.cpp` at the specified revision, build it with
+// `make -C src test/test_dash` and run
+// `./src/test/test_dash --run_test=net_tests/<name>`. The output should match
+// the section.
+//
+
+{
+/*
+BOOST_AUTO_TEST_CASE(ssc_payloads)
+{
+    for (const auto& [item_id, count] : std::vector<std::pair<int, int>>{
+             {10, 0}, {10, 4321}, {11, 17}, {-1, std::numeric_limits<int>::min()}}) {
+        const auto msg{CNetMsgMaker{PROTOCOL_VERSION}.Make(NetMsgType::SYNCSTATUSCOUNT, item_id, count)};
+        std::printf("    \"item%d_%d\": {\n      \"raw\": \"%s\",\n      \"details\": {\n"
+                    "        \"item_id\": %d,\n        \"count\": %d\n      }\n    },\n",
+                    item_id, count, HexStr(msg.data).c_str(), item_id, count);
+    }
+}
+*/
+  "ssc": {
+    "item10_0": {
+      "raw": "0a00000000000000",
+      "details": {
+        "item_id": 10,
+        "count": 0
+      }
+    },
+    "item10_4321": {
+      "raw": "0a000000e1100000",
+      "details": {
+        "item_id": 10,
+        "count": 4321
+      }
+    },
+    "item11_17": {
+      "raw": "0b00000011000000",
+      "details": {
+        "item_id": 11,
+        "count": 17
+      }
+    },
+    "item-1_-2147483648": {
+      "raw": "ffffffff00000080",
+      "details": {
+        "item_id": -1,
+        "count": -2147483648
+      }
+    },
+  },
+}

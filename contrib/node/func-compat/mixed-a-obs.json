@@ -1,0 +1,176 @@
+{
+ "mask": "non-mn",
+ "observer": true,
+ "pin": "v24.0",
+ "tests": {
+  "feature_asset_locks.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "feature_dip4_coinbasemerkleroots.py": {
+   "status": "pass"
+  },
+  "feature_evo_shares_activation.py": {
+   "class": "unimplemented-option",
+   "detail": "-persistmempool",
+   "status": "fail"
+  },
+  "feature_governance.py --descriptors": {
+   "class": "timeout",
+   "detail": "feature_governance.py:291",
+   "status": "fail"
+  },
+  "feature_governance_cl.py --descriptors": {
+   "class": "unimplemented-rpc",
+   "detail": "gobject",
+   "status": "fail"
+  },
+  "feature_governance_objects.py": {
+   "status": "pass"
+  },
+  "feature_llmq_chainlocks.py": {
+   "class": "unimplemented-option",
+   "detail": "-spentindex",
+   "status": "fail"
+  },
+  "feature_llmq_chainlocks_automatic.py": {
+   "status": "pass"
+  },
+  "feature_llmq_connections.py": {
+   "class": "timeout",
+   "detail": "feature_llmq_connections.py:132",
+   "status": "fail"
+  },
+  "feature_llmq_data_recovery.py": {
+   "status": "pass"
+  },
+  "feature_llmq_dkg_intake.py": {
+   "status": "pass"
+  },
+  "feature_llmq_dkgerrors.py": {
+   "status": "pass"
+  },
+  "feature_llmq_evo.py": {
+   "class": "divergence",
+   "detail": "feature_llmq_evo.py:76",
+   "status": "fail"
+  },
+  "feature_llmq_is_cl_conflicts.py": {
+   "class": "timeout",
+   "detail": "feature_llmq_is_cl_conflicts.py:102",
+   "status": "fail"
+  },
+  "feature_llmq_is_retroactive.py": {
+   "status": "pass"
+  },
+  "feature_llmq_rotation.py": {
+   "status": "pass"
+  },
+  "feature_llmq_signing.py": {
+   "class": "divergence",
+   "detail": "feature_llmq_signing.py:217",
+   "status": "fail"
+  },
+  "feature_llmq_signing.py --spork21": {
+   "class": "divergence",
+   "detail": "feature_llmq_signing.py:217",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py": {
+   "class": "divergence",
+   "detail": "feature_llmq_simplepose.py:392",
+   "status": "fail"
+  },
+  "feature_llmq_simplepose.py --disable-spork23": {
+   "status": "pass"
+  },
+  "feature_llmq_singlenode.py": {
+   "class": "divergence",
+   "detail": "feature_llmq_singlenode.py:79",
+   "status": "fail"
+  },
+  "feature_masternode_payout_shares.py": {
+   "class": "timeout",
+   "detail": "feature_masternode_payout_shares.py:89",
+   "status": "fail"
+  },
+  "feature_masternode_shares.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "feature_mnehf.py": {
+   "class": "unimplemented-option",
+   "detail": "-persistmempool",
+   "status": "fail"
+  },
+  "feature_notifications.py": {
+   "class": "unimplemented-option",
+   "detail": "-instantsendnotify",
+   "status": "fail"
+  },
+  "feature_protx_version.py": {
+   "class": "divergence",
+   "detail": "feature_protx_version.py:91",
+   "status": "fail"
+  },
+  "interface_zmq_dash.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  },
+  "p2p_instantsend.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "p2p_platform_ban.py": {
+   "class": "divergence",
+   "detail": "p2p_platform_ban.py:42",
+   "status": "fail"
+  },
+  "p2p_quorum_data.py": {
+   "class": "unimplemented-option",
+   "detail": "-recovery",
+   "status": "fail"
+  },
+  "rpc_masternode.py": {
+   "class": "timeout",
+   "detail": "rpc_masternode.py:112",
+   "status": "fail"
+  },
+  "rpc_mnauth.py": {
+   "status": "pass"
+  },
+  "rpc_net.py --v1transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_net.py --v2transport": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_quorum.py": {
+   "status": "pass"
+  },
+  "rpc_verifychainlock.py": {
+   "class": "unimplemented-rpc",
+   "detail": "createwallet",
+   "status": "fail"
+  },
+  "rpc_verifyislock.py": {
+   "class": "timeout",
+   "detail": "rpc_verifyislock.py:41",
+   "status": "fail"
+  },
+  "wallet_dash_rpcs.py --descriptors": {
+   "status": "pass"
+  },
+  "wallet_dash_rpcs.py --legacy-wallet": {
+   "detail": "skipped by the test",
+   "status": "skip"
+  }
+ }
+}

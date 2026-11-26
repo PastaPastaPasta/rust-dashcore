@@ -1,0 +1,9 @@
+# The indirect calls and jumps in relic functions the wrap set reaches (throwsites.py;
+# Sol r1 on BS11a-2). Columns: function, its possible targets (relic functions, added
+# to the call graph as edges; "-" when the target is outside relic), and why. A
+# reachable indirect call in an unlisted function fails the check, and so does a row
+# whose function has none or is not reached.
+ep_map_from_field	ep_map_sswu,ep_map_svdw	map_fn: SSWU when the curve has a constant-time map or a, b != 0, else SvdW
+ep2_map_from_field	ep2_map_sswu,ep2_map_svdw	map_fn: SSWU when the curve has a constant-time map or a, b != 0, else SvdW
+arch_lzcnt	lzcnt64_hard,lzcnt64_soft	lzcnt_ptr, which arch_init sets to one of the two
+core_get	-	core_thread_initializer: dashbls's relic_core_initializer (bls.cpp), core_init on a thread with no context; the shim's entry check calls core_get before any window opens
