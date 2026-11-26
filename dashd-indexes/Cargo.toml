@@ -1,0 +1,68 @@
+[package]
+name = "dashd-indexes"
+description = "Read interfaces and host inputs for the Rust Dash node's transaction, block filter and coin statistics indexes"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+testing = []
+# CH2's crash model for the real-index crash tests (tests only; it enables dashd-store's `faulty`).
+crash = ["dashd-chainstate/crash"]
+
+[package.metadata.gate]
+test-features = ["crash"]
+
+[dependencies]
+dash-chain = { path = "../dash-chain" }
+dash-consensus = { path = "../dash-consensus" }
+dash-filters = { path = "../dash-filters" }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+dashd-store = { path = "../dashd-store", default-features = false }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+dash-core-vectors = { path = "../test-vectors" }
+dash-num = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+zstd = { version = "0.14", default-features = false }
+
+[[test]]
+name = "blockfilter_index"
+required-features = ["crash"]
+
+[[test]]
+name = "blockfilter_reader"
+required-features = ["crash"]
+
+[[test]]
+name = "coinstats_index"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_blockfilter"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_coinstats"
+required-features = ["crash"]
+
+[[test]]
+name = "crash_txindex"
+required-features = ["crash"]
+
+[[test]]
+name = "txindex"
+required-features = ["crash"]
+
+[lints]
+workspace = true

@@ -1,0 +1,87 @@
+[package]
+name = "dashd-quorums"
+description = "Runtime quorum contribution manager for the Rust Dash node."
+authors.workspace = true
+edition.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+# node-gate's gate-lib shard runs the lib tests behind `dkg-runtime` (BL-608 phase 2).
+[package.metadata.gate]
+test-features = ["dkg-runtime"]
+
+[dependencies]
+# The signing runtime's mock-aware node time (Core's `GetTime`).
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-evo = { path = "../dash-evo" }
+# Core's quorum database on the node's storage contract (`store::KvQuorumStore`).
+dash-kv = { path = "../dash-kv" }
+dash-llmq = { path = "../dash-llmq" }
+# `NetCore`, `policy::read` and the processor's `Throw` for the `qgetdata`/`qdata` handler.
+dash-p2p = { path = "../dash-p2p" }
+# `Inventory`, a listener's relay result.
+# The inventory the observer's `NetDKG` answers `AlreadyHave` for.
+dash-p2p-core = { workspace = true, features = ["std"] }
+dash-params = { workspace = true, features = ["std"] }
+dash-pkc = { workspace = true, features = ["bls", "codec"] }
+dash-primitives = { workspace = true, features = ["std"] }
+dash-types = { workspace = true, features = ["std"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+# The active masternode behind the DKG session's operator key (`dkg::MnOperatorKey`, OPKEY-1).
+dashd-masternode = { path = "../dashd-masternode", default-features = false, optional = true }
+# The registry `NetQuorum` joins (QM1b-6).
+dashd-p2p = { path = "../dashd-p2p" }
+# The DKG runtime's OS RNG: the sessions' draws and the batch weights (dash-pkc's rand_core major).
+getrandom = { version = "0.4", features = ["sys_rng"], optional = true }
+# The pending pass's peer order (`IterateNodesRandom`), dash-llmq's major.
+rand_core = "0.10"
+serde_json = { workspace = true, optional = true }
+thiserror = "2"
+tracing = "0.1"
+
+[features]
+# The regtest-only `-testquorumshares` share-seam loader (`QuorumManager::load_test_quorum_shares`).
+# Off by default; a product build never enables it.
+testkit-seams = ["dep:serde_json"]
+# The DKG runtime (`dkg`), which dashd-node composes into the node by default (BL-895).
+dkg-runtime = [
+    "dep:dashd-masternode",
+    "dep:getrandom", "dep:serde_json", "serde_json/preserve_order"]
+
+[dev-dependencies]
+# The shared signing fakes (`dash_llmq::sigenv::fakes`) for the signing runtime's tests.
+# The reference DKG harness (`dash_llmq::dkg::reference`) for the DKG runtime's lookup tests.
+dash-llmq = { path = "../dash-llmq", features = ["testkit", "reference"] }
+dash-num = { workspace = true, features = ["std"] }
+# The lane (c) differential (`tests/lane_c_differential.rs`): the recorded chain replayed into
+# `NodeSut`'s V, route B's quorums, the recorded RPC answers and the fixture's sha256 pins.
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+# ST3a's power-loss model, crashing the quorum store after each commit (`store::tests`).
+dash-kv = { path = "../dash-kv", features = ["faulty"] }
+dash-sha256 = { path = "../dash-sha256" }
+# `support::addresses`' entry strings (`CService::ToStringAddrPort`); its tests' hand-built Dmns
+# use dash-dml above.
+dash-netaddr = { path = "../dash-netaddr" }
+dashd-node = { path = "../dashd-node", features = ["test-support"] }
+# The handler's wire tests in the processor's simulation (`net_quorum::tests`).
+dashd-p2p = { path = "../dashd-p2p", features = ["sim"] }
+# The recovered-signature store over RocksDB (`recsig_store::tests`).
+# The dkgdb's reopen and wipe over the node's RocksDB engine.
+dashd-store = { path = "../dashd-store" }
+serde_json = "1.0"
+tempfile = "3"
+
+[[test]]
+name = "share_seam"
+path = "tests/share_seam.rs"
+required-features = ["testkit-seams"]
+
+[[test]]
+name = "dkg_round"
+path = "tests/dkg_round.rs"
+required-features = ["dkg-runtime"]
