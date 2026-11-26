@@ -1,0 +1,10 @@
+# CRASH planted bug RefuseEvo under DEC-196's refusal, minimised in 42 replays.
+harness st3a/1
+sut chainsut
+config sub=- invalid=- effects=- presumed=- crash=- replay=- planted=RefuseEvo
+workload c5;f;x3;i
+crash 35 process-kill
+adversary realistic
+granularity write
+expect R0
+minimality verified

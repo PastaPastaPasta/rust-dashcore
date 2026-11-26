@@ -1,0 +1,10 @@
+# S0p, hold: a start in IBD whose second block leaves it (BL-969: a restore at T_RECENT loads past
+# IBD and arms no LEFT_IBD), so LEFT_IBD freezes mid-op and CACHE_LARGE at the op's end, each
+# mirrored to Core; then a KILL after the mirrors.
+start hold
+start old
+extend main 1
+warp 30
+extend main 1
+restart kill
+extend main 1

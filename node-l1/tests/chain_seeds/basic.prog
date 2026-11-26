@@ -1,0 +1,10 @@
+# Plain growth with each transaction shape, then flushes and both restarts.
+extend main 3 tx=spends
+extend main 2 tx=fan
+extend main 2 tx=chain
+flush always
+flush if_needed
+flush periodic
+restart clean
+extend main 1 tx=spends
+restart kill

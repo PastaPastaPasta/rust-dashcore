@@ -1,0 +1,6 @@
+# fp-listen0-in-v1: dashd /Dash Core:24.0.0/ (240000), regtest, fresh datadir, -mocktime=1700000000
+# args: -regtest -server -listenonion=0 -discover=0 -dnsseed=0 -fixedseeds=0 -upnp=0 -natpmp=0 -debug=net -logips -printtoconsole=0 -port=32014 -mocktime=1700000000 -listen=0
+# O13a profile `listen0`.
+mocktime 1700000000
+ibd 1
+accept 1 refused
