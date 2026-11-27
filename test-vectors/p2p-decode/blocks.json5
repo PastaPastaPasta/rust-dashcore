@@ -1,0 +1,99 @@
+//
+// Block relay vectors. Generated with the reference
+// implementation (dashpay/dash v24.0.0-rc.3, 0364ed626e).
+//
+// Each section comes with the program used to generate the vectors.
+//
+// To run a program, paste it at the end of the `net_tests` suite in
+// `src/test/net_tests.cpp` at the specified revision, build it with
+// `make -C src test/test_dash` and run
+// `./src/test/test_dash --run_test=net_tests/<name>`. The output should match
+// the section.
+//
+
+{
+/*
+BOOST_AUTO_TEST_CASE(sendcmpct_payloads)
+{
+    for (const auto& [high_bandwidth, version] : std::vector<std::pair<bool, uint64_t>>{
+             {false, 1}, {true, 1}, {true, 2}, {false, std::numeric_limits<uint64_t>::max()}}) {
+        const auto msg{CNetMsgMaker{PROTOCOL_VERSION}.Make(NetMsgType::SENDCMPCT, high_bandwidth, version)};
+        std::printf("    \"%s_v%llu\": {\n      \"raw\": \"%s\",\n      \"details\": {\n"
+                    "        \"high_bandwidth\": %s,\n        \"version\": \"%llu\"\n      }\n    },\n",
+                    high_bandwidth ? "high" : "low", (unsigned long long)version, HexStr(msg.data).c_str(),
+                    high_bandwidth ? "true" : "false", (unsigned long long)version);
+    }
+}
+*/
+  "sendcmpct": {
+    "low_v1": {
+      "raw": "000100000000000000",
+      "details": {
+        "high_bandwidth": false,
+        "version": "1"
+      }
+    },
+    "high_v1": {
+      "raw": "010100000000000000",
+      "details": {
+        "high_bandwidth": true,
+        "version": "1"
+      }
+    },
+    "high_v2": {
+      "raw": "010200000000000000",
+      "details": {
+        "high_bandwidth": true,
+        "version": "2"
+      }
+    },
+    "low_v18446744073709551615": {
+      "raw": "00ffffffffffffffff",
+      "details": {
+        "high_bandwidth": false,
+        "version": "18446744073709551615"
+      }
+    },
+  },
+/*
+BOOST_AUTO_TEST_CASE(getblocks_payloads)
+{
+    const uint256 genesis{Params().GenesisBlock().GetHash()};
+    for (const auto& [have, stop] : std::vector<std::pair<std::vector<uint256>, uint256>>{
+             {{}, uint256{}}, {{genesis}, uint256{}}, {{uint256::ONE, genesis}, genesis}}) {
+        const auto msg{CNetMsgMaker{PROTOCOL_VERSION}.Make(NetMsgType::GETBLOCKS, CBlockLocator{std::vector<uint256>{have}}, stop)};
+        std::printf("    \"locator%zu\": {\n      \"raw\": \"%s\",\n      \"details\": {\n"
+                    "        \"version\": %d,\n        \"locator_hashes\": [",
+                    have.size(), HexStr(msg.data).c_str(), PROTOCOL_VERSION);
+        for (size_t i = 0; i < have.size(); ++i) std::printf("%s\"%s\"", i ? ", " : "", have[i].ToString().c_str());
+        std::printf("],\n        \"hash_stop\": \"%s\"\n      }\n    },\n", stop.ToString().c_str());
+    }
+}
+*/
+  "getblocks": {
+    "locator0": {
+      "raw": "62120100000000000000000000000000000000000000000000000000000000000000000000",
+      "details": {
+        "version": 70242,
+        "locator_hashes": [],
+        "hash_stop": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "locator1": {
+      "raw": "62120100012e3df23eec5cd6a86edd509539028e2c3a3dc05315eb28f2baa43218ca0800000000000000000000000000000000000000000000000000000000000000000000",
+      "details": {
+        "version": 70242,
+        "locator_hashes": ["000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e"],
+        "hash_stop": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "locator2": {
+      "raw": "621201000201000000000000000000000000000000000000000000000000000000000000002e3df23eec5cd6a86edd509539028e2c3a3dc05315eb28f2baa43218ca0800002e3df23eec5cd6a86edd509539028e2c3a3dc05315eb28f2baa43218ca080000",
+      "details": {
+        "version": 70242,
+        "locator_hashes": ["0000000000000000000000000000000000000000000000000000000000000001", "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e"],
+        "hash_stop": "000008ca1832a4baf228eb1553c03d3a2c8e02399550dd6ea8d65cec3ef23d2e"
+      }
+    },
+  },
+}

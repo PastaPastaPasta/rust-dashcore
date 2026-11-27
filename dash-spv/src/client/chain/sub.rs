@@ -1,0 +1,595 @@
+//! Chain subscribers (PLAN-r1 §2.4): a no-wait pump per subscriber drains its feed and only
+//! counts, and [`ChainSub::next`] builds every notice from two published snapshots, so a notice
+//! never names a tip a step has not released.
+
+use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::task::{Context, Poll, Waker};
+
+use dash_chain::{
+    AncestryError, AnchoredAncestry, BlockRef, ChainError, ChainFeeds, ChainReadSnapshot, FeedId,
+    FeedSource, Handoff, Needs, Next, Notify, Refused, SubscribeError, SubscriberFeed,
+};
+use parking_lot::Mutex;
+use tokio::sync::{watch, Notify as Signal};
+use tokio::task::JoinHandle;
+
+use super::no_wait::{spawn_pump, SubError};
+#[cfg(test)]
+use super::tests::sub::{At, LagLog, PumpHook, Slot};
+use super::{ChainGen, ChainSource, PinnedChain, SourceState};
+
+/// The manager a subscriber serves, named in its log lines.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SubKind {
+    FilterHeaders,
+    Filters,
+    Blocks,
+    Masternodes,
+    Progress,
+}
+
+/// What [`ChainSub::next`] returns.
+#[derive(Debug)]
+pub enum SubItem {
+    Notice(ChainNotice),
+    /// The header chain has stopped; nothing follows.
+    Stop,
+}
+
+/// A change of the published chain. `pin` is the publication the notice was built from, of the
+/// generation its ids belong to: `pin.snap.tip_seq == to_seq`, and its tip is the notice's new
+/// tip. A handler reads the chain through `pin`, and keeps no id past a change of `pin.gen`.
+#[derive(Clone, Debug)]
+pub enum ChainNotice {
+    Advanced {
+        from: BlockRef,
+        to: BlockRef,
+        to_seq: u64,
+        pin: PinnedChain,
+    },
+    /// The tip moved off `old_tip`'s branch; `fork` is the last common ancestor.
+    Reorg {
+        fork: BlockRef,
+        old_tip: BlockRef,
+        new_tip: BlockRef,
+        disconnected: u32,
+        connected: u32,
+        to_seq: u64,
+        pin: PinnedChain,
+    },
+    /// Start again from `pin`: the subscriber's own state may be on any branch, and every
+    /// later notice follows from `pin`.
+    Resync {
+        pin: PinnedChain,
+        why: ResyncWhy,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResyncWhy {
+    /// The subscriber's first notice.
+    Start,
+    /// The subscriber fell behind and its feed was closed.
+    Lag,
+    /// Its feed skipped a `seq`.
+    Gap,
+    /// The chain was replaced.
+    Generation,
+}
+
+/// What a pump shares with its [`ChainSub`] and the writer's lag budget.
+pub(super) struct Pump {
+    /// The `seq` of the last event popped.
+    popped: AtomicU64,
+    /// Parked on an empty feed: not what blocks the writer.
+    parked: AtomicBool,
+    closed: AtomicBool,
+    gap: AtomicBool,
+    wake: Signal,
+}
+
+/// The live pumps, as the writer's lag budget reads them. `live()` runs under the tip lock: the
+/// table's lock is a leaf below it (D52), held for no feed call.
+pub(super) struct SubTable {
+    subs: Mutex<Vec<SubEntry>>,
+    next_key: AtomicU64,
+    #[cfg(test)]
+    pub(super) lag: LagLog,
+}
+
+#[derive(Clone)]
+pub(super) struct SubEntry {
+    key: u64,
+    gen: ChainGen,
+    pub(super) id: FeedId,
+    pub(super) feeds: ChainFeeds,
+    pump: Arc<Pump>,
+    pub(super) kind: SubKind,
+}
+
+impl SubTable {
+    pub(super) fn new() -> Arc<SubTable> {
+        Arc::new(SubTable {
+            subs: Mutex::new(Vec::new()),
+            next_key: AtomicU64::new(0),
+            #[cfg(test)]
+            lag: LagLog::default(),
+        })
+    }
+
+    /// The pumps of `gen`, copied: no feed call is made under the table's lock.
+    pub(super) fn live(&self, gen: ChainGen) -> Vec<SubEntry> {
+        self.subs.lock().iter().filter(|e| e.gen == gen).cloned().collect()
+    }
+
+    /// Closes the slot of every pump, of every generation, logging those not closed before.
+    pub(super) fn close_all(&self, why: &str) {
+        let all = self.subs.lock().clone();
+        for e in all {
+            let logged = e.closed();
+            e.close();
+            if !logged {
+                tracing::info!("chain subscriber {:?}: feed closed ({why}), resync", e.kind);
+            }
+        }
+    }
+
+    fn remove(&self, key: u64) {
+        self.subs.lock().retain(|e| e.key != key);
+    }
+}
+
+impl SubEntry {
+    /// The `seq` of the last event its pump popped.
+    pub(super) fn popped(&self) -> u64 {
+        self.pump.popped.load(Ordering::SeqCst)
+    }
+
+    /// Its pump is parked on an empty feed, so it is not what blocks the writer.
+    pub(super) fn parked(&self) -> bool {
+        self.pump.parked.load(Ordering::SeqCst)
+    }
+
+    /// Its slot was closed, by the writer or under its pump.
+    pub(super) fn closed(&self) -> bool {
+        self.pump.closed.load(Ordering::SeqCst)
+    }
+
+    /// Closes its slot and wakes its subscriber, which resyncs: a stuck pump never sees the
+    /// close itself. Logs nothing, as it may run under the tip lock.
+    pub(super) fn close(&self) {
+        self.feeds.deregister(self.id);
+        self.pump.closed.store(true, Ordering::SeqCst);
+        self.pump.wake.notify_one();
+    }
+}
+
+/// One subscriber of the header chain, across its generations. Its first notice is a
+/// `Resync { Start }`.
+pub struct ChainSub {
+    kind: SubKind,
+    source: watch::Receiver<ChainSource>,
+    table: Arc<SubTable>,
+    /// The generation of the last `Resync` returned.
+    gen: Option<ChainGen>,
+    /// Why the next registration resyncs, when it is the same generation's.
+    why: ResyncWhy,
+    live: Option<Live>,
+    /// A slot a dropped `next()` left registered.
+    stranded: Option<(ChainFeeds, FeedId)>,
+    #[cfg(test)]
+    pub(super) hooks: Arc<super::tests::sub::Hooks>,
+}
+
+struct Live {
+    feeds: ChainFeeds,
+    id: FeedId,
+    key: u64,
+    pump: Arc<Pump>,
+    task: JoinHandle<()>,
+    /// The pin of the last notice returned.
+    delivered: PinnedChain,
+}
+
+impl ChainSub {
+    pub(super) fn new(
+        kind: SubKind,
+        source: watch::Receiver<ChainSource>,
+        table: Arc<SubTable>,
+    ) -> ChainSub {
+        ChainSub {
+            kind,
+            source,
+            table,
+            gen: None,
+            why: ResyncWhy::Lag,
+            live: None,
+            stranded: None,
+            #[cfg(test)]
+            hooks: Arc::default(),
+        }
+    }
+
+    pub fn kind(&self) -> SubKind {
+        self.kind
+    }
+
+    /// The next notice. Cancel-safe: a dropped call loses no notice; the next call, or the drop,
+    /// deregisters any slot it left.
+    /// While the chain is replaced it returns nothing; the new generation's first notice is a
+    /// `Resync { Generation }`.
+    pub async fn next(&mut self) -> Result<SubItem, SubError> {
+        loop {
+            if let Some((feeds, id)) = self.stranded.take() {
+                self.deregister(&feeds, id);
+            }
+            let source = self.source.borrow_and_update().clone();
+            let (feeds, reader) = match source.state {
+                SourceState::Live {
+                    feeds,
+                    reader,
+                } => (feeds, reader),
+                SourceState::Replacing => {
+                    self.detach();
+                    #[cfg(test)]
+                    self.hooks.at(At::Replacing).await;
+                    self.source.changed().await.map_err(|_| SubError::Stopped)?;
+                    continue;
+                }
+                SourceState::Stopped => {
+                    self.detach();
+                    return Ok(SubItem::Stop);
+                }
+            };
+            if self.live.as_ref().is_some_and(|l| l.delivered.gen == source.gen) {
+                if let Some(n) = self.deliver().await? {
+                    return Ok(SubItem::Notice(n));
+                }
+                continue;
+            }
+            self.detach();
+            let why = match self.gen {
+                None => ResyncWhy::Start,
+                Some(g) if g != source.gen => ResyncWhy::Generation,
+                Some(_) => self.why,
+            };
+            let pin = PinnedChain::new(&reader, source.gen, source.guard);
+            if let Some(n) = self.attach(feeds, pin, why).await? {
+                return Ok(SubItem::Notice(n));
+            }
+        }
+    }
+
+    /// The live feed's next notice, or `None` once something changed that `next` must see.
+    async fn deliver(&mut self) -> Result<Option<ChainNotice>, SubError> {
+        let live = self.live.as_mut().expect("live");
+        let pump = Arc::clone(&live.pump);
+        let woke = pump.wake.notified();
+        tokio::pin!(woke);
+        woke.as_mut().enable();
+        if pump.closed.load(Ordering::SeqCst) || pump.gap.load(Ordering::SeqCst) {
+            self.why = match pump.gap.load(Ordering::SeqCst) {
+                true => ResyncWhy::Gap,
+                false => ResyncWhy::Lag,
+            };
+            tracing::debug!("chain subscriber {:?}: resync, {:?}", self.kind, self.why);
+            self.detach();
+            return Ok(None);
+        }
+        let now = live.delivered.repin();
+        if now.snap.tip_seq > live.delivered.snap.tip_seq {
+            let notice = match notice(&live.delivered, &now) {
+                Err(AncestryError::Retired) => return Ok(None),
+                r => r.map_err(unforked)?,
+            };
+            live.delivered = now;
+            if notice.is_some() {
+                return Ok(notice);
+            }
+        }
+        #[cfg(test)]
+        self.hooks.at(At::Parked).await;
+        tokio::select! {
+            _ = woke => {}
+            r = self.source.changed() => r.map_err(|_| SubError::Stopped)?,
+        }
+        Ok(None)
+    }
+
+    /// Registers on `pin`'s generation's feeds and hands off at its published tip (§2.4.2),
+    /// then re-reads the source (P7): only a source still `Live` at that generation gets the
+    /// `Resync`; otherwise the slot is left for the next call to deregister, and `None`
+    /// returned.
+    async fn attach(
+        &mut self,
+        feeds: ChainFeeds,
+        mut pin: PinnedChain,
+        why: ResyncWhy,
+    ) -> Result<Option<ChainNotice>, SubError> {
+        let gen = pin.gen;
+        #[cfg(test)]
+        self.hooks.at(At::BeforeRegister).await;
+        let Some(id) = self.after_hold(&feeds, |f| f.register(Needs::default())).await? else {
+            return Ok(None);
+        };
+        #[cfg(test)]
+        self.hooks.log.lock().push(Slot::Reg(id));
+        self.stranded = Some((feeds.clone(), id));
+        let (feed, seq) = loop {
+            let at = tip_ref(&pin.snap);
+            let handoff = self
+                .after_hold(&feeds, |f| {
+                    match FeedSource::<Infallible>::subscribe_at(f, id, &at, &mut || Ok(())) {
+                        Err(SubscribeError::HoldActive) => Err(Refused::HoldActive),
+                        r => Ok(r),
+                    }
+                })
+                .await?;
+            match handoff {
+                None | Some(Err(SubscribeError::Stale | SubscribeError::Closing)) => {
+                    return Ok(None)
+                }
+                Some(Ok(Handoff::Live {
+                    feed,
+                    seq_synced,
+                })) => break (feed, seq_synced),
+                Some(Ok(Handoff::Moved)) => pin = pin.repin(),
+                Some(Err(SubscribeError::Latched)) => return Err(SubError::Stopped),
+                Some(Err(SubscribeError::WouldDeadlock)) => {
+                    return Err(SubError::FeedRefused(Refused::WouldDeadlock))
+                }
+                Some(Err(SubscribeError::AlreadyLive | SubscribeError::HoldActive)) => {
+                    return Err(SubError::Storage(ChainError::Internal(
+                        "a fresh slot's handoff refused past the hold protocol",
+                    )))
+                }
+                Some(Err(SubscribeError::Finish(never))) => match never {},
+            }
+        };
+        #[cfg(test)]
+        self.hooks.at(At::BeforeRecheck).await;
+        let now = self.source.borrow_and_update();
+        if now.gen != gen || !matches!(now.state, SourceState::Live { .. }) {
+            return Ok(None);
+        }
+        drop(now);
+        self.stranded = None;
+        let pump = Arc::new(Pump {
+            popped: AtomicU64::new(seq - 1),
+            parked: AtomicBool::new(false),
+            closed: AtomicBool::new(false),
+            gap: AtomicBool::new(false),
+            wake: Signal::new(),
+        });
+        let key = self.table.next_key.fetch_add(1, Ordering::Relaxed);
+        self.table.subs.lock().push(SubEntry {
+            key,
+            gen,
+            id,
+            feeds: feeds.clone(),
+            pump: Arc::clone(&pump),
+            kind: self.kind,
+        });
+        let task = spawn_pump(run_pump(
+            feed,
+            Arc::clone(&pump),
+            #[cfg(test)]
+            self.hooks.pump.lock().take(),
+        ));
+        self.live = Some(Live {
+            feeds,
+            id,
+            key,
+            pump,
+            task,
+            delivered: pin.clone(),
+        });
+        self.gen = Some(gen);
+        Ok(Some(ChainNotice::Resync {
+            pin,
+            why,
+        }))
+    }
+
+    /// `op` under SB5's hold protocol: on `HoldActive`, `on_release`, retry once, then wait for
+    /// the release beside the source. `None` when the source changed first.
+    async fn after_hold<T>(
+        &mut self,
+        feeds: &ChainFeeds,
+        mut op: impl FnMut(&ChainFeeds) -> Result<T, Refused>,
+    ) -> Result<Option<T>, SubError> {
+        let mut armed: Option<Arc<Signal>> = None;
+        loop {
+            match op(feeds) {
+                Ok(t) => return Ok(Some(t)),
+                Err(Refused::HoldActive) => {}
+                Err(Refused::Latched) => return Err(SubError::Stopped),
+                Err(e) => return Err(SubError::FeedRefused(e)),
+            }
+            let Some(released) = armed.take() else {
+                let s = Arc::new(Signal::new());
+                feeds.on_release(Notify::Task(Waker::from(Arc::new(Wake(Arc::clone(&s))))));
+                armed = Some(s);
+                continue;
+            };
+            tokio::select! {
+                _ = released.notified() => {}
+                r = self.source.changed() => {
+                    r.map_err(|_| SubError::Stopped)?;
+                    return Ok(None);
+                }
+            }
+        }
+    }
+
+    /// Ends the pump and closes its slot.
+    fn detach(&mut self) {
+        if let Some(l) = self.live.take() {
+            l.task.abort();
+            self.deregister(&l.feeds, l.id);
+            self.table.remove(l.key);
+        }
+    }
+
+    fn deregister(&self, feeds: &ChainFeeds, id: FeedId) {
+        #[cfg(test)]
+        self.hooks.log.lock().push(Slot::Dereg(id));
+        feeds.deregister(id);
+    }
+}
+
+impl Drop for ChainSub {
+    fn drop(&mut self) {
+        self.detach();
+        if let Some((feeds, id)) = self.stranded.take() {
+            self.deregister(&feeds, id);
+        }
+    }
+}
+
+/// A [`Signal`] as a waker for dash-chain's wakes: notification only.
+struct Wake(Arc<Signal>);
+
+impl std::task::Wake for Wake {
+    fn wake(self: Arc<Self>) {
+        self.0.notify_one();
+    }
+
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.0.notify_one();
+    }
+}
+
+fn tip_ref(s: &ChainReadSnapshot) -> BlockRef {
+    BlockRef {
+        id: s.tip.tip,
+        hash: s.tip.tip_hash,
+        height: s.tip.tip_height,
+    }
+}
+
+/// The notice from `from`'s tip to `to`'s, read through `to`: `None` when the tip is the same
+/// block.
+fn notice(from: &PinnedChain, to: &PinnedChain) -> Result<Option<ChainNotice>, AncestryError> {
+    let (old, new) = (tip_ref(&from.snap), tip_ref(&to.snap));
+    if old.id == new.id {
+        return Ok(None);
+    }
+    let unheld = AncestryError::BelowFloor {
+        height: to.floor(),
+    };
+    let fork = to.lca(old.id, new.id)?.ok_or(unheld)?;
+    let (to_seq, pin) = (to.snap.tip_seq, to.clone());
+    if fork == old.id {
+        return Ok(Some(ChainNotice::Advanced {
+            from: old,
+            to: new,
+            to_seq,
+            pin,
+        }));
+    }
+    let e = to.entry(fork)?;
+    Ok(Some(ChainNotice::Reorg {
+        fork: BlockRef {
+            id: e.id,
+            hash: e.hash,
+            height: e.height,
+        },
+        old_tip: old,
+        new_tip: new,
+        disconnected: old.height - e.height,
+        connected: new.height - e.height,
+        to_seq,
+        pin,
+    }))
+}
+
+/// A notice's failed read: a store's, which has tripped the fail-stop, or two published tips
+/// with no fork above the floor.
+fn unforked(e: AncestryError) -> SubError {
+    match e {
+        AncestryError::Storage(e) => SubError::Storage(ChainError::Storage(e)),
+        _ => SubError::Storage(ChainError::Internal("two published tips with no fork")),
+    }
+}
+
+/// Events a pump pops before it yields.
+const PUMP_BATCH: u32 = 64;
+
+/// The pump (§2.4.1): pops every event, counts it, checks its `seq`, and wakes its
+/// subscriber. Its only wait is its feed's waker.
+async fn run_pump(
+    mut feed: Box<dyn SubscriberFeed>,
+    pump: Arc<Pump>,
+    #[cfg(test)] mut hook: Option<PumpHook>,
+) {
+    #[cfg(test)]
+    PumpHook::start(&mut hook).await;
+    let mut last = pump.popped.load(Ordering::SeqCst);
+    loop {
+        let mut popped = 0;
+        while popped < PUMP_BATCH {
+            if feed.is_closed() {
+                pump.closed.store(true, Ordering::SeqCst);
+                pump.wake.notify_one();
+                return;
+            }
+            let seq = match feed.next() {
+                Next::Control(_) => continue,
+                Next::Event(e) => e.seq(),
+                Next::Empty => break,
+            };
+            feed.pop();
+            if seq != last + 1 {
+                pump.gap.store(true, Ordering::SeqCst);
+                pump.wake.notify_one();
+                return;
+            }
+            last = seq;
+            pump.popped.store(seq, Ordering::SeqCst);
+            popped += 1;
+            #[cfg(test)]
+            PumpHook::after_pop(&mut hook).await;
+        }
+        if popped > 0 {
+            pump.wake.notify_one();
+        }
+        match popped == PUMP_BATCH {
+            true => tokio::task::yield_now().await,
+            false => {
+                let wait = FeedWait {
+                    feed: &mut *feed,
+                    pump: &pump,
+                };
+                #[cfg(test)]
+                PumpHook::park(&mut hook, wait).await;
+                #[cfg(not(test))]
+                wait.await
+            }
+        }
+    }
+}
+
+/// Ready once the feed has an event or is closed; parked until then.
+struct FeedWait<'a> {
+    feed: &'a mut dyn SubscriberFeed,
+    pump: &'a Pump,
+}
+
+impl Future for FeedWait<'_> {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        self.feed.set_waker(Notify::Task(cx.waker().clone()));
+        let empty = matches!(self.feed.next(), Next::Empty) && !self.feed.is_closed();
+        self.pump.parked.store(empty, Ordering::SeqCst);
+        match empty {
+            true => Poll::Pending,
+            false => Poll::Ready(()),
+        }
+    }
+}

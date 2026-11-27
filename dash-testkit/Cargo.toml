@@ -1,0 +1,105 @@
+[package]
+name = "dash-testkit"
+description = "Regtest harness for rdashd and dashd: RustNode, MixedNetwork and mock time over dash-spv's test-utils"
+publish = false
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# A test-only crate (layer T): other crates may use it only as a dev-dependency.
+
+[features]
+default = ["harness"]
+# The regtest harness and its runtime dependencies. `keys`, `mixnet` and their CLIs build without
+# it, so a crate deriving keys in-process (`default-features = false`) pulls in no dash-spv or tokio.
+harness = [
+    "dep:dash-spv",
+    "dep:dashcore",
+    "dep:dashcore-rpc",
+    "dep:tempfile",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:libc",
+]
+# The device-level power-loss harness (ST3b, Linux): `dm-log-writes` replay and its checks.
+crash = [
+    "harness",
+    "tokio/rt",
+    "dep:dash-chain",
+    "dep:dash-consensus",
+    "dep:dash-params",
+    "dep:dashd-chainstate",
+    "dep:dashd-store",
+]
+
+[dependencies]
+# C0's offline inspector (`crash::inspect`) opens a chainstate as rdashd's recovery does.
+dash-chain = { path = "../dash-chain", optional = true }
+dash-consensus = { path = "../dash-consensus", optional = true }
+dash-params = { workspace = true, features = ["std"], optional = true }
+dashd-chainstate = { path = "../dashd-chainstate", features = ["rocksdb"], optional = true }
+dashd-store = { path = "../dashd-store", optional = true }
+dash-pkc = { workspace = true, features = ["std", "bls", "portable"] }
+dashcore_hashes = { workspace = true }
+dash-spv = { path = "../dash-spv", features = ["test-utils"], optional = true }
+dashcore = { path = "../dash", optional = true }
+dashcore-rpc = { path = "../rpc-client", optional = true }
+# mixnet: the O12b contract's records and role plans, and the `mixnet-plan` CLI's JSON.
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = "1.0"
+tempfile = { version = "3.0", optional = true }
+tokio = { version = "1.0", features = ["time"], optional = true }
+tracing = { version = "0.1", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# SIGTERM for a clean stop.
+libc = { version = "0.2", optional = true }
+
+[dev-dependencies]
+# tests/quorum_sk.rs: the OS RNG for `BlsSecretKey::split` (dash-pkc's rand_core major).
+getrandom = { version = "0.4", features = ["sys_rng"] }
+rand_core = "0.10"
+# tests/quorum_sk.rs: a temp dir removed on drop.
+tempfile = "3.0"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "st3b-crash"
+path = "src/bin/st3b-crash.rs"
+required-features = ["crash"]
+
+[[bin]]
+name = "testkit-keys"
+path = "src/bin/testkit-keys.rs"
+
+[[bin]]
+name = "mixnet-plan"
+path = "src/bin/mixnet-plan.rs"
+
+[[test]]
+name = "crash_logwrites"
+required-features = ["crash"]
+
+# The VM guest test (ST3b S7): skipped unless ST3B_VM=1.
+[[test]]
+name = "crash_vm"
+required-features = ["crash"]
+
+[[test]]
+name = "mixed_network"
+required-features = ["harness"]
+
+[[test]]
+name = "retain"
+required-features = ["harness"]
+
+[[test]]
+name = "rust_node"
+required-features = ["harness"]
+
+[[test]]
+name = "wrong_binary"
+required-features = ["harness"]
