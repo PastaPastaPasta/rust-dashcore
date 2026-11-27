@@ -1,0 +1,4 @@
+# script error "Operation not valid with the current altstack size" (bank slot 28, se_invalid_altstack_operation): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_invalid_altstack_operation
+extend main 1

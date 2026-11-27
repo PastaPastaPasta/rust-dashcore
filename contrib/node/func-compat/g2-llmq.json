@@ -1,0 +1,42 @@
+{
+ "mask": "mn:2",
+ "pin": "v24.0",
+ "tests": {
+  "feature_llmq_chainlocks.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_dkgerrors.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_g2_dkg.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_is_cl_conflicts.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_is_retroactive.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_signing.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_signing.py --spork21": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_simplepose.py": {
+   "stage": "pass",
+   "status": "pass"
+  },
+  "feature_llmq_simplepose.py --disable-spork23": {
+   "stage": "pass",
+   "status": "pass"
+  }
+ }
+}

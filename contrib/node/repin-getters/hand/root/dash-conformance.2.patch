@@ -1,0 +1,18 @@
+diff --git a/conformance/tests/segment.rs b/conformance/tests/segment.rs
+index 3e6642a59c8b781eb0c21cc621a2bd636ba9beb1..44f064027d6cf849507c260ee8b83ec6ecb241c9 100644
+--- a/conformance/tests/segment.rs
++++ b/conformance/tests/segment.rs
+@@ -481,7 +481,12 @@ fn core_populated_evo_snapshot_scans_to_core_hash() {
+         let mut v1 = v1.clone();
+         {
+             let mut service = v1.service().clone();
+-            service.addr.0[12..].copy_from_slice(&[10, 0, 0, services]);
++            let mut addr = *service.addr().as_bytes();
++            addr[12..].copy_from_slice(&[10, 0, 0, services]);
++            service = dash_primitives::ServiceV1::new(
++                dash_primitives::AddrV1::from_bytes(addr),
++                service.port(),
++            );
+             v1 = dash_primitives::NetInfoV1::new(service);
+         }
+         {
