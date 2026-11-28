@@ -1,0 +1,6 @@
+FROM ubuntu@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289
+COPY --chmod=0555 mixnet-watch mixnet-judge /usr/local/bin/
+USER ubuntu
+WORKDIR /observations
+CMD mixnet-watch --nodes /nodes.json --out obs.jsonl --events watch.events --poll-ms 1000 >watch.log 2>&1; \
+    echo "$?" >watch.exit; exec sleep infinity

@@ -1,0 +1,8 @@
+github.com
+objects.githubusercontent.com
+crates.io
+index.crates.io
+static.crates.io
+registry-1.docker.io
+auth.docker.io
+production.cloudflare.docker.com

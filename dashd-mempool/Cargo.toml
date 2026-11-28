@@ -1,0 +1,40 @@
+[package]
+name = "dashd-mempool"
+description = "The Rust Dash node's mempool types and InstantSend interfaces"
+publish = false
+license = "MIT"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+test-support = []
+
+[dependencies]
+dash-clock = { path = "../dash-clock" }
+dash-consensus = { path = "../dash-consensus" }
+dash-dml = { path = "../dash-dml" }
+dash-evo = { path = "../dash-evo" }
+dash-pkc = { workspace = true, features = ["bls"] }
+dash-num = { workspace = true }
+dash-params = { workspace = true, features = ["std"] }
+dash-primitives = { workspace = true, features = ["std"] }
+parking_lot = { version = "0.12", features = ["arc_lock"] }
+dashd-chainstate = { path = "../dashd-chainstate" }
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1.11"
+dash-chain = { path = "../dash-chain" }
+dash-core-vectors = { path = "../test-vectors" }
+dash-dml = { path = "../dash-dml", features = ["test-utils"] }
+dash-kv = { path = "../dash-kv" }
+dash-types = { workspace = true }
+dashd-store = { path = "../dashd-store" }
+tempfile = "3"
+
+[[test]]
+name = "testkit"
+required-features = ["test-support"]
