@@ -1,0 +1,213 @@
+{
+  "v": 1,
+  "preset": "devnet",
+  "context": "devnet",
+  "caps": [
+    "mn",
+    "dkg"
+  ],
+  "run_kinds": [
+    "devnet-rehearsal",
+    "soak"
+  ],
+  "slots": [
+    {
+      "slot": "node0",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg0",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg1",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg2",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg3",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg4",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg5",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg6",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg7",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg8",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg9",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "reg10",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg11",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg12",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg13",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg14",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg15",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg16",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg17",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg18",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg19",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo0",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo1",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo2",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo3",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo4",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo5",
+      "label": "rust",
+      "runs": "rust",
+      "twin": false
+    },
+    {
+      "slot": "evo6",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo7",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo8",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo9",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo10",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "evo11",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    }
+  ]
+}

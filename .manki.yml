@@ -1,0 +1,35 @@
+# Manki — AI Code Review Configuration
+# https://github.com/manki-review/manki
+
+auto_review: true
+auto_approve: true
+
+# A call that a model refuses on safety grounds is sent to this model instead.
+models:
+  fallback: claude-sonnet-5-5
+
+review:
+  # Who reviews. A trivial change gets a quick check, a low-risk change one reader,
+  # and everything else Claude Opus and an OpenAI model side by side.
+  groups:
+    trivial: [claude-sonnet-5-5]
+    solo: [claude-opus-5-5]
+    full: [claude-opus-5-5, gpt-6.2-sol]
+  # A trial that runs until the Manki v7.7.0 release decides whether the sweep stays.
+  sweep: warnings
+  examples:
+    blocker:
+      - "Changing the field order in a `consensus_encode` implementation changes the bytes on the wire, even when every test passes."
+
+related_repos:
+  - { repo: dashpay/dash, kind: reference, paths: [src/] }
+  - { repo: dashpay/dips, kind: reference }
+  - { repo: dashpay/platform, kind: consumer, paths: ["packages/rs-*"] }
+  - { repo: dashpay/dash-evo-tool, kind: consumer }
+
+static_analysis:
+  analyzers:
+    secrets: true
+
+memory:
+  enabled: true

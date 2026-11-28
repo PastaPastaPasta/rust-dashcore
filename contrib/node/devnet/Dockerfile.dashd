@@ -1,0 +1,6 @@
+FROM ubuntu@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289
+COPY --chmod=0555 dashd dash-cli /usr/local/bin/
+RUN install -d -o ubuntu -g ubuntu -m 0700 /data
+USER ubuntu
+VOLUME ["/data"]
+ENTRYPOINT ["dashd", "-datadir=/data", "-conf=/etc/dash.conf"]
