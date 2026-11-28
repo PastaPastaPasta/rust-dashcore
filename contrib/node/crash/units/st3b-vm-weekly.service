@@ -1,0 +1,44 @@
+[Unit]
+Description=ST3b VM-level power-loss weekly: KVM guest kills, C1-C4 (PLAN-ST3b-S7 §2.4)
+# Budget (PLAN-ST3b-VMW6, MGR 11-25): <= 6 h wall from the start to DONE, prepare included.
+# Each W-40k component (v-ibd, v-flush, v-recovery) ends at its last counted kill (the boot that
+# checks it, a clean stop, one more boot and clean stop, the fsck) instead of syncing to the
+# tip, which took 80-90% of the 11-08 week's 10.5 h. One of the six a week runs to the tip
+# (`st3b-crash vm --to-tip`), picked by the scheduled Sunday's week mod 6 (weekly-vm.sh's
+# header); v-reorg (W-small) always does. The drop-ins are sized from the VMW6 measurement
+# (11-26): a week is about 4.4 h, and this unit's 6 h cap bounds it (README, Budgets).
+# A deferred week (exit 75: too little disk, or load) is tried again every 2 h, at most 6 starts
+# a day; then the unit fails and the ledger's DEFERRED rows show the skipped week (S7 r1 m9).
+StartLimitIntervalSec=1d
+StartLimitBurst=6
+
+# A template: S8 installs it (install-units.sh copies every unit here, and the drop-ins). The
+# driver: it builds release rdashd and st3b-crash once, in its own checkout and target, with the
+# guest and image (weekly-vm.sh --prepare), then starts each component as its own
+# st3b-vm-weekly@<component>.service in turn, each with its own timeout and record, and ends with
+# the week's leak check and DONE (S7 r1 M2). Set up /work/scratch/st3b/weekly-vm/checkout first: a
+# worktree of the primary repository, which `ExecStartPre` detaches at the node/integration tip
+# (a local branch that TRAINS moves; nothing to fetch) each week.
+[Service]
+Type=oneshot
+Environment=TMPDIR=/work/scratch/st3b/tmp
+Environment=CARGO_BUILD_JOBS=8
+WorkingDirectory=/work/scratch/st3b/weekly-vm
+ExecStartPre=/usr/bin/git -C checkout checkout --quiet --detach node/integration
+# One output directory per day (the guest is built in it).
+ExecStart=/bin/bash -c 'exec ./checkout/contrib/node/crash/weekly-vm.sh --units "/work/scratch/st3b/weekly-vm/out/$(date -u +%%Y%%m%%d)"'
+RestartForceExitStatus=75
+RestartSec=2h
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=25
+MemoryMax=16G
+# The cap (DEC-1798/1803 guards, VMW6): the whole week, the build (at most 3 h, `timeout` in
+# weekly-vm.sh) included. Type=oneshot ignores RuntimeMaxSec, so the cap is TimeoutStartSec. A
+# component started by the driver is its own unit and outlives the driver's cgroup. The driver's
+# TERM handler stops it (its TERM writes its TIMEOUT row); as a backstop for a driver killed
+# outright, ExecStopPost stops the one component unit the driver recorded in
+# weekly-vm/running, and only after an abnormal end: not on success, and not on the DEFERRED
+# exit 75, so a component started by hand is left alone.
+TimeoutStartSec=6h
+ExecStopPost=-/work/scratch/st3b/weekly-vm/checkout/contrib/node/crash/weekly-vm.sh --stop-started

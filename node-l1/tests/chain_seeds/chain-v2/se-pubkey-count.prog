@@ -1,0 +1,4 @@
+# script error "Pubkey count negative or limit exceeded" (bank slot 24, se_pubkey_count): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_pubkey_count
+extend main 1

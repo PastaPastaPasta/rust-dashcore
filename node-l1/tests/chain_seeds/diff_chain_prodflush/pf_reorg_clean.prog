@@ -1,0 +1,15 @@
+# S0p: a fan-out main, then a heavier fan-out fork whose connects may flush mid-op (a reconcile
+# follows its mirror); a KILL and a CLEAN restart after the mirrors.
+# It starts in IBD and leaves it at its second block, whose LEFT_IBD freeze the fan-out blocks
+# build on: a restore at T_RECENT arms no LEFT_IBD (BL-969).
+start old
+extend main 1
+warp 30
+extend main 8 tx=fan
+extend main 8 tx=fan
+fork 3 8 tx=fan
+extend b1 8 tx=fan
+restart kill
+extend main 2 tx=fan
+restart clean
+extend main 1

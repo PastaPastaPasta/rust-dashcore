@@ -1,0 +1,396 @@
+//! The chainstate context for serial admission and held-pool reorg filtering.
+
+use std::sync::Arc;
+
+use dash_chain::{ChainReader, CompleteAncestry, EntryView};
+use dash_clock::Clock;
+use dash_consensus::coins::Coin;
+use dash_consensus::ctx::{Deployment, DeploymentView};
+use dash_consensus::script::ScriptFlags;
+use dash_consensus::{BlockId, BlsCtx, ChainAncestry, TxRef};
+use dash_dml::creditpool::PoolState;
+use dash_dml::netinfo::NetInfoRules;
+use dash_dml::{MnList, StoreError};
+use dash_primitives::{BlockHash, OutPoint};
+
+use super::seams::{
+    AtmpCoinsCall, BlockConnector, DisconnectPool, EvoReadCx, Fatal, LlmqCall, RemovalReason,
+    TipCoinsCall,
+};
+use super::signals::{Queued, Staged, ValidationSignals};
+use crate::connect::{BlockAt, SpecialTxRules};
+use crate::sigcache::ScriptCaches;
+use crate::store::CoinsReadError;
+
+/// The closure returns with its pool guard released and its events already queued.
+pub type MempoolCommand = Box<dyn FnOnce(&mut MempoolTurn<'_>) -> MempoolOutcome + Send>;
+pub type MempoolOutcome = Result<MempoolCompletion, Fatal>;
+
+/// A fault in an admission turn's read of deployment state.
+#[derive(Clone, Debug)]
+pub enum AdmissionFault {
+    /// Core's `EvoDbMissingStateError`, with its text: the transaction is not admitted, nothing
+    /// is marked invalid, and V keeps running.
+    // Core: evo/mnhftx.cpp:286-290; validation.cpp:1022, :1114
+    Unavailable(String),
+    /// Any other fault.
+    Fatal(Fatal),
+}
+
+impl AdmissionFault {
+    fn from_ehf(e: dash_consensus::deployments::EhfReadError) -> AdmissionFault {
+        match super::deployments::ehf_missing(&e) {
+            Some(text) => AdmissionFault::Unavailable(text),
+            None => AdmissionFault::Fatal(super::deployments::ehf_fault(e)),
+        }
+    }
+}
+
+impl From<Fatal> for AdmissionFault {
+    fn from(f: Fatal) -> AdmissionFault {
+        AdmissionFault::Fatal(f)
+    }
+}
+
+/// Deferred completion: V uncaches, runs PERIODIC and ends the scope before invoking `reply`.
+pub struct MempoolCompletion {
+    pub uncache: Vec<OutPoint>,
+    pub reply: Box<dyn FnOnce() + Send>,
+}
+
+/// Shared input to admission's and reorg filtering's lock-point calculations.
+pub trait TipFacts {
+    fn tip(&self) -> Option<BlockId>;
+    fn ancestry(&self) -> &dyn ChainAncestry;
+
+    fn tip_height(&self) -> Option<u32> {
+        self.tip().map(|tip| self.ancestry().header(tip).height)
+    }
+
+    fn tip_mtp(&self) -> i64 {
+        self.tip().map_or(0, |tip| self.ancestry().header(tip).mtp)
+    }
+}
+
+pub trait ReorgCx: TipFacts {
+    /// Core's `TestLockPointValidity`/`Contains` binding (`validation.cpp:476-518` at v24.0.0).
+    fn chain_contains(&self, block: BlockId) -> bool;
+    /// Core's `AccessCoin`/`FetchCoin` binding (`validation.cpp:476-518` at v24.0.0). `None` is
+    /// absent/spent; a read error aborts the hold without a verdict or publication.
+    fn access_coin(&mut self, outpoint: &OutPoint) -> Result<Option<Coin>, Fatal>;
+    /// `coins_cache.Uncache(outpoint)` over `CoinsTip()` for each of `outpoints`, in order: the
+    /// prevouts `LimitMempoolSize`'s trim left unspent by the pool.
+    ///
+    /// # Errors
+    ///
+    /// The coins cell's fault.
+    // Core: validation.cpp:407-409 at v24.0.2
+    fn uncache(&mut self, outpoints: &[OutPoint]) -> Result<(), Fatal>;
+    /// Lends an adding drain's admission turn at the new tip to `f`, for the re-add's
+    /// `AcceptToMemoryPool` calls (`validation.cpp:446-458` at v24.0.0); false, without calling
+    /// `f`, for a context without one.
+    fn with_turn(&mut self, f: &mut dyn FnMut(&mut MempoolTurn<'_>)) -> bool {
+        let _ = f;
+        false
+    }
+}
+
+/// Owns the pool write guard. Events join the hold's single stream at each mutation.
+pub trait HeldMempool {
+    /// Core `DynamicMemoryUsage` (`txmempool.cpp:1984-1988` at v24.0.0), sampled while V owns the
+    /// pool write guard and before it enters the coins cell.
+    fn dynamic_memory_usage(&self) -> u64;
+    /// Core `removeForBlock(vtx, nHeight)` (`txmempool.cpp:1321-1350` at v24.0.0), including the
+    /// deterministic-masternode-list lookup used by ProTx conflict removal. Implementations must
+    /// stage each removal in call order.
+    fn remove_for_block_at(
+        &mut self,
+        vtx: &[TxRef],
+        height: u32,
+        tip_list: &Arc<MnList>,
+        staged: &mut Staged,
+    );
+    /// Core's `removeExpiredAssetUnlock(nHeight)` (`validation.cpp:3480` at v24.0.0).
+    fn remove_expired_asset_unlock(&mut self, height: u32, staged: &mut Staged);
+    /// Core `removeRecursive(tx, reason)` (`txmempool.cpp:907-935` at v24.0.0).
+    fn remove_recursive(&mut self, tx: &TxRef, reason: RemovalReason, staged: &mut Staged);
+    /// Core's `AddTransactionsUpdated` (`txmempool.cpp:422-425`, called at
+    /// `validation.cpp:3220-3222` at v24.0.0).
+    fn add_transactions_updated(&mut self, n: u32, staged: &mut Staged);
+    /// Core's `CTxMemPool::check(coins_tip, nSpendHeight)` (`validation.cpp:3690` at v24.0.0).
+    fn check(&mut self, next_height: u32, staged: &mut Staged);
+    /// `Some(tip_list)` encodes adding; `None` encodes removal only and reads no list.
+    /// Core `MaybeUpdateMempoolForReorg(disconnectpool, fAddToMempool)` (`validation.cpp:425-525`
+    /// at v24.0.0, calling `removeForReorg`, `txmempool.cpp:937-955`, at `:522`). `tip_list` is
+    /// `Some` for an adding drain and is the list at V's moved DMN tip; a non-adding drain reads
+    /// no list.
+    fn maybe_update_for_reorg_at(
+        &mut self,
+        pool: Box<dyn DisconnectPool>,
+        tip_list: Option<&Arc<MnList>>,
+        cx: &mut dyn ReorgCx,
+        staged: &mut Staged,
+    ) -> Result<(), Fatal>;
+}
+
+pub(crate) struct ReorgTurn<'a> {
+    pub(crate) tip: Option<BlockId>,
+    pub(crate) ancestry: CompleteAncestry,
+    pub(crate) connector: &'a mut dyn BlockConnector,
+}
+
+impl TipFacts for ReorgTurn<'_> {
+    fn tip(&self) -> Option<BlockId> {
+        self.tip
+    }
+    fn ancestry(&self) -> &dyn ChainAncestry {
+        &self.ancestry
+    }
+}
+
+impl ReorgCx for ReorgTurn<'_> {
+    fn chain_contains(&self, block: BlockId) -> bool {
+        self.tip.is_some_and(|tip| {
+            self.ancestry.ancestor(tip, self.ancestry.header(block).height) == Some(block)
+        })
+    }
+
+    fn uncache(&mut self, outpoints: &[OutPoint]) -> Result<(), Fatal> {
+        self.connector.with_atmp_coins(&mut |coins| {
+            for outpoint in outpoints {
+                coins.uncache(outpoint);
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    fn access_coin(&mut self, outpoint: &OutPoint) -> Result<Option<Coin>, Fatal> {
+        let mut coin = None;
+        self.connector.with_atmp_coins(&mut |coins| {
+            coin = coins.access(outpoint)?;
+            Ok(())
+        })?;
+        Ok(coin)
+    }
+}
+
+/// The hold's `FlushStateToDisk(PERIODIC)` site, lent to a reorg re-add's admission turn: the
+/// decision and its run at once, at the hold's tip, with the held pool's usage the caller reads
+/// from the guard it holds and the `ChainStateFlushed` it releases handed to `emit` in order.
+pub(crate) trait HoldFlush {
+    fn periodic(&mut self, mempool_usage: u64, emit: &mut dyn FnMut(Queued)) -> Result<(), Fatal>;
+}
+
+/// Coherent chain facts for one class-M admission. All methods are synchronous; no pool guard
+/// may survive the admission closure or a wait for V.
+pub struct MempoolTurn<'a> {
+    pub(crate) reorg: ReorgTurn<'a>,
+    pub(crate) reader: &'a ChainReader,
+    pub(crate) deployments: &'a dyn DeploymentView,
+    pub(crate) params: &'a dash_params::ChainSetup,
+    pub(crate) mn_list: Arc<MnList>,
+    pub(crate) credit_pool: Option<Arc<PoolState>>,
+    pub(crate) bls: BlsCtx,
+    pub(crate) best_header: BlockId,
+    pub(crate) ibd: bool,
+    pub(crate) clock: &'a dyn Clock,
+    pub(crate) signals: &'a ValidationSignals,
+    /// Inside a hold (the reorg re-add): the hold's PERIODIC flush. An ordinary admission turn
+    /// has none; V's dispatch flushes after it.
+    pub(crate) hold_flush: Option<&'a mut dyn HoldFlush>,
+}
+
+impl TipFacts for MempoolTurn<'_> {
+    fn tip(&self) -> Option<BlockId> {
+        self.reorg.tip()
+    }
+    fn ancestry(&self) -> &dyn ChainAncestry {
+        self.reorg.ancestry()
+    }
+}
+
+impl ReorgCx for MempoolTurn<'_> {
+    fn chain_contains(&self, block: BlockId) -> bool {
+        self.reorg.chain_contains(block)
+    }
+    fn access_coin(&mut self, outpoint: &OutPoint) -> Result<Option<Coin>, Fatal> {
+        self.reorg.access_coin(outpoint)
+    }
+    fn uncache(&mut self, outpoints: &[OutPoint]) -> Result<(), Fatal> {
+        self.reorg.uncache(outpoints)
+    }
+    fn with_turn(&mut self, f: &mut dyn FnMut(&mut MempoolTurn<'_>)) -> bool {
+        f(self);
+        true
+    }
+}
+
+impl MempoolTurn<'_> {
+    /// `AcceptToMemoryPool`'s closing `FlushStateToDisk(PERIODIC)` for an admission made inside
+    /// V's hold, the reorg re-add's: at the hold's tip, every step of which has run, with
+    /// `mempool_usage` read from the pool guard the caller holds (§3), and the flush's signals
+    /// handed to `emit` as they are released. Each re-add runs it after its uncache, as Core's
+    /// does.
+    ///
+    /// # Errors
+    ///
+    /// The flush's fault; Core's assert for a turn outside a hold, whose flush V's dispatch
+    /// runs.
+    // Core: validation.cpp:1755-1759, :2981-3128 at v24.0.2
+    pub fn flush_periodic_in_hold(
+        &mut self,
+        mempool_usage: u64,
+        emit: &mut dyn FnMut(Queued),
+    ) -> Result<(), Fatal> {
+        match self.hold_flush.as_deref_mut() {
+            Some(flush) => flush.periodic(mempool_usage, emit),
+            None => Err(Fatal::assert("a held PERIODIC flush in an admission turn outside a hold")),
+        }
+    }
+    pub fn with_atmp_coins(&mut self, f: &mut AtmpCoinsCall<'_>) -> Result<Option<()>, Fatal> {
+        self.reorg.connector.with_atmp_coins(f)
+    }
+    pub fn block_script_flags(&self) -> Option<ScriptFlags> {
+        self.tip().map(|tip| dash_consensus::connect::block_script_flags(self.deployments, tip))
+    }
+    pub fn deployment_active_after(&self, deployment: Deployment) -> Result<bool, AdmissionFault> {
+        self.deployments.try_active_after(self.tip(), deployment).map_err(AdmissionFault::from_ehf)
+    }
+    pub fn special_tx_rules(&self) -> Result<SpecialTxRules, AdmissionFault> {
+        SpecialTxRules::for_block(
+            self.params,
+            self.deployments,
+            &BlockAt {
+                hash: BlockHash::from([0; 32]),
+                height: self.tip_height().map_or(0, |height| height + 1),
+                prev: self.tip(),
+                id: None,
+            },
+        )
+        .map_err(AdmissionFault::from_ehf)
+    }
+    pub fn mn_list(&self) -> &Arc<MnList> {
+        &self.mn_list
+    }
+    pub fn list_at_block(&self, block: BlockId) -> Result<Arc<MnList>, Fatal> {
+        self.try_list_at_block(block)
+            .map_err(|e| crate::evo::node::store_fault("GetListForBlock", &e))
+    }
+    /// [`Self::list_at_block`] with the store error itself, for a caller that maps it as Core's
+    /// catch in `CheckSpecialTxInner` does (`evo/specialtxman.cpp:267-271` at v24.0.0).
+    ///
+    /// # Errors
+    ///
+    /// The evo store's read error.
+    pub fn try_list_at_block(&self, block: BlockId) -> Result<Arc<MnList>, StoreError> {
+        self.reorg.connector.evo_reads().list_at(self.read_cx(), block)
+    }
+    pub fn params(&self) -> &dash_params::ChainSetup {
+        self.params
+    }
+    pub fn deployments(&self) -> &dyn DeploymentView {
+        self.deployments
+    }
+    /// The NetInfo rules of V's special-tx checks; `None` without evo state.
+    pub fn net_info(&self) -> Option<NetInfoRules> {
+        self.reorg.connector.evo_reads().net_info()
+    }
+    /// `f` over `CoinsTip()` as `CheckSpecialTx` reads it (D13): V's non-caching overlay over the
+    /// tip, so [`Self::with_llmq`] can nest inside `f`, coins before the LLMQ view. `Ok(None)`
+    /// without `f` called for a connector that keeps no coins.
+    ///
+    /// # Errors
+    ///
+    /// The coins cell held or poisoned.
+    pub fn with_coins_tip(&self, f: &mut TipCoinsCall<'_>) -> Result<Option<()>, Fatal> {
+        self.reorg.connector.with_tip_coins(f)
+    }
+    /// A coins read fault met through [`Self::with_coins_tip`]: the store has reported it, and
+    /// Core's process aborts in the read (`coins.cpp:356-369` at v24.0.0).
+    pub fn coins_read_fault(e: CoinsReadError) -> Fatal {
+        crate::connect::read_failed(e)
+    }
+    pub fn credit_pool(&self) -> Option<&Arc<PoolState>> {
+        self.credit_pool.as_ref()
+    }
+    pub fn bls(&self) -> BlsCtx {
+        self.bls
+    }
+    /// The binding contains V's full ancestry, so the caller can select any active-chain block.
+    pub fn with_llmq(
+        &self,
+        call: &mut LlmqCall<'_>,
+    ) -> Result<(), super::command::OnVMembersError> {
+        self.reorg.connector.evo_reads().with_llmq(self.read_cx(), self.bls, call)
+    }
+    pub fn script_caches(&self) -> Option<Arc<ScriptCaches>> {
+        self.reorg.connector.script_caches()
+    }
+    pub fn is_ibd(&self) -> bool {
+        self.ibd
+    }
+    pub fn best_header(&self) -> EntryView {
+        super::index::entry(self.reader, self.best_header)
+    }
+    pub fn clock(&self) -> &dyn Clock {
+        self.clock
+    }
+    pub fn signals(&self) -> &ValidationSignals {
+        self.signals
+    }
+    fn read_cx(&self) -> EvoReadCx<'_> {
+        EvoReadCx {
+            reader: self.reader,
+            deployments: self.deployments,
+        }
+    }
+}
+
+/// Debug-build lock ranks shared with pool implementations. A token lives as long as its guard.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LockRank {
+    V,
+    Mempool,
+    InstantSend,
+    Coins,
+}
+
+thread_local! {
+    static LOCKS: std::cell::RefCell<Vec<LockRank>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+pub struct LockOrderGuard {
+    rank: LockRank,
+    _thread: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+impl LockOrderGuard {
+    pub fn enter(rank: LockRank) -> Self {
+        if cfg!(debug_assertions) {
+            LOCKS.with_borrow_mut(|held| {
+                assert!(
+                    held.last().is_none_or(|last| {
+                        *last < rank || (*last == rank && rank != LockRank::Mempool)
+                    }),
+                    "lock order: {held:?} -> {rank:?}"
+                );
+                held.push(rank);
+            });
+        }
+        Self {
+            rank,
+            _thread: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Drop for LockOrderGuard {
+    fn drop(&mut self) {
+        if cfg!(debug_assertions) {
+            LOCKS.with_borrow_mut(|held| {
+                assert_eq!(held.pop(), Some(self.rank));
+            });
+        }
+    }
+}

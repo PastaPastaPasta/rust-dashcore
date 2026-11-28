@@ -1,0 +1,345 @@
+//! The governance lock and the published trigger view. Admission, the tip work and the clean
+//! run as V commands; votes take the governance lock only.
+
+use std::collections::BTreeMap;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use arc_swap::ArcSwap;
+use dash_dml::MnList;
+use dash_governance::GovParams;
+use dash_governance::manager::{
+    Effects, Manager, ObjectOutcome, StoreState, TriggerView, VoteOutcome,
+};
+use dash_governance::superblocks::HeightOverflow;
+use dash_governance::tally::ObjectState;
+use dash_primitives::{GovObject, GovVote};
+use dashd_indexes::TxIndexReader;
+
+use crate::collateral::AtUseCollateral;
+use crate::exec::{EffectsSink, GovChain, GovEnv, GovExec, GovReply, reply};
+
+/// `admit`'s answer.
+#[derive(Debug)]
+pub struct Admitted {
+    /// `ProcessObject`'s.
+    pub outcome: Result<ObjectOutcome, HeightOverflow>,
+    /// To apply after the lock is released.
+    pub effects: Effects,
+    /// The index failed on the collateral: the object is refused as on a miss, but the fault is
+    /// ours, not the peer's.
+    pub index_fault: bool,
+}
+
+/// `tip`'s answer. Its effects go to the [`EffectsSink`].
+#[derive(Debug)]
+pub struct TipDone {
+    pub result: Result<(), HeightOverflow>,
+    /// The index failed on a postponed object's collateral, which the pass dropped as on a miss.
+    pub index_fault: bool,
+}
+
+/// Where an answer's effects go once the lock is released.
+enum Deliver {
+    /// Back to the waiting caller, in the answer.
+    Reply,
+    /// To the [`EffectsSink`], for a caller that posts and does not wait.
+    Sink,
+}
+
+pub struct GovernanceHandle<E> {
+    state: Mutex<Manager>,
+    published: ArcSwap<TriggerView>,
+    exec: E,
+    env: Arc<dyn GovEnv>,
+    sink: Arc<dyn EffectsSink>,
+    index: Arc<dyn TxIndexReader>,
+    params: GovParams,
+}
+
+impl<E: GovExec + 'static> GovernanceHandle<E> {
+    /// Takes a fully loaded `manager` (`load_cache` at the active chain's height, `set_loaded`):
+    /// the view is republished only when the generation moves, which loading does not.
+    pub fn new(
+        manager: Manager,
+        exec: E,
+        env: Arc<dyn GovEnv>,
+        sink: Arc<dyn EffectsSink>,
+        index: Arc<dyn TxIndexReader>,
+        params: GovParams,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            published: ArcSwap::from_pointee(manager.trigger_view()),
+            state: Mutex::new(manager),
+            exec,
+            env,
+            sink,
+            index,
+            params,
+        })
+    }
+
+    /// `LoadCache(true)` after the store was read: `state` imported, the cached height set to the
+    /// active chain's `tip_height`, `CheckAndRemove` over `list`, `InitOnLoad`, then the set marked
+    /// loaded and the view republished. The clean's effects go to the [`EffectsSink`].
+    // Core: governance/governance.cpp v24.0.2:99-112 (dashpay/dash#8097)
+    pub fn load_cache(&self, state: StoreState, tip_height: i32, list: &MnList) {
+        let mut m = self.lock();
+        let (clock, synced) = (self.env.clock(), self.env.blockchain_synced());
+        let mut effects = m.load_cache(state, tip_height, list, &clock, synced, &self.params);
+        m.set_loaded(true);
+        self.settle(&mut m, &mut effects);
+        self.published.store(Arc::new(m.trigger_view()));
+        drop(m);
+        self.sink.submit(effects);
+    }
+
+    /// `LoadCache`'s last step without a read: `m_superblocks.SetLoaded(loaded)`, then the view
+    /// republished. `loaded` is whether the empty store was written.
+    // Core: governance/governance.cpp v24.0.2:104, :110
+    pub fn set_loaded(&self, loaded: bool) {
+        let mut m = self.lock();
+        m.set_loaded(loaded);
+        self.published.store(Arc::new(m.trigger_view()));
+    }
+
+    /// The state `~CGovernanceManager` stores, while it is loaded.
+    // Core: governance/governance.cpp v24.0.2:91-97
+    pub fn stored_state(&self) -> Option<StoreState> {
+        let m = self.lock();
+        m.superblocks().is_loaded().then(|| m.export_state())
+    }
+
+    /// The trigger view published by the last trigger-affecting mutation.
+    pub fn published(&self) -> Arc<TriggerView> {
+        self.published.load_full()
+    }
+
+    /// `ProcessObject` as one command. Its effects travel in the answer; when the reply is
+    /// dropped unread they go to the [`EffectsSink`] instead.
+    // Core: governance/net_governance.cpp:193; governance/governance.cpp:227-275
+    pub fn admit(self: &Arc<Self>, obj: GovObject) -> GovReply<Admitted> {
+        self.admit_or(obj, |_| {})
+    }
+
+    /// [`Self::admit`], with `undelivered` given the outcome when the reply is dropped unread,
+    /// after the effects went to the sink.
+    pub fn admit_or(
+        self: &Arc<Self>,
+        obj: GovObject,
+        undelivered: impl FnOnce(&Result<ObjectOutcome, HeightOverflow>) + Send + 'static,
+    ) -> GovReply<Admitted> {
+        let sink = Arc::clone(&self.sink);
+        let lost = move |a: Admitted| {
+            sink.submit(a.effects);
+            undelivered(&a.outcome);
+        };
+        self.command(Deliver::Reply, lost, move |this, m, chain| {
+            let list = chain.dmn_list();
+            let (clock, synced) = (this.env.clock(), this.env.synced());
+            let lookup = AtUseCollateral::for_object(&obj, m, &this.params, &*this.index, chain);
+            let outcome = m.process_object_at(&obj, &list, &clock, synced, &this.params, &lookup);
+            let index_fault = lookup.index_fault();
+            (
+                move |effects| Admitted {
+                    outcome,
+                    effects,
+                    index_fault,
+                },
+                Effects::default(),
+            )
+        })
+    }
+
+    /// The queued `UpdatedBlockTip` work at `height` as one command.
+    // Core: governance/governance.cpp:1119-1143
+    pub fn tip(self: &Arc<Self>, height: i32) -> GovReply<TipDone> {
+        self.command(Deliver::Sink, drop, move |this, m, chain| {
+            let list = chain.dmn_list();
+            let (clock, synced) = (this.env.clock(), this.env.synced());
+            let lookup = AtUseCollateral::for_postponed(m, synced, &*this.index, chain);
+            let (result, effects) =
+                match m.updated_block_tip(height, &list, &clock, synced, &this.params, &lookup) {
+                    Ok(effects) => (Ok(()), effects),
+                    Err(e) => (Err(e), Effects::default()),
+                };
+            let index_fault = lookup.index_fault();
+            (
+                move |_| TipDone {
+                    result,
+                    index_fault,
+                },
+                effects,
+            )
+        })
+    }
+
+    /// The scheduled `CheckAndRemove` as one command.
+    // Core: governance/governance.cpp:400-513
+    pub fn clean(self: &Arc<Self>) -> GovReply<()> {
+        self.command(Deliver::Sink, drop, move |this, m, chain| {
+            let list = chain.dmn_list();
+            let (clock, synced) = (this.env.clock(), this.env.blockchain_synced());
+            (|_| (), m.check_and_remove(&list, &clock, synced, &this.params))
+        })
+    }
+
+    /// `ProcessVote` under the governance lock alone, off V, against the caller's DMN-tip list.
+    // Core: governance/governance.cpp:818-877
+    pub fn process_vote(&self, vote: &GovVote, list: &MnList) -> (VoteOutcome, Effects) {
+        let mut m = self.lock();
+        let outcome = m.process_vote_at(vote, list, &self.env.clock(), &self.params);
+        let mut effects = Effects::default();
+        self.settle(&mut m, &mut effects);
+        (outcome, effects)
+    }
+
+    /// `NotifyMasternodeListChanged`'s `CheckAndRemove`, inline on V inside the connect or undo
+    /// that changed the list: it never posts to V. It republishes before the lock is released, so
+    /// the next block of the same batch pins the cleaned set, and its effects go to the
+    /// [`EffectsSink`]. Nothing while the cache is not loaded (`IsValid`).
+    // Core: dsnotificationinterface.cpp v24.0.2:90-96; governance/governance.cpp v24.0.2:404-410
+    pub fn mn_list_changed(&self, list: &MnList) {
+        let mut m = self.lock();
+        if !m.superblocks().is_loaded() {
+            return;
+        }
+        let (clock, synced) = (self.env.clock(), self.env.blockchain_synced());
+        let mut effects = m.check_and_remove(list, &clock, synced, &self.params);
+        self.settle(&mut m, &mut effects);
+        drop(m);
+        self.sink.submit(effects);
+    }
+
+    /// `IsSuperblockTriggered`'s `UpdateSentinelVariables` on the live triggers `hashes`, which a
+    /// block's query ran on its copies (`fresh`) of `pinned`'s states, at `now` over `list`; then
+    /// the view is republished. A live trigger whose votes are still the pinned ones is updated
+    /// as Core updates it. One whose votes moved since the pin takes the copy's flags and keeps
+    /// its dirty mark: the update came before the vote, a schedule Core allows.
+    // Core: governance/superblock.cpp v24.0.2:609; governance/object.cpp v24.0.2:475, :964-997
+    pub(crate) fn write_back_sentinels(
+        &self,
+        pinned: &TriggerView,
+        fresh: &BTreeMap<[u8; 32], ObjectState>,
+        hashes: &[[u8; 32]],
+        list: &MnList,
+        now: i64,
+    ) {
+        let mut m = self.lock();
+        let at = m.at_tip(list, now, &self.params);
+        for hash in hashes {
+            let (Some(live), Some(old), Some(new)) =
+                (at.objects.get_mut(hash), pinned.objects.get(hash), fresh.get(hash))
+            else {
+                continue;
+            };
+            if live.current == old.current {
+                live.update_sentinel(list, now, &self.params);
+            } else {
+                live.cached_funding = new.cached_funding;
+                live.cached_endorsed = new.cached_endorsed;
+                live.cached_valid = new.cached_valid;
+                if new.cached_delete {
+                    live.mark_for_deletion(new.deletion_time);
+                }
+            }
+        }
+        self.published.store(Arc::new(m.trigger_view()));
+    }
+
+    /// Posts `f` as one command. It runs under the governance lock, the queues are drained into
+    /// its effects and the view is republished before the lock is released; then the effects
+    /// go where `deliver` says and `f`'s answer is built. An answer the reply drops unread goes to
+    /// `lost`.
+    fn command<T: Send + 'static, A: FnOnce(Effects) -> T>(
+        self: &Arc<Self>,
+        deliver: Deliver,
+        lost: impl FnOnce(T) + Send + 'static,
+        f: impl FnOnce(&Self, &mut Manager, &dyn GovChain) -> (A, Effects) + Send + 'static,
+    ) -> GovReply<T> {
+        let this = Arc::clone(self);
+        let (tx, rx) = reply(lost);
+        self.exec.post(Box::new(move |chain| {
+            let mut m = this.lock();
+            let (answer, mut effects) = f(&this, &mut m, chain);
+            this.settle(&mut m, &mut effects);
+            drop(m);
+            let answer = match deliver {
+                Deliver::Reply => answer(effects),
+                Deliver::Sink => {
+                    this.sink.submit(effects);
+                    answer(Effects::default())
+                }
+            };
+            tx.send(answer);
+        }));
+        rx
+    }
+
+    /// Drains the relay, meta and sync-bump queues into `effects` and republishes when the
+    /// generation moved.
+    fn settle(&self, m: &mut Manager, effects: &mut Effects) {
+        let relay = m.take_relay_queue();
+        effects.relay_objects.extend(relay.objects);
+        effects.relay_votes.extend(relay.votes);
+        effects.meta.extend(m.take_meta());
+        effects.sync_bumps.extend(m.take_sync_bumps());
+        if m.generation() != self.published.load().generation {
+            self.published.store(Arc::new(m.trigger_view()));
+        }
+    }
+
+    /// The time and sync state the commands read.
+    pub(crate) fn env(&self) -> &dyn GovEnv {
+        &*self.env
+    }
+
+    pub(crate) fn params(&self) -> &GovParams {
+        &self.params
+    }
+
+    /// A panic under the lock stops the node, as Core's `assert` aborts: the state it left is
+    /// never used.
+    pub(crate) fn lock(&self) -> Locked<'_> {
+        let guard = self.state.lock().expect("governance state poisoned");
+        #[cfg(test)]
+        crate::tests::note(crate::tests::Event::Lock(crate::exec::fakes::current_command()));
+        Locked(guard)
+    }
+
+    /// Whether the governance lock is held, by any thread.
+    #[cfg(test)]
+    pub(crate) fn lock_is_held(&self) -> bool {
+        matches!(self.state.try_lock(), Err(std::sync::TryLockError::WouldBlock))
+    }
+
+    /// The manager, for tests; recorded like every other lock.
+    #[cfg(test)]
+    pub(crate) fn state_for_test(&self) -> Locked<'_> {
+        self.lock()
+    }
+}
+
+/// The governance lock held. Tests record its release.
+pub(crate) struct Locked<'a>(MutexGuard<'a, Manager>);
+
+impl Deref for Locked<'_> {
+    type Target = Manager;
+
+    fn deref(&self) -> &Manager {
+        &self.0
+    }
+}
+
+impl DerefMut for Locked<'_> {
+    fn deref_mut(&mut self) -> &mut Manager {
+        &mut self.0
+    }
+}
+
+#[cfg(test)]
+impl Drop for Locked<'_> {
+    fn drop(&mut self) {
+        crate::tests::note(crate::tests::Event::Unlock);
+    }
+}

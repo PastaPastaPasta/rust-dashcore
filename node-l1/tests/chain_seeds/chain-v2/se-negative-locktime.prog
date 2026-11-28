@@ -1,0 +1,4 @@
+# script error "Negative locktime" (bank slot 37, se_negative_locktime): CheckInputScripts#2 inline, ConnectBlock#7 queued.
+extend main 1 tx=spends
+mutatex se_negative_locktime
+extend main 1
