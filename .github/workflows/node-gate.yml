@@ -32,6 +32,7 @@
 #            per shard (v23, DEC-1695). Never part of a verdict; saves no cache.
 #   mobile   beside nightly, gated the same way: contrib/node/check-mobile.sh (L6/L7/O5) with
 #            the build host's NDK and API, so the stripped-size baseline holds (DEC-1862). Never part of a verdict.
+#   cj1      beside nightly, gated the same way: contrib/node/cj1-nightly.sh (CJ1-W7). Never part of a verdict; saves no cache.
 # Every job prints its metrics to the log too (step summaries are not readable through the API).
 #
 # Known differences from local tier 1 (the step-inventory diff tracks them):
@@ -839,15 +840,15 @@ jobs:
           python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
 
       # gate-fast's ST2_DASHD; the tests that want v24 also find it in ~/.rust-dashcore-test.
-      - name: dashd 24.0.2
+      - name: dashd 24.0.3
         if: matrix.kind == 'test' || matrix.kind == 'lib'
         env:
-          DASHVERSION: 24.0.2
+          DASHVERSION: 24.0.3
           GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
           v=$(python3 contrib/setup-dashd.py | sed -n 's/^DASHD_PATH=//p')
-          [ -x "$v" ] || { echo "::error::no dashd 24.0.2 (gate_env's ST2_DASHD)"; exit 1; }
+          [ -x "$v" ] || { echo "::error::no dashd 24.0.3 (gate_env's ST2_DASHD)"; exit 1; }
           echo "ST2_DASHD=$v" >> "$GITHUB_ENV"
 
       # dash-testkit starts the rdashd at RDASHD_PATH: built without features (no test hooks), copied
@@ -1753,3 +1754,160 @@ jobs:
           path: ${{ runner.temp }}/selftest/
           retention-days: 14
           if-no-files-found: ignore
+
+  # CJ1-W7 item nightly: builds dashd-node's lib test binary and runs python_leg then wallet_leg
+  # through contrib/node/cj1-nightly.sh. Restores the third-party closure and dashd cache (never
+  # saves either). The 60-minute job budget: at most 16 minutes of preparation steps (each has its
+  # own timeout), a 39-minute run step, and 3 minutes for the status file and the upload. Inside
+  # the run step, both legs at CJ1_NIGHTLY_SECONDS=720 plus 70 s of kill grace and reaping each
+  # take at most 1580 s, leaving about 12 minutes for the build and the harness setup.
+  cj1:
+    name: cj1
+    needs: deps
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.nightly) && needs.deps.outputs.matrix != '' && needs.deps.outputs.nightly_ran != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The commit deps planned, not the ref again: CI-S0 may move nightly/integration in between.
+          ref: ${{ needs.deps.outputs.commit }}
+          persist-credentials: false
+        timeout-minutes: 2
+
+      - name: Snapshot
+        id: snapshot
+        timeout-minutes: 1
+        run: |
+          [ -x contrib/node/cj1-nightly.sh ] || { echo "::error::this snapshot has no contrib/node/cj1-nightly.sh"; exit 1; }
+          line="cj1 snapshot $(git rev-parse HEAD): $(git log -1 --format=%s)"
+          echo "$line"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Free disk space
+        id: disk
+        timeout-minutes: 3
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+          docker-images: true
+          large-packages: false  # its apt purge of llvm-* takes libclang, which bindgen needs
+
+      - name: Toolchain
+        id: toolchain
+        timeout-minutes: 2
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"  # scripts default TMPDIR to the build host paths
+
+      - name: Install uv
+        id: uv
+        timeout-minutes: 1
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: uv@0.13.6
+
+      # A slow or failed restore only costs build time.
+      - name: Restore the dependency closure
+        id: deps_cache
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.key }}
+          restore-keys: ${{ needs.deps.outputs.prefix }}
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+
+      - name: Restore dashd and the regtest data
+        id: dashd_cache
+        if: needs.deps.outputs.dashd_key != ''
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          key: ${{ needs.deps.outputs.dashd_key }}
+          path: ~/.rust-dashcore-test
+
+      # A restore that failed or timed out may have left partial files: start those paths cold.
+      - name: Discard partial restores
+        id: discard
+        if: steps.deps_cache.outcome == 'failure' || steps.dashd_cache.outcome == 'failure'
+        timeout-minutes: 1
+        env:
+          DEPS: ${{ steps.deps_cache.outcome }}
+          DASHD: ${{ steps.dashd_cache.outcome }}
+        run: |
+          if [ "$DEPS" = failure ]; then
+            echo "::warning::the dependency closure restore did not finish; building cold"
+            rm -rf ~/.cargo/registry/index ~/.cargo/registry/cache ~/.cargo/git/db target
+          fi
+          if [ "$DASHD" = failure ]; then
+            echo "::warning::the dashd cache restore did not finish; downloading again"
+            rm -rf ~/.rust-dashcore-test
+          fi
+
+      - name: dashd environment
+        id: dashd_env
+        timeout-minutes: 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 contrib/setup-dashd.py >> "$GITHUB_ENV"
+
+      - name: cj1-nightly.sh
+        id: run
+        timeout-minutes: 39
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CJ1_NIGHTLY_SECONDS: "720"
+          CJ1_WALLET_LEG_SECONDS: "600"
+        run: |
+          # The restored dashd cache already holds regtest-mn: self-setup reuses it.
+          export CJ1_CACHE_DIR="$HOME/.rust-dashcore-test"
+          rc=0
+          contrib/node/cj1-nightly.sh "$RUNNER_TEMP/cj1" || rc=$?
+          if [ -f "$RUNNER_TEMP/cj1/summary.txt" ]; then
+            { echo '```'; cat "$RUNNER_TEMP/cj1/summary.txt"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$rc"
+
+      # Every outcome leaves a record, a failure before the run step too.
+      - name: Status
+        if: always()
+        timeout-minutes: 1
+        env:
+          COMMIT: ${{ needs.deps.outputs.commit }}
+          OUTCOMES: >-
+            checkout=${{ steps.checkout.outcome }} snapshot=${{ steps.snapshot.outcome }}
+            disk=${{ steps.disk.outcome }} discard=${{ steps.discard.outcome }}
+            toolchain=${{ steps.toolchain.outcome }} uv=${{ steps.uv.outcome }}
+            deps_cache=${{ steps.deps_cache.outcome }} dashd_cache=${{ steps.dashd_cache.outcome }}
+            dashd_env=${{ steps.dashd_env.outcome }} run=${{ steps.run.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/cj1"
+          { echo "commit $COMMIT"; printf '%s\n' $OUTCOMES; } > "$RUNNER_TEMP/cj1/job-status.txt"
+          cat "$RUNNER_TEMP/cj1/job-status.txt"
+
+      - name: Upload the run
+        if: always()
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cj1-nightly
+          # Older snapshots' self-setup kept its downloads under cj1/cache.
+          path: |
+            ${{ runner.temp }}/cj1/
+            !${{ runner.temp }}/cj1/cj1/venv
+            !${{ runner.temp }}/cj1/cj1/venv/**
+            !${{ runner.temp }}/cj1/cj1/cache
+            !${{ runner.temp }}/cj1/cj1/cache/**
+          retention-days: 14
+          if-no-files-found: error
