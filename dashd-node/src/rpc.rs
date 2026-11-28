@@ -1,0 +1,3161 @@
+//! The node's RPC server (`dashd-rpc`): what init starts at step 4a with `-server`
+//! (`AppInitServers`), and what `Interrupt` and `Shutdown` stop, in Core's order.
+
+use std::cell::Cell;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
+use std::time::{Duration, Instant};
+
+use dash_args::ArgsManager;
+use dash_chain::{
+    BlockId, ChainReader, EntryView, FlatFilePos, HeaderBatch, HeaderStop, HeadersResult, Status,
+};
+use dash_clock::{Clock as _, MockClock, SystemClock};
+use dash_consensus::coins::stats::CoinStatsHashType;
+use dash_consensus::coins::{BlockUndo, Coin};
+use dash_consensus::deployments::EhfReadError;
+use dash_consensus::primitives::{OutPoint, TxHash};
+use dash_consensus::{Block, BlsCtx, Header};
+use dash_evo::cbtx::historical::{
+    Carrier, CarrierEntry, CarrierSource, CoinbaseClReader, HistoricalClError, load_carrier,
+};
+use dash_p2p::dial::AddedNode;
+use dash_p2p::permissions::permission_strings;
+use dash_p2p::{
+    Address, CommandString, ConnectionType, NetAddr, NetCore, Network, OpenRequest, OutMsg,
+    Service, ServiceFlags, Target,
+};
+use dash_params::{BuriedDeployment, ChainSetup};
+use dash_primitives::{BlockHash, Transaction};
+use dashd_chainstate::chain::FlushStateMode;
+use dashd_chainstate::chain::{
+    BlockFiles, BlockRpcError, BlockState, Blocking, ChainHandle, ChainLockSig, ChainQuery,
+    ChainView, GetForBlockError, NotTested, ValidationInterface, ValidationSignals, VerifyDbArgs,
+    VerifyDbResult, WaitError, guess_verification_progress,
+};
+use dashd_chainstate::coins::{
+    BlockRef, CoinsCache, CoinsDump, CoinsScan, CoinsScanError, CoinsStats, CoinsStatsError,
+    OutPointKey,
+};
+use dashd_chainstate::connect::block_subsidy_after;
+use dashd_indexes::{
+    BlockRef as IndexBlock, CoinStatsReader as _, FilterIndexReader, FilterType, IndexStatus as _,
+    TxIndexReader as _,
+};
+use dashd_locks::is::manager::IsManager;
+use dashd_masternode::meta::MasternodeMetaMan;
+use dashd_masternode::sporks::SporkManager;
+use dashd_masternode::sync::MasternodeSync;
+use dashd_mempool::api::MempoolHandle;
+use dashd_mining::{
+    BlockTemplateSource as _, ChainTemplateSource, GbtEngine, TemplateError, TemplateTxs,
+};
+use dashd_net::ConnMan;
+use dashd_net::stats::NodeStats;
+use dashd_p2p::Shared;
+use dashd_p2p::processing::bloom::BloomFilter;
+use dashd_p2p::processing::eviction::fully_connected;
+use dashd_p2p::processing::merkle::{merkle_block, partial_tree};
+use dashd_p2p::processing::stats::NodeStateStats;
+use dashd_rpc::blockchain::{
+    Aborted, ActiveAtHeight, ActiveWindow, BestChainLock, BlockChange, BlockCommandError,
+    BlockReadError, BloomFilterData, ChainState, ChainStateParams, ChainTipInfo, ChainTxError,
+    ChainTxPoint, Chainman, ClLookupError, CoinStatsSnapshot, CoinStatsView, CreditPoolFacts,
+    CreditPoolReadError, DeploymentError, DeploymentReport, HeaderFacts, HistoricalChainLock,
+    IndexStatus, NodeChain, NodeChainState, ProcessedBlock, PublishedChain, ScanControl, TipInfo,
+    TxOutBlock, TxOutProofError, TxOutSetDump, TxOutSetError, TxOutSetInfo, TxOutSetScan,
+    UndoReadError, UnspentCoin, WindowBlock,
+};
+use dashd_rpc::core_write::{CollateralTxLookup, TxJsonParams};
+use dashd_rpc::dash::{MnSync, NodeSporks, NodeSync, SporkRead};
+use dashd_rpc::http::{HttpServer, InitError};
+use dashd_rpc::httprpc::HttpRpc;
+use dashd_rpc::indexes::{BlockFilterRead, IndexSeams, IndexSummary, RetrievedTx, TxLookup};
+use dashd_rpc::key_io::KeyIoParams;
+use dashd_rpc::mining::{
+    BlockCheck, Grind, LastBlockStats, Miner, MiningInfoParams, StateCatcher, TemplateRefusal,
+    ValidationState,
+};
+use dashd_rpc::peers::{
+    AddConnectionType, AddedNodeInfo, AddrmanCounts, AddrmanInfo, ConnectionCounts, LocalAddress,
+    NetTotals, NetworkInfo, NetworkReach, NodeAddress, NodeNet, PeerInfo, RawAddrman,
+    RawAddrmanEntry, UploadTarget,
+};
+use dashd_rpc::rawtransaction::{
+    AssetUnlockMempool, IndexSet, IsLockView, PoolsError, UnlockPools, UnlockSeams,
+};
+use dashd_rpc::server::{NodeControl, RpcServer};
+use dashd_store::KvEngine;
+
+use crate::indexes::{CoinStatsHandle, FilterIndexHandle, NodeIndexes, TxIndexHandle};
+use crate::init::consts::{DEFAULT_INCREMENTAL_RELAY_FEE, DEFAULT_MIN_RELAY_TX_FEE};
+use crate::logging::Logger;
+use crate::mempool::NodeMempool;
+use crate::scheduler::Scheduler;
+use crate::shutdown::ShutdownState;
+use crate::ui::Ui;
+use crate::warnings::Warnings;
+use crate::{CLIENT_VERSION, FULL_VERSION, InitFailure, PACKAGE_NAME, host};
+
+pub(crate) mod evo;
+mod gbt;
+mod mempool;
+
+pub use gbt::GbtStatus;
+
+/// `key_io.cpp`'s reads of `Params()`: the chain's Base58 prefixes and Platform HRP.
+pub(crate) fn key_io_params(params: &ChainSetup) -> KeyIoParams {
+    let a = &params.addr_params;
+    KeyIoParams {
+        pubkey_address: a.pubkey_addr,
+        script_address: a.script_addr,
+        secret_key: a.secret_key,
+        ext_public_key: a.ext_pubkey,
+        ext_secret_key: a.ext_secret,
+        platform_hrp: params.platform_hrp.map(str::to_owned),
+    }
+}
+
+/// Core's `AppInitServers` failing.
+// Core: init.cpp:1636-1637
+const HTTP_START_FAILED: &str = "Unable to start HTTP server. See debug log for details.";
+
+/// What the commands reach of the node.
+struct Control {
+    logger: Arc<Logger>,
+    shutdown: Arc<ShutdownState>,
+    clock: Arc<MockClock>,
+    startup_time: i64,
+    /// `Params().IsMockableChain()`.
+    mockable: bool,
+    scheduler: Scheduler,
+    /// V, which `setmocktime` and `mockscheduler` order themselves with.
+    chain: Arc<ChainSlot>,
+}
+
+impl NodeControl for Control {
+    fn start_shutdown(&self) {
+        self.shutdown.start_shutdown();
+    }
+
+    fn shutdown_requested(&self) -> bool {
+        self.shutdown.shutdown_requested()
+    }
+
+    fn now(&self) -> i64 {
+        self.clock.node_now().secs()
+    }
+
+    fn startup_time(&self) -> i64 {
+        self.startup_time
+    }
+
+    fn log_ips(&self) -> bool {
+        self.logger.log_ips()
+    }
+
+    fn log_path(&self) -> String {
+        self.logger.options().file_path.to_string_lossy().into_owned()
+    }
+
+    fn enable_log_category(&self, name: &str) -> bool {
+        self.logger.enable_category_str(name)
+    }
+
+    fn disable_log_category(&self, name: &str) -> bool {
+        self.logger.disable_category_str(name)
+    }
+
+    fn log_categories(&self) -> Vec<(&'static str, bool)> {
+        self.logger.log_categories_list(false)
+    }
+
+    fn package_name(&self) -> &'static str {
+        PACKAGE_NAME
+    }
+
+    fn full_version(&self) -> &'static str {
+        FULL_VERSION
+    }
+
+    fn is_mockable_chain(&self) -> bool {
+        self.mockable
+    }
+
+    /// Core holds `cs_main` so no validation sees the time change inside it. V's clock reads
+    /// happen inside its turns, so the time is set in one of its own (a class R query) once V
+    /// runs; before the load and after shutdown nothing validates. No chain client (wallet)
+    /// keeps a clock of its own yet.
+    // Core: rpc/node.cpp:266-283
+    fn set_mocktime(&self, time: i64) {
+        let clock = Arc::clone(&self.clock);
+        let chain = self.chain.slot().as_ref().map(|w| w.chain.clone());
+        match chain {
+            Some(chain) => {
+                // A V that stopped never runs the query: set it here then.
+                let set = chain.query(move |_| clock.set_mocktime(time)).recv();
+                if set.is_err() {
+                    self.clock.set_mocktime(time);
+                }
+            }
+            None => clock.set_mocktime(time),
+        }
+    }
+
+    // Core: rpc/node.cpp:913-914
+    fn mock_scheduler(&self, delta: Duration) {
+        self.scheduler.mock_forward(delta);
+        let signals = self.chain.slot().as_ref().map(|w| w.signals.clone());
+        if let Some(signals) = signals {
+            let synced = signals.sync(&mut Blocking);
+            debug_assert!(
+                !matches!(synced, Err(WaitError::WaitOnVFromNoWaitTask)),
+                "an RPC worker"
+            );
+        }
+    }
+}
+
+/// `NodeContext::mn_sync` for `mnsync`: SP1's sync from its construction at step 7, before the
+/// chainstate loads, until shutdown stops the RPC server (Core resets `mn_sync` after it,
+/// init.cpp:416). Also `NodeContext::sporkman` for `spork`, from step 6 until the same point
+/// (init.cpp:417).
+#[derive(Default)]
+pub struct SyncSlot {
+    attached: Mutex<Option<Arc<SyncHandle>>>,
+    sporks: Mutex<Option<Arc<SporkHandle>>>,
+}
+
+struct SyncHandle(Arc<MasternodeSync>);
+
+struct SporkHandle(Arc<SporkManager>);
+
+impl SyncSlot {
+    fn slot(&self) -> MutexGuard<'_, Option<Arc<SyncHandle>>> {
+        self.attached.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Init constructed `mn_sync`.
+    pub fn attach(&self, sync: &Arc<MasternodeSync>) {
+        let handle = Arc::new(SyncHandle(Arc::clone(sync)));
+        assert!(self.slot().replace(handle).is_none(), "init constructs mn_sync once");
+    }
+
+    /// Init constructed `sporkman`.
+    pub fn attach_sporks(&self, sporks: &Arc<SporkManager>) {
+        let handle = Arc::new(SporkHandle(Arc::clone(sporks)));
+        let mut slot = self.sporks.lock().unwrap_or_else(|p| p.into_inner());
+        assert!(slot.replace(handle).is_none(), "init constructs sporkman once");
+    }
+
+    /// Shutdown: the commands no longer reach the sync or the sporks.
+    pub fn detach(&self) {
+        self.slot().take();
+        self.sporks.lock().unwrap_or_else(|p| p.into_inner()).take();
+    }
+}
+
+impl NodeSporks for SyncSlot {
+    fn sporkman(&self) -> Option<Arc<dyn SporkRead>> {
+        self.sporks.lock().unwrap_or_else(|p| p.into_inner()).clone().map(|h| h as _)
+    }
+}
+
+impl SporkRead for SporkHandle {
+    fn value(&self, id: dash_evo::spork::SporkId) -> i64 {
+        self.0.value(id)
+    }
+    fn is_active(&self, id: dash_evo::spork::SporkId) -> bool {
+        self.0.is_active(id)
+    }
+}
+
+impl NodeSync for SyncSlot {
+    fn mn_sync(&self) -> Option<Arc<dyn MnSync>> {
+        self.slot().clone().map(|h| h as _)
+    }
+}
+
+impl MnSync for SyncHandle {
+    fn asset_id(&self) -> i32 {
+        self.0.asset_id()
+    }
+    fn asset_name(&self) -> &'static str {
+        self.0.asset_name()
+    }
+    fn asset_start_time(&self) -> i64 {
+        self.0.asset_start_time()
+    }
+    fn attempt(&self) -> i32 {
+        self.0.attempt()
+    }
+    fn is_blockchain_synced(&self) -> bool {
+        self.0.is_blockchain_synced()
+    }
+    fn is_synced(&self) -> bool {
+        self.0.is_synced()
+    }
+    fn switch_to_next_asset(&self) {
+        self.0.switch_to_next_asset();
+    }
+    fn reset(&self, force: bool) {
+        self.0.reset(force, true);
+    }
+}
+
+/// The chain the chain commands use: Core's `NodeContext::chainman`, V and the node's
+/// validation signals from step 7 until shutdown stops the RPC server. Commands answer the init
+/// message until step 13, so one that runs finds it attached.
+#[derive(Default)]
+pub struct ChainSlot {
+    meta: OnceLock<Arc<MasternodeMetaMan>>,
+    /// `llmq_ctx.sigman` for the recovered-signature commands, from step 7c.
+    signing: OnceLock<evo::RpcSigning>,
+    /// `node.active_ctx->shareman` and the quorum selection for the signing commands, from step
+    /// 7c.
+    sign: OnceLock<evo::RpcSign>,
+    /// `quorum dkgstatus`' reads outside V, from step 7c on a masternode or an observer.
+    dkg: OnceLock<Arc<dyn evo::DkgStatusSource>>,
+    /// `node.active_ctx->nodeman` for `masternode status`, from step 7c on a masternode.
+    active: OnceLock<Arc<dashd_masternode::active::ActiveMasternode>>,
+    deprecated: OnceLock<DeprecatedRpc>,
+    llmq_types: OnceLock<Vec<u8>>,
+    attached: Mutex<Option<Writer>>,
+    /// The server whose commands use the slot: Core's `rpc_interruption_point` is its
+    /// `IsRPCRunning()` turning false.
+    server: ServerChain,
+    /// Core's `latestblock`, which the waits read and V's `NotifyBlockTip` feeds (RP1a-2a).
+    block_change: Arc<BlockChange>,
+    /// The node's mempool from step 7 until shutdown detaches the slot.
+    mempool: Mutex<Option<Arc<NodeMempool>>>,
+    /// `g_txindex` and the index host, from step 7's end.
+    indexes: Mutex<Option<IndexParts>>,
+    /// `llmq_ctx.isman` from step 7 until shutdown detaches the slot.
+    isman: Mutex<Option<Arc<IsManager>>>,
+}
+
+/// The servers a slot's command tables were built on, the newest last, read without a lock: a
+/// tip waiter's predicate reads `IsRPCRunning()` from it (`TipWatch::wait_while`).
+#[derive(Default)]
+struct ServerChain {
+    server: Weak<RpcServer>,
+    next: OnceLock<Box<ServerChain>>,
+}
+
+impl ServerChain {
+    fn newest(&self) -> &ServerChain {
+        let mut link = self;
+        while let Some(next) = link.next.get() {
+            link = next;
+        }
+        link
+    }
+
+    fn get(&self) -> Weak<RpcServer> {
+        self.newest().server.clone()
+    }
+
+    fn push(&self, server: Weak<RpcServer>) {
+        let mut link = Box::new(ServerChain {
+            server,
+            next: OnceLock::new(),
+        });
+        while let Err(back) = self.newest().next.set(link) {
+            link = back;
+        }
+    }
+
+    // Core: v24.0.2 src/rpc/server.cpp:338-341
+    fn running(&self) -> bool {
+        self.running_between(&mut || {})
+    }
+
+    /// [`Self::running`] with `between` run after each sample: a link published by then is
+    /// sampled in turn, so the answer is the newest server's.
+    fn running_between(&self, between: &mut dyn FnMut()) -> bool {
+        let mut link = self.newest();
+        loop {
+            let running = link.server.upgrade().is_some_and(|s| s.is_running());
+            between();
+            match link.next.get() {
+                None => return running,
+                Some(next) => link = next.newest(),
+            }
+        }
+    }
+}
+
+/// The node's indexes as `getrawtransaction`, `getindexinfo` and `getblockfilter` read them.
+struct IndexParts {
+    txindex: Option<TxIndexHandle>,
+    filters: Option<FilterIndexHandle>,
+    host: Option<NodeIndexes>,
+}
+
+impl ChainSlot {
+    fn slot(&self) -> MutexGuard<'_, Option<Writer>> {
+        self.attached.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// V has started on the loaded chainstate; `signals` are the node's, which V signals on,
+    /// `files` a reader of V's block files of the slot's own (`getblock`), `miner` the node's one
+    /// block assembler over `chain` (`generate*`), and `coins` V's coins cache (`gettxout`);
+    /// `None`s in tests without them.
+    pub fn attach(
+        &self,
+        chain: &ChainHandle,
+        signals: &ValidationSignals,
+        files: Option<Box<dyn BlockFiles>>,
+        miner: Option<Arc<ChainTemplateSource>>,
+        coins: Option<CoinsRead>,
+    ) {
+        let server = self.server.get();
+        let writer = Writer {
+            chain: chain.clone(),
+            signals: signals.clone(),
+            server,
+            files: files.map(|f| Arc::new(Mutex::new(f))),
+            miner,
+            coins,
+            gbt: None,
+        };
+        assert!(self.slot().replace(writer).is_none(), "the chainstate loads once");
+    }
+
+    /// Shutdown: the commands no longer reach V or the indexes, whose handles (and the stores
+    /// behind them) are not kept past the data directory's lock, nor the mempool.
+    pub fn detach(&self) {
+        self.slot().take();
+        self.mempool.lock().unwrap_or_else(|p| p.into_inner()).take();
+        self.index_parts().take();
+        self.isman().take();
+    }
+
+    /// Step 7's InstantSend manager, for the commands' `instantlock` and `instantsendlocks`.
+    pub fn attach_instantsend(&self, manager: Arc<IsManager>) {
+        *self.isman() = Some(manager);
+    }
+
+    fn isman(&self) -> MutexGuard<'_, Option<Arc<IsManager>>> {
+        self.isman.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// The node's mempool, which step 7 built, for the commands that read it
+    /// (`getassetunlockstatuses`, `getrawmempool`, `getmempoolinfo`, `getrawtransaction`). Core
+    /// v24.0.0 `src/rpc/server_util.cpp:47`, `EnsureMemPool`.
+    pub fn attach_mempool(&self, pool: Arc<NodeMempool>) {
+        *self.mempool.lock().unwrap_or_else(|p| p.into_inner()) = Some(pool);
+    }
+
+    fn index_parts(&self) -> MutexGuard<'_, Option<IndexParts>> {
+        self.indexes.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Step 7's end registered the indexes: `txindex` is `None` with `-txindex=0`, `filters`
+    /// without `-blockfilterindex`, and `host` with no index.
+    pub fn attach_indexes(
+        &self,
+        txindex: Option<TxIndexHandle>,
+        filters: Option<FilterIndexHandle>,
+        host: Option<NodeIndexes>,
+    ) {
+        let parts = IndexParts {
+            txindex,
+            filters,
+            host,
+        };
+        assert!(self.index_parts().replace(parts).is_none(), "the indexes register once");
+    }
+
+    fn txindex(&self) -> Option<TxIndexHandle> {
+        self.index_parts().as_ref()?.txindex.clone()
+    }
+
+    /// The waits' `latestblock`, for V's `uiInterface` sink.
+    pub fn block_change(&self) -> &Arc<BlockChange> {
+        &self.block_change
+    }
+
+    /// Init's `RPCNotifyBlockChange(ActiveTip())` before the warmup ends: the attached chain's
+    /// tip, or none.
+    // Core: init.cpp:2761-2769
+    pub fn notify_loaded_tip(&self) {
+        let tip = self.published().and_then(|chain| {
+            let height = chain.height();
+            u32::try_from(height).ok().map(|h| (chain.block_hash(height), h))
+        });
+        self.block_change.set_tip(tip);
+    }
+}
+
+impl NodeChain for ChainSlot {
+    fn published(&self) -> Option<Box<dyn PublishedChain>> {
+        let slot = self.slot();
+        let chain = &slot.as_ref()?.chain;
+        Some(Box::new(Published {
+            view: chain.view(),
+            reader: chain.reader().clone(),
+        }))
+    }
+
+    fn chainman(&self) -> Option<Box<dyn Chainman>> {
+        Some(Box::new(self.slot().as_ref()?.clone()))
+    }
+
+    fn coinstats(&self) -> Option<Box<dyn CoinStatsView>> {
+        let stats =
+            self.index_parts().as_ref().and_then(|parts| parts.host.as_ref())?.coinstats()?;
+        let chain = self.slot().as_ref()?.chain.clone();
+        Some(Box::new(NodeCoinStats {
+            stats,
+            chain,
+        }))
+    }
+}
+
+/// `g_coin_stats_index`. The block id is resolved off V; `LookUpStats` reads the index DB.
+struct NodeCoinStats {
+    stats: CoinStatsHandle,
+    chain: ChainHandle,
+}
+
+impl CoinStatsView for NodeCoinStats {
+    fn block_until_synced(&self) -> bool {
+        self.stats.block_until_synced()
+    }
+
+    fn best_height(&self) -> u32 {
+        self.stats.summary().best_block_height
+    }
+
+    fn look_up(&self, hash: &BlockHash, height: u32) -> Option<CoinStatsSnapshot> {
+        let reader = self.chain.reader();
+        let block = BlockRef {
+            id: reader.lookup(hash)?,
+            hash: *hash,
+            height,
+        };
+        let entry = self.stats.look_up_stats(&block).ok().flatten()?;
+        Some(CoinStatsSnapshot {
+            muhash: entry.muhash,
+            txouts: entry.txouts,
+            bogo_size: entry.bogo_size,
+            total_amount: entry.total_amount,
+            total_unspendable: entry.total_unspendable,
+            prevout_spent: entry.prevout_spent,
+            coinbase: entry.coinbase,
+            new_outputs_ex_coinbase: entry.new_outputs_ex_coinbase,
+            unspendables_genesis: entry.unspendables_genesis,
+            unspendables_scripts: entry.unspendables_scripts,
+            unspendables_unclaimed_rewards: entry.unspendables_unclaimed_rewards,
+        })
+    }
+}
+
+/// Core's `GetTransaction` over the node's mempool and `g_txindex`. Without a block the pool is
+/// read under one short read lock, off V; an unattached pool is a miss. No slot lock is held
+/// across a pool or index read, nor the pool's lock across the index read or wait.
+impl TxLookup for ChainSlot {
+    fn txindex_ready(&self) -> Option<bool> {
+        self.txindex().map(|txindex| txindex.block_until_synced())
+    }
+
+    // Core: v24.0.0 src/node/transaction.cpp:126-156 GetTransaction
+    fn get_transaction(&self, block: Option<&BlockHash>, txid: &TxHash) -> Option<RetrievedTx> {
+        let txindex = self.txindex();
+        let Some(block) = block else {
+            let pool = self.mempool.lock().unwrap_or_else(|p| p.into_inner()).clone();
+            let lookup = |txid: &TxHash| {
+                let tx = (&**pool.as_ref()?.pool() as &dyn MempoolHandle).read(|r| r.get(txid))?;
+                Some(Arc::new(tx.to_mutable()))
+            };
+            return crate::indexes::get_transaction(Some(&lookup), txindex.as_ref(), txid);
+        };
+        let (tx, hash) = txindex?.find_tx(txid).ok().flatten()?;
+        (hash == *block).then_some((tx, Some(hash)))
+    }
+
+    fn summaries(&self) -> Vec<IndexSummary> {
+        let host = self.index_parts().as_ref().and_then(|p| p.host.clone());
+        let summaries = host.map_or_else(Vec::new, |host| host.summaries());
+        summaries
+            .into_iter()
+            .map(|s| IndexSummary {
+                name: s.name,
+                synced: s.synced,
+                best_block_height: s.best_block_height,
+            })
+            .collect()
+    }
+
+    // Core: v24.0.2 src/rpc/blockchain.cpp:3073-3082 getblockfilter
+    fn block_filter(&self, name: Option<&str>, block: Option<&BlockHash>) -> BlockFilterRead {
+        let name = name.unwrap_or(FilterType::Basic.name());
+        let Some(ty) = FilterType::by_name(name) else {
+            return BlockFilterRead::Unknown;
+        };
+        let Some(index) = self.filter_handle(ty) else {
+            return BlockFilterRead::Disabled {
+                name: ty.name(),
+            };
+        };
+        let Some(hash) = block else {
+            return BlockFilterRead::Enabled;
+        };
+        let block = self.filter_block(hash);
+        let ready = index.block_until_synced();
+        BlockFilterRead::Looked {
+            ready,
+            row: block.as_ref().and_then(|block| read_filter(&*index, block)),
+        }
+    }
+}
+
+impl CollateralTxLookup for ChainSlot {
+    fn find_tx(&self, txid: &TxHash) -> Option<Arc<Transaction>> {
+        self.txindex()?.find_tx(txid).ok().flatten().map(|(tx, _)| tx)
+    }
+
+    fn block_until_synced(&self) {
+        if let Some(txindex) = self.txindex() {
+            txindex.block_until_synced();
+        }
+    }
+}
+
+impl ChainSlot {
+    /// `GetBlockFilterIndex`: Dash has the one basic index.
+    fn filter_handle(&self, ty: FilterType) -> Option<FilterIndexHandle> {
+        match ty {
+            FilterType::Basic => self.index_parts().as_ref()?.filters.clone(),
+        }
+    }
+
+    /// The block's index entry, read before the index wait so no chain lock is held across it.
+    fn filter_block(&self, hash: &BlockHash) -> Option<IndexBlock> {
+        let slot = self.slot();
+        let reader = slot.as_ref()?.chain.reader();
+        let id = reader.lookup(hash)?;
+        let entry = reader.entry(id)?;
+        Some(IndexBlock {
+            id,
+            hash: entry.hash,
+            height: entry.height,
+        })
+    }
+}
+
+/// The encoded filter and its header, or a miss. A read failure is a miss, as Core's `false`.
+// Core: v24.0.2 src/index/blockfilterindex.cpp:439-477 LookupFilter, LookupFilterHeader
+fn read_filter(index: &dyn FilterIndexReader, block: &IndexBlock) -> Option<(Vec<u8>, String)> {
+    let filter = match index.filter(block) {
+        Ok(filter) => filter?,
+        Err(e) => {
+            tracing::error!("{e}");
+            return None;
+        }
+    };
+    let header = match index.filter_header(block) {
+        Ok(header) => header?,
+        Err(e) => {
+            tracing::error!("{e}");
+            return None;
+        }
+    };
+    Some((filter.encoded().to_vec(), header.to_string()))
+}
+
+impl NodeChainState for ChainSlot {
+    fn chain_state(&self) -> Option<Box<dyn ChainState>> {
+        Some(Box::new(self.slot().as_ref()?.clone()))
+    }
+}
+
+/// [`CarrierSource`] for `getchainlockbyheight` on a fixed `tip`: its ancestors and their
+/// entries off V, which never change for a resident entry (Core's `GetAncestor` without
+/// `cs_main`); each carrier's position in a V query turn of its own (Core's
+/// `WITH_LOCK(cs_main, pindex->GetBlockPos())`); then the read from the slot's block files, which
+/// logs its own failure line. A position V no longer answers sets `v_gone`.
+struct NodeCarriers<'a> {
+    chain: &'a ChainHandle,
+    tip: BlockId,
+    files: Option<&'a Mutex<Box<dyn BlockFiles>>>,
+    v_gone: &'a Cell<bool>,
+}
+
+impl CarrierSource for NodeCarriers<'_> {
+    fn ancestor(&self, height: i32) -> Option<Carrier> {
+        let reader = self.chain.reader();
+        let id = reader.ancestor(self.tip, u32::try_from(height).ok()?)?;
+        Some(Carrier {
+            height,
+            hash: reader.entry(id)?.hash,
+            id,
+        })
+    }
+
+    // Core: node/blockstorage.cpp:833-846 ReadBlockFromDisk(pindex)
+    fn load(&mut self, carrier: &Carrier) -> Result<CarrierEntry, HistoricalClError> {
+        let id = carrier.id;
+        let read = self.chain.query(move |q| q.chain.reader().entry(id).map(|e| block_pos(&e)));
+        let Ok(pos) = read.recv() else {
+            self.v_gone.set(true);
+            return Err(HistoricalClError::Unavailable);
+        };
+        let block = pos.zip(self.files).and_then(|(pos, files)| {
+            let read =
+                files.lock().unwrap_or_else(|p| p.into_inner()).read_block(pos, &carrier.hash);
+            read.inspect_err(|e| tracing::error!("{e}")).ok()
+        });
+        load_carrier(block.as_deref(), carrier.height)
+    }
+
+    fn interrupted(&self) -> bool {
+        self.chain.shutdown_requested()
+    }
+}
+
+/// The server's text for a V that answers no more (RP1a D9).
+fn aborted() -> String {
+    dashd_rpc::blockchain::ABORTED.into()
+}
+
+/// `getchainlockbyheight` on `chain`: the tip and V20's height in one V query turn, then
+/// [`chainlock_lookup`] over [`NodeCarriers`] on that tip, the carrier's active-chain membership
+/// in a last turn, and `Signed()` under the published, committed scheme.
+// Core: rpc/quorums.cpp:1433-1451
+fn node_chainlock_by_height(
+    chain: &ChainHandle,
+    files: Option<&Mutex<Box<dyn BlockFiles>>>,
+    height: i32,
+) -> Result<HistoricalChainLock, ClLookupError> {
+    let tip = chain.query(|q| {
+        let (tip, _) = q.chain.private_tip()?;
+        let v20 = q.chain.params().consensus.deployment_height(BuriedDeployment::V20);
+        Some((tip, v20.to_u32()))
+    });
+    let (tip, v20) = tip
+        .recv()
+        .map_err(|_| ClLookupError::Failed(aborted()))?
+        .ok_or_else(|| ClLookupError::Failed("Internal bug detected: tip != nullptr".into()))?;
+    let v_gone = Cell::new(false);
+    let source = NodeCarriers {
+        chain,
+        tip: tip.id,
+        files,
+        v_gone: &v_gone,
+    };
+    let still_active =
+        |carrier| chain.query(move |q| q.chain.active_contains_private(carrier)).recv().ok();
+    chainlock_lookup(height, tip.height, v20, source, &v_gone, still_active, || chain.view().bls)
+}
+
+/// `getchainlockbyheight` after its tip read: `Find(height, height)` over `source` on a tip at
+/// `tip_height`, the server's abort if V stopped answering during it (`v_gone`); then the found
+/// carrier's `still_active` (`None` when V answers no more); then `Signed()` under the flag `bls`
+/// gives.
+// Core: rpc/quorums.cpp:1437-1454
+fn chainlock_lookup(
+    height: i32,
+    tip_height: u32,
+    v20_height: u32,
+    source: impl CarrierSource,
+    v_gone: &Cell<bool>,
+    still_active: impl FnOnce(BlockId) -> Option<bool>,
+    bls: impl FnOnce() -> BlsCtx,
+) -> Result<HistoricalChainLock, ClLookupError> {
+    let failed = |e: HistoricalClError| ClLookupError::Failed(e.to_string());
+    let as_int = |h: u32| i32::try_from(h).unwrap_or(i32::MAX);
+    let mut reader = CoinbaseClReader::new(as_int(tip_height), as_int(v20_height), source);
+    let found = reader.find(height, height);
+    if v_gone.get() {
+        return Err(ClLookupError::Failed(aborted()));
+    }
+    let found = found.map_err(failed)?.ok_or(ClLookupError::NotFound)?;
+    match still_active(found.carrier.id) {
+        Some(true) => {}
+        Some(false) => return Err(ClLookupError::ChainChanged),
+        None => return Err(ClLookupError::Failed(aborted())),
+    }
+    Ok(HistoricalChainLock {
+        block_hash: found.block_hash,
+        signature: found.signed(bls()).map_err(failed)?,
+        carrier_height: u32::try_from(found.carrier.height).expect("a carrier is above genesis"),
+    })
+}
+
+/// `getassetunlockstatuses`' reads in one V turn, in Core's order: the tip; with `height`, its
+/// range check against that tip and the pool after the active block there; without, the
+/// ChainLock block ([`cl_block`]), its pool, then the tip's unless the ChainLock block is the tip.
+///
+/// The best ChainLock is V's `q.cl.best`, Core's `bestChainLock` as `GetBestChainLock` returns
+/// it, and nothing else. While it is null (no lock seen yet), this takes Core's own path, the tip
+/// coinbase's ChainLock; no best lock is derived from that coinbase lock or any other source.
+// Core: rpc/rawtransaction.cpp:827-876; v24.0.2 chainlock/chainlock.cpp:37-41
+fn unlock_pools(q: &ChainQuery<'_>, height: Option<i32>) -> Result<UnlockPools, PoolsError> {
+    let (tip, _) = q.chain.private_tip().ok_or(PoolsError::NoTip)?;
+    let pool = |at| -> Result<IndexSet, PoolsError> {
+        let indexes = match q.credit_pool_indexes(at) {
+            Ok(Ok(indexes)) => indexes,
+            Ok(Err(pool)) => return Err(PoolsError::Failed(pool.to_string())),
+            Err(store) => return Err(PoolsError::Failed(store.to_string())),
+        };
+        Ok(Box::new(move |index| indexes.contains(index)))
+    };
+    if let Some(height) = height {
+        let at = u32::try_from(height)
+            .ok()
+            .filter(|h| *h <= tip.height)
+            .and_then(|h| q.chain.ancestor_private(h))
+            .ok_or(PoolsError::OutOfRange)?;
+        return Ok(UnlockPools {
+            cl: Some(pool(at)?),
+            tip: None,
+        });
+    }
+    let coinbase = || q.coinbase_chainlock_at(tip.id, q.bls());
+    let ancestor = |h| q.chain.ancestor_private(h);
+    let cl = cl_block(q.cl.best.as_deref(), coinbase, &tip, ancestor)
+        .map_err(|e| PoolsError::Failed(e.to_string()))?;
+    Ok(UnlockPools {
+        cl: cl.map(pool).transpose()?,
+        tip: (cl != Some(tip.id)).then(|| pool(tip.id)).transpose()?,
+    })
+}
+
+/// `pBlockIndexBestCL`: with a non-null best ChainLock, the tip's ancestor at its height (none
+/// above the tip; never by its hash, so a lock on another branch names the active block at its
+/// height), with no fallback; only without one, or with Core's null lock, the ancestor
+/// `tip - diff - 1` of the tip coinbase's ChainLock, whose block `coinbase_diff` reads; else none.
+// Core: rpc/rawtransaction.cpp:851-864
+fn cl_block<E>(
+    best: Option<&ChainLockSig>,
+    coinbase_diff: impl FnOnce() -> Result<Option<u32>, E>,
+    tip: &BlockRef,
+    ancestor: impl Fn(u32) -> Option<BlockId>,
+) -> Result<Option<BlockId>, E> {
+    if let Some(best) = best.filter(|b| !b.is_null()) {
+        return Ok(u32::try_from(best.height).ok().and_then(&ancestor));
+    }
+    let signed = coinbase_diff()?.and_then(|diff| tip.height.checked_sub(diff.checked_add(1)?));
+    Ok(signed.and_then(ancestor))
+}
+
+/// `getassetunlockstatuses`' mempool: the node's pool under one short read lock, off V, as
+/// Core's `GetAssetUnlockTxidsByIndex` under `mempool.cs`; empty before step 7 attaches it.
+// Core: rpc/rawtransaction.cpp:889, txmempool.cpp:827-836 at v24.0.0
+impl AssetUnlockMempool for ChainSlot {
+    fn txids_by_index(&self, index: u64) -> Vec<TxHash> {
+        let pool = self.mempool.lock().unwrap_or_else(|p| p.into_inner()).clone();
+        pool.map_or_else(Vec::new, |pool| {
+            (&**pool.pool() as &dyn MempoolHandle).read(|r| r.asset_unlock_txids_by_index(index))
+        })
+    }
+}
+
+/// The commands' InstantSend reads: `IsLocked` and `GetInstantSendLockCount`, none before the
+/// load attaches the manager. A failed read of the IS store answers as no lock.
+// Core: v24.0.0 src/rpc/mempool.cpp:311, :672; src/rpc/rawtransaction.cpp:163, :892-893
+impl IsLockView for ChainSlot {
+    fn is_locked(&self, txid: &TxHash) -> bool {
+        self.is_read(false, |is| is.is_locked(txid), format_args!("IsLocked({txid})"))
+    }
+    fn lock_count(&self) -> usize {
+        self.is_read(0, IsManager::instant_send_lock_count, format_args!("GetInstantSendLockCount"))
+    }
+}
+
+impl ChainSlot {
+    /// `read` on the attached manager: `none` without one, or when the store's read fails.
+    fn is_read<T>(
+        &self,
+        none: T,
+        read: impl FnOnce(&IsManager) -> dash_kv::Result<T>,
+        what: std::fmt::Arguments<'_>,
+    ) -> T {
+        let Some(isman) = self.isman().clone() else {
+            return none;
+        };
+        read(&isman).unwrap_or_else(|e| {
+            tracing::error!(target: "instantsend", "{what}: {e}");
+            none
+        })
+    }
+}
+
+/// `gettxout`'s read of V's coins cache, over its engine: `GetCoin`, which caches the coin it
+/// reads, and `GetBestBlock`. It runs in a V query turn: the cache is V's leaf (CH3a D50), and
+/// between commands V holds no view of it.
+pub(crate) type CoinsRead =
+    Arc<dyn Fn(&OutPoint) -> Result<(Option<Coin>, BlockRef), Aborted> + Send + Sync>;
+
+/// [`CoinsRead`] over the coins cache V was given. Every holder of the cell locks it on V's
+/// thread, so in a V turn the lock is free; only a poisoned cell (a panicked V) fails it.
+pub(crate) fn coins_read<E: KvEngine + 'static>(cell: Arc<Mutex<CoinsCache<E>>>) -> CoinsRead {
+    Arc::new(move |out| {
+        let mut coins = cell.try_lock().map_err(|e| {
+            debug_assert!(
+                !matches!(e, std::sync::TryLockError::WouldBlock),
+                "the coins cache is held outside V's turn"
+            );
+            Aborted
+        })?;
+        let coin = coins.fetch(&OutPointKey::new(out)).map_err(|_| Aborted)?;
+        let coin = coin.map(|c| c.to_coin());
+        Ok((coin, coins.best_block().ok_or(Aborted)?))
+    })
+}
+
+impl ChainSlot {
+    /// The node's block assembler while the chain is attached.
+    pub(crate) fn miner(&self) -> Option<Arc<ChainTemplateSource>> {
+        self.slot().as_ref()?.miner.clone()
+    }
+}
+
+/// The `generate*` commands over dashd-mining (PLAN-RP1a §2.2): its one source per node, and V
+/// for `generateblock`'s own `TestBlockValidity`. A slot detached by shutdown answers as Core's
+/// null `chainman`, and a grind it interrupts as `ShutdownRequested()`.
+impl Miner for ChainSlot {
+    fn create_new_block(
+        &self,
+        coinbase_script: &[u8],
+        use_mempool: bool,
+    ) -> Result<Block, TemplateRefusal> {
+        let source = self.miner().ok_or(TemplateRefusal::NoChain)?;
+        let txs = if use_mempool {
+            TemplateTxs::Mempool
+        } else {
+            TemplateTxs::None
+        };
+        match source.create_new_block(coinbase_script, txs) {
+            Ok(template) => Ok(template.block),
+            Err(
+                e @ TemplateError::NotReady {
+                    ..
+                },
+            ) => Err(TemplateRefusal::NotReady(e.to_string())),
+            Err(TemplateError::Failed(msg)) => Err(TemplateRefusal::Failed(msg)),
+            Err(TemplateError::NoChain) => Err(TemplateRefusal::NoChain),
+        }
+    }
+
+    fn grind(&self, block: &mut Block, max_tries: &mut u64, shutdown: &dyn Fn() -> bool) -> Grind {
+        let Some(source) = self.miner() else {
+            return Grind::Shutdown;
+        };
+        let pow = source.pow().expect("the source built the template from these parameters");
+        match dashd_mining::grind(block, pow, max_tries, shutdown) {
+            dashd_mining::Grind::Found => Grind::Found,
+            dashd_mining::Grind::NonceExhausted => Grind::NonceExhausted,
+            dashd_mining::Grind::OutOfTries => Grind::OutOfTries,
+            dashd_mining::Grind::Shutdown => Grind::Shutdown,
+        }
+    }
+
+    // Core: rpc/mining.cpp:388-399, validation.cpp:4929-4974
+    fn test_block_validity(&self, block: Arc<Block>) -> BlockCheck {
+        let Some(chain) = self.slot().as_ref().map(|w| w.chain.clone()) else {
+            return BlockCheck::NoChain;
+        };
+        match chain.test_block_validity(block, false, false).recv() {
+            Ok(Ok(BlockState::Valid)) => BlockCheck::Valid,
+            Ok(Ok(BlockState::Invalid(e))) => BlockCheck::Invalid(e.reject_reason().to_owned()),
+            // `state.Error(msg)` sets the reject reason to `msg`.
+            Ok(Ok(BlockState::Error(msg))) => BlockCheck::Invalid(msg),
+            Ok(Err(NotTested::NotBestPrev)) => BlockCheck::TipMoved,
+            // The duplicate answers are `getblocktemplate`'s lookup's, which this call skips.
+            Ok(Err(other)) => BlockCheck::NotTested(other.to_string()),
+            Err(_) => BlockCheck::NoChain,
+        }
+    }
+
+    /// The source's own record, as Core's statics; none while the slot is detached, where
+    /// `getmininginfo` answers `EnsureChainman`'s error before it reads them.
+    fn last_block_stats(&self) -> Option<LastBlockStats> {
+        let last = self.miner()?.last_block_stats()?;
+        Some(LastBlockStats {
+            size: last.size,
+            num_txs: last.num_txs,
+        })
+    }
+
+    /// The attached pool under one short read lock, off V; none before step 7 attaches it.
+    fn mempool_tx(&self, txid: &TxHash) -> Option<Arc<dash_consensus::Tx>> {
+        let pool = self.mempool.lock().unwrap_or_else(|p| p.into_inner()).clone()?;
+        (&**pool.pool() as &dyn MempoolHandle).read(|r| r.get(txid))
+    }
+}
+
+/// `CMNHFManager::GetForBlock`'s exception as `getdeploymentinfo` answers it, its text as a
+/// runtime error: Core's "MNHF signals unavailable for block <hash>" for a block with none
+/// stored, the store's for a store fault, which the store has reported as it tripped the node's
+/// latch.
+// Core: evo/mnhftx.cpp:286-290 (dashpay/dash#8098)
+fn get_for_block_error(e: &GetForBlockError) -> DeploymentError {
+    DeploymentError::Store(e.to_string())
+}
+
+/// `getdeploymentinfo`'s refusal of a block other than genesis that is not valid to
+/// `BLOCK_VALID_SCRIPTS`, as `RPC_MISC_ERROR`.
+// Core: rpc/blockchain.cpp:1723-1726 (dashpay/dash#8098)
+const UNVALIDATED_BLOCK: &str = "MNHF signals unavailable for an invalid or unvalidated block";
+
+/// A read of `getdeploymentinfo`'s own versionbits walk, which throws as the stage's would
+/// (BL-683): V's source carries `GetForBlock`'s error.
+fn walk_error(e: &EhfReadError) -> DeploymentError {
+    e.downcast_ref::<GetForBlockError>()
+        .map_or_else(|| DeploymentError::Store(e.to_string()), get_for_block_error)
+}
+
+/// `IsBlockPruned`: the node has pruned, and `e` had transactions but no longer has their data.
+// Core: node/blockstorage.cpp:443-447
+fn is_block_pruned(have_pruned: bool, e: &EntryView) -> bool {
+    have_pruned && !e.status.has(Status::HAVE_DATA) && e.n_tx > 0
+}
+
+/// Core's `GetBlockPos`: the entry's data position, or the null position unless it has its data.
+fn block_pos(e: &EntryView) -> FlatFilePos {
+    match e.file {
+        Some(file) if e.status.has(Status::HAVE_DATA) => FlatFilePos {
+            file,
+            pos: e.data_pos,
+        },
+        _ => FlatFilePos {
+            file: -1,
+            pos: 0,
+        },
+    }
+}
+
+/// `blockheaderToJSON(Tip(), pindex)`'s facts of `e`, read in `q`'s V turn.
+// Core: rpc/blockchain.cpp:137-166 blockheaderToJSON
+fn header_facts(q: &ChainQuery<'_>, e: &EntryView) -> Option<HeaderFacts> {
+    let reader = q.chain.reader();
+    let (tip, _) = q.chain.private_tip()?;
+    let (confirmations, next) = if q.chain.active_contains_private(e.id) {
+        let next = (e.height < tip.height)
+            .then(|| q.chain.ancestor_private(e.height + 1))
+            .flatten()
+            .and_then(|id| reader.entry(id))
+            .map(|n| n.hash);
+        let depth = i32::try_from(tip.height - e.height + 1).expect("a depth fits");
+        (depth, next)
+    } else {
+        (-1, None)
+    };
+    Some(HeaderFacts {
+        hash: e.hash,
+        header: e.header,
+        height: e.height,
+        confirmations,
+        median_time_past: e.mtp,
+        chain_work: format!("{:064x}", e.chain_work),
+        n_tx: e.n_tx,
+        next,
+        chainlock: matches!(q.chain.has_chainlock(e.height, &e.hash), Ok(true)),
+    })
+}
+
+/// The writing side of [`ChainSlot`]: V's handle and the signals `submitblock`'s catcher
+/// registers on.
+#[derive(Clone)]
+struct Writer {
+    chain: ChainHandle,
+    signals: ValidationSignals,
+    /// As [`ChainSlot`]'s.
+    server: Weak<RpcServer>,
+    /// `getblock`'s `ReadBlockFromDisk`: the block files only, no cache of connected blocks
+    /// (DEC-606); `None` in tests without files, where every read fails.
+    files: Option<Arc<Mutex<Box<dyn BlockFiles>>>>,
+    /// The node's one `ChainTemplateSource` (MN0 r1: its stats stand in for Core's statics).
+    miner: Option<Arc<ChainTemplateSource>>,
+    /// V's coins cache; `None` in tests without one, where every read fails.
+    coins: Option<CoinsRead>,
+    /// `getblocktemplate`'s engine over `miner`, from step 7.
+    gbt: Option<Arc<GbtEngine>>,
+}
+
+/// `ParseHashOrHeight`'s block: the entry and its `pprev` hash.
+fn txout_block(reader: &ChainReader, id: BlockId) -> Option<TxOutBlock> {
+    let entry = reader.entry(id)?;
+    let prev = entry.prev.and_then(|prev| reader.entry(prev)).map(|prev| prev.hash);
+    Some(TxOutBlock {
+        hash: entry.hash,
+        height: entry.height,
+        prev,
+    })
+}
+
+impl Writer {
+    fn txout_at(
+        &self,
+        pick: impl FnOnce(&ChainQuery<'_>) -> Option<BlockId> + Send + 'static,
+    ) -> Option<TxOutBlock> {
+        self.chain.query(move |q| txout_block(&q.chain.reader(), pick(q)?)).recv().ok().flatten()
+    }
+}
+
+impl Chainman for Writer {
+    fn blocks_imported(&self) -> bool {
+        self.chain.loading().reindex()
+    }
+
+    /// The live entry's status: Core's read under `cs_main`, which may be ahead of the
+    /// published view's.
+    fn lookup_block_index(&self, hash: &BlockHash) -> Option<IndexStatus> {
+        let reader = self.chain.reader();
+        let entry = reader.entry(reader.lookup(hash)?)?;
+        let status = entry.status;
+        Some(IndexStatus {
+            valid_scripts: status.is_valid(Status::VALID_SCRIPTS),
+            failed: status.has(Status::FAILED_MASK),
+            have_data: status.has(Status::HAVE_DATA),
+            height: entry.height,
+        })
+    }
+
+    /// V replies after the block's `ActivateBestChain`, and calls `BlockChecked` synchronously
+    /// before it, so the catcher has seen every check of the block by the reply. A V that stops
+    /// on an `AbortNode` drops the reply: neither accepted nor written now, which leaves the
+    /// answer to the catcher, as Core's `false` return does. A failed block write is
+    /// `AbortNode(state, ...)`: V sends its `BlockChecked(Error)` before it stops, so the answer is
+    /// Core's -25 "System error: ..." (BL-279, validation.cpp:4849-4850, :4896-4897).
+    fn process_new_block(
+        &self,
+        block: Arc<Block>,
+        force_processing: bool,
+        catcher: &Arc<StateCatcher>,
+    ) -> ProcessedBlock {
+        let result = {
+            let _registered = Registered::new(&self.signals, Catcher(Arc::clone(catcher)));
+            self.chain.process_block(block, force_processing, None, true).recv()
+        };
+        // A no-wait task's wait fails at once: the catcher would be gone before V ran.
+        debug_assert!(!matches!(result, Err(WaitError::WaitOnVFromNoWaitTask)), "an RPC worker");
+        result.map_or(
+            ProcessedBlock {
+                accepted: false,
+                new_block: false,
+                thrown: None,
+            },
+            |r| ProcessedBlock {
+                accepted: r.accepted,
+                new_block: r.new_block,
+                thrown: r.thrown,
+            },
+        )
+    }
+
+    /// One class R turn: V's live index and private active chain, as Core's `cs_main` scope.
+    /// Nothing in the turn panics: an index that cannot answer (no tip, a missing entry) gives
+    /// no tips rather than stopping V.
+    fn chain_tips(&self) -> Vec<ChainTipInfo> {
+        let tips = self.chain.query(|q| {
+            let reader = q.chain.reader();
+            let Ok(tips) = q.chain.chain_tips_with(&|id| q.idx.have_txs_downloaded(id)) else {
+                return Vec::new();
+            };
+            tips.into_iter()
+                .filter_map(|t| {
+                    Some(ChainTipInfo {
+                        height: t.height,
+                        hash: t.hash,
+                        bits: reader.entry(t.id)?.header.bits(),
+                        chain_work: format!("{:064x}", t.chain_work),
+                        branchlen: t.branchlen,
+                        fork_point: reader.entry(t.fork_point)?.hash,
+                        status: t.status.as_str(),
+                    })
+                })
+                .collect()
+        });
+        tips.recv().unwrap_or_default()
+    }
+
+    /// One class R turn, as [`Self::chain_tips`].
+    // Core: rpc/blockchain.cpp:99-108 ComputeNextBlockAndDepth, :136-166 blockheaderToJSON
+    fn header_facts(&self, hash: &BlockHash) -> Option<HeaderFacts> {
+        let hash = *hash;
+        let facts = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            header_facts(q, &reader.entry(reader.lookup(&hash)?)?)
+        });
+        facts.recv().ok().flatten()
+    }
+
+    /// The lookup, the facts and `IsBlockPruned` in one V query turn, then the read from the
+    /// slot's own block files at the position the turn saw. A failed read logs the reader's own
+    /// line (`ReadBlockFromDisk`'s, with its hash-mismatch line).
+    // Core: rpc/blockchain.cpp:1035-1051, :786-804 GetBlockChecked; node/blockstorage.cpp:443-447
+    // IsBlockPruned, :833-846 ReadBlockFromDisk(pindex)
+    fn read_block(&self, hash: &BlockHash) -> Result<(HeaderFacts, Arc<Block>), BlockReadError> {
+        let hash = *hash;
+        let looked = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let e = reader.entry(reader.lookup(&hash)?)?;
+            let pruned = is_block_pruned(q.have_pruned, &e);
+            Some((header_facts(q, &e)?, pruned, block_pos(&e)))
+        });
+        let (facts, pruned, pos) = looked.recv().ok().flatten().ok_or(BlockReadError::NotFound)?;
+        if pruned {
+            return Err(BlockReadError::Pruned);
+        }
+        let files = self.files.as_ref().ok_or(BlockReadError::NotOnDisk)?;
+        let read = files.lock().unwrap_or_else(|p| p.into_inner()).read_block(pos, &hash);
+        match read {
+            Ok(block) => Ok((facts, block)),
+            Err(e) => {
+                tracing::error!("{e}");
+                Err(BlockReadError::NotOnDisk)
+            }
+        }
+    }
+
+    /// In one V query turn (Core holds `cs_main` for the whole walk): `hash`'s entry and its
+    /// `IsBlockPruned`, and the positions of it and of its successors on the active chain, at most
+    /// `count` blocks; none after it when it is off the active chain (`CChain::Next`). Then each
+    /// block is read from the slot's block files, as [`Self::read_block`]'s, and matched with the
+    /// one filter, which each match may update; a block with no match is skipped.
+    // Core: rpc/blockchain.cpp:888-922 getmerkleblocks; merkleblock.cpp:30-72
+    fn merkle_blocks(
+        &self,
+        filter: BloomFilterData,
+        hash: &BlockHash,
+        count: u32,
+    ) -> Result<Vec<Vec<u8>>, BlockReadError> {
+        use dash_types::codec::BaseCodec as _;
+
+        let hash = *hash;
+        let looked = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let e = reader.entry(reader.lookup(&hash)?)?;
+            let pruned = is_block_pruned(q.have_pruned, &e);
+            let mut walk = vec![(e.hash, block_pos(&e))];
+            if q.chain.active_contains_private(e.id) {
+                let (tip, _) = q.chain.private_tip()?;
+                let last = tip.height.min(e.height.saturating_add(count - 1));
+                for height in e.height + 1..=last {
+                    let next = reader.entry(q.chain.ancestor_private(height)?)?;
+                    walk.push((next.hash, block_pos(&next)));
+                }
+            }
+            Some((pruned, walk))
+        });
+        let (pruned, walk) = looked.recv().ok().flatten().ok_or(BlockReadError::NotFound)?;
+        if pruned {
+            return Err(BlockReadError::Pruned);
+        }
+        let files = self.files.as_ref().ok_or(BlockReadError::NotOnDisk)?;
+        let mut filter = BloomFilter::from(dash_p2p_core::FilterLoad::new(
+            filter.data,
+            filter.hash_funcs,
+            filter.tweak,
+            filter.flags,
+        ));
+        let mut out = Vec::new();
+        for (hash, pos) in walk {
+            let read = files.lock().unwrap_or_else(|p| p.into_inner()).read_block(pos, &hash);
+            let block = read.map_err(|e| {
+                tracing::error!("{e}");
+                BlockReadError::NotOnDisk
+            })?;
+            let (msg, matched) = merkle_block(&block, &mut filter);
+            if matched.is_empty() {
+                continue;
+            }
+            let mut wire = Vec::new();
+            msg.encode(&mut wire);
+            out.push(wire);
+        }
+        Ok(out)
+    }
+
+    /// `IsBlockPruned` and the undo position in one V query turn, then the read from the slot's
+    /// own block files, as [`Self::read_block`]'s. A block the index doesn't have reads as
+    /// unreadable (no caller asks for one).
+    // Core: rpc/blockchain.cpp:182-184 blockToJSON, :806-827 GetUndoChecked;
+    // node/blockstorage.cpp:539-575 UndoReadFromDisk
+    fn read_undo(&self, hash: &BlockHash) -> Result<BlockUndo, UndoReadError> {
+        use dash_chain::IndexAccess as _;
+
+        let hash = *hash;
+        let looked = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let id = reader.lookup(&hash)?;
+            let e = reader.entry(id)?;
+            let pruned = is_block_pruned(q.have_pruned, &e);
+            Some((pruned, reader.undo_pos(id), e.header.prev_hash()))
+        });
+        let (pruned, pos, parent) =
+            looked.recv().ok().flatten().ok_or(UndoReadError::Unreadable)?;
+        if pruned {
+            return Err(UndoReadError::Pruned);
+        }
+        // Core's GetUndoPos: the null position unless the entry has undo data.
+        let Some(pos) = pos.filter(|pos| pos.file >= 0) else {
+            tracing::error!("UndoReadFromDisk: no undo data available");
+            return Err(UndoReadError::Unreadable);
+        };
+        let files = self.files.as_ref().ok_or(UndoReadError::Unreadable)?;
+        let read = files.lock().unwrap_or_else(|p| p.into_inner()).read_undo(pos, &parent);
+        read.map_err(|e| {
+            tracing::error!("{e}");
+            UndoReadError::Unreadable
+        })
+    }
+
+    /// `GetBlockSubsidy(block)` as connect reads it ([`block_subsidy_after`]), in one V query turn,
+    /// under the miner's subsidy parameters (the node's one set); `None` without a miner.
+    // Core: validation.cpp:1884-1889 GetBlockSubsidy
+    fn block_subsidy(&self, hash: &BlockHash) -> Option<i64> {
+        let miner = Arc::clone(self.miner.as_ref()?);
+        let hash = *hash;
+        let looked = self.chain.query(move |q| {
+            let subsidy = miner.subsidy_params()?;
+            let reader = q.chain.reader();
+            let prev = reader.entry(reader.lookup(&hash)?)?.prev;
+            block_subsidy_after(&reader, &q.deployments, prev, subsidy).ok()
+        });
+        looked.recv().ok().flatten()
+    }
+
+    fn verify_db(&self, level: i32, depth: i32) -> Option<bool> {
+        let args = VerifyDbArgs {
+            level,
+            depth,
+        };
+        let result = self.chain.verify_db(args).recv().ok()?;
+        Some(result == VerifyDbResult::Success)
+    }
+
+    fn invalidate_block(&self, hash: BlockHash) -> Result<(), BlockCommandError> {
+        block_command(self.chain.invalidate_block(hash).recv())
+    }
+
+    fn reconsider_block(
+        &self,
+        hash: BlockHash,
+        ignore_chainlocks: bool,
+    ) -> Result<(), BlockCommandError> {
+        block_command(self.chain.reconsider_block(hash, ignore_chainlocks).recv())
+    }
+
+    fn precious_block(&self, hash: BlockHash) -> Result<(), BlockCommandError> {
+        block_command(self.chain.precious_block(hash).recv())
+    }
+
+    /// A barrier on V's signals queue. An RPC worker may wait, so the sync is never refused.
+    fn sync_validation_queue(&self) {
+        let synced = self.signals.sync(&mut Blocking);
+        debug_assert!(!matches!(synced, Err(WaitError::WaitOnVFromNoWaitTask)), "an RPC worker");
+    }
+
+    /// A one-header batch from no peer, as Core's `ProcessNewBlockHeaders({h})`.
+    // Core: rpc/mining.cpp:1094-1095
+    fn process_new_block_header(&self, header: Header) -> ValidationState {
+        let batch = HeaderBatch {
+            hashes: vec![header.hash()],
+            headers: vec![header],
+        };
+        match self.chain.process_headers(batch, None).recv() {
+            Ok(HeadersResult {
+                stop:
+                    Some(HeaderStop::Invalid {
+                        reject,
+                        ..
+                    }),
+                ..
+            }) => ValidationState::Invalid(reject),
+            Ok(_) => ValidationState::Valid,
+            Err(_) => ValidationState::Error(aborted()),
+        }
+    }
+
+    /// One V query turn, as Core's `cs_main` scope and the reads after it: `m_chain.Tip()` or
+    /// `m_chain[height]`, then [`ChainQuery::credit_pool_info`] for it, so the block, its pool
+    /// and its window start are one state. A stopped chainstate answers no read.
+    // Core: rpc/blockchain.cpp:1795-1810
+    fn credit_pool_info(
+        &self,
+        height: Option<i32>,
+    ) -> Result<CreditPoolFacts, CreditPoolReadError> {
+        let read = self.chain.query(move |q| {
+            let (tip, _) = q.chain.private_tip().ok_or(CreditPoolReadError::OutOfRange)?;
+            let at = match height {
+                None => tip.id,
+                Some(h) => u32::try_from(h)
+                    .ok()
+                    .and_then(|h| q.chain.ancestor_private(h))
+                    .ok_or(CreditPoolReadError::OutOfRange)?,
+            };
+            let e = q.chain.reader().entry(at).ok_or(CreditPoolReadError::OutOfRange)?;
+            let info = match q.credit_pool_info(at) {
+                Ok(Ok(info)) => info,
+                Ok(Err(pool)) => return Err(CreditPoolReadError::Failed(pool.to_string())),
+                // D59: a store fault where Core reads the block files.
+                Err(store) => return Err(CreditPoolReadError::Failed(store.to_string())),
+            };
+            Ok(CreditPoolFacts {
+                height: e.height,
+                hash: e.hash,
+                locked: info.pool.locked,
+                current_limit: info.pool.current_limit,
+                lately_unlocked: info.pool.lately_unlocked,
+                window_blocks: info.window_blocks,
+                window_start: info.window_start,
+            })
+        });
+        read.recv().unwrap_or_else(|_| Err(CreditPoolReadError::Failed(aborted())))
+    }
+
+    /// [`node_chainlock_by_height`] over the slot's block files.
+    fn chainlock_by_height(&self, height: i32) -> Result<HistoricalChainLock, ClLookupError> {
+        node_chainlock_by_height(&self.chain, self.files.as_deref(), height)
+    }
+
+    /// Every read in one V query turn ([`unlock_pools`]), a state Core's separate reads can see.
+    // Core: rpc/rawtransaction.cpp:827-876
+    fn asset_unlock_pools(&self, height: Option<i32>) -> Result<UnlockPools, PoolsError> {
+        let read = self.chain.query(move |q| unlock_pools(q, height));
+        read.recv().unwrap_or_else(|_| Err(PoolsError::Failed(aborted())))
+    }
+
+    // Core: v24.0.2 src/rpc/blockchain.cpp:1238 ForceFlushStateToDisk
+    fn force_flush(&self) -> Result<(), Aborted> {
+        self.chain.flush(FlushStateMode::Always).recv().map_err(|_| Aborted)
+    }
+
+    // Core: v24.0.2 src/rpc/blockchain.cpp:116
+    fn active_height(&self) -> i32 {
+        let height = self
+            .chain
+            .query(|q| q.chain.private_tip().and_then(|(tip, _)| i32::try_from(tip.height).ok()));
+        height.recv().ok().flatten().unwrap_or(-1)
+    }
+
+    fn active_tip(&self) -> Option<TxOutBlock> {
+        self.txout_at(|q| Some(q.chain.private_tip()?.0.id))
+    }
+
+    fn active_block(&self, height: u32) -> Option<TxOutBlock> {
+        self.txout_at(move |q| q.chain.ancestor_private(height))
+    }
+
+    // Core: v24.0.2 src/rpc/blockchain.cpp:110-123 (one cs_main)
+    fn block_at_height(&self, height: u32) -> ActiveAtHeight {
+        let read = self.chain.query(move |q| {
+            let tip = q
+                .chain
+                .private_tip()
+                .and_then(|(tip, _)| i32::try_from(tip.height).ok())
+                .unwrap_or(-1);
+            if i64::from(height) > i64::from(tip) {
+                return ActiveAtHeight::AfterTip {
+                    tip,
+                };
+            }
+            match q.chain.ancestor_private(height).and_then(|id| txout_block(&q.chain.reader(), id))
+            {
+                Some(block) => ActiveAtHeight::Block(block),
+                None => ActiveAtHeight::AfterTip {
+                    tip,
+                },
+            }
+        });
+        read.recv().unwrap_or(ActiveAtHeight::AfterTip {
+            tip: -1,
+        })
+    }
+
+    fn lookup_block(&self, hash: &BlockHash) -> Option<TxOutBlock> {
+        let hash = *hash;
+        self.txout_at(move |q| q.chain.reader().lookup(&hash))
+    }
+
+    /// V's flush and snapshot in one class M turn (RP1a D2), then the scan on its own thread,
+    /// interrupted once the server stops running; the best block's height is read live.
+    // Core: rpc/blockchain.cpp:1212-1220, :1260; rpc/server.cpp:325-330 RpcInterruptionPoint
+    fn txout_set_info(&self, hash_type: CoinStatsHashType) -> Result<TxOutSetInfo, TxOutSetError> {
+        let (stats, _copy_point) = scan_coins(self, hash_type, None)?;
+        let reader = self.chain.reader();
+        let entry = reader.lookup(&stats.best_block).and_then(|id| reader.entry(id));
+        let height = entry.ok_or(TxOutSetError::Unreadable)?.height;
+        Ok(TxOutSetInfo {
+            best_block: stats.best_block,
+            height,
+            stats: stats.stats,
+            disk_size: stats.disk_size,
+            #[cfg(feature = "test-hooks")]
+            livecopy_counters: _copy_point
+                .as_ref()
+                .filter(|_| crate::livecopy::enabled())
+                .map(crate::livecopy::reply_field),
+        })
+    }
+
+    /// `txout_set_info`'s turn and scan, whose thread then writes the file. Core's
+    /// `LOG_TIME_SECONDS` scope starts on that thread, once the statistics are done, and ends
+    /// when the scan does, interrupted or not; the base's height is read from the index there
+    /// (the thread never waits on V, LO-9), its `nChainTx` from V afterwards.
+    // Core: rpc/blockchain.cpp:3147-3210 CreateUTXOSnapshot; logging/timer.h:30-48
+    fn dump_txout_set(
+        &self,
+        file: File,
+        path: &Path,
+        temppath: &Path,
+    ) -> Result<TxOutSetDump, TxOutSetError> {
+        let timer = Arc::new(Mutex::new(None));
+        let started = Arc::clone(&timer);
+        let reader = self.chain.reader().clone();
+        let (path, temppath) = (path.display().to_string(), temppath.display().to_string());
+        // Core logs both lines on the RPC worker, so the scan's thread takes the worker's name.
+        let worker = crate::logging::thread_name();
+        let on_start = move |best: &BlockHash| {
+            crate::logging::set_thread_name(&worker);
+            // The flushed tip always has an entry (Core's `CHECK_NONFATAL`); without one there
+            // is no line, and the missing entry after the scan answers "Unable to read UTXO set".
+            let Some(e) = reader.lookup(best).and_then(|id| reader.entry(id)) else {
+                return;
+            };
+            let title = format!(
+                "CreateUTXOSnapshot: writing UTXO snapshot at height {} ({best}) to file {path} \
+                 (via {temppath})",
+                e.height
+            );
+            tracing::info!("{title} started");
+            *started.lock().unwrap_or_else(|p| p.into_inner()) = Some((title, Instant::now()));
+        };
+        let dump = CoinsDump {
+            file: Box::new(file),
+            on_start: Box::new(on_start),
+        };
+        let result =
+            scan_coins(self, CoinStatsHashType::HashSerialized, Some(dump)).map(|(s, _)| s);
+        let stats = finish_dump_timer(&timer, result, |line| tracing::info!("{line}"))?;
+        let reader = self.chain.reader();
+        let id = reader.lookup(&stats.best_block).ok_or(TxOutSetError::Unreadable)?;
+        let height = reader.entry(id).ok_or(TxOutSetError::Unreadable)?.height;
+        let n_chain_tx = self.chain.query(move |q| q.idx.n_chain_tx(id)).recv();
+        Ok(TxOutSetDump {
+            base: stats.best_block,
+            height,
+            coins: stats.stats.txouts,
+            hash: stats.stats.hash.ok_or(TxOutSetError::Unreadable)?,
+            n_chain_tx: n_chain_tx.map_err(|_| TxOutSetError::Unreadable)?.into(),
+        })
+    }
+
+    /// The block's position in one V query turn: `block`'s entry, or the active chain's block
+    /// at the height of the first unspent output `AccessByTxid` reads over V's coins cache, up
+    /// to `MAX_OUTPUTS_PER_BLOCK` outputs a txid as Core's does. Then the read from the slot's
+    /// block files at that position, as [`Self::read_block`]'s but with no `IsBlockPruned` check
+    /// (Core reads the pruned block's null position and logs the failure), the count, and the
+    /// proof's partial tree from dashd-p2p.
+    // Core: rpc/txoutproof.cpp:76-122; coins.cpp:340-353 AccessByTxid; merkleblock.cpp:30-72
+    fn txout_proof(
+        &self,
+        txids: &[TxHash],
+        block: Option<BlockHash>,
+    ) -> Result<Vec<u8>, TxOutProofError> {
+        use dash_types::codec::BaseCodec as _;
+
+        /// `MaxBlockSize() / GetSerializeSize(CTxOut())`: a null `CTxOut` is 9 bytes.
+        // Core: coins.cpp:342
+        const MAX_OUTPUTS_PER_BLOCK: u32 = 2_000_000 / 9;
+
+        let coins = self.coins.clone();
+        let wanted = txids.to_vec();
+        let found = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let id = match block {
+                Some(hash) => reader.lookup(&hash).ok_or(TxOutProofError::BlockNotFound)?,
+                None => {
+                    let coins = coins.ok_or(TxOutProofError::NotYetInBlock)?;
+                    // A failed read stops the walk: Core's `CCoinsViewErrorCatcher` aborts the
+                    // node, and V's latch has tripped (D57).
+                    let mut height = None;
+                    'txids: for txid in &wanted {
+                        for vout in 0..MAX_OUTPUTS_PER_BLOCK {
+                            let out = OutPoint::new(*txid, vout);
+                            let (coin, _) = coins(&out).map_err(|_| TxOutProofError::Aborted)?;
+                            if let Some(coin) = coin {
+                                height = Some(coin.height());
+                                break 'txids;
+                            }
+                        }
+                    }
+                    height
+                        .and_then(|h| q.chain.ancestor_private(h))
+                        .ok_or(TxOutProofError::NotYetInBlock)?
+                }
+            };
+            let e = reader.entry(id).ok_or(TxOutProofError::BlockNotFound)?;
+            Ok((e.hash, block_pos(&e)))
+        });
+        let (hash, pos) = found.recv().unwrap_or(Err(TxOutProofError::Aborted))?;
+        let files = self.files.as_ref().ok_or(TxOutProofError::Unreadable)?;
+        let read = files.lock().unwrap_or_else(|p| p.into_inner()).read_block(pos, &hash);
+        let block = read.map_err(|e| {
+            tracing::error!("{e}");
+            TxOutProofError::Unreadable
+        })?;
+        let mut hashes = Vec::with_capacity(block.txs().len());
+        let mut matches = Vec::with_capacity(block.txs().len());
+        for tx in block.txs() {
+            let txid = tx.txid();
+            matches.push(txids.binary_search_by_key(txid.as_bytes(), |t| *t.as_bytes()).is_ok());
+            hashes.push(*txid.as_bytes());
+        }
+        if matches.iter().filter(|&&m| m).count() != txids.len() {
+            return Err(TxOutProofError::NotAllFound);
+        }
+        let msg =
+            dash_p2p_core::MerkleBlock::new(*block.header().raw(), partial_tree(&hashes, &matches));
+        let mut wire = Vec::new();
+        msg.encode(&mut wire);
+        Ok(wire)
+    }
+
+    /// `scantxoutset`'s copy-point flush and walk on its own thread, as `gettxoutsetinfo`'s
+    /// scan; the interruption point fires once the server stops running. The tip's height is
+    /// read from the index, whose entry for a flushed tip never goes away.
+    // Core: rpc/blockchain.cpp:2756-2774
+    fn scan_txout_set(
+        &self,
+        needles: HashSet<Vec<u8>>,
+        control: ScanControl,
+    ) -> Result<TxOutSetScan, TxOutSetError> {
+        let server = self.server.clone();
+        let interrupted = Arc::new(move || !server.upgrade().is_some_and(|s| s.is_running()));
+        let scan = CoinsScan {
+            needles,
+            progress: control.progress,
+            should_abort: control.should_abort,
+            interrupted,
+        };
+        let job = self.chain.coins_scan(scan).recv().ok().flatten();
+        let walk = match job.ok_or(TxOutSetError::Unreadable)?.wait() {
+            Ok(walk) => walk,
+            Err(CoinsScanError::Interrupted) => return Err(TxOutSetError::Interrupted),
+            Err(_) => return Err(TxOutSetError::Unreadable),
+        };
+        let reader = self.chain.reader();
+        let entry = reader.lookup(&walk.best_block).and_then(|id| reader.entry(id));
+        let height = entry.ok_or(TxOutSetError::Unreadable)?.height;
+        Ok(TxOutSetScan {
+            success: walk.success,
+            count: walk.count,
+            best_block: walk.best_block,
+            height,
+            unspents: walk.into_outpoints().collect(),
+        })
+    }
+}
+
+/// The end of `CreateUTXOSnapshot`'s `LOG_TIME_SECONDS` scope: once the file's walk started
+/// (`timer` holds the title and start), "completed" is logged whatever `result` is, as Core's
+/// timer logs from its destructor while an interruption unwinds; a walk that never started (the
+/// statistics failed) logs nothing.
+// Core: rpc/blockchain.cpp:3184; logging/timer.h
+fn finish_dump_timer<T, E>(
+    timer: &Mutex<Option<(String, Instant)>>,
+    result: Result<T, E>,
+    log: impl FnOnce(String),
+) -> Result<T, E> {
+    if let Some((title, start)) = timer.lock().unwrap_or_else(|p| p.into_inner()).take() {
+        log(format!("{title} completed ({:.2}s)", start.elapsed().as_secs_f64()));
+    }
+    result
+}
+
+/// The copy point's counter snapshot (CH5-5 §2.2) in test-hooks builds; nothing in others.
+#[cfg(feature = "test-hooks")]
+type CopyPointRecord = Option<dashd_store::livecopy::CopyPointSnapshot>;
+#[cfg(not(feature = "test-hooks"))]
+type CopyPointRecord = ();
+
+/// The coins scan both `gettxoutsetinfo` and `dumptxoutset` run, interrupted once the server
+/// stops running; a `dump` is written from its snapshot.
+fn scan_coins(
+    writer: &Writer,
+    hash_type: CoinStatsHashType,
+    dump: Option<CoinsDump>,
+) -> Result<(CoinsStats, CopyPointRecord), TxOutSetError> {
+    let server = writer.server.clone();
+    let interrupted = Arc::new(move || !server.upgrade().is_some_and(|s| s.is_running()));
+    let job = writer.chain.coins_stats(hash_type, interrupted, dump).recv().ok().flatten();
+    let job = job.ok_or(TxOutSetError::Unreadable)?;
+    #[cfg(feature = "test-hooks")]
+    let record = job.live_copy();
+    #[cfg(not(feature = "test-hooks"))]
+    let record = ();
+    match job.wait() {
+        Ok(stats) => Ok((stats, record)),
+        Err(CoinsStatsError::Interrupted) => Err(TxOutSetError::Interrupted),
+        Err(CoinsStatsError::Write(_)) => Err(TxOutSetError::Unwritable),
+        Err(_) => Err(TxOutSetError::Unreadable),
+    }
+}
+
+/// `getchaintxstats`' facts of `id`.
+fn chain_tx_point(q: &ChainQuery<'_>, id: BlockId) -> Option<ChainTxPoint> {
+    let e = q.chain.reader().entry(id)?;
+    Some(ChainTxPoint {
+        hash: e.hash,
+        height: e.height,
+        time: e.header.time(),
+        median_time_past: e.mtp,
+        chain_tx: q.idx.n_chain_tx(id),
+    })
+}
+
+/// RP1a-2b's reads, each one class R turn on V's live index and private active chain (Core's
+/// `cs_main` scope) unless it says otherwise. A V that has stopped (`AbortNode`) answers
+/// [`Aborted`], as every RP1a read does (D9).
+impl ChainState for Writer {
+    /// The latch is read for V's own tip in the same turn, as Core reads it under `cs_main`.
+    // Core: rpc/blockchain.cpp:1594-1609; validation.cpp:5907-5922 GuessVerificationProgress
+    fn tip_info(&self) -> Result<TipInfo, Aborted> {
+        let handle = self.chain.view_handle();
+        // Core's `time(nullptr)`: the system time, never the mock time.
+        let now = SystemClock.node_now().secs();
+        let info = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let (tip, _) = q.chain.private_tip()?;
+            let e = reader.entry(tip.id)?;
+            let headers = reader.entry(q.chain.best_header())?.height;
+            let data = &q.chain.params().chain_tx_data;
+            Some(TipInfo {
+                height: e.height,
+                hash: e.hash,
+                bits: e.header.bits(),
+                time: e.header.time(),
+                median_time_past: e.mtp,
+                headers,
+                verification_progress: guess_verification_progress(
+                    data,
+                    q.idx.n_chain_tx(tip.id),
+                    e.header.time(),
+                    now,
+                ),
+                // V's own tip, read in this turn (RP1a D35). The published view's latch
+                // answers the same here, as V publishes its tip at every command's end (D65),
+                // but not outside the turn.
+                initial_block_download: handle.ibd_at(Some((e.chain_work, e.header.time()))),
+                chain_work: format!("{:064x}", e.chain_work),
+            })
+        });
+        // V has its genesis tip from start; none is a V that stopped before it.
+        info.recv().ok().flatten().ok_or(Aborted)
+    }
+
+    /// Read under the block files' own lock.
+    fn size_on_disk(&self) -> u64 {
+        self.files
+            .as_ref()
+            .map_or(0, |f| f.lock().unwrap_or_else(|p| p.into_inner()).current_usage())
+    }
+
+    /// CS4's report over V's deployments and the node's EHF signals (DEC-1028), once
+    /// `GetSignalsStage(block)` has answered with the stored or cached signals, or Core's
+    /// exception (BL-270, RP1a D52). A block other than genesis must be valid to
+    /// `BLOCK_VALID_SCRIPTS` first (dashpay/dash#8098).
+    fn deployment_info(
+        &self,
+        hash: Option<&BlockHash>,
+    ) -> Result<Option<DeploymentReport>, DeploymentError> {
+        let hash = hash.copied();
+        let report = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let id = match hash {
+                Some(hash) => reader.lookup(&hash),
+                None => q.chain.private_tip().map(|(tip, _)| tip.id),
+            };
+            let Some(e) = id.and_then(|id| reader.entry(id)) else {
+                return Ok(None);
+            };
+            // Core: rpc/blockchain.cpp:1723-1726
+            if e.prev.is_some() && !e.status.is_valid(Status::VALID_SCRIPTS) {
+                return Err(DeploymentError::EhfSignals(UNVALIDATED_BLOCK));
+            }
+            // Core: rpc/blockchain.cpp:1729
+            q.ehf_signals_stage(e.id).map_err(|e| get_for_block_error(&e))?;
+            let deployments = q.deployments.deployment_info(e.id).map_err(|e| walk_error(&e))?;
+            Ok(Some(DeploymentReport {
+                hash: e.hash,
+                height: e.height,
+                deployments,
+            }))
+        });
+        report.recv().unwrap_or(Err(DeploymentError::Aborted))
+    }
+
+    // Core: rpc/blockchain.cpp:2103-2117
+    fn chain_tx_final(&self, hash: Option<&BlockHash>) -> Result<ChainTxPoint, ChainTxError> {
+        let hash = hash.copied();
+        let point = self.chain.query(move |q| {
+            let id = match hash {
+                Some(hash) => {
+                    let id = q.chain.reader().lookup(&hash).ok_or(ChainTxError::NotFound)?;
+                    if !q.chain.active_contains_private(id) {
+                        return Err(ChainTxError::NotInMainChain);
+                    }
+                    id
+                }
+                None => q.chain.private_tip().ok_or(ChainTxError::NotFound)?.0.id,
+            };
+            chain_tx_point(q, id).ok_or(ChainTxError::NotFound)
+        });
+        point.recv().unwrap_or(Err(ChainTxError::Aborted))
+    }
+
+    fn chain_tx_ancestor(
+        &self,
+        of: &BlockHash,
+        height: u32,
+    ) -> Result<Option<ChainTxPoint>, Aborted> {
+        let of = *of;
+        let point = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            chain_tx_point(q, reader.ancestor(reader.lookup(&of)?, height)?)
+        });
+        point.recv().map_err(|_| Aborted)
+    }
+
+    // Core: rpc/blockchain.cpp:1380-1394
+    fn txout(&self, out: &OutPoint) -> Result<Option<UnspentCoin>, Aborted> {
+        let coins = self.coins.clone().ok_or(Aborted)?;
+        let out = *out;
+        let read = self.chain.query(move |_| {
+            let (coin, best) = coins(&out)?;
+            Ok(coin.map(|coin| UnspentCoin {
+                coin,
+                best_block: best.hash,
+                best_height: best.height,
+            }))
+        });
+        read.recv().unwrap_or(Err(Aborted))
+    }
+
+    /// Every read in one V query turn, as `FindCoins` reads under one `cs_main` lock.
+    // Core: rpc/rawtransaction.cpp:1053-1067; node/coin.cpp:12-24
+    fn txouts(&self, outs: &[OutPoint]) -> Result<Vec<Option<Coin>>, Aborted> {
+        let coins = self.coins.clone().ok_or(Aborted)?;
+        let outs = outs.to_vec();
+        let read = self
+            .chain
+            .query(move |_| outs.iter().map(|out| coins(out).map(|(coin, _)| coin)).collect());
+        read.recv().unwrap_or(Err(Aborted))
+    }
+
+    /// The published signatures, as Core reads its handler outside `cs_main`; then the live
+    /// index for the block.
+    fn best_chainlock(&self) -> Option<BestChainLock> {
+        let view = self.chain.view();
+        let clsig = view.best_chainlock()?;
+        Some(BestChainLock {
+            height: clsig.height,
+            block_hash: clsig.block_hash,
+            sig: clsig.sig_bytes(view.bls),
+            known_block: self.chain.reader().lookup(&clsig.block_hash).is_some(),
+        })
+    }
+
+    fn has_block(&self, hash: &BlockHash) -> bool {
+        self.chain.reader().lookup(hash).is_some()
+    }
+
+    // Core: rpc/blockchain.cpp:750-781
+    fn headers_from(&self, hash: &BlockHash, count: usize) -> Result<Vec<HeaderFacts>, Aborted> {
+        let hash = *hash;
+        let headers = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let mut headers = Vec::new();
+            let mut at = reader.lookup(&hash);
+            while let Some(facts) = at.and_then(|id| header_facts(q, &reader.entry(id)?)) {
+                at = facts.next.and_then(|next| reader.lookup(&next));
+                headers.push(facts);
+                if headers.len() >= count {
+                    break;
+                }
+            }
+            headers
+        });
+        headers.recv().map_err(|_| Aborted)
+    }
+
+    // Core: rpc/mining.cpp:66-110 GetNetworkHashPS's reads of the active chain
+    fn active_window(&self, height: Option<u32>, back: u32) -> Result<ActiveWindow, Aborted> {
+        let window = self.chain.query(move |q| {
+            let reader = q.chain.reader();
+            let (tip, _) = q.chain.private_tip()?;
+            let tip_height = reader.entry(tip.id)?.height;
+            let at = height.unwrap_or(tip_height);
+            let mut blocks = Vec::new();
+            if at <= tip_height {
+                // `pprev` from the block, as Core walks it.
+                let mut e = reader.entry(reader.ancestor(tip.id, at)?)?;
+                loop {
+                    blocks.push(WindowBlock {
+                        height: e.height,
+                        bits: e.header.bits(),
+                        time: e.header.time(),
+                        chain_work: e.chain_work,
+                    });
+                    match e.prev {
+                        Some(prev) if blocks.len() <= back as usize => e = reader.entry(prev)?,
+                        _ => break,
+                    }
+                }
+            }
+            Some(ActiveWindow {
+                height: tip_height,
+                blocks,
+            })
+        });
+        window.recv().ok().flatten().ok_or(Aborted)
+    }
+}
+
+/// A block command's reply: V answers the lookup and the command's `ActivateBestChain`
+/// failure, and drops the reply when an `AbortNode` stops it (`BlockRpcReply`).
+fn block_command(
+    reply: Result<Result<(), BlockRpcError>, WaitError>,
+) -> Result<(), BlockCommandError> {
+    match reply {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(BlockRpcError::NotFound)) => Err(BlockCommandError::NotFound),
+        Ok(Err(BlockRpcError::AbcFailed(state))) => Err(BlockCommandError::AbcFailed(state)),
+        Ok(Err(BlockRpcError::AbcThrown(what))) => Err(BlockCommandError::AbcThrown(what)),
+        Err(_) => Err(BlockCommandError::Aborted),
+    }
+}
+
+/// A listener registered on the node's signals until dropped: Core's
+/// `RegisterSharedValidationInterface` and `UnregisterSharedValidationInterface` around a call,
+/// the second on every path out of it.
+struct Registered<'a> {
+    signals: &'a ValidationSignals,
+    listener: Arc<dyn ValidationInterface>,
+}
+
+impl<'a> Registered<'a> {
+    fn new(signals: &'a ValidationSignals, listener: impl ValidationInterface + 'static) -> Self {
+        let listener: Arc<dyn ValidationInterface> = Arc::new(listener);
+        signals.register(Arc::clone(&listener));
+        Registered {
+            signals,
+            listener,
+        }
+    }
+}
+
+impl Drop for Registered<'_> {
+    fn drop(&mut self) {
+        self.signals.unregister(&self.listener);
+    }
+}
+
+/// `submitblock_StateCatcher` as a listener on V's signals.
+struct Catcher(Arc<StateCatcher>);
+
+impl ValidationInterface for Catcher {
+    fn block_checked(&self, block: &Block, state: &BlockState, _ibd: bool) {
+        self.0.block_checked(block, || validation_state(state));
+    }
+}
+
+/// V's `BlockValidationState` as the RPC layer's: `submitblock`'s catcher and
+/// `getblocktemplate`'s proposal answer read it.
+fn validation_state(state: &BlockState) -> ValidationState {
+    match state {
+        BlockState::Valid => ValidationState::Valid,
+        BlockState::Invalid(e) => ValidationState::Invalid(e.clone()),
+        BlockState::Error(msg) => ValidationState::Error(msg.clone()),
+    }
+}
+
+/// V's last published view, read as Core reads `ActiveChain()` under `cs_main`. Its active chain
+/// is the view's own (never the live chain); an entry's hash is immutable, so the live index
+/// answers it for any block of the view.
+struct Published {
+    view: Arc<ChainView>,
+    reader: ChainReader,
+}
+
+impl PublishedChain for Published {
+    fn height(&self) -> i32 {
+        let snap = &self.view.snap;
+        if snap.has_tip() {
+            i32::try_from(snap.active.height()).expect("a height fits")
+        } else {
+            -1
+        }
+    }
+
+    fn block_hash(&self, height: i32) -> BlockHash {
+        // A node's active chain starts at 0 and its index never evicts (`ChainConfig::node`):
+        // every height in `0..=height()` has an entry. Anchored or windowed chains are SPV's.
+        let at = u32::try_from(height).ok().and_then(|h| self.view.snap.active.at(h));
+        let id = at.expect("a height of the active chain");
+        self.reader.entry(id).expect("an active block is indexed").hash
+    }
+
+    fn bls(&self) -> dash_consensus::BlsCtx {
+        self.view.bls
+    }
+}
+
+/// The network the network commands use: Core's `NodeContext::connman` and `peerman`, from
+/// step 12 (the connection manager's threads started, which `addnode onetry` opens through)
+/// until shutdown stops the RPC server. Core builds the connection manager at step 6, but no
+/// command runs before step 13 ends the warmup, so one attachment serves them all.
+#[derive(Default)]
+pub struct NetSlot {
+    attached: Mutex<Option<NetParts>>,
+}
+
+#[derive(Clone)]
+struct NetParts {
+    core: Arc<NetCore>,
+    shared: Arc<Shared>,
+    connman: Arc<ConnMan>,
+    rt: tokio::runtime::Handle,
+}
+
+impl NetSlot {
+    fn slot(&self) -> MutexGuard<'_, Option<NetParts>> {
+        self.attached.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Step 12: the network core, the peer manager's shared half, the started connection
+    /// manager, and the network runtime handle.
+    pub fn attach(
+        &self,
+        core: &Arc<NetCore>,
+        shared: &Arc<Shared>,
+        connman: &Arc<ConnMan>,
+        rt: tokio::runtime::Handle,
+    ) {
+        let parts = NetParts {
+            core: Arc::clone(core),
+            shared: Arc::clone(shared),
+            connman: Arc::clone(connman),
+            rt,
+        };
+        assert!(self.slot().replace(parts).is_none(), "the network attaches once");
+    }
+
+    pub(crate) fn core(&self) -> Option<Arc<NetCore>> {
+        self.slot().as_ref().map(|parts| Arc::clone(&parts.core))
+    }
+
+    /// The peer manager's shared half: Core's `node.peerman`.
+    fn shared(&self) -> Option<Arc<Shared>> {
+        self.slot().as_ref().map(|parts| Arc::clone(&parts.shared))
+    }
+
+    /// Shutdown: the commands no longer reach the network, which stops next.
+    pub fn detach(&self) {
+        self.slot().take();
+    }
+
+    /// `EnsurePeerman`, then `PeerManager::FetchBlock(peer_id, *index)` for the block `hash`.
+    /// `Some(Ok(()))` or `Some(Err(msg))` with `FetchBlock`'s exact string. The wait lasts until
+    /// the actor's next drain point (plan §2.4), and the slot's lock is not held across it.
+    ///
+    /// `None` when the slot was never attached or is detached (rb:507's null `peerman`), or for
+    /// a request made once the processor is stopped (`FetchBlockError::Stopped`), which answers
+    /// at once. Core's HTTP workers keep running the requests accepted before `Interrupt`
+    /// (httpserver.cpp:114-117, 540-550), and their `FetchBlock` reaches a live peer manager
+    /// until `StopHTTPServer` has joined them and `StopHandlers` runs (init.cpp:286, 329-337).
+    /// So after the interrupt the actor keeps answering requests until the processor stops,
+    /// which the node does after `rpc.stop()` and this slot's detach (P2a-net D51). Call it
+    /// from an RPC worker, never from V's thread (BL-503).
+    // Core (v24.0.0): rpc/blockchain.cpp:507, :528-530; net_processing.cpp:2062-2094
+    pub fn fetch_block(&self, hash: &BlockHash, peer_id: i64) -> Option<Result<(), String>> {
+        let shared = self.slot().as_ref().map(|parts| Arc::clone(&parts.shared))?;
+        match shared.fetch_block(*hash, peer_id) {
+            Ok(()) => Some(Ok(())),
+            Err(e) => Some(Err(e.core_message()?.to_owned())),
+        }
+    }
+}
+
+impl NodeNet for NetSlot {
+    /// `GetNodeStats` (every peer not marked for disconnection, in table order), then each
+    /// peer's `GetNodeStateStats`, skipping a peer whose state is gone as Core does. The slot's
+    /// lock is not held across the reads: the state stats may wait for V's next publication.
+    // Core: rpc/net.cpp:215-231, net.cpp:4563-4576 CConnman::GetNodeStats
+    fn peer_info(&self) -> Option<Vec<PeerInfo>> {
+        let NetParts {
+            core,
+            shared,
+            ..
+        } = self.slot().clone()?;
+        let peers = core
+            .peers()
+            .iter()
+            .filter(|peer| !peer.disconnect_requested())
+            .filter_map(|peer| {
+                let stats = NodeStats::of(&core, peer);
+                let state = shared.node_state_stats(peer)?;
+                Some(peer_info_from(stats, state))
+            })
+            .collect();
+        Some(peers)
+    }
+
+    /// The core's and the peer manager's state. Two fields hold Core's value for the options
+    /// rdashd refuses (BL-391 D-rows): the socket events are the platform's default
+    /// (`-socketevents`), and the relay fees are the mempool's defaults (`-minrelaytxfee`,
+    /// `-incrementalrelayfee`, MP1a). Each network's proxy is the configured one (P8a).
+    // Core: rpc/net.cpp:690-737, net.cpp:4520-4540 CConnman::GetNodeCount
+    fn network_info(&self) -> Option<NetworkInfo> {
+        let NetParts {
+            core,
+            shared,
+            ..
+        } = self.slot().clone()?;
+        let mut connections = ConnectionCounts::default();
+        let mut connections_mn = ConnectionCounts::default();
+        for peer in core.peers().iter().filter(|peer| !peer.disconnect_requested()) {
+            connections.add(peer.is_inbound());
+            if peer.verified_proreg_hash() != [0; 32] {
+                connections_mn.add(peer.is_inbound());
+            }
+        }
+        let identity = shared.identity();
+        Some(NetworkInfo {
+            version: CLIENT_VERSION,
+            build_version: FULL_VERSION.to_owned(),
+            subversion: String::from_utf8_lossy(identity.user_agent.as_bytes()).into_owned(),
+            protocol_version: identity.protocol_version.get(),
+            local_services: core.config().local_services.get(),
+            local_relay: !shared.ignores_incoming_txs(),
+            time_offset: core.time_offset(),
+            network_active: core.network_active(),
+            connections,
+            connections_mn,
+            socket_events: DEFAULT_SOCKET_EVENTS,
+            networks: [Network::Ipv4, Network::Ipv6, Network::Onion, Network::I2p, Network::Cjdns]
+                .into_iter()
+                .map(|net| NetworkReach {
+                    name: net.name(),
+                    reachable: core.is_reachable(net),
+                    proxy: core.proxy(net).map(|p| (p.to_string(), p.randomize_credentials)),
+                })
+                .collect(),
+            relay_fees: Some((DEFAULT_MIN_RELAY_TX_FEE, DEFAULT_INCREMENTAL_RELAY_FEE)),
+            local_addresses: core
+                .local_addresses()
+                .into_iter()
+                .map(|(addr, port, score)| LocalAddress {
+                    address: addr.to_string(),
+                    port,
+                    score,
+                })
+                .collect(),
+        })
+    }
+
+    /// rdashd has no masternode sync to reset (Core's `mn_sync->Reset()`).
+    fn set_network_active(&self, active: bool) -> Option<bool> {
+        let core = self.core()?;
+        core.set_network_active(active);
+        Some(core.network_active())
+    }
+
+    fn v2_transport(&self) -> Option<bool> {
+        Some(self.core()?.we_advertise_v2())
+    }
+
+    /// The slot's lock is not held across the connect, which may take `-timeout`. The result is
+    /// dropped, as Core's RPC drops it.
+    // Core: rpc/net.cpp:355-360, net.cpp:3586-3665 CConnman::OpenNetworkConnection
+    fn open_one_try(&self, node: &str, use_v2: bool) {
+        let connman = self.slot().as_ref().map(|parts| Arc::clone(&parts.connman));
+        if let Some(connman) = connman {
+            let _ = connman.open_one_try_blocking(node, use_v2);
+        }
+    }
+
+    fn add_node(&self, node: &str, use_v2: bool) -> bool {
+        self.core().is_some_and(|core| {
+            core.add_node(AddedNode {
+                node: node.to_owned(),
+                use_v2,
+            })
+        })
+    }
+
+    fn remove_added_node(&self, node: &str) -> bool {
+        self.core().is_some_and(|core| core.remove_added_node(node))
+    }
+
+    fn disconnect_by_address(&self, address: &str) -> bool {
+        self.core().is_some_and(|core| core.disconnect_by_name(address))
+    }
+
+    fn disconnect_by_id(&self, id: i64) -> bool {
+        self.core().is_some_and(|core| core.disconnect_by_id(id))
+    }
+
+    fn try_mark_verified(
+        &self,
+        id: i64,
+        proreg_hash: [u8; 32],
+        pubkey_hash: [u8; 32],
+    ) -> Option<bool> {
+        self.core().map(|core| core.try_mark_verified(id, proreg_hash, pubkey_hash))
+    }
+
+    fn set_masternode_thread_active(&self, active: bool) -> Option<bool> {
+        let core = self.core()?;
+        core.set_masternode_thread_active(active);
+        Some(core.masternode_thread_active())
+    }
+
+    fn added_node_info(&self) -> Option<Vec<AddedNodeInfo>> {
+        let to_rpc = |info: dash_p2p::dial::AddedNodeInfo| AddedNodeInfo {
+            added_node: info.node.node,
+            connected: info.connection.map(|c| (c.service.to_string(), c.inbound)),
+        };
+        self.core().map(|core| core.added_node_info(true).into_iter().map(to_rpc).collect())
+    }
+
+    fn fetch_block(&self, hash: &BlockHash, peer_id: i64) -> Option<Result<(), String>> {
+        NetSlot::fetch_block(self, hash, peer_id)
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:90-95
+    fn send_pings(&self) -> Option<()> {
+        let shared = self.slot().as_ref().map(|parts| Arc::clone(&parts.shared))?;
+        shared.send_pings();
+        Some(())
+    }
+
+    /// The slot's lock is not held across the connect, which may take `-timeout`.
+    // Core: v24.0.2 src/rpc/net.cpp:428-431, src/net.cpp:2040-2075 CConnman::AddConnection
+    fn add_connection(
+        &self,
+        address: &str,
+        conn_type: AddConnectionType,
+        use_v2: bool,
+    ) -> Option<bool> {
+        let connman = self.slot().as_ref().map(|parts| Arc::clone(&parts.connman))?;
+        let conn_type = match conn_type {
+            AddConnectionType::OutboundFullRelay => ConnectionType::OutboundFullRelay,
+            AddConnectionType::BlockRelay => ConnectionType::BlockRelay,
+            AddConnectionType::AddrFetch => ConnectionType::AddrFetch,
+            AddConnectionType::Feeler => ConnectionType::Feeler,
+        };
+        Some(connman.add_connection_blocking(address, conn_type, use_v2))
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1023-1025, src/netbase.cpp:833-840
+    fn addrman_cjdns_reachable(&self) -> Option<bool> {
+        Some(self.core()?.is_reachable(Network::Cjdns))
+    }
+
+    // Core: v24.0.2 src/netbase.cpp:176-192
+    fn lookup_host(&self, host: &str) -> Option<NetAddr> {
+        dash_p2p::lookup::lookup_host(host)
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1036-1042
+    fn add_peer_address(
+        &self,
+        service: &Service,
+        services: u64,
+        time: i64,
+        source: &NetAddr,
+    ) -> Option<bool> {
+        let core = self.core()?;
+        let addr = Address {
+            service: service.clone(),
+            services: ServiceFlags::new(services),
+            time: time as u32,
+        };
+        Some(core.addrman().add(std::slice::from_ref(&addr), source, 0, core.clock().node_now().0))
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1043-1046
+    fn good_peer_address(&self, service: &Service) {
+        if let Some(core) = self.core() {
+            core.addrman().good(service, core.clock().node_now().0);
+        }
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:983-994, src/net.cpp:4277-4286 CConnman::GetAddresses
+    fn node_addresses(&self, count: usize, network: Option<Network>) -> Option<Vec<NodeAddress>> {
+        let core = self.core()?;
+        let allow_private_net = core.config().allow_private_net;
+        let addrs = dashd_net::relay::get_addresses_for(&core, count, 0, network);
+        Some(
+            addrs
+                .into_iter()
+                .map(|addr| NodeAddress {
+                    time: i64::from(addr.time),
+                    services: addr.services.get(),
+                    address: addr.service.addr.to_string(),
+                    port: addr.service.port,
+                    network: addr.service.addr.net_class(allow_private_net).name(),
+                })
+                .collect(),
+        )
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1082-1096; src/net.h:1379-1381
+    fn send_msg_to_peer(&self, peer_id: i64, msg_type: &str, payload: Vec<u8>) -> Option<bool> {
+        let core = self.core()?;
+        let Some(peer) = core.peer(peer_id).filter(fully_connected) else {
+            return Some(false);
+        };
+        core.push(
+            &peer,
+            OutMsg::new(CommandString::from_bytes(msg_type_command(msg_type)), payload),
+        );
+        Some(true)
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1154-1173
+    fn addrman_info(&self) -> Option<AddrmanInfo> {
+        let core = self.core()?;
+        let am = core.addrman();
+        let counts = |net: Option<Network>| AddrmanCounts {
+            new: am.size(net, Some(true)),
+            tried: am.size(net, Some(false)),
+            total: am.size(net, None),
+        };
+        Some(AddrmanInfo {
+            ipv4: counts(Some(Network::Ipv4)),
+            ipv6: counts(Some(Network::Ipv6)),
+            onion: counts(Some(Network::Onion)),
+            i2p: counts(Some(Network::I2p)),
+            cjdns: counts(Some(Network::Cjdns)),
+            all_networks: counts(None),
+        })
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:1178-1241
+    fn raw_addrman(&self) -> Option<RawAddrman> {
+        let core = self.core()?;
+        let allow_private_net = core.config().allow_private_net;
+        let entries = |from_tried: bool| {
+            core.addrman()
+                .get_entries(from_tried)
+                .into_iter()
+                .map(|(info, pos)| RawAddrmanEntry {
+                    bucket: pos.bucket,
+                    position: pos.position,
+                    address: info.service.addr.to_string(),
+                    port: info.service.port,
+                    services: info.services.get(),
+                    time: info.time,
+                    network: info.service.addr.net_class(allow_private_net).name(),
+                    source: info.source.to_string(),
+                    source_network: info.source.net_class(allow_private_net).name(),
+                })
+                .collect()
+        };
+        Some(RawAddrman {
+            new: entries(false),
+            tried: entries(true),
+        })
+    }
+
+    // Core: v24.0.2 src/netbase.cpp:194-217
+    fn lookup_service(&self, address: &str) -> Option<Service> {
+        dash_p2p::lookup::lookup(address)
+    }
+
+    /// The slot's lock is not held across the connect, which may take `-timeout`.
+    /// It calls `NetCore::open` directly, so `ConnMan`'s open filter (set only by test harnesses)
+    /// does not apply.
+    /// Core's `OpenMasternodeConnection` defaults its third parameter to
+    /// `MasternodeProbeConn::IsConnection`, so `masternode connect` opens a probe connection.
+    // Core: v24.0.2 src/rpc/masternode.cpp:79-82; src/net.h:1345; src/net.cpp:3687-3690
+    fn open_masternode_connection(&self, service: &Service, use_v2: bool) -> Option<bool> {
+        let (core, rt) = {
+            let slot = self.slot();
+            let parts = slot.as_ref()?;
+            (Arc::clone(&parts.core), parts.rt.clone())
+        };
+        let req = OpenRequest {
+            target: Target::Addr(Address {
+                service: service.clone(),
+                services: ServiceFlags::NODE_NETWORK,
+                time: 0,
+            }),
+            conn_type: ConnectionType::OutboundFullRelay,
+            count_failure: false,
+            grant: None,
+            use_v2,
+            masternode: true,
+            masternode_probe: true,
+        };
+        let _ = rt.block_on(core.open(req));
+        // Core: v24.0.2 src/net.h:1361-1365, :1386-1391; src/net.cpp:4934-4939
+        Some(core.peers().iter().any(|p| p.addr().service == *service))
+    }
+
+    // Core: v24.0.2 src/rpc/net.cpp:593-608; src/net.cpp:92, :4665-4740
+    fn net_totals(&self) -> Option<NetTotals> {
+        let totals = self.core()?.net_totals();
+        Some(NetTotals {
+            total_bytes_recv: totals.recv,
+            total_bytes_sent: totals.sent,
+            upload_target: UploadTarget::default(),
+        })
+    }
+}
+
+/// `sendmsgtopeer`'s msg_type as the V1 header's command: the bytes before the first NUL,
+/// zero-padded. The RPC has already refused more than 12 bytes.
+// Core: v24.0.2 src/net.cpp:840; src/protocol.cpp:220-221
+fn msg_type_command(msg_type: &str) -> [u8; 12] {
+    let mut cmd = [0u8; 12];
+    let bytes = msg_type.as_bytes();
+    let bytes = &bytes[..bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len())];
+    let len = bytes.len().min(cmd.len());
+    cmd[..len].copy_from_slice(&bytes[..len]);
+    cmd
+}
+
+/// Core's `DEFAULT_SOCKETEVENTS`: `-socketevents` is refused, so the mode is always the
+/// platform's default, which `compat.h` picks by the target (`__linux__` includes Android).
+// Core: compat/compat.h:102-112, util/sock.h:18-26
+const DEFAULT_SOCKET_EVENTS: &str = if cfg!(target_os = "linux") || cfg!(target_os = "android") {
+    "epoll"
+} else if cfg!(target_os = "freebsd") || cfg!(target_vendor = "apple") {
+    "kqueue"
+} else {
+    "select"
+};
+
+/// The plain-data view of one peer's stats, rendered with Core's helpers. The MNAUTH hashes
+/// are the ones a verified MNAUTH (or, on regtest, the `mnauth` RPC) set on the connection;
+/// they stay zero otherwise, and then `verified_*` are left out. `last_tx_time` is when a
+/// transaction from the peer last entered the mempool, 0 if none has.
+// Core: rpc/net.cpp:239-244; rpc/node.cpp:291-322; net_processing.cpp:4974 at v24.0.2
+fn peer_info_from(stats: NodeStats, state: NodeStateStats) -> PeerInfo {
+    PeerInfo {
+        id: stats.id,
+        addr_name: stats.addr_name,
+        addr_bind: stats.addr_bind.addr.is_valid().then(|| stats.addr_bind.to_string()),
+        addr_local: stats.addr_local,
+        network: stats.network.name(),
+        mapped_as: stats.mapped_as,
+        services: state.their_services.get(),
+        relay_txs: state.relay_txs,
+        verified_proregtx_hash: stats.verified_proreg_hash,
+        verified_pubkey_hash: stats.verified_pubkey_hash,
+        last_send: stats.last_send,
+        last_recv: stats.last_recv,
+        last_tx_time: stats.last_tx_time,
+        last_block_time: stats.last_block_time,
+        send_bytes: stats.send_bytes,
+        recv_bytes: stats.recv_bytes,
+        connected: stats.connected,
+        time_offset: stats.time_offset,
+        last_ping_us: stats.last_ping_us,
+        min_ping_us: stats.min_ping_us,
+        ping_wait_us: state.ping_wait_us,
+        version: stats.version,
+        clean_subver: stats.clean_subver,
+        inbound: stats.inbound,
+        bip152_highbandwidth_to: stats.bip152_highbandwidth_to,
+        bip152_highbandwidth_from: stats.bip152_highbandwidth_from,
+        masternode_connection: stats.masternode_connection,
+        misbehavior_score: state.misbehavior_score,
+        starting_height: state.starting_height,
+        sync_height: state.sync_height,
+        common_height: state.common_height,
+        heights_in_flight: state.heights_in_flight,
+        addr_relay_enabled: state.addr_relay_enabled,
+        addr_processed: state.addr_processed,
+        addr_rate_limited: state.addr_rate_limited,
+        permissions: permission_strings(stats.permissions),
+        send_bytes_per_msg: by_name(stats.send_bytes_per_msg),
+        recv_bytes_per_msg: by_name(stats.recv_bytes_per_msg),
+        conn_type: stats.conn_type.as_str(),
+        transport_type: stats.transport.kind.as_str(),
+        // `HexStr` of the session ID's bytes, in order.
+        session_id: stats
+            .transport
+            .session_id
+            .map(|id| id.iter().map(|b| format!("{b:02x}")).collect())
+            .unwrap_or_default(),
+    }
+}
+
+/// A message-type map keyed by the types' names.
+fn by_name(map: HashMap<CommandString, u64>) -> BTreeMap<String, u64> {
+    map.into_iter().map(|(msg, bytes)| (msg.to_string(), bytes)).collect()
+}
+
+/// Core's command table (`tableRPC`) with the commands registered so far. Core registers them
+/// whether or not `-server` starts the servers.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Core's NodeContext as the commands reach it: the control parts, the mocking pair, one slot per part init builds later, the deprecation flag and the network's data directory"
+)]
+pub fn command_table(
+    params: &ChainSetup,
+    logger: &Arc<Logger>,
+    shutdown: &Arc<ShutdownState>,
+    clock: &Arc<MockClock>,
+    mock: (bool, &Scheduler),
+    chain: &Arc<ChainSlot>,
+    net: &Arc<NetSlot>,
+    sync: &Arc<SyncSlot>,
+    warnings: &Arc<Warnings>,
+    deprecated: DeprecatedRpc,
+    data_dir_net: PathBuf,
+) -> Arc<RpcServer> {
+    let _ = chain.deprecated.set(deprecated);
+    chain.set_llmq_types(params);
+    let islocks: Arc<dyn IsLockView> = Arc::clone(chain) as _;
+    let table = control_table(logger, shutdown, clock, mock, chain);
+    // Attach copies the server before a test builds its table. The coins scan reads the copy.
+    let weak = Arc::downgrade(&table);
+    chain.server.push(weak.clone());
+    if let Some(writer) = chain.slot().as_mut() {
+        writer.server = weak;
+    }
+    dashd_rpc::blockchain::register_blockchain_commands(
+        &table,
+        Arc::clone(chain) as _,
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+    );
+    dashd_rpc::blockchain::register_wait_commands(&table, Arc::clone(&chain.block_change));
+    dashd_rpc::blockchain::register_dump_commands(&table, Arc::clone(chain) as _, data_dir_net);
+    dashd_rpc::blockchain::register_chain_state_commands(
+        &table,
+        Arc::clone(chain) as _,
+        ChainStateParams {
+            chain: params
+                .devnet_name
+                .clone()
+                .unwrap_or_else(|| params.network.network_id().to_owned()),
+            pow_target_spacing: params.consensus.pow_target_spacing,
+            softforks: deprecated.softforks,
+            key_io: key_io_params(params),
+            warnings: Arc::clone(warnings) as _,
+        },
+    );
+    dashd_rpc::mining::register_mining_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(chain) as _,
+        key_io_params(params),
+    );
+    dashd_rpc::mining::register_block_template_command(
+        &table,
+        Arc::clone(chain) as _,
+        key_io_params(params),
+    );
+    let stopped = Arc::clone(chain);
+    table.on_stopped(move || stopped.wake_tip_waiters());
+    dashd_rpc::mining::register_mining_info_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(chain) as _,
+        MiningInfoParams {
+            network_id: params.network.network_id().to_owned(),
+            difficulty_adjustment_interval: params.consensus.pow_target_timespan
+                / params.consensus.pow_target_spacing,
+            warnings: Arc::clone(warnings) as _,
+        },
+    );
+    dashd_rpc::util::register_util_commands(&table, key_io_params(params));
+    dashd_rpc::blockchain::register_specialtx_commands(
+        &table,
+        Arc::clone(chain) as _,
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+    );
+    dashd_rpc::blockchain::register_txoutproof_commands(&table, Arc::clone(chain) as _);
+    dashd_rpc::rawtransaction::register_rawtransaction_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(chain) as _,
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+        UnlockSeams {
+            mempool: Arc::clone(chain) as _,
+            islocks: Arc::clone(&islocks),
+        },
+    );
+    dashd_rpc::mempool::register_mempool_commands(&table, Arc::clone(chain) as _, islocks);
+    dashd_rpc::mempool::register_broadcast_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::new(mempool::NodeBroadcast {
+            chain: Arc::clone(chain),
+            net: Arc::clone(net),
+        }),
+    );
+    let genesis = dash_consensus::params::genesis_block(params);
+    dashd_rpc::indexes::register_index_commands(
+        &table,
+        Arc::clone(chain) as _,
+        IndexSeams {
+            lookup: Arc::clone(chain) as _,
+            islocks: Arc::clone(chain) as _,
+            genesis_coinbase: TxHash::from(*genesis.header().merkle_root().as_bytes()),
+        },
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+    );
+    dashd_rpc::blockchain::register_scan_commands(
+        &table,
+        Arc::clone(chain) as _,
+        key_io_params(params),
+    );
+    dashd_rpc::peers::register_net_commands(
+        &table,
+        Arc::clone(net) as _,
+        Arc::clone(warnings) as _,
+        deprecated.banscore,
+    );
+    dashd_rpc::blockchain::register_fetch_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(net) as _,
+    );
+    dashd_rpc::peers::register_mnauth_commands(
+        &table,
+        Arc::clone(net) as _,
+        Arc::clone(chain) as _,
+    );
+    dashd_rpc::peers::register_mnthread_commands(&table, Arc::clone(net) as _);
+    dashd_rpc::dash::register_dash_commands(&table, Arc::clone(sync) as _, Arc::clone(sync) as _);
+    dashd_rpc::evo::register_evo_commands(
+        &table,
+        Arc::clone(chain) as _,
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+        Some(Arc::clone(chain) as _),
+    );
+    dashd_rpc::evo::register_recsig_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(chain) as _,
+    );
+    dashd_rpc::evo::register_sign_commands(&table, Arc::clone(chain) as _, Arc::clone(chain) as _);
+    dashd_rpc::masternode::register_masternode_commands(
+        &table,
+        Arc::clone(chain) as _,
+        Arc::clone(net) as _,
+        TxJsonParams {
+            key_io: key_io_params(params),
+            service: deprecated.service,
+        },
+        deprecated.permissive_bool,
+    );
+    #[cfg(feature = "test-hooks")]
+    crate::livecopy::register(&table);
+    table
+}
+
+/// SPV mode's command table: the commands that read no chainstate, network or mempool. The SPV
+/// host registers its own on top; every other method is not found.
+pub fn spv_command_table(
+    params: &ChainSetup,
+    logger: &Arc<Logger>,
+    shutdown: &Arc<ShutdownState>,
+    clock: &Arc<MockClock>,
+    mock: (bool, &Scheduler),
+) -> Arc<RpcServer> {
+    let table = control_table(logger, shutdown, clock, mock, &Arc::default());
+    dashd_rpc::util::register_util_commands(&table, key_io_params(params));
+    table
+}
+
+/// A command table with the control commands, over the node's [`Control`]. `chain` orders
+/// `setmocktime` and `mockscheduler` with V once V runs.
+fn control_table(
+    logger: &Arc<Logger>,
+    shutdown: &Arc<ShutdownState>,
+    clock: &Arc<MockClock>,
+    mock: (bool, &Scheduler),
+    chain: &Arc<ChainSlot>,
+) -> Arc<RpcServer> {
+    let control = Control {
+        logger: Arc::clone(logger),
+        shutdown: Arc::clone(shutdown),
+        clock: Arc::clone(clock),
+        // Core's `GetStartupTime`: the system time at static initialization, before any mock
+        // time is set, which init follows closely. `uptime` subtracts it from the mockable clock.
+        startup_time: dash_clock::SystemClock.node_now().secs(),
+        mockable: mock.0,
+        scheduler: mock.1.clone(),
+        chain: Arc::clone(chain),
+    };
+    let table = Arc::new(RpcServer::new(Arc::new(control)));
+    dashd_rpc::commands::register_control_commands(&table);
+    table
+}
+
+/// The `-deprecatedrpc` methods the commands read: Core's `IsDeprecatedRPCEnabled`.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DeprecatedRpc {
+    pub permissive_bool: bool,
+    /// `getpeerinfo`'s `banscore`.
+    pub banscore: bool,
+    /// `getblockchaininfo`'s `softforks`.
+    pub softforks: bool,
+    /// A ProTx's `service` and Evo platform ports (`IsServiceDeprecatedRPCEnabled`).
+    pub service: bool,
+}
+
+/// The running servers.
+pub struct Servers {
+    table: Arc<RpcServer>,
+    http: HttpServer,
+    rpc: Arc<HttpRpc>,
+}
+
+impl Servers {
+    /// Core's `AppInitServers`: the HTTP server, the command table, the JSON-RPC endpoint, then
+    /// the HTTP server's threads. `InitMessage` sets the warmup status from here on.
+    // Core: init.cpp:983-997, 1634-1638
+    pub fn start(
+        ui: &Ui,
+        args: &ArgsManager,
+        table: &Arc<RpcServer>,
+        shutdown: &Arc<ShutdownState>,
+    ) -> Result<Servers, InitFailure> {
+        let warmup = Arc::clone(table);
+        ui.connect_init_message(move |msg| warmup.set_warmup_status(msg));
+        let resolve = |name: &str, allow_lookup: bool| {
+            host::get_addr_info(name, allow_lookup).first().map(|(ip, _)| *ip)
+        };
+        let requested = Arc::clone(shutdown);
+        let mut http =
+            HttpServer::init(args, &resolve, Arc::new(move || requested.shutdown_requested()))
+                .map_err(|e| {
+                    if let InitError::AllowIp(text) = e {
+                        // `ThreadSafeMessageBox(MSG_ERROR)` without a GUI.
+                        ui.init_error(&text);
+                    }
+                    InitFailure::Error(HTTP_START_FAILED.to_owned())
+                })?;
+        table.start();
+        let rpc = HttpRpc::start(Arc::clone(table), &http, args).map_err(|_| {
+            table.interrupt();
+            InitFailure::Error(HTTP_START_FAILED.to_owned())
+        })?;
+        http.start();
+        Ok(Servers {
+            table: Arc::clone(table),
+            http,
+            rpc,
+        })
+    }
+
+    /// Core's `SetRPCWarmupFinished`.
+    pub fn set_warmup_finished(&self) {
+        self.table.set_warmup_finished();
+    }
+
+    /// Core's `InterruptHTTPServer`, `InterruptHTTPRPC`, `InterruptRPC`.
+    // Core: init.cpp:284-286
+    pub fn interrupt(&self) {
+        self.http.interrupt();
+        self.rpc.interrupt();
+        self.table.interrupt();
+    }
+
+    /// Core's `StopHTTPRPC`, `StopRPC` (which removes the cookie), `StopHTTPServer`.
+    // Core: init.cpp:329-332
+    pub fn stop(&mut self) {
+        self.rpc.stop(&self.http);
+        tracing::debug!(target: "rpc", "Stopping RPC");
+        self.rpc.delete_cookie();
+        self.table.stop();
+        self.http.stop();
+    }
+}
+
+#[cfg(test)]
+mod cl_reads_tests;
+
+#[cfg(test)]
+mod tests {
+    use dash_consensus::validation::BlockValidationResult;
+    use dash_consensus::{BlockValidationError, primitives::Header};
+    use dash_params::{ChainParamsBuilder, Network as CoreNetwork, Release};
+
+    use super::*;
+
+    /// BL-690a: `sendmsgtopeer` copies the command up to the first NUL, as Core's
+    /// `CMessageHeader` does from `m_type.c_str()`.
+    // Core: v24.0.2 src/net.cpp:840; src/protocol.cpp:220-221
+    #[test]
+    fn msg_type_command_stops_at_the_first_nul() {
+        let padded = |s: &[u8]| {
+            let mut c = [0u8; 12];
+            c[..s.len()].copy_from_slice(s);
+            c
+        };
+        assert_eq!(msg_type_command("addr"), padded(b"addr"));
+        assert_eq!(msg_type_command(""), [0; 12]);
+        assert_eq!(msg_type_command("a\0b"), padded(b"a"));
+        assert_eq!(msg_type_command("\0addr"), [0; 12]);
+        assert_eq!(msg_type_command("twelve_bytes"), *b"twelve_bytes");
+    }
+
+    /// BL-683: `GetForBlock`'s errors as `getdeploymentinfo` answers them, from the stage or the
+    /// walk: Core's text for a block with no signals stored, the store's for a store fault, and no
+    /// panic.
+    // Core: evo/mnhftx.cpp:286-290; rpc/blockchain.cpp:1729 (dashpay/dash#8098)
+    #[test]
+    fn get_for_block_errors_are_the_reports_errors() {
+        use dash_dml::store::StoreError;
+
+        let store = || StoreError::Read {
+            what: "corrupt record mnhf/x".into(),
+        };
+        let hash = BlockHash::from([7; 32]);
+        let cases = [
+            (
+                GetForBlockError::Missing(hash),
+                DeploymentError::Store(format!("MNHF signals unavailable for block {hash}")),
+            ),
+            (GetForBlockError::Store(store()), DeploymentError::Store(store().to_string())),
+        ];
+        for (e, want) in cases {
+            assert_eq!(get_for_block_error(&e), want, "the stage's {e}");
+            assert_eq!(walk_error(&EhfReadError::new(e)), want, "the walk's");
+        }
+        let other = EhfReadError::new("another source's error");
+        assert_eq!(walk_error(&other), DeploymentError::Store("another source's error".into()));
+    }
+
+    #[test]
+    fn blocks_imported_follows_the_reindex_flag_alone() {
+        use dashd_chainstate::chain::{ChainCommand, MemBlockFiles, RecordingAbort};
+
+        use crate::chain::tests::{fresh, regtest};
+
+        let p = regtest();
+        let clock: Arc<dyn dash_clock::Clock> = Arc::new(dash_clock::MockClock::at(1_296_688_662));
+        let abort = Arc::new(RecordingAbort::default());
+        let files = Box::new(MemBlockFiles::default());
+        let mut v = crate::chain::Chain::start(fresh(&p, &clock, &abort, files)).expect("V starts");
+        let writer = Writer {
+            chain: v.handle().clone(),
+            signals: ValidationSignals::default(),
+            server: Weak::new(),
+            files: None,
+            miner: None,
+            coins: None,
+            gbt: None,
+        };
+        let set = |importing: Option<bool>, reindex: Option<bool>| {
+            let _ = v.handle().send(ChainCommand::SetLoading {
+                importing,
+                reindex,
+            });
+            let loading = v.handle().loading();
+            let want =
+                (importing.unwrap_or(loading.importing()), reindex.unwrap_or(loading.reindex()));
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+            while (loading.importing(), loading.reindex()) != want {
+                assert!(std::time::Instant::now() < deadline, "V applies SetLoading");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        assert!(!writer.blocks_imported());
+        set(Some(true), None);
+        assert!(!writer.blocks_imported(), "importing alone");
+        set(None, Some(true));
+        assert!(writer.blocks_imported(), "reindex and importing");
+        set(Some(false), None);
+        assert!(writer.blocks_imported(), "reindex alone");
+        set(Some(true), Some(false));
+        assert!(!writer.blocks_imported(), "importing, reindex cleared");
+        set(Some(false), None);
+        drop(writer);
+        assert!(v.stop().is_some_and(|exit| exit.fatal.is_none()));
+    }
+
+    /// RP1a D68 (BL-701): the commands' process flag is the published view's committed scheme
+    /// (`ChainView::bls`), not SB4's height rule at the tip (`ChainReadSnapshot::bls`).
+    // Core: bls/bls.cpp:18, node/chainstate.cpp:429-431
+    #[test]
+    fn the_published_flag_is_the_views_committed_scheme() {
+        use dash_consensus::BlsCtx;
+        use dashd_chainstate::chain::{MemBlockFiles, RecordingAbort};
+
+        use crate::chain::tests::{fresh, regtest};
+
+        let p = regtest();
+        let clock: Arc<dyn dash_clock::Clock> = Arc::new(dash_clock::MockClock::at(1_296_688_662));
+        let abort = Arc::new(RecordingAbort::default());
+        let files = Box::new(MemBlockFiles::default());
+        let mut v = crate::chain::Chain::start(fresh(&p, &clock, &abort, files)).expect("V starts");
+        for (committed, rule) in [(BlsCtx::LEGACY, BlsCtx::BASIC), (BlsCtx::BASIC, BlsCtx::LEGACY)]
+        {
+            let mut view = ChainView::clone(&v.handle().view());
+            let mut snap = (*view.snap).clone();
+            snap.bls = rule;
+            (view.bls, view.snap) = (committed, Arc::new(snap));
+            let published = Published {
+                view: Arc::new(view),
+                reader: v.handle().reader().clone(),
+            };
+            assert_eq!(published.bls(), committed);
+        }
+        assert!(v.stop().is_some_and(|exit| exit.fatal.is_none()));
+    }
+
+    /// "completed" follows a started walk whether it succeeded or failed (an interruption
+    /// unwinds through Core's timer), and nothing follows a walk that never started.
+    // Core: rpc/blockchain.cpp:3184; logging/timer.h
+    #[test]
+    fn the_dump_timer_completes_after_a_started_walk_whatever_its_result() {
+        let started = || Mutex::new(Some(("dump".to_owned(), Instant::now())));
+        for result in [Ok(()), Err(TxOutSetError::Interrupted), Err(TxOutSetError::Unwritable)] {
+            let timer = started();
+            let mut lines = Vec::new();
+            assert_eq!(finish_dump_timer(&timer, result, |l| lines.push(l)), result);
+            assert_eq!(lines.len(), 1, "{result:?}");
+            assert!(lines[0].starts_with("dump completed ("), "{}", lines[0]);
+            assert!(timer.lock().unwrap().is_none(), "taken");
+        }
+        let mut lines = Vec::new();
+        let never = Mutex::new(None);
+        let failed: Result<(), _> = Err(TxOutSetError::Unreadable);
+        assert_eq!(finish_dump_timer(&never, failed, |l| lines.push(l)), failed);
+        assert!(lines.is_empty(), "no walk, no line");
+    }
+
+    /// The catcher keeps each `BlockState` as `BIP22ValidationResult` reads it: the invalid
+    /// state whole (its reason and debug message) and the error's message (review r1 m1).
+    #[test]
+    fn the_catcher_keeps_each_state_of_its_block() {
+        let p = ChainParamsBuilder::new(CoreNetwork::Regtest, Release::V24_0).build().unwrap();
+        let block = dashd_chainstate::chain::genesis_block(&Arc::new(p));
+        let invalid = BlockValidationError::new(BlockValidationResult::Consensus, "bad-cb-amount")
+            .with_debug("coinbase pays too much");
+        for (state, caught) in [
+            (BlockState::Valid, ValidationState::Valid),
+            (BlockState::Invalid(invalid.clone()), ValidationState::Invalid(invalid)),
+            (
+                BlockState::Error("System error: disk full".into()),
+                ValidationState::Error("System error: disk full".into()),
+            ),
+        ] {
+            let sc = Arc::new(StateCatcher::new(block.hash()));
+            Catcher(Arc::clone(&sc)).block_checked(&block, &state, false);
+            assert_eq!(sc.state(), Some(caught), "{state:?}");
+        }
+        // Another block's check is not this catcher's.
+        let other = dash_consensus::Block::new(
+            Header::new({
+                let base = *block.header().raw();
+                dash_primitives::BlockHeader::new(
+                    base.version(),
+                    base.prev_hash(),
+                    base.merkle_root(),
+                    base.time(),
+                    base.bits(),
+                    1,
+                )
+            }),
+            block.txs().to_vec(),
+        );
+        let sc = Arc::new(StateCatcher::new(block.hash()));
+        Catcher(Arc::clone(&sc)).block_checked(&other, &BlockState::Valid, false);
+        assert_eq!(sc.state(), None);
+    }
+
+    /// `getnetworkinfo`'s fixed fields (BL-391 D-rows) are Core's for the only state a node can
+    /// reach while the options that would change them are refused: the mempool's default fees
+    /// (rc.3 shows `0.00001000` for both, as the mempool options default to), the platform's
+    /// socket events. Its proxies are the configured ones (P8a, `rpc_diff`'s proxy configs).
+    #[test]
+    fn the_fixed_network_fields_are_cores_while_their_options_are_refused() {
+        // Core: policy/policy.h:35, :49
+        assert_eq!((DEFAULT_MIN_RELAY_TX_FEE, DEFAULT_INCREMENTAL_RELAY_FEE), (1000, 1000));
+        for option in ["-minrelaytxfee=0.0001", "-incrementalrelayfee=0.0001", "-socketevents=poll"]
+        {
+            let args = crate::init::test_args(&[option]);
+            assert!(crate::init::unsupported_option(&args).unwrap().is_some(), "{option}");
+        }
+    }
+
+    /// SPV mode's table holds the control and util commands and nothing that reads the
+    /// chainstate, the network or the mempool, which answer method not found.
+    #[test]
+    fn the_spv_table_has_only_the_mode_independent_commands() {
+        use dashd_rpc::protocol::RPC_METHOD_NOT_FOUND;
+        use dashd_rpc::request::JsonRpcRequest;
+
+        let (logger, _) = crate::init::test_logger();
+        let scheduler = Scheduler::new();
+        let table = spv_command_table(
+            &crate::chain::tests::regtest(),
+            &logger,
+            &Arc::new(ShutdownState::new()),
+            &Arc::new(MockClock::new()),
+            (true, &scheduler),
+        );
+        let control = [
+            "debug",
+            "echo",
+            "echoipc",
+            "echojson",
+            "getmemoryinfo",
+            "getrpcinfo",
+            "help",
+            "logging",
+            "mockscheduler",
+            "setmocktime",
+            "stop",
+            "uptime",
+        ];
+        let util = [
+            "createmultisig",
+            "deriveaddresses",
+            "getdescriptorinfo",
+            "signmessagewithprivkey",
+            "validateaddress",
+            "verifymessage",
+        ];
+        let mut want: Vec<_> = control.iter().chain(&util).map(|c| (*c).to_owned()).collect();
+        want.sort();
+        assert_eq!(table.list_commands(), want);
+        table.start();
+        table.set_warmup_finished();
+        for method in ["getblockcount", "getpeerinfo", "getmempoolinfo", "getblocktemplate"] {
+            let request = JsonRpcRequest {
+                method: method.into(),
+                ..Default::default()
+            };
+            let e = table.execute(&request).unwrap_err();
+            assert_eq!(e.code(), RPC_METHOD_NOT_FOUND, "{method}");
+        }
+        table.interrupt();
+    }
+
+    /// A coins cache over an empty probe engine, at block 7.
+    fn coins_cell() -> Arc<Mutex<CoinsCache<dashd_store::MemoryEngine>>> {
+        use dashd_chainstate::coins::{CoinsBudget, Ratio, Salt};
+        use dashd_chainstate::store::{
+            CHAINSTATE_SCHEMA, GlobalFailStop, GuardedEngine, RecordingSink,
+        };
+
+        let engine = dashd_store::MemoryEngine::new(&CHAINSTATE_SCHEMA);
+        let sink = Arc::new(RecordingSink::default());
+        let db = Arc::new(GuardedEngine::new(engine, GlobalFailStop::default(), sink));
+        let budget = CoinsBudget::new(2 << 20, 0, Ratio::HALF, 0);
+        let mut cache = CoinsCache::new(db, budget, Salt::fixed(7), None);
+        cache.set_best_block(Some(BlockRef {
+            id: BlockId(7),
+            hash: BlockHash::from([7; 32]),
+            height: 7,
+        }));
+        Arc::new(Mutex::new(cache))
+    }
+
+    /// An outpoint the cache has no coin for.
+    fn no_coin() -> OutPoint {
+        OutPoint::new(dash_primitives::TxHash::from([1; 32]), 0)
+    }
+
+    /// gettxout's coins read on a cell a panicked V left poisoned answers D9's fatal error in
+    /// every build, without the debug assert (RP1a-2b r1 Sol n-2).
+    #[test]
+    fn a_poisoned_coins_cell_answers_aborted() {
+        let cell = coins_cell();
+        let read = coins_read(Arc::clone(&cell));
+        let (coin, best) = read(&no_coin()).expect("a free cell reads");
+        assert_eq!((coin, best.height), (None, 7));
+        let held = Arc::clone(&cell);
+        let panicked = std::thread::spawn(move || {
+            let _coins = held.lock().unwrap();
+            panic!("V panics holding the coins cache");
+        });
+        assert!(panicked.join().is_err());
+        let error = dashd_rpc::protocol::RpcError::from(read(&no_coin()).unwrap_err());
+        assert_eq!(
+            error.to_object().write(),
+            r#"{"code":-20,"message":"Error: A fatal internal error occurred"}"#
+        );
+    }
+
+    /// A cell held outside V's turn, which no holder does (each takes it on V's thread), trips
+    /// the debug assert; a release build answers D9's fatal error rather than reading it.
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        should_panic(expected = "the coins cache is held outside V's turn")
+    )]
+    fn a_held_coins_cell_answers_aborted_in_release() {
+        let cell = coins_cell();
+        let read = coins_read(Arc::clone(&cell));
+        let _held = cell.lock().unwrap();
+        assert!(matches!(read(&no_coin()), Err(Aborted)));
+    }
+
+    /// A pool holding one transaction, by txid.
+    fn pool_with_tx() -> (Arc<NodeMempool>, dash_primitives::Transaction) {
+        use dash_primitives::{Transaction, TxIn, TxOut, TxType};
+        use dashd_mempool::pool::EntryMetadata;
+
+        let input = TxIn::new(no_coin(), vec![].into(), u32::MAX);
+        let output = TxOut::from_duffs(1, vec![0x51].into());
+        let raw = Transaction::new(2, TxType::new(0), vec![input], vec![output], 0, vec![]);
+        let node = Arc::new(NodeMempool::new(
+            Default::default(),
+            Default::default(),
+            Arc::new(dash_clock::SystemClock),
+        ));
+        let pool = node.pool();
+        let mut state = pool.write();
+        let tx = Arc::new(dash_consensus::Tx::new(raw.clone()));
+        let entry = state.new_entry(tx, EntryMetadata::default());
+        state.add_unchecked(entry, &dash_dml::MnList::default_pre_dip3());
+        pool.publish_usage(&state);
+        drop(state);
+        (node, raw)
+    }
+
+    /// IX1-f-tx2: without a block `GetTransaction` answers from the node's pool, with no block
+    /// hash; an unattached or detached pool is a miss; with a block the pool is skipped.
+    // Core: v24.0.0 src/node/transaction.cpp:128-131
+    #[test]
+    fn get_transaction_reads_the_attached_pool_only_without_a_block() {
+        let (pool, raw) = pool_with_tx();
+        let txid = dash_consensus::Tx::new(raw.clone()).txid();
+        let slot = ChainSlot::default();
+        assert!(slot.get_transaction(None, &txid).is_none(), "no pool before step 7");
+        slot.attach_mempool(pool);
+        let (tx, block) = slot.get_transaction(None, &txid).expect("a mempool hit");
+        assert_eq!((*tx == raw, block), (true, None));
+        assert!(slot.get_transaction(None, &TxHash::from([9; 32])).is_none());
+        let block = BlockHash::from([3; 32]);
+        assert!(slot.get_transaction(Some(&block), &txid).is_none(), "a block skips the pool");
+        slot.detach();
+        assert!(slot.get_transaction(None, &txid).is_none(), "shutdown detaches the pool");
+    }
+}

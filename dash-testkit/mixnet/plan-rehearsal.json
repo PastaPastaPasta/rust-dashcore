@@ -1,0 +1,47 @@
+{
+  "v": 1,
+  "preset": "alt5",
+  "context": "regtest",
+  "caps": [],
+  "run_kinds": [
+    "rehearsal"
+  ],
+  "slots": [
+    {
+      "slot": "node0",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg0",
+      "label": "rust",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg1",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg2",
+      "label": "rust",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg3",
+      "label": "dashd",
+      "runs": "dashd",
+      "twin": false
+    },
+    {
+      "slot": "reg4",
+      "label": "rust",
+      "runs": "dashd",
+      "twin": false
+    }
+  ]
+}
